@@ -1,7 +1,12 @@
 .venv/
+.env
+.env.*
+!.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
+test-results/
+playwright-report/
 .ruff_cache/
 .ipynb_checkpoints/
 node_modules/

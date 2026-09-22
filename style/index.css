@@ -1,7 +1,11 @@
-.jp-Cell.nbinlineai-prompt-cell {
-  border-left: 3px solid var(--jp-brand-color1);
-}
-
-.jp-Cell.nbinlineai-prompt-cell .jp-MarkdownInput {
-  background: var(--jp-layout-color1);
-}
+.jp-Cell.nbinlineai-prompt-cell { border-left: 3px solid var(--jp-brand-color1); }
+.jp-Cell.nbinlineai-output-cell, .jp-Cell.nbinlineai-response-cell { border-left: 3px solid var(--jp-success-color1); }
+.nbinlineai-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 4px 8px; background: var(--jp-layout-color2); font: var(--jp-ui-font-size1) var(--jp-ui-font-family); }
+.nbinlineai-controls select, .nbinlineai-controls input, .nbinlineai-controls button { color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; padding: 2px 6px; }
+.nbinlineai-controls input { width: 145px; }
+.nbinlineai-controls button { cursor: pointer; }
+.nbinlineai-controls button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-status { color: var(--jp-ui-font-color2); min-width: 100px; }
+.nbinlineai-status[data-state="error"] { color: var(--jp-error-color1); }
+.nbinlineai-status[data-state="running"] { color: var(--jp-brand-color1); }
+.nbinlineai-output-cell .jp-MarkdownCell { background: var(--jp-layout-color1); }

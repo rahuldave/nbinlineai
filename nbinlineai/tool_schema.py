@@ -47,10 +47,15 @@ def fastllm_tool(name: str, info: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(f"Invalid parameter name: {param_name!r}")
         if not isinstance(param_info, Mapping):
             raise TypeError(f"Invalid parameter info for {param_name!r}")
-        properties[param_name] = {
-            "type": _json_type(str(param_info.get("type", "str"))),
+        annotation = str(param_info.get("type", "str"))
+        prop = {
+            "type": _json_type(annotation),
             "description": str(param_info.get("description", param_name)),
         }
+        if prop["type"] == "array":
+            item_annotation = annotation.partition("[")[2].rsplit("]", 1)[0]
+            prop["items"] = {"type": _json_type(item_annotation or "str")}
+        properties[param_name] = prop
         if "default" not in param_info:
             required.append(param_name)
 
