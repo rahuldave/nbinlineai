@@ -31,9 +31,9 @@ uv run jupyter labextension list
 uv run jupyter server extension list
 ```
 
-## Optional Codex CLI for subscription mode
+## ChatGPT subscription mode
 
-The future ChatGPT subscription backend requires the Codex CLI executable on the Jupyter Server host. It is separate from the `uv` environment. Install it using [OpenAI's Codex CLI instructions](https://github.com/openai/codex#quickstart), then check `codex --version` and `codex app-server --help`. The backend will launch `codex app-server` over local stdin/stdout and let Codex manage browser or device-code sign-in. This mode is not yet implemented.
+Users will not need to install or use the Codex CLI. The planned **Enable ChatGPT** flow will first check for a compatible executable in a local Codex/ChatGPT app bundle; otherwise it will obtain a verified Codex App Server package into extension-managed user storage. It will start a separate local process and offer ChatGPT sign-in inside JupyterLab only if `account/read` says it is needed. An administrator can provide the package on managed JupyterHub installations. See [the installation and sign-in design](internal_docs/fastllm_and_chatgpt_subscription.md#installing-and-running-app-server). This mode is not yet implemented.
 
 ## License
 
