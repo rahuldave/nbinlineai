@@ -1,0 +1,57 @@
+{
+  "name": "nbinlineai",
+  "version": "0.1.0",
+  "description": "AI prompt cells for JupyterLab",
+  "license": "GPL-3.0-only",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "style": "style/index.css",
+  "styleModule": "style/index.js",
+  "files": [
+    "lib/**/*",
+    "style/**/*"
+  ],
+  "scripts": {
+    "build:lib": "tsc",
+    "build:labextension": "jupyter-builder build .",
+    "build:prod": "jlpm build:lib && jlpm build:labextension"
+  },
+  "dependencies": {
+    "@jupyterlab/application": "^4.0.0",
+    "@jupyterlab/apputils": "^4.0.0",
+    "@jupyterlab/cells": "^4.0.0",
+    "@jupyterlab/notebook": "^4.0.0",
+    "@jupyterlab/ui-components": "^4.0.0"
+  },
+  "devDependencies": {
+    "@jupyter/builder": "^1.0.2",
+    "typescript": "~5.0.0"
+  },
+  "sideEffects": [
+    "style/*.css",
+    "style/index.js"
+  ],
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "nbinlineai/labextension",
+    "schemaDir": "schema",
+    "sharedPackages": {
+      "@jupyterlab/application": {
+        "bundled": false,
+        "singleton": true
+      },
+      "@jupyterlab/apputils": {
+        "bundled": false,
+        "singleton": true
+      },
+      "@jupyterlab/cells": {
+        "bundled": false,
+        "singleton": true
+      },
+      "@jupyterlab/notebook": {
+        "bundled": false,
+        "singleton": true
+      }
+    }
+  }
+}

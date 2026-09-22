@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+node_modules/
+.yarn/
+.pnp.*
+lib/
+dist/
+*.egg-info/
+*.tsbuildinfo
+nbinlineai/labextension/
+.DS_Store

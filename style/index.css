@@ -1,0 +1,7 @@
+.jp-Cell.nbinlineai-prompt-cell {
+  border-left: 3px solid var(--jp-brand-color1);
+}
+
+.jp-Cell.nbinlineai-prompt-cell .jp-MarkdownInput {
+  background: var(--jp-layout-color1);
+}

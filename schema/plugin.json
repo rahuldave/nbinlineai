@@ -1,0 +1,32 @@
+{
+  "title": "nbinlineai",
+  "description": "AI prompt cell settings",
+  "type": "object",
+  "properties": {
+    "defaultBackend": {
+      "type": "string",
+      "title": "Default backend",
+      "enum": ["openai_api", "anthropic_api", "openai_codex_subscription"],
+      "default": "openai_api"
+    },
+    "backendModels": {
+      "type": "object",
+      "title": "Model for each backend",
+      "properties": {
+        "openai_api": {"type": "string", "default": ""},
+        "anthropic_api": {"type": "string", "default": ""},
+        "openai_codex_subscription": {"type": "string", "default": ""}
+      },
+      "additionalProperties": false,
+      "default": {"openai_api": "", "anthropic_api": "", "openai_codex_subscription": ""}
+    },
+    "maxToolSteps": {
+      "type": "integer",
+      "title": "Maximum tool steps",
+      "minimum": 1,
+      "maximum": 20,
+      "default": 5
+    }
+  },
+  "additionalProperties": false
+}

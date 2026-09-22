@@ -1,0 +1,60 @@
+[build-system]
+requires = ["hatchling>=1.26", "hatch-jupyter-builder>=0.9", "jupyterlab>=4,<5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nbinlineai"
+version = "0.1.0"
+description = "AI prompt cells for JupyterLab"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-only"
+classifiers = [
+  "Framework :: Jupyter",
+  "Framework :: Jupyter :: JupyterLab",
+  "Framework :: Jupyter :: JupyterLab :: 4",
+  "Framework :: Jupyter :: JupyterLab :: Extensions",
+  "Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt",
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dependencies = [
+  "jupyterlab>=4,<5",
+  "jupyter_server>=2,<3",
+  "python-fastllm>=0.0.63,<0.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[tool.hatch.build.targets.sdist]
+artifacts = ["nbinlineai/labextension"]
+exclude = [".venv", "node_modules", "lib", "dist"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["nbinlineai"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"nbinlineai/labextension" = "share/jupyter/labextensions/nbinlineai"
+"install.json" = "share/jupyter/labextensions/nbinlineai/install.json"
+"jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
+
+[tool.hatch.build.hooks.jupyter-builder]
+dependencies = ["hatch-jupyter-builder>=0.9"]
+build-function = "hatch_jupyter_builder.npm_builder"
+ensured-targets = ["nbinlineai/labextension/package.json"]
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+build_cmd = "build:prod"
+npm = ["jlpm"]
+
+[tool.hatch.build.hooks.jupyter-builder.editable-build-kwargs]
+build_cmd = "build:prod"
+npm = ["jlpm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
