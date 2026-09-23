@@ -19,6 +19,8 @@ EXAMPLES = [
     "bundled-tools.ipynb",
     "live-notebook-tools.ipynb",
     "python-and-web-tools.ipynb",
+    "jupyter-ai-and-nbinlineai.ipynb",
+    "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
 ]
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
@@ -120,6 +122,16 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "python-and-web-tools.ipynb":
         assert "&`inspect_python`" in "\n".join(outputs)
         assert "&`average_alias`" in "\n".join(outputs)
+    if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
+        assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
+        assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)
+    if relative_path == "codex-acp-worked-example.ipynb":
+        diagnostics = "\n".join(outputs)
+        assert "Needs work:" in diagnostics
+        assert "North count: expected 3, got 2" in diagnostics
+        assert "South count: expected 3, got 2" in diagnostics
+        assert "regions: expected ['East', 'North', 'South'], got ['North', 'South']" in diagnostics
+        assert "All checks pass" not in diagnostics
 
 
 def test_examples_teach_inherited_tool_declarations() -> None:

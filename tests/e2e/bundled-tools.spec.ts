@@ -33,7 +33,9 @@ test('shipped bundled-tools notebook imports a read-only tool and returns its re
   const panel = page.locator('.jp-NotebookPanel:visible');
   const notebook = panel.locator('.jp-Notebook');
   await expect(notebook.locator('.jp-CodeCell')).toHaveCount(2);
-  await expect(notebook.locator('.nbinlineai-prompt-cell')).toHaveCount(3);
+  await expect(notebook.locator('.nbinlineai-prompt-cell')).toHaveCount(
+    example.cells.filter((cell: any) => cell.metadata?.nbinlineai?.isPromptCell).length
+  );
   await expect.poll(async () => {
     const sessions = await request.get('/api/sessions');
     return sessions.ok() && (await sessions.json()).some((session: any) => session.path === name && session.kernel?.id);

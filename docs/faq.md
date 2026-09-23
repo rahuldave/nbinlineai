@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.9**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.10**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -60,6 +60,28 @@ The remaining cells in that execution batch are skipped. Resolve the problem and
 Cancellation is not an undo operation. A function call already sent to the kernel may still take effect, and completed side effects remain.
 
 ## Corrections and context
+
+### Are the starter suggestions separate prompt types? Do they run immediately?
+
+No. They are buttons shown only in an empty AI question. Choosing one inserts ordinary editable text and focuses the editor. The suggestions disappear when you type or choose one; clearing the question brings them back. Use **Run AI** or Shift+Enter when you are ready to submit. The notebook's response style and Context mode still apply.
+
+### How do I ask about one cell while retaining earlier background?
+
+Context selects what the AI can read; your question tells it what to focus on. You can leave earlier definitions and notes included while asking for a narrow explanation. For example:
+
+> Explain only the nearest code cell above this question. Use earlier cells to explain its variables and purpose, without summarizing the whole notebook.
+
+For a new piece of code, try:
+
+> Write code to plot the grouped results. Reuse the variable names and imports already in this notebook. Put the proposed code in a fenced Python block.
+
+These are ordinary questions, not special commands or new response styles. Learning mode still asks for tutoring rather than a complete solution. If several earlier cells could be the target, name a distinctive function, variable, or heading in your question. Check that the relevant source is included in Context; a narrow question does not automatically include an unchecked cell.
+
+### What does “above” mean when another AI answer is between my question and the code?
+
+The shared instructions distinguish the **cell immediately above** from the **nearest code cell above**. The immediate cell can be an AI answer; the nearest code cell skips intervening notes and AI exchanges. The model receives their real notebook positions and whether their source is available, even when context trimming removes other cells.
+
+“Section above” uses the nearest earlier ordinary Markdown heading cell through the cell before your question. Section anchors currently use `#` through `######` headings outside fenced code; underline-style headings are not recognized. You can always name the intended heading or function explicitly. If the needed source is excluded or clipped, the model is instructed to explain the limitation instead of silently choosing another cell.
 
 ### Can I edit an AI answer directly?
 
@@ -217,6 +239,34 @@ No. Closing a notebook stops the extension's ongoing request, but it does not un
 
 ## Saving, installation, and limits
 
+### Can I run nbinlineai alongside Jupyter AI for Claude or Codex ACP chat?
+
+An isolated test of **nbinlineai 0.1.9 + Jupyter AI 3.2.0 + JupyterLab 4.6.4** successfully installed and opened both extensions. A deterministic execution check also preserved native Run All ordering, kept completed AI answers, and retained nbinlineai metadata when a Jupyter AI command edited a question. No paid model or authenticated ACP-agent request was used in that check.
+
+There is an important command difference in Jupyter AI's default setup:
+
+| Action | Effect on nbinlineai cells |
+| --- | --- |
+| nbinlineai **Run AI**, or JupyterLab's native Shift+Enter | Runs the AI question according to Keep answer. |
+| Native **Run All**, including Jupyter AI's Run All command | Includes AI questions and respects their Keep choices. New unanswered questions can make API requests. |
+| Jupyter AI's individual **Run Cell** tool | Executes code directly; treats a Markdown AI question as a no-op. It also bypasses nbinlineai's code/AI ordering queue. |
+
+Jupyter AI requires separately installed ACP adapters and their own authentication. Its Claude/Codex chat does not use nbinlineai's saved API keys or turn inline cells into subscription-backed requests. Follow [Jupyter AI's setup instructions](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html). Install both extensions in the Jupyter server's environment and restart the whole server.
+
+Both systems can change the same live notebook. Avoid asking an agent to edit or execute it during an inline request whose context you want to keep stable. Jupyter AI also starts its own local MCP server; multiple Jupyter instances may need its port configuration adjusted. The [versioned investigation](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md) records source links, light/dark visual checks, tested paths, and remaining RTC/concurrency limits.
+
+A separate **authenticated Codex ACP trial** successfully read a teaching notebook, fixed one function and ran its three specified Python cells; all checks passed. Try the [Codex worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb). The committed template keeps the starting bug for you to solve. Its two nbinlineai questions are unrun: use them afterward for an explanation and a Learning follow-up with your API provider. See the [exact run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md).
+
+### Does Jupyter AI have the same AI cells as nbinlineai?
+
+The Jupyter AI 3.2 setup we checked uses a chat sidebar and agents that can operate on notebook cells. It does not provide nbinlineai's paired, editable Markdown question/answer cells. Its optional `%ai` and `%%ai` magics are a separate code-cell workflow. You can use Jupyter AI for agent-assisted code development and keep nbinlineai explanations or tutoring conversations beside that code. See the [combined example](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb).
+
+### Why use Jupyter AI's Run Cell instead of Shift+Enter? Does it run my selection?
+
+It is an **agent tool**, not a faster keyboard shortcut. The agent supplies a particular cell ID to execute that code cell during its task. The standard tool requires the ID; it does not automatically run all selected cells. Its underlying frontend command can fall back to the active cell if called directly without an ID, but that is not the normal agent-tool contract.
+
+For manual work, use Shift+Enter as usual. Native Shift+Enter also recognizes nbinlineai questions; the default Jupyter AI single-cell tool treats those Markdown cells as a no-op. See the [pinned command source](https://github.com/jupyter-ai-contrib/jupyterlab-ai-commands/blob/a281ddb0a6d79e518ff7dc33e9ad7d032375075f/src/notebook-commands.ts) and [agent tool contract](https://github.com/jupyter-ai-contrib/jupyter-ai-tools/blob/4d1c823ed9e2d58c2a5690c8b7c440045df1ee01/jupyter_ai_tools/toolkits/jupyterlab.py).
+
 ### Which JupyterLab version do I need?
 
 nbinlineai 0.1.5 requires **JupyterLab 4.2 or newer within version 4**. The native cell-execution hook used for Run All is unavailable in JupyterLab 4.0 and 4.1. Installing or upgrading nbinlineai lets the package manager enforce that requirement.
@@ -267,7 +317,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. `tools_markdown()` lists ten bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into Markdown notes or AI questions. The model can call only functions declared above or in the current question. Ordinary functions run with the Python kernel's permissions; the four live notebook tools have a separate, limited browser interface.
+No. `tools_markdown()` lists eleven bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into Markdown notes or AI questions. The model can call only functions declared above or in the current question. Ordinary functions run with the Python kernel's permissions; the five live notebook tools have a separate, limited browser interface.
 
 ### Can the AI read cells below my question now?
 
@@ -278,6 +328,58 @@ Yes. Full notebook, 10 above + below and Custom can select below-question source
 `insert_markdown` and `url_to_note` insert a separate, ordinary Markdown cell. The default position is after the AI answer, or you can ask for a particular cell ID. You can edit, move, or delete the note normally. Save the notebook to persist it. A note above a later AI prompt becomes ordinary source context.
 
 `read_url` only returns page text to the current model conversation. Use `url_to_note` to keep an excerpt in its own cell. Tool results are not stored as a separate transcript in notebook metadata.
+
+### Can I ask the AI to call `insert_markdown`?
+
+Yes. First run this import in an ordinary code cell:
+
+```python
+from nbinlineai.tools import insert_markdown
+```
+
+Then write and run an AI question such as:
+
+```markdown
+Use &`insert_markdown` to add a short summary note below your answer.
+```
+
+The AI can call the offered tool. nbinlineai sends the insertion request to the frontend, which creates a separate Markdown cell while retaining the AI answer. You do not need a second Python cell that calls `insert_markdown(...)`. Save the notebook to keep the new note.
+
+### Once I register the tool above, can I just ask in normal language?
+
+Yes. After running the import, put this declaration in an ordinary Markdown note above your AI questions:
+
+```markdown
+Available tools:
+- &`insert_markdown`
+```
+
+An AI question below can then say:
+
+> Summarize the main ideas and insert the summary into a new Markdown cell below your answer.
+
+The question inherits the tool and its description. You do not need to repeat its reference or function name. Saying “Use `insert_markdown`” makes your request more explicit if the model does not choose it. Offering a tool permits its use; it does not guarantee a call. Keep the declaration's **Tools** checkbox on and rerun imports after a kernel restart.
+
+### Is that the same as running `insert_tools()` in a code cell?
+
+They serve different purposes:
+
+| Operation | Where you use it | What it creates |
+| --- | --- | --- |
+| `tools_markdown(...)` | Python code | A string of tool declarations for you to copy into a Markdown cell. |
+| `insert_tools(...)` | Python code | A Markdown declaration note below that code cell, without an AI request. |
+| `insert_markdown` | An offered tool called during an AI question | A new Markdown note, normally below the AI answer. |
+| `insert_code` | An offered tool called during an AI question | A new, unexecuted code cell, normally below the AI answer. |
+
+`insert_tools()` creates the registration note; it does not ask the model to write lesson content. The two AI insertion tools create the content requested in your question through the frontend request/reply interface.
+
+### How do I ask for a new code cell while keeping the AI answer?
+
+In version **0.1.10**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+
+> Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
+
+The default order is **AI question → AI answer → new code cell**. The answer stays in its paired Markdown cell. The new code is ordinary editable source with no execution result; review it and run it yourself when ready. Insertion itself never executes code, even when the AI question is running as part of Run All: the new cell is outside that already-started batch. A later ordinary Run All includes that code cell. The model is instructed to apply your response style to inserted content too, including Learning's small-hint limit.
 
 ### Will rerunning or cancelling create or remove notes?
 
@@ -291,11 +393,11 @@ The action stays bound to the original notebook, session, and prompt; switching 
 
 ### Why can't I call `insert_markdown(...)` directly in Python?
 
-The kernel does not own the browser's document model. `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. The other six bundled tools work directly in Python as well as through AI tool references.
+The kernel does not own the browser's document model. `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, and `url_to_note` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. The other six bundled tools work directly in Python as well as through AI tool references.
 
 ### Can these tools edit or execute existing cells?
 
-The built-in frontend interface can list cells, read their source, and insert Markdown. It does not replace or delete existing cells, execute code, save files, or control another notebook. Your own Python tools can still perform whatever actions you implement; offering an `&` reference permits those real function calls.
+The built-in frontend interface can list cells, read their source, and insert Markdown or unexecuted code. It does not replace or delete existing cells, execute code, save files, or control another notebook. Your own Python tools can still perform whatever actions you implement; offering an `&` reference permits those real function calls.
 
 ### The extension works, but importing the tools fails. Why?
 

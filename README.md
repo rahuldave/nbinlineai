@@ -12,11 +12,13 @@ You need Python 3.11 or newer and JupyterLab 4.2 or newer.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
 2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key.
-3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, such as "Explain the code above."
+3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, or choose an editable starter such as **Explain code above**.
 4. **Set notebook defaults:** use the **AI defaults** row at the top of the notebook to choose provider, model, response style, and thinking effort. Compact and Model default effort are the starting choices.
 5. **Run it:** press **Shift+Enter** or click **Run AI**. The answer appears in a paired Markdown cell below the prompt. Use the cell's **Override** control only when it needs different settings.
 
 ![Notebook AI defaults and a prompt with its answer](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/overview.png)
+
+Questions have a blue tint and answers a green tint in light and dark themes. Empty questions offer a few starters; choosing one inserts editable text without running it.
 
 | To… | Do this |
 | --- | --- |
@@ -30,6 +32,7 @@ You need Python 3.11 or newer and JupyterLab 4.2 or newer.
 | Run the whole notebook | Use JupyterLab's **Run All Cells**. Code and eligible AI prompts finish in order; each prompt respects its Keep answer choice. |
 | Learn through questions | Choose **Learning** in the notebook defaults. Answer each tutor question in a new AI Prompt cell below its response. |
 | Use suggested code | Click the copy icon on a code block in an AI answer, then paste into a code cell. |
+| Ask for a new code cell | Import and register `insert_code`, then ask the AI to insert code below its answer. The new code is editable and unexecuted. See the [insertion FAQ](https://rahuldave.github.io/nbinlineai/faq.html#how-do-i-ask-for-a-new-code-cell-while-keeping-the-ai-answer). |
 | Stop a response | Click **Cancel**. Calls already performed cannot be undone. |
 | Keep the conversation | Save the notebook; prompts and answers are saved with it. |
 
@@ -154,7 +157,7 @@ Paste the printed Markdown into an **ordinary Markdown cell above your AI questi
 
 To create the declaration note directly, run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names", "read_cell"])` in a Python cell after importing those tools. It inserts ordinary Markdown below that code cell without an AI request. Edit the note and save normally. `insert_tools()` with no selection lists all bundled tools.
 
-The ten tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes. New notes are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons.
+The eleven tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes or unexecuted code drafts. New cells are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons, including a tested Codex ACP example using Jupyter AI alongside nbinlineai.
 
 By default, the model sees bounded earlier code, ordinary Markdown and completed AI pairs. Wider Context modes can include cells below as clearly labeled source. Custom choices save with the notebook; the current question and all its linked answers are always excluded from optional context. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 

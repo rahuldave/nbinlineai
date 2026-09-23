@@ -8,6 +8,10 @@ For context selection, read [the original feature brief](internal_docs/context_s
 
 For tools or browser operations, read [the implemented tool and protocol contract](internal_docs/bundled_tools.md). Upstream research is in [the dialoghelper catalog](internal_docs/dialoghelper_tool_catalog.md), [the ipylab assessment](internal_docs/ipylab_frontend_bridge_assessment.md), and [the ai-jup analysis](internal_docs/ai_jup_research_and_design.md).
 
+For coexistence with Jupyter AI and ACP agents, read [the pinned compatibility investigation](internal_docs/jupyter_ai_compatibility.md). Its agent single-cell command and native Run All take different execution paths; do not infer one from the other. The [prompt intent design](internal_docs/prompt_intent_design.md) records the distinction between a question's focus and its wider context.
+
+The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) records an actual authenticated agent trial. Its subscription login belongs to Jupyter AI's Codex adapter, not nbinlineai's inline API provider. The reusable example intentionally retains a bug; headless checks should verify its expected diagnostic rather than silently fixing the exercise.
+
 ## Project constraints
 
 - Use **uv** and this repository's environment. Use `uv run --no-sync jlpm ...` for the frontend after setup. See [Development](docs/development.md) for bootstrap and commands.

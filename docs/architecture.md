@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in version 0.1.9, including context selection. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in version 0.1.10, including context selection, prompt focus, and cell insertion. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -44,7 +44,7 @@ Editing a completed answer changes the source that later requests use as history
 2. It resolves cell overrides over notebook defaults over user preferences. When its queued turn starts, it snapshots the actual prompt ID, all live cell models in order, the context policy, notebook session ID and effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Tool declarations in ordinary Markdown and AI questions above are combined with those in the current question, before context selection. The kernel inspects those functions afresh. Variable references are read and substituted only in the current question.
-5. The server accounts for tools, the expanded question, and instructions, then fills the remaining character budget from selected eligible source and complete earlier AI pairs, nearest first. It sends selected material in chronological order.
+5. The server accounts for tools, the expanded question, instructions and bounded cell landmarks, then fills the remaining character budget from selected eligible source and complete earlier AI pairs, nearest first. It sends selected material in chronological order.
 6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result, budgets again with the same notebook snapshot, and continues the conversation without replaying completed tools.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
@@ -103,13 +103,25 @@ Source appears with system instructions; complete earlier pairs become user/assi
 
 Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads the running kernel namespace, not a value inferred from source. Only current-question `$` references retrieve bounded representations. Enabled earlier ordinary Markdown/AI-question tool declarations remain in scope independently of selected prose; selected below-question declarations never register tools.
 
+### The question's focus and its background
+
+Shared instructions distinguish the current task from the selected notebook background. A request to explain the nearest code cell should use earlier definitions to explain that cell, rather than summarize all available source. The instructions apply alongside Compact, Full, Learning, and any user-edited style wording; no separate intent-classification request is made.
+
+`nbinlineai/prompt_focus.py` derives a bounded set of landmarks from the frozen, complete notebook snapshot: the current question's position, immediate physical predecessor, nearest earlier code cell, nearest earlier ordinary Markdown cell, and nearest ordinary Markdown heading cell. Positions are one-based. Section detection recognizes `#` through `######` headings outside backtick/tilde fences, excluding four-space-indented code. Setext underline headings are not section anchors in this version. A section extends from its heading cell through the cell immediately before the question.
+
+After each budget pass, each landmark reports full, partial, omitted-by-budget, excluded/ineligible, or absent source. IDs, positions and availability are sent without copying excluded source or heading text. For a landmark retained as part of earlier chat history, the payload identifies the conversation pair and question/answer role; original history text is preserved. Context choices stay authoritative: naming the nearest code cell does not silently reinclude unchecked code.
+
+Landmark status fields have a constant serialized size, so updating availability after selection does not change the reserved character cost. The same builder serves preview and provider rounds. The shared instructions ask the model to disclose missing material or clarify an ambiguous target, and to apply the chosen response style to tool-created content too. These are model instructions, not a guarantee about every generated answer.
+
+The four empty-question starters are frontend controls. Accepting one writes ordinary editable prompt source; simply displaying them writes no source or metadata and makes no provider request. They create no additional cell type or response mode.
+
 ### Selection budgets and provider overflow
 
 The current algorithm in `nbinlineai/prompt.py` is deterministic and uses **characters**, not model tokens:
 
 1. `validate_request` permits up to 10,000 ordered snapshot cells, a current question of up to 16,000 characters, and custom style instructions of up to 8,000 characters. The snapshot includes all cell types; the transport cap is not a context-selection rule.
 2. Discover tool names in all enabled eligible Markdown/AI questions above plus the enabled current-question declarations. Exclude AI answers, code/raw cells, and anything below. Deduplicate before fresh kernel introspection. `$` discovery stays limited to the current question.
-3. Count serialized tool definitions first, then messages containing system/style instructions, the expanded current question, and any ongoing tool conversation. This fixed material must fit the shared 64,000-character budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
+3. Count serialized tool definitions first, then messages containing system/style instructions, bounded cell landmarks, the expanded current question, and any ongoing tool conversation. This fixed material must fit the shared 64,000-character budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
 4. Walk selected source and complete earlier AI pairs by distance, above winning ties. A pair is anchored at its answer. Boundary source can retain its ending above or beginning below, with an explicit partial-source marker. AI pairs remain whole; stop rather than skip a non-fitting pair to select smaller older ones.
 5. Restore selected source and history to chronological order. Send source with system instructions, completed pairs as user/assistant messages, then the current question and its tool conversation. These two representations are still separate; the selection budget is shared.
 6. Before each subsequent provider call, include all accumulated tool calls/results in the fixed material and select again from the **original snapshot**. This can remove more old context. Tools already called are not executed again by this selection pass.
@@ -174,13 +186,13 @@ The tool result combines captured standard output with the return value's repres
 
 ### Bundled tools
 
-`nbinlineai.tools` supplies ten functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Four describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note`. Importing the package does not register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases. Paste these into an ordinary Markdown note or AI question; questions below inherit its declarations. Printed code output and AI answers do not declare tools.
+`nbinlineai.tools` supplies eleven functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Five describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, and `url_to_note`. Importing the package does not register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases. Paste these into an ordinary Markdown note or AI question; questions below inherit its declarations. Printed code output and AI answers do not declare tools.
 
 The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, separately from the selected notebook text. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
 
 ### Creating a tool declaration from Python
 
-`insert_tools(names=None, custom=None)` is a user helper, separate from the ten model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
+`insert_tools(names=None, custom=None)` is a user helper, separate from the eleven model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
 
 The Python helper sends a bounded request through a Jupyter comm. The frontend's native execution wrapper binds the actual outgoing execute-request ID and cell ID to the original notebook model and kernel. A matching comm request can insert the note; later active-cell or tab changes do not redirect it. The frontend acknowledges the inserted cell ID after the live-model change. Several calls in one execution preserve their order. Reexecuting the code deliberately creates fresh notes; rendering saved outputs does not replay an insertion.
 
@@ -188,7 +200,7 @@ The helper returns an asynchronous receipt and does not wait inside the kernel's
 
 ### Frontend request/reply interface
 
-The kernel describes all registered callables, including the four frontend stubs. During inspection, the bridge identifies a special tool by **callable identity** against an explicit registry, not its Python variable name. An imported alias therefore works; a user-defined function with the same name follows normal kernel dispatch. Directly calling a frontend stub in Python raises an explanatory error.
+The kernel describes all registered callables, including the five frontend stubs. During inspection, the bridge identifies a special tool by **callable identity** against an explicit registry, not its Python variable name. An imported alias therefore works; a user-defined function with the same name follows normal kernel dispatch. Directly calling a frontend stub in Python raises an explanatory error.
 
 The server creates an unpredictable `run_id` bound to the original session, kernel, and prompt cell. Each action gets a fresh `request_id`. A `frontend_action` SSE event carries those IDs, an allowlisted action name, and bounded arguments. The browser acts on the `NotebookPanel` captured when the prompt started, then sends an authenticated `POST nbinlineai/action-reply` containing the IDs, session/prompt binding, and either a bounded result or an error. The server checks the pending action and current kernel binding before accepting one reply.
 
@@ -199,6 +211,7 @@ The browser supports only these operations:
 | `list_cells` | Traverse the ordered live cell model and return IDs, types, roles, and short source previews. |
 | `read_cell` | Find an exact cell ID and read a bounded, numbered source range. |
 | `insert_markdown` | Insert one ordinary Markdown cell in a shared-model transaction. |
+| `insert_code` | Insert an ordinary code cell with empty outputs and null execution count. Preserve the answer; do not execute the new code. |
 
 `url_to_note` is a server-side composition: fetch a bounded public page as Markdown, then request `insert_markdown`. Its network work runs outside the server's event loop. The provider receives insertion success only after the browser acknowledges the new cell ID. This acknowledges a change to the **live model**, not a save to disk.
 

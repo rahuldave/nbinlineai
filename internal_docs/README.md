@@ -22,6 +22,9 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 | Document | Status and purpose |
 | --- | --- |
+| [Prompt intent and cell landmarks](prompt_intent_design.md) | Design implemented for 0.1.10: distinguish the cell or task being asked about from wider context, with shared instructions and editable prompt starters. Publication status is in the release record. |
+| [Jupyter AI coexistence](jupyter_ai_compatibility.md) | Pinned official Jupyter AI/ACP research, isolated co-install evidence, execution-command differences, and separate authentication boundaries. |
+| [Codex ACP example run](codex_acp_example_run.md) | Successful authenticated Codex trial through Jupyter AI: read, repair and execute explicit code cells while preserving the inline questions. Includes versions, isolation and limits. |
 | [dialoghelper catalog](dialoghelper_tool_catalog.md) | Pinned upstream capability survey: portable tools, tools needing browser integration, Solveit-specific facilities, and current implementation mapping. |
 | [ipylab assessment](ipylab_frontend_bridge_assessment.md) | Historical alternatives analysis; its proposed narrow bridge shipped in 0.1.6, and direct `insert_tools` comms shipped in 0.1.7. No ipylab dependency. |
 | [ai-jup analysis](ai_jup_research_and_design.md) | Pinned original source study: cell metadata, context, live values, schema conversion, extension packaging, licensing. Its Lisette proposal was superseded. |

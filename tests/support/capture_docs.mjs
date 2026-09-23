@@ -84,7 +84,8 @@ async function capture(page, filename, locators) {
   }
   const viewport = page.viewportSize();
   let x = Math.max(0, Math.min(...boxes.map(box => box.x)) - 20);
-  const topPadding = ['overview.png', 'cell-overrides.png'].includes(filename) ? 50 : filename === 'keep-answer.png' ? 0 : 20;
+  const topPadding = ['overview.png', 'cell-overrides.png'].includes(filename) ? 50
+    : ['keep-answer.png', 'prompt-starters.png', 'insert-code.png'].includes(filename) ? 0 : 20;
   let y = Math.max(0, Math.min(...boxes.map(box => box.y)) - topPadding);
   let right = Math.min(viewport.width, Math.max(...boxes.map(box => box.x + box.width)) + 20);
   let bottom = Math.min(viewport.height, Math.max(...boxes.map(box => box.y + box.height)) + 8);
@@ -125,6 +126,12 @@ try {
     { cell_type: 'markdown', source: '## Explore class quiz scores\nThree practice scores: 6, 8, and 10.' },
     { cell_type: 'code', source: 'scores = [6, 8, 10]\naverage = sum(scores) / len(scores)\nprint(average)' }
   ]);
+  if ((await page.evaluate(() => document.body.dataset.jpThemeName)) !== 'JupyterLab Light') {
+    await page.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+    await page.locator('.lm-Menu-itemLabel', { hasText: /^Theme$/ }).hover();
+    await page.locator('.lm-Menu-itemLabel', { hasText: /^JupyterLab Light$/ }).click();
+    await expect.poll(() => page.evaluate(() => document.body.dataset.jpThemeName)).toBe('JupyterLab Light');
+  }
   let prompt = await insert(page, 1, 'What does this average tell us?');
   let answer = await run(page, prompt);
   await checkContext(page, panel, prompt);
@@ -240,7 +247,28 @@ try {
   await expect(panel.locator('[data-nbinlineai-context-report]')).toContainText('First-round estimate');
   await panel.locator('.nbinlineai-context-row').screenshot({ path: join(out, 'context-details.png') });
 
-  console.log('Captured eleven illustrative JupyterLab screenshots in docs/images/');
+  panel = await notebook(page, 'Start with an AI question.ipynb', [
+    { cell_type: 'markdown', source: '## Practice with class scores\nTry one of the suggested questions.' },
+    { cell_type: 'code', source: 'scores = [6, 8, 10]' }
+  ]);
+  prompt = await insert(page, 1, '');
+  await expect(prompt.locator('[data-nbinlineai-starters] button')).toHaveCount(4);
+  await capture(page, 'prompt-starters.png', [panel.locator('.jp-Notebook .jp-Cell').nth(1), prompt]);
+
+  panel = await notebook(page, 'Review an AI code suggestion.ipynb', [
+    { cell_type: 'code', source: 'scores = [6, 8, 10]' },
+    { cell_type: 'markdown', source: 'Suggest a short Python cell that computes the mean score.',
+      metadata: { nbinlineai: { isPromptCell: true, keepAnswer: true } } },
+    { cell_type: 'markdown', source: 'I added a code cell below. Review it, then run it when you are ready.',
+      metadata: { nbinlineai: { isOutputCell: true, promptCellId: 'student-1', status: 'done' } } },
+    { cell_type: 'code', source: 'mean_score = sum(scores) / len(scores)\nprint(f"Class mean: {mean_score:.1f}")' }
+  ]);
+  await expect(panel.locator('.nbinlineai-response-cell')).toHaveCount(1);
+  await expect(panel.locator('.jp-CodeCell').last().locator('.jp-OutputArea-output')).toHaveCount(0);
+  await capture(page, 'insert-code.png', [panel.locator('.nbinlineai-prompt-cell'),
+    panel.locator('.nbinlineai-response-cell'), panel.locator('.jp-CodeCell').last()]);
+
+  console.log('Captured thirteen illustrative JupyterLab screenshots in docs/images/');
 } finally {
   await api?.dispose();
   await browser?.close();

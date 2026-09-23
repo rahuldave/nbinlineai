@@ -1,6 +1,6 @@
 # Bundled tools and frontend interface
 
-Implementation design introduced in **0.1.6**, with tool inheritance updated for **0.1.7**. Public instructions are in [Tools and examples](../docs/tools.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
+Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7**, context/tool selection in **0.1.8**, and unexecuted code insertion in **0.1.10**. Public instructions are in [Tools and examples](../docs/tools.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
 
 ## Who owns what?
 
@@ -14,14 +14,14 @@ Implementation design introduced in **0.1.6**, with tool inheritance updated for
 | Web fetch for `url_to_note` | Server worker thread | Fetched Markdown goes to the original browser model for insertion. |
 | Persisting notes | Normal Jupyter document save | Action acknowledgement means live-model mutation, never disk persistence. |
 
-Automatic context remains a bounded source snapshot above the prompt plus completed earlier AI exchanges. Explicit tools obtain additional context. Whole-notebook, nearby-cell, and individual context-selection controls remain deferred.
+Default context is a bounded source snapshot above the prompt plus completed earlier AI exchanges. Since 0.1.8, whole-notebook, nearby-cell, individual Custom and current-question-only choices are available. Explicit tools can obtain additional context independently of those source choices.
 
 ## Tool surface and registration
 
-The explicit `TOOL_FUNCTIONS` registry contains ten tools:
+The explicit `TOOL_FUNCTIONS` registry contains eleven tools:
 
 - Kernel dispatch: `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, `inspect_python`, `read_url`.
-- Special frontend dispatch: `list_cells`, `read_cell`, `insert_markdown`, `url_to_note`.
+- Special frontend dispatch: `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, `url_to_note`.
 - Separate user helper: `tools_markdown(names=None, custom=None)`. Returns removable Markdown references, optionally including explicit alias-to-callable mappings; it is not itself listed as a tool.
 - Separate user helper in 0.1.7: `insert_tools(names=None, custom=None)`. Uses the same formatting, then requests an ordinary Markdown declaration below the calling code cell through an execution-bound Jupyter comm. It is not a model tool and requires no provider key.
 
@@ -29,7 +29,7 @@ Formatting is not registration. Users import functions, print references, and pa
 
 All schemas still come from kernel signature/docstring introspection and translation into FastLLM's flat function schema. Names sent to the provider are user-referenced identifiers, including aliases. No callable objects are shipped to the provider.
 
-Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTIONS`, not by name or user-controlled attributes. Thus `read_cell as read_live` works, while a custom function named `read_cell` follows ordinary dispatch. Special routing information stays internal. Direct calls to the four Python stubs raise an explanatory error; this is not a general Python-to-browser API. Registry discovery tolerates an absent nbinlineai package so existing custom tools continue working in separate kernel environments. Bundled imports require installation there.
+Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTIONS`, not by name or user-controlled attributes. Thus `read_cell as read_live` works, while a custom function named `read_cell` follows ordinary dispatch. Special routing information stays internal. Direct calls to the five Python stubs raise an explanatory error; this is not a general Python-to-browser API. Registry discovery tolerates an absent nbinlineai package so existing custom tools continue working in separate kernel environments. Bundled imports require installation there.
 
 ## Request/reply protocol
 
@@ -37,7 +37,7 @@ The current implementation has **two transports**, reviewed against source on 20
 
 | Caller | Request / reply | Wait behavior | Main implementation |
 | --- | --- | --- | --- |
-| Model calls `list_cells`, `read_cell`, `insert_markdown` (or composed `url_to_note`) | Server SSE `frontend_action`; authenticated browser POST `nbinlineai/action-reply` | Server awaits up to 45 seconds; no waiting Python tool body | `frontend_bridge.py`, `handlers.py`, `src/frontendActions.ts`, sequential `src/sse.ts` |
+| Model calls `list_cells`, `read_cell`, `insert_markdown`, `insert_code` (or composed `url_to_note`) | Server SSE `frontend_action`; authenticated browser POST `nbinlineai/action-reply` | Server awaits up to 45 seconds; no waiting Python tool body | `frontend_bridge.py`, `handlers.py`, `src/frontendActions.ts`, sequential `src/sse.ts` |
 | Python code cell calls `insert_tools` | Jupyter comm target `nbinlineai.insert_tools.v1`; browser comm acknowledgement | Returns a mutable receipt immediately; 30-second acknowledgement timeout | `kernel_insert_tools.py`, `src/insertTools.ts`, `src/insertToolsProtocol.ts` |
 
 These transports do not grant general arbitrary JavaScript access or execute cells on the model's behalf. Both bind mutations to original identities and acknowledge the live model only. Context selection itself needs a model snapshot/preview extension, not a third general-purpose mutation bridge. The authenticated `nbinlineai/context-preview` route now shares the snapshot/selection pipeline with execution. It performs bounded introspection on an existing idle kernel and returns stable included/omitted/partial IDs, with no provider request, offered tool call or notebook mutation.
@@ -86,8 +86,11 @@ The provider loop waits for the result before continuing. SSE callbacks run sequ
 | `list_cells(start=0, limit=20)` | Zero-based cell order, up to 50 requested cells, stable IDs/types/source previews and useful AI roles. Pagination reports omitted cells. |
 | `read_cell(cell_id, start_line=1, end_line=40)` | Exact ID, inclusive one-based source lines, at most 80 lines, bounded text with truncation notice. |
 | `insert_markdown(content, after_cell_id="")` | Up to 8,000 characters; ordinary Markdown inserted in one shared-model transaction. |
+| `insert_code(content, after_cell_id="")` | Up to 8,000 characters; ordinary code with empty outputs, null execution count and no AI metadata. No execution option. |
 
 An empty insertion anchor selects the paired answer. Repeated insertions after an anchor in the same run retain order. Explicit IDs refer to those cells. Deleted anchors, missing prompt/answer, replaced models, closed panels, and changed sessions fail instead of using current focus. No execution, replacement/deletion, explicit save, or deliberate focus change is offered.
+
+The code and Markdown actions share the same insertion-tail map, so mixed calls preserve their order. The AI question and paired answer remain in place. The Python stub is registered by identity and the model sees ordinary parameter/docstring schemas; generic special-tool dispatch handles it through the same authenticated action/reply transport. An insertion acknowledgement means live model change, never execution. The user can edit and run inserted code through ordinary Jupyter actions later.
 
 Replies fit 4,000 characters; errors fit 500. Actions expire after 45 seconds; at most 64 prompt runs are held. IDs also expire on completion, cancellation, or disconnect. The registry is ephemeral, not a durable job queue.
 

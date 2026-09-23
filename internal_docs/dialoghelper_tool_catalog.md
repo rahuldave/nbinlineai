@@ -6,7 +6,7 @@
 
 ### What actually shipped (updated 2026-09-23)
 
-The tables below preserve the original survey, including alternatives we did not implement. The released scope is now **ten independently implemented tools**, plus two helpers:
+The tables below preserve the original survey, including alternatives we did not implement. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 adds `insert_code`**, for eleven tools plus two helpers:
 
 | Research capability | Shipped nbinlineai equivalent | Execution and scope |
 | --- | --- | --- |
@@ -16,6 +16,7 @@ The tables below preserve the original survey, including alternatives we did not
 | Reading part of `url2note` | `read_url` | Kernel HTTP fetch and bounded page text. |
 | Current-dialog cell discovery/read | `list_cells`, `read_cell` | Live originating browser document, including unsaved cells; acknowledged server/browser protocol. |
 | New text notes / `url2note` insertion | `insert_markdown`, `url_to_note` | New ordinary Markdown cells; no existing-cell replacement or automatic file save. URL fetching runs on a server worker before the browser inserts the note. |
+| New code cell insertion (0.1.10) | `insert_code` | New ordinary unexecuted code after the answer by default, retaining question/answer. Uses the same acknowledged browser transport and limits as Markdown insertion; no execution or replacement capability. |
 | Tool-list generation (`mk_toollist`) | `tools_markdown` | User helper returning declaration Markdown; explicit aliases/custom functions supported. |
 | Direct declaration-note insertion | `insert_tools` | User helper added in 0.1.7, execution-bound kernel/browser comm; no model/provider request. |
 

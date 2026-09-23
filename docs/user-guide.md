@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes version 0.1.9, including selectable notebook context. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
+This guide describes version 0.1.10. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -57,6 +57,20 @@ The answer streams into a separate Markdown cell, normally created immediately b
 ![A notebook with its AI defaults above a prompt and answer](images/overview.png)
 
 An active Python kernel is required. Running an individual AI prompt does not automatically run the code above it; run the definitions first before referring to live values or functions. **Run All Cells** executes earlier code before reaching the AI prompt.
+
+### Recognize questions and answers
+
+AI questions have a subtle blue background and answers have a green background, with matching left borders. The colours adapt to JupyterLab's light and dark themes. Editors and fenced code blocks retain JupyterLab's normal editing colours. Both cells remain ordinary editable Markdown.
+
+![Question and answer backgrounds in JupyterLab Dark](images/dark-mode.png)
+
+### Start a question
+
+An empty AI question shows four small suggestions: **Explain cell above**, **Explain code above**, **Explain section above**, and **Write code…**. Click one, or reach it with Tab and activate it with Enter, to insert ordinary text into the question editor. Then edit the text to suit your task and run the question when ready.
+
+The suggestions disappear once the question contains text, and return if you clear it. You can ignore them and type your own question. Displaying a suggestion does not save prompt text or send an AI request; choosing one inserts text but does not run it. **Write code…** inserts `Write code to ` so you can complete the request.
+
+![Editable starters appear only while an AI question is empty](images/prompt-starters.png)
 
 ### Provider and model choices
 
@@ -140,6 +154,22 @@ Code blocks in rendered AI answers have a **Copy code** button. Click it, select
 The same button is available for short snippets in Learning mode. It is interface decoration: it is not stored in the notebook's Markdown or sent as AI context. If clipboard access fails, the interface tells you; select the code and copy it manually instead.
 
 ![The Copy button on a fenced code block in an AI answer](images/copy-code.png)
+
+### Ask for a new code cell
+
+The bundled `insert_code` tool can put generated code into its own ordinary code cell while keeping the AI answer. Run this import first:
+
+```python
+from nbinlineai.tools import insert_code
+```
+
+Put `` &`insert_code` `` in an ordinary Markdown note above your question, then ask:
+
+> Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what it does.
+
+The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](faq.md#can-i-ask-the-ai-to-call-insert_markdown) and [tools guide](tools.md) for examples and limits.
+
+![Illustrative question, retained answer, and a separate unexecuted code cell](images/insert-code.png)
 
 ## 3. Edit, rerun, and save
 
@@ -311,9 +341,9 @@ Functions named with `&` in the current question or any ordinary Markdown/AI que
 
 From **0.1.7**, declare tools once in a Markdown note and use them in questions below. Several notes can add different tools; duplicate names are registered once. Enabled declarations remain effective even when their text is unchecked or omitted for space; the separate Tools checkbox withdraws declarations from that cell. AI answers, code, raw cells, and cells below the question do not register tools. Eligible Markdown is scanned even inside quotations and fenced code blocks. Live `$` variable interpolation remains limited to the **current question**.
 
-`nbinlineai.tools` includes ten tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into a Markdown note above your questions and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
+`nbinlineai.tools` includes eleven tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes or unexecuted code drafts. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into a Markdown note above your questions and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
 
-Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this is separate from the text chosen by the Context controls. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default. Save the notebook to preserve them. Rerunning a prompt can insert another note, and cancelling does not undo a note already inserted. The four tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
+Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this is separate from the text chosen by the Context controls. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default; `insert_code` inserts an ordinary code cell without running it. Save the notebook to preserve them. Rerunning a prompt can insert another cell, and cancelling does not undo a cell already inserted. The five tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
 
 Use normal synchronous Python functions with named parameters, simple type annotations, and a helpful docstring. Async functions and signatures using positional-only parameters, `*args`, or `**kwargs` are not supported. Function output sent back to the model combines captured standard output and the return value's text representation.
 

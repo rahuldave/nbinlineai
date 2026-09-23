@@ -32,7 +32,14 @@ uv run jupyter lab
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.9
+## New in version 0.1.10
+
+- Questions and answers have distinct backgrounds that adapt to light and dark themes.
+- Empty questions offer editable starters. Shared instructions and cell-position landmarks help focus explanations on the requested cell while retaining useful earlier context.
+- Offer `insert_code` to let the AI add an ordinary, unexecuted code cell below its answer. The question and answer remain intact.
+- Try the [Jupyter AI + nbinlineai example](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb), and read the [FAQ](faq.md) for tool-registration, insertion, prompt starters, and coexistence details.
+
+## Added in version 0.1.9
 
 The Context toolbar now shows just the notebook mode and **Details**, with one disclosure arrow. Question-specific information and the optional **Check context** action are inside Details. A check shows progress, then cell/tool counts and a completion time, or a visible failure reason. Running an AI question always calculates context automatically.
 

@@ -4,7 +4,7 @@ title: Tools and examples
 
 # Tools and example notebooks
 
-nbinlineai includes ten tools and a helper that writes their Markdown references for you. Tools can inspect Python state, read saved notebooks, read the open notebook's unsaved cells, retrieve public documentation, and insert Markdown notes. From **0.1.7**, declare tools once in ordinary Markdown or an AI question and they remain available to later AI questions below. Importing them alone does not expose them to the model.
+nbinlineai includes eleven tools and a helper that writes their Markdown references for you. Tools can inspect Python state, read saved notebooks, read the open notebook's unsaved cells, retrieve public documentation, and insert editable Markdown notes or unexecuted code cells. From **0.1.7**, declare tools once in ordinary Markdown or an AI question and they remain available to later AI questions below. Importing them alone does not expose them to the model.
 
 ## Import, print, paste
 
@@ -21,6 +21,7 @@ from nbinlineai.tools import (
     list_cells,
     read_cell,
     insert_markdown,
+    insert_code,
     url_to_note,
     tools_markdown,
 )
@@ -48,7 +49,7 @@ To print only a subset:
 print(tools_markdown(["find_notebook_cells", "read_notebook_cell"]))
 ```
 
-`tools_markdown()` returns a string. It is a convenience function for you, and is not included in the generated tool list. Six tools also work as direct Python calls; the four tools that access the open notebook require an AI prompt running through the extension.
+`tools_markdown()` returns a string. It is a convenience function for you, and is not included in the generated tool list. Six tools also work as direct Python calls; the five tools that access the open notebook require an AI prompt running through the extension.
 
 ![A Markdown tool declaration shared by AI questions below it](images/inherited-tools.png)
 
@@ -103,6 +104,7 @@ The notebook's Python kernel needs ipykernel 6.18 or newer for this helper. Inst
 | `list_cells(start=0, limit=20)` | IDs, types, and short source previews from the current live notebook, including cells below the prompt. |
 | `read_cell(cell_id, start_line=1, end_line=40)` | Numbered source from a live cell, including unsaved edits. |
 | `insert_markdown(content, after_cell_id="")` | Insert an ordinary Markdown note in the live notebook. |
+| `insert_code(content, after_cell_id="")` | Insert an ordinary, editable code cell in the live notebook without executing it. |
 | `url_to_note(url, after_cell_id="")` | Fetch a public page and insert a source-attributed Markdown excerpt as an ordinary note. |
 
 ### Python and saved notebooks
@@ -135,7 +137,7 @@ You can edit the new notes just like any Markdown cell. A note above a later AI 
 
 The provider response in this demonstration is simulated; the extension performs the actual notebook insertion.
 
-These four functions (`list_cells`, `read_cell`, `insert_markdown`, `url_to_note`) are imported to describe the tools, but their work is routed through the server and browser. Calling their Python stubs directly raises an explanatory error. Headless notebook execution cannot perform these actions. Missing/deleted target cells, a closed notebook, an expired request, or a changed kernel session produce an error rather than selecting a different notebook or cell.
+These five functions (`list_cells`, `read_cell`, `insert_markdown`, `insert_code`, `url_to_note`) are imported to describe the tools, but their work is routed through the server and browser. Calling their Python stubs directly raises an explanatory error. Headless notebook execution cannot perform these actions. Missing/deleted target cells, a closed notebook, an expired request, or a changed kernel session produce an error rather than selecting a different notebook or cell. New cells appear below the paired AI answer unless you supply an existing `after_cell_id`; mixed note and code insertions keep their call order. A newly inserted code cell is **not** part of the current Run All batch and remains unexecuted until you explicitly run it later. Review generated code before doing that.
 
 ### Public documentation
 
@@ -149,6 +151,16 @@ question to consider while reading it.
 ```
 
 The note contains a text conversion of the page, with its source URL. It is not a model-generated summary or a complete offline copy. These tools support public HTTP(S) HTML, Markdown, and plain text; they do not log in, run page JavaScript, or download PDFs and images. Local/private network addresses and URLs containing credentials are rejected. Downloads, redirects, text length, and wait times are bounded; long pages are truncated.
+
+### Ask for a code draft in a new cell
+
+Import `insert_code` in a Python setup cell, then declare ``&`insert_code` `` in an ordinary Markdown cell above the AI question. You can ask:
+
+> Use `insert_code` to add a short Python cell that plots the values in `measurements`. Leave the cell for me to review and run.
+
+The model supplies source text for a new **ordinary code cell**, placed after its AI answer by default. The tool does not run code, including when the question itself is part of Run All. It cannot ask the insertion interface to execute the cell. Read and edit the draft, run it explicitly when ready, then save the notebook to retain it.
+
+![Illustrative AI answer followed by its separate unexecuted code draft](images/insert-code.png)
 
 `read_url` fetches from the kernel's machine and returns page text to the model. `url_to_note` fetches from the Jupyter server's machine, asks the browser to insert it, and returns the new cell ID. Offer `read_cell` too if you want the model to read that note during the same request. A later prompt below the note receives it as ordinary source context, within the usual limits. Neither web tool sends your provider API key to the page. Review retrieved text like other outside material.
 
@@ -177,6 +189,10 @@ These notebooks contain prompts, setup code, and instructions, with no API keys 
 | [Bundled tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/bundled-tools.ipynb) | Generate tool references, find live variable names, and search/read the supplied saved notebook. |
 | [Live notebook tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-notebook-tools.ipynb) | Read unsaved cells below a question and insert an editable hint without selecting the target cell. |
 | [Python and web tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/python-and-web-tools.ipynb) | Inspect Python documentation/source, consult a public page, and turn it into a notebook note. |
+| [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Run a standard-library pollinator analysis, compare optional Jupyter AI chat planning with inline Learning questions, and review an optional unexecuted code draft. |
+| [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a zero-versus-missing-value bug, run explicit code cells, then explain the result with inline AI questions. The actual Codex trial passed the checks; the template retains the starting bug for learners. |
+
+For the combined-extension examples, work step by step and paste the chat prompts into **Jupyter Chat**. Codex authentication belongs to Jupyter AI's adapter; nbinlineai's inline questions still use your separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) records the successful authenticated trial and its limits.
 
 For a locally installed copy, this Python code prints the examples directory. Run it in the environment where nbinlineai is installed:
 
