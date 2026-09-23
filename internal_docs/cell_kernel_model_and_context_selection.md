@@ -90,6 +90,8 @@ Future model-aware budgeting needs an explicit capacity policy for custom models
 
 ## Questions for future context controls
 
+**Next-task update (2026-09-23):** the user has now requested six notebook-wide context modes and per-cell checkboxes. The [feature brief](context_selection_next_feature.md) supplies recommended resolutions of the questions below; the [frontend assessment](context_selection_frontend_feasibility.md) verifies access to every cell model/widget, and the [task prompt](context_selection_task_prompt.md) carries the work to a new task. These are not shipped yet. The 0.1.7 behavior above remains the implementation baseline.
+
 ### Selection modes
 
 The proposed controls are: per-cell include/ignore toggles, whole notebook, ten cells either side of the prompt, and all preceding cells. They need one coherent definition of *selection* before the shared source/history budget. The current `preceding_cells` contract and system instruction explicitly mean “above”; sending later cells under that field/instruction would mislabel them. There is no selection implementation here.

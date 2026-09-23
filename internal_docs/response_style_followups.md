@@ -1,5 +1,7 @@
 # Response controls for version 0.1.4
 
+**Historical design note.** Current released behavior is 0.1.7; see [the developer handoff](developer_handoff.md). Notebook Keep defaults/native Run All shipped in 0.1.5, approved tools/examples/bridge in 0.1.6, and inherited declarations/direct insertion in 0.1.7. The original deferrals below are preserved as history, not outstanding approval requests.
+
 ## Current status
 
 Version 0.1.4 is published on PyPI and tagged `v0.1.4` from source commit `33b124b`. It implements the prompt controls below, with an illustrated guide and public architecture documentation at https://rahuldave.com/nbinlineai/. The public repository is https://github.com/rahuldave/nbinlineai and keeps GPLv3, matching ai-jup.

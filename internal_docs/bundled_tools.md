@@ -33,11 +33,22 @@ Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTI
 
 ## Request/reply protocol
 
+The current implementation has **two transports**, reviewed against source on 2026-09-23:
+
+| Caller | Request / reply | Wait behavior | Main implementation |
+| --- | --- | --- | --- |
+| Model calls `list_cells`, `read_cell`, `insert_markdown` (or composed `url_to_note`) | Server SSE `frontend_action`; authenticated browser POST `nbinlineai/action-reply` | Server awaits up to 45 seconds; no waiting Python tool body | `frontend_bridge.py`, `handlers.py`, `src/frontendActions.ts`, sequential `src/sse.ts` |
+| Python code cell calls `insert_tools` | Jupyter comm target `nbinlineai.insert_tools.v1`; browser comm acknowledgement | Returns a mutable receipt immediately; 30-second acknowledgement timeout | `kernel_insert_tools.py`, `src/insertTools.ts`, `src/insertToolsProtocol.ts` |
+
+These transports do not grant general arbitrary JavaScript access or execute cells on the model's behalf. Both bind mutations to original identities and acknowledge the live model only. Context selection itself needs a model snapshot/preview extension, not a third general-purpose mutation bridge. The proposed preview API is not implemented yet.
+
 The model-driven interface below is distinct from the direct Python `insert_tools` helper. The latter uses comm target `nbinlineai.insert_tools.v1` with the current execute-request ID, source code-cell ID, and bounded generated Markdown. `src/insertTools.ts` tracks the actual outgoing request from native cell execution, then validates the comm's parent and the original panel/model/kernel before insertion. Multiple helper calls share an insertion tail for their execution; redelivery of the same comm ID does not create another note. Python receives asynchronous acknowledgement in `InsertToolsReceipt`; it does not run or block an event loop to wait. Save normally after insertion. Headless clients cannot perform the browser mutation; `tools_markdown()` remains usable for plain text. See [`nbinlineai/kernel_insert_tools.py`](../nbinlineai/kernel_insert_tools.py) and [`src/insertToolsProtocol.ts`](../src/insertToolsProtocol.ts).
 
 `FrontendBridge` is a server-local registry shared by prompt and reply handlers. After normal Jupyter authentication/execute authorization and session resolution, a run binds an unpredictable `run_id` to session ID, prompt cell ID, kernel ID, and kernel manager identity. It can hold one pending action ID and asynchronous future.
 
 The direct helper requires explicit `comm>=0.2,<1` and `ipykernel>=6.18` dependencies. JupyterLab's broader transitive ipykernel minimum alone does not guarantee the separate comm package is connected to the running kernel. [ipykernel 6.18.0](https://github.com/ipython/ipykernel/releases/tag/v6.18.0) introduced the extracted comm package; its [kernel source](https://github.com/ipython/ipykernel/blob/v6.18.0/ipykernel/ipkernel.py) wires `comm.create_comm`. A separately selected kernel environment must meet this requirement too.
+
+The direct helper's receipt is mutable, but its immediate notebook text output is a rendered snapshot and can continue to say `requested` after insertion succeeds. Use `receipt = insert_tools(...)`, then inspect `receipt.status`, `receipt.cell_id`, or `receipt.error` in a later code cell for the updated state. Do not use a synchronous wait loop inside the calling cell: that can prevent acknowledgement processing. On timeout or reply failure with either transport, inspect the live notebook for an already-inserted note before retrying.
 
 The context event announces the run ID before any action. The browser binds the first ID and rejects changed or missing bindings. Each special call yields:
 

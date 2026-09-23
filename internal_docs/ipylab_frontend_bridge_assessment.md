@@ -4,6 +4,8 @@ Research date: 2026-09-22. Inspected [ipylab](https://github.com/jtpio/ipylab) a
 
 ## Conclusion
 
+**Implementation update (2026-09-23):** the recommended narrow server/browser bridge shipped in 0.1.6. A separate execution-bound comm for the Python `insert_tools` helper shipped in 0.1.7. The proposal and limitations discussed below describe the alternatives at research time; see [the implemented protocol](bundled_tools.md) and [the current handoff](developer_handoff.md). Context controls are the [next feature](context_selection_next_feature.md).
+
 ipylab provides a useful Python-to-JupyterLab connection through Jupyter Widgets. It can launch commands, manage widgets and menus, expose session information, and insert/run snippets in the active cell. It does not currently provide the complete, acknowledged, notebook-and-cell-specific read/edit interface that our AI tool loop needs.
 
 Our extension already runs in the frontend and has `INotebookTracker`, notebook cell models, stable cell IDs, shared-model source editing/insertion, and native execution integration. The recommended next architectural step is a small request/reply interface around those existing facilities. Adopting ipylab would still leave us implementing that interface, while adding widget lifecycle/dependency requirements.

@@ -4,6 +4,25 @@
 
 ## How to read this assessment
 
+### What actually shipped (updated 2026-09-23)
+
+The tables below preserve the original survey, including alternatives we did not implement. The released scope is now **ten independently implemented tools**, plus two helpers:
+
+| Research capability | Shipped nbinlineai equivalent | Execution and scope |
+| --- | --- | --- |
+| Live name discovery (`names_containing`) | `search_kernel_names` | Kernel namespace; names/types, not automatic values. |
+| Saved dialog discovery/search/read | `list_notebooks`, `find_notebook_cells`, `read_notebook_cell` | Kernel filesystem; named saved notebooks, not unsaved browser state. |
+| Imported Python symbol inspection | `inspect_python` | Kernel namespace/builtins; bounded help/signature/source. |
+| Reading part of `url2note` | `read_url` | Kernel HTTP fetch and bounded page text. |
+| Current-dialog cell discovery/read | `list_cells`, `read_cell` | Live originating browser document, including unsaved cells; acknowledged server/browser protocol. |
+| New text notes / `url2note` insertion | `insert_markdown`, `url_to_note` | New ordinary Markdown cells; no existing-cell replacement or automatic file save. URL fetching runs on a server worker before the browser inserts the note. |
+| Tool-list generation (`mk_toollist`) | `tools_markdown` | User helper returning declaration Markdown; explicit aliases/custom functions supported. |
+| Direct declaration-note insertion | `insert_tools` | User helper added in 0.1.7, execution-bound kernel/browser comm; no model/provider request. |
+
+0.1.7 scans declarations in all earlier ordinary Markdown/AI questions before context trimming, so a declaration note is reusable by later questions. Neither formatter/insertion helper is in the model's ten-tool registry. The later sections' “draft” and “next drop” wording records the earlier decision process, not current release status. [Current contract](bundled_tools.md), [current developer handoff](developer_handoff.md).
+
+Still unimplemented: existing-cell editing/deleting, autonomous cell execution, image/screenshot tools, shell/general execution tools, AST rewriting, tracing, bulk project context collectors, durable replay, and live operations in other notebooks. Their required integration and upstream dependencies are explained below. Notebook context selectors are now the [next requested feature](context_selection_next_feature.md), not part of the tools release.
+
 The portability ratings below are our engineering assessment of the inspected code, rather than claims made by upstream. Grouped rows cover related public functions; low-level transport helpers are listed separately from functions a student would give an AI.
 
 - **Small adaptation:** can run in our existing Python tool bridge with a bounded, synchronous wrapper.
