@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.10**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.11**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -293,7 +293,7 @@ Restart the **whole Jupyter server**, then refresh the browser. Restarting only 
 
 ### Can I put all my tool references in an ordinary Markdown cell?
 
-Yes, from **0.1.7**. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `print(tools_markdown())` from `nbinlineai.tools` to generate a list you can paste and shorten. See [Tools and examples](tools.md).
+Yes, from **0.1.7**. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `tools_markdown([...])` with the names you imported to generate a list you can paste and shorten. See the [tools reference](tools.md) and [examples guide](examples.md).
 
 Live `$` lookups still happen only in the current question. Tool references inside quotations or fenced code in eligible Markdown count as declarations; use a plain function name when merely discussing one.
 
@@ -303,7 +303,7 @@ No. Tool discovery scans all eligible cells above before choosing the text windo
 
 ### Can I create the tools note without copying and pasting?
 
-Yes. Run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names"])` in a Python cell after importing that function. The helper requests an ordinary Markdown declaration cell immediately below its calling code cell, without making an AI request. Custom functions are supported through the same `custom` mapping as `tools_markdown()`. See the [helper example](tools.md#insert-the-declaration-note-directly).
+Yes. Run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names"])` in a Python cell after importing that function. The helper requests an ordinary Markdown declaration cell immediately below its calling code cell, without making an AI request. Custom functions are supported through the same `custom` mapping as `tools_markdown()`. See the [helper example](tools.md#choose-and-declare-tools).
 
 Save normally. A deliberate rerun creates another note; simply reopening the notebook does not. The helper needs the nbinlineai JupyterLab frontend. `tools_markdown()` remains the option for plain text without a browser.
 
@@ -313,11 +313,19 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Why can't the file tools see my latest edit?
 
-`list_notebooks`, `find_notebook_cells`, and `read_notebook_cell` inspect **saved `.ipynb` files**. Save your edits first, and check the path relative to the kernel's current working directory. To read the open notebook including unsaved changes, offer `list_cells` and `read_cell` instead. Selected context also uses the current frontend source, including below-question source when the mode selects it.
+`list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, `search_notebooks`, and `notebook_outline` inspect **saved `.ipynb` files**. `search_files` and other source tools also read saved files. Save your edits first, and check the path relative to the selected kernel's current working directory, which may differ from the notebook folder. To read the open notebook including unsaved changes, offer `list_cells`, `read_cell`, or `find_cells` instead. Selected context also uses the current frontend source, including below-question source when the mode selects it.
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. `tools_markdown()` lists eleven bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into Markdown notes or AI questions. The model can call only functions declared above or in the current question. Ordinary functions run with the Python kernel's permissions; the five live notebook tools have a separate, limited browser interface.
+No. Version 0.1.11 has 55 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+
+### How do I choose a tool group without offering every tool?
+
+Run `tool_catalog()` to list group names without any `&` declarations. `tools_markdown(group="code")` prints removable references for one group. `insert_tools(group="code")` asks the frontend to insert that note below its calling code cell. The default group is `starter` with 19 tools. You can pass explicit `names=[...]` to select a smaller set; that list takes precedence over `group`. Up to 20 distinct tool and variable names are allowed in one request.
+
+### Can a tool search my source project or run a command?
+
+Yes, if you import and declare it. `search_files` and `ast_search` search saved files starting from a path on the **selected kernel machine**. Relative paths start at the kernel's current working directory, not necessarily the notebook folder; a directory is a search location, not a sandbox. `run_python` runs a fresh interpreter process without access to live notebook variables, and `run_shell` runs a shell subprocess. Both use the kernel user's real permissions, are not sandboxed, and have a 1–20 second timeout. `trace_function` instead calls a live function and can repeat its effects.
 
 ### Can the AI read cells below my question now?
 
@@ -375,7 +383,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.10**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+In version **0.1.11**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -393,11 +401,11 @@ The action stays bound to the original notebook, session, and prompt; switching 
 
 ### Why can't I call `insert_markdown(...)` directly in Python?
 
-The kernel does not own the browser's document model. `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, and `url_to_note` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. The other six bundled tools work directly in Python as well as through AI tool references.
+The kernel does not own the browser's document model. Live-cell tools such as `list_cells`, `read_cell`, `find_cells`, `replace_cell`, `delete_cell`, `insert_markdown`, and `insert_code` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. Kernel-side tools such as `search_files` work directly in Python as well as through AI tool references.
 
 ### Can these tools edit or execute existing cells?
 
-The built-in frontend interface can list cells, read their source, and insert Markdown or unexecuted code. It does not replace or delete existing cells, execute code, save files, or control another notebook. Your own Python tools can still perform whatever actions you implement; offering an `&` reference permits those real function calls.
+Yes. Version 0.1.11 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

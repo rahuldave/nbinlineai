@@ -1,6 +1,8 @@
 # Bundled tools and frontend interface
 
-Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7**, context/tool selection in **0.1.8**, and unexecuted code insertion in **0.1.10**. Public instructions are in [Tools and examples](../docs/tools.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
+Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7**, context/tool selection in **0.1.8**, unexecuted code insertion in **0.1.10**, and the expanded 55-tool catalog and live edits in **0.1.11**. Public instructions are in the [Tools reference](../docs/tools.md) and [Examples guide](../docs/examples.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
+
+**0.1.11 source contract (2026-09-23):** `nbinlineai.tools.TOOL_FUNCTIONS` now has 55 curated callables. The original eleven and eight fastcore documentation/file tools remain; `source_tools`, `inspection_tools`, `execution_tools`, `notebook_tools`, and `read_url_section` add project search, static source/document parsing, checked edits, live inspection and tracing, subprocess/tmux reading, web sections, and live ordinary-cell edits. `TOOL_GROUPS` names eight setup groups. `tool_catalog()` lists names without declarations; `tools_markdown()` and `insert_tools()` default to the 19-tool starter group. The same 20 combined tool/variable name limit applies. The two authenticated browser transports remain; the model action allowlist now includes ordinary-cell edits. See the [current public contracts](../docs/tools.md) and [implementation matrix](fastcore_tool_candidates.md).
 
 ## Who owns what?
 
@@ -18,18 +20,17 @@ Default context is a bounded source snapshot above the prompt plus completed ear
 
 ## Tool surface and registration
 
-The explicit `TOOL_FUNCTIONS` registry contains eleven tools:
+The original 0.1.10 registry contained eleven tools; this historical baseline is retained below. Version 0.1.11 has 55:
 
 - Kernel dispatch: `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, `inspect_python`, `read_url`.
 - Special frontend dispatch: `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, `url_to_note`.
-- Separate user helper: `tools_markdown(names=None, custom=None)`. Returns removable Markdown references, optionally including explicit alias-to-callable mappings; it is not itself listed as a tool.
-- Separate user helper in 0.1.7: `insert_tools(names=None, custom=None)`. Uses the same formatting, then requests an ordinary Markdown declaration below the calling code cell through an execution-bound Jupyter comm. It is not a model tool and requires no provider key.
+- Setup helpers in 0.1.11: `tool_catalog(group="")` lists names without declarations; `tools_markdown(names=None, custom=None, group="starter")` returns removable Markdown references; `insert_tools(names=None, custom=None, group="starter")` requests a Markdown declaration below the calling code cell through an execution-bound Jupyter comm. None is a model tool. The latter requires no provider key.
 
 Formatting is not registration. Users import functions, print references, and paste desired lines into ordinary Markdown notes or AI questions. In 0.1.7, the server scans all ordinary Markdown and AI question cells above plus the current question for `&` declarations before context trimming. It unions/deduplicates names and inspects the current kernel on each run. AI answers, code/raw cells, and printed output do not declare tools. `$` references still resolve only in the current question. The existing regex scans quotations and fences too. Several declarations can accumulate through a notebook; an omitted declaration's schema remains available. No metadata flag or execution of the declaration cell is required. See [context selection](cell_kernel_model_and_context_selection.md) for the shared budget and discovery boundary.
 
 All schemas still come from kernel signature/docstring introspection and translation into FastLLM's flat function schema. Names sent to the provider are user-referenced identifiers, including aliases. No callable objects are shipped to the provider.
 
-Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTIONS`, not by name or user-controlled attributes. Thus `read_cell as read_live` works, while a custom function named `read_cell` follows ordinary dispatch. Special routing information stays internal. Direct calls to the five Python stubs raise an explanatory error; this is not a general Python-to-browser API. Registry discovery tolerates an absent nbinlineai package so existing custom tools continue working in separate kernel environments. Bundled imports require installation there.
+Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTIONS`, not by name or user-controlled attributes. Thus `read_cell as read_live` works, while a custom function named `read_cell` follows ordinary dispatch. Special routing information stays internal. Direct calls to frontend Python stubs raise an explanatory error; this is not a general Python-to-browser API. Registry discovery tolerates an absent nbinlineai package so existing custom tools continue working in separate kernel environments. Bundled imports require installation there.
 
 ## Request/reply protocol
 
@@ -80,6 +81,8 @@ Insertion uses `cell_id` instead of `text`; errors use `ok: false` with bounded 
 The provider loop waits for the result before continuing. SSE callbacks run sequentially and await reply delivery. Independent notebooks retain independent queues/runs. No Python execute request waits for the browser, avoiding a kernel event-loop deadlock.
 
 ## Actions and bounds
+
+Version 0.1.11 also accepts `find_cells`, `replace_cell`, `cell_str_replace`, `cell_insert_line`, `cell_replace_lines`, `delete_cell`, `move_cell`, `copy_cell`, `split_cell`, and `merge_cells`. The edits operate on ordinary cells in the original live model, with stable IDs and expected-source or match-count checks. Source edits to code clear old outputs and execution count; unrelated metadata is preserved. Copy and split assign fresh IDs. No action executes code or saves the document. The table below preserves the original four-action baseline and its bounds.
 
 | Action | Model operation |
 | --- | --- |

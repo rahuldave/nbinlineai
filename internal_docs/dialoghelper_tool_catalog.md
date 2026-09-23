@@ -4,9 +4,11 @@
 
 ## How to read this assessment
 
+**September 23 follow-up:** [Fastcore tools and next candidates](fastcore_tool_candidates.md) now starts with the 0.1.11 implementation matrix for 55 curated tools, then preserves the earlier pinned survey and buildability reasoning. This catalog is historical; use the [current tools reference](../docs/tools.md) for callable contracts.
+
 ### What actually shipped (updated 2026-09-23)
 
-The tables below preserve the original survey, including alternatives we did not implement. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 adds `insert_code`**, for eleven tools plus two helpers:
+The table below preserves the original survey baseline. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 added `insert_code`**, for eleven at that point. Version 0.1.11 expands this to 55 tools and adds `tool_catalog` plus groups; see the [implementation matrix](fastcore_tool_candidates.md#0111-implementation-matrix).
 
 | Research capability | Shipped nbinlineai equivalent | Execution and scope |
 | --- | --- | --- |
@@ -20,9 +22,9 @@ The tables below preserve the original survey, including alternatives we did not
 | Tool-list generation (`mk_toollist`) | `tools_markdown` | User helper returning declaration Markdown; explicit aliases/custom functions supported. |
 | Direct declaration-note insertion | `insert_tools` | User helper added in 0.1.7, execution-bound kernel/browser comm; no model/provider request. |
 
-0.1.7 scans declarations in all earlier ordinary Markdown/AI questions before context trimming, so a declaration note is reusable by later questions. Neither formatter/insertion helper is in the model's ten-tool registry. The later sections' “draft” and “next drop” wording records the earlier decision process, not current release status. [Current contract](bundled_tools.md), [current developer handoff](developer_handoff.md).
+0.1.7 scans declarations in all earlier ordinary Markdown/AI questions before context trimming, so a declaration note is reusable by later questions. The formatter and insertion helper are not model tools. The later sections' “draft” and “next drop” wording records the earlier decision process, not current release status. [Current contract](bundled_tools.md), [current developer handoff](developer_handoff.md).
 
-Still unimplemented: existing-cell editing/deleting, autonomous cell execution, image/screenshot tools, shell/general execution tools, AST rewriting, tracing, bulk project context collectors, durable replay, and live operations in other notebooks. Their required integration and upstream dependencies are explained below. Notebook context selectors are now the [next requested feature](context_selection_next_feature.md), not part of the tools release.
+Implemented in the 0.1.11 source after this survey: existing ordinary-cell editing/deleting, bounded subprocesses, AST search/rewrites, tracing, document outlines, source/API inspection, and project search. Still deferred are autonomous service-kernel cell execution control, images/screenshots, enforced pause/resume, new agent lifecycle, arbitrary Solveit DOM/events, bulk project context collectors, durable replay, and live operations in other notebooks. The original context-selection proposal shipped in 0.1.8; the following portability ratings remain historical engineering assessments.
 
 The portability ratings below are our engineering assessment of the inspected code, rather than claims made by upstream. Grouped rows cover related public functions; low-level transport helpers are listed separately from functions a student would give an AI.
 

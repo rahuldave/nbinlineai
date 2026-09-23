@@ -601,11 +601,10 @@ test('AI halves remain independent and later AI text is source, not earlier conv
     answer('later-answer', 'later', 'LATER_AI_ANSWER')
   ]);
   const editableAnswer = cells(page).nth(2);
-  await editableAnswer.dblclick();
+  await editableAnswer.locator('.jp-RenderedMarkdown').dblclick();
   await expect(editableAnswer.locator('.cm-content')).toBeVisible();
-  await editableAnswer.locator('.cm-content').click();
-  await page.keyboard.press('End');
-  await page.keyboard.type('_TYPED', { delay: 20 });
+  await editableAnswer.locator('.cm-content').press('End');
+  await editableAnswer.locator('.cm-content').pressSequentially('_TYPED', { delay: 20 });
   await expect(editableAnswer.locator('.cm-content')).toContainText('EARLIER_AI_ANSWER_TYPED');
   await expect(editableAnswer.locator('.cm-content')).toBeVisible();
   await selectQuestion(page, 3);

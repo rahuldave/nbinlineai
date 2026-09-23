@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in version 0.1.10, including context selection, prompt focus, and cell insertion. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in version 0.1.11, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -186,13 +186,15 @@ The tool result combines captured standard output with the return value's repres
 
 ### Bundled tools
 
-`nbinlineai.tools` supplies eleven functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Five describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, and `url_to_note`. Importing the package does not register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases. Paste these into an ordinary Markdown note or AI question; questions below inherit its declarations. Printed code output and AI answers do not declare tools.
+Version 0.1.11 exposes **55** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
 
-The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, separately from the selected notebook text. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
+Kernel-side tools inspect live Python state or saved files, search source, parse documents, make checked text edits, or start bounded subprocesses. Saved-notebook tools require a `.ipynb` file on disk and cannot see unsaved frontend edits. Relative file paths use the **selected kernel's cwd**, which may differ from both the notebook folder and the Jupyter server cwd. Paths are locations, not a sandbox. `source_doc` parses `.py` source without import; `show_doc` with an explicit module imports and runs module initialization. `trace_function` invokes a live function; `run_python` and `run_shell` start separate processes, run with kernel-user permissions, and have 1–20 second timeouts. Their effects are real and are not undone on cancellation. The source and document parsers apply result, file-size, traversal, and time bounds.
+
+Live notebook operations use the original browser document model. In addition to listing, reading, and insertion, 0.1.11 can find and edit ordinary cells by stable ID. Source edits and deletion require an exact expected source or counted match; code edits clear stale outputs. Copy and split create new IDs; existing unrelated metadata is preserved. These actions do not execute cells, save files, or edit paired AI question/answer cells. See [the live interface below](#frontend-requestreply-interface).
 
 ### Creating a tool declaration from Python
 
-`insert_tools(names=None, custom=None)` is a user helper, separate from the eleven model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
+`insert_tools(names=None, custom=None, group="starter")` is a user helper, separate from the model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
 
 The Python helper sends a bounded request through a Jupyter comm. The frontend's native execution wrapper binds the actual outgoing execute-request ID and cell ID to the original notebook model and kernel. A matching comm request can insert the note; later active-cell or tab changes do not redirect it. The frontend acknowledges the inserted cell ID after the live-model change. Several calls in one execution preserve their order. Reexecuting the code deliberately creates fresh notes; rendering saved outputs does not replay an insertion.
 
@@ -200,24 +202,17 @@ The helper returns an asynchronous receipt and does not wait inside the kernel's
 
 ### Frontend request/reply interface
 
-The kernel describes all registered callables, including the five frontend stubs. During inspection, the bridge identifies a special tool by **callable identity** against an explicit registry, not its Python variable name. An imported alias therefore works; a user-defined function with the same name follows normal kernel dispatch. Directly calling a frontend stub in Python raises an explanatory error.
+The kernel describes all registered callables, including the frontend stubs. During inspection, the bridge identifies a special tool by **callable identity** against an explicit registry, not its Python variable name. An imported alias therefore works; a user-defined function with the same name follows normal kernel dispatch. Directly calling a frontend stub in Python raises an explanatory error.
 
 The server creates an unpredictable `run_id` bound to the original session, kernel, and prompt cell. Each action gets a fresh `request_id`. A `frontend_action` SSE event carries those IDs, an allowlisted action name, and bounded arguments. The browser acts on the `NotebookPanel` captured when the prompt started, then sends an authenticated `POST nbinlineai/action-reply` containing the IDs, session/prompt binding, and either a bounded result or an error. The server checks the pending action and current kernel binding before accepting one reply.
 
-The browser supports only these operations:
-
-| Action | Frontend model operation |
-| --- | --- |
-| `list_cells` | Traverse the ordered live cell model and return IDs, types, roles, and short source previews. |
-| `read_cell` | Find an exact cell ID and read a bounded, numbered source range. |
-| `insert_markdown` | Insert one ordinary Markdown cell in a shared-model transaction. |
-| `insert_code` | Insert an ordinary code cell with empty outputs and null execution count. Preserve the answer; do not execute the new code. |
+The browser supports an allowlist of document operations. Reading operations are `list_cells`, `read_cell`, and `find_cells`. Insertion operations are `insert_markdown` and `insert_code`. The new edit operations are `replace_cell`, `cell_str_replace`, `cell_insert_line`, `cell_replace_lines`, `delete_cell`, `move_cell`, `copy_cell`, `split_cell`, and `merge_cells`. These act on ordinary cells through shared-model transactions with stable IDs and expected-source or match-count checks where relevant. Code-source edits clear outputs and execution count; the model never executes the resulting code.
 
 `url_to_note` is a server-side composition: fetch a bounded public page as Markdown, then request `insert_markdown`. Its network work runs outside the server's event loop. The provider receives insertion success only after the browser acknowledges the new cell ID. This acknowledges a change to the **live model**, not a save to disk.
 
 Actions never use the currently focused tab or cell. The browser validates the original panel, document model, session, prompt, and answer before acting. Stable cell IDs allow reading unsaved cells above or below the prompt, including offscreen cells. A missing target or changed binding fails instead of falling back to the active cell.
 
-By default insertion follows the paired answer; repeated default insertions in that run retain their request order. An explicit `after_cell_id` chooses another existing cell. Notes do not carry AI prompt/output metadata, so later prompts treat them as ordinary Markdown. Insertion does not autofocus, execute, replace/delete source, or explicitly save the document.
+By default insertion follows the paired answer; repeated default insertions in that run retain their request order. An explicit `after_cell_id` chooses another existing cell. Notes do not carry AI prompt/output metadata, so later prompts treat them as ordinary Markdown. Insertion does not autofocus, execute, or explicitly save the document. Separate edit actions can replace or delete ordinary cells after their checks pass.
 
 SSE callbacks run sequentially and await reply delivery. The browser deduplicates a request ID within its run, rejecting reuse with changed arguments; the server accepts a reply only once. Timeout, cancellation, disconnect, and completion expire pending action IDs. A disconnected client cannot resume that run. An insertion already applied remains even if its acknowledgement or the rest of the answer is lost; a new prompt run can insert again. There is no rollback or cross-run deduplication.
 

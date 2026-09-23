@@ -27,12 +27,21 @@ uv run jupyter lab
 | Guide | What you will find |
 | --- | --- |
 | [User guide](user-guide.md) | Illustrated setup, notebook defaults, styles, thinking effort, editing and rerunning, context, variables, tools, and troubleshooting. |
-| [Tools and examples](tools.md) | Import bundled notebook tools, generate editable tool references, and try the teaching notebooks. |
+| [Tools reference](tools.md) | Import and declare tools; check the 55 functions, groups, and limits. |
+| [Examples guide](examples.md) | Try task walkthroughs and downloadable teaching notebooks. |
 | [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.10
+## New in version 0.1.11
+
+- Choose from 55 optional tools, organized into task groups. The default starter note stays at 19; `tool_catalog()` lists the groups without offering functions.
+- Search saved project files and notebooks, inspect Python syntax and source documentation, navigate document sections, and make checked text edits.
+- Find and edit ordinary cells in the live notebook by stable ID, including unsaved and offscreen cells. Edits do not execute or save them automatically.
+- Extract a public web-page section, inspect live values or skill descriptions, trace a live function, and run bounded shell or Python subprocesses with kernel-user permissions.
+- Try the [disposable project notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb).
+
+## Added in version 0.1.10
 
 - Questions and answers have distinct backgrounds that adapt to light and dark themes.
 - Empty questions offer editable starters. Shared instructions and cell-position landmarks help focus explanations on the requested cell while retaining useful earlier context.

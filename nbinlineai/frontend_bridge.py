@@ -114,6 +114,53 @@ def normalize_action(
             "after_cell_id": _text(arguments.get("after_cell_id", ""), "after_cell_id", 200,
                                    allow_empty=True),
         }
+    fields = {
+        "find_cells": ({"query", "cell_type", "limit"}, {"query"}),
+        "replace_cell": ({"cell_id", "expected_source", "new_source"},
+                         {"cell_id", "expected_source", "new_source"}),
+        "cell_str_replace": ({"cell_id", "old_str", "new_str", "expected_matches"},
+                             {"cell_id", "old_str", "new_str"}),
+        "cell_insert_line": ({"cell_id", "line", "content", "expected_source"},
+                             {"cell_id", "line", "content", "expected_source"}),
+        "cell_replace_lines": ({"cell_id", "start_line", "end_line", "content", "expected_source"},
+                               {"cell_id", "start_line", "end_line", "content", "expected_source"}),
+        "delete_cell": ({"cell_id", "expected_source"}, {"cell_id", "expected_source"}),
+        "move_cell": ({"cell_id", "after_cell_id"}, {"cell_id", "after_cell_id"}),
+        "copy_cell": ({"cell_id", "after_cell_id"}, {"cell_id", "after_cell_id"}),
+        "split_cell": ({"cell_id", "line", "expected_source"},
+                       {"cell_id", "line", "expected_source"}),
+        "merge_cells": ({"first_cell_id", "second_cell_id", "expected_first", "expected_second"},
+                        {"first_cell_id", "second_cell_id", "expected_first", "expected_second"}),
+    }
+    if name in fields:
+        allowed, required = fields[name]
+        if set(arguments) - allowed or required - set(arguments):
+            raise ValueError(f"Unexpected or missing {name} argument")
+        normalized = {}
+        for key, value in arguments.items():
+            if key in {"limit", "expected_matches"}:
+                normalized[key] = _integer(value, key, 1, 50 if key == "limit" else 1_000)
+            elif key in {"line", "start_line", "end_line"}:
+                normalized[key] = _integer(value, key, 1, 1_000_000)
+            elif key == "cell_type":
+                if value not in {"", "code", "markdown", "raw"}:
+                    raise ValueError("cell_type must be code, markdown, raw, or empty")
+                normalized[key] = value
+            else:
+                maximum = 200 if key.endswith("cell_id") else MAX_INSERT_CHARS
+                normalized[key] = _text(value, key, maximum,
+                                        allow_empty=key in {"expected_source", "new_source",
+                                                            "new_str", "content", "expected_first",
+                                                            "expected_second"})
+        if name == "find_cells":
+            normalized.setdefault("cell_type", "")
+            normalized.setdefault("limit", 20)
+            normalized["query"] = _text(normalized["query"], "query", 200)
+        if name == "cell_str_replace":
+            normalized.setdefault("expected_matches", 1)
+        if name == "cell_replace_lines" and normalized["end_line"] < normalized["start_line"]:
+            raise ValueError("end_line must not precede start_line")
+        return normalized
     raise ValueError("Unsupported front-end action")
 
 

@@ -19,6 +19,8 @@ EXAMPLES = [
     "bundled-tools.ipynb",
     "live-notebook-tools.ipynb",
     "python-and-web-tools.ipynb",
+    "fastcore-tools.ipynb",
+    "project-tools.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -122,6 +124,18 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "python-and-web-tools.ipynb":
         assert "&`inspect_python`" in "\n".join(outputs)
         assert "&`average_alias`" in "\n".join(outputs)
+    if relative_path == "fastcore-tools.ipynb":
+        text = "\n".join(outputs)
+        assert "Number of observed visits" in text
+        assert "Visits in the first observation" in text
+        assert "Serialize" in text
+        assert "Status: planned" in text
+    if relative_path == "project-tools.ipynb":
+        text = "\n".join(outputs)
+        assert "Disposable project ready" in text
+        assert "stable-note" in text
+        assert "visits" in text
+        assert "Study notes" in text
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)

@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.10"
+version = "0.1.11"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "GPL-3.0-only"
 keywords = ["jupyterlab", "notebooks", "education", "ai", "openai", "anthropic"]
 classifiers = [
@@ -19,7 +19,6 @@ classifiers = [
   "Framework :: Jupyter :: JupyterLab :: Extensions",
   "Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
@@ -27,6 +26,12 @@ dependencies = [
   "jupyterlab>=4.2,<5",
   "jupyter_server>=2,<3",
   "python-fastllm==0.0.63",
+  "fastcore>=2.2.30,<3",
+  "rgapi>=0.1.30,<0.2",
+  "remold>=0.1.1,<0.2",
+  "exhash>=0.4.16,<0.5",
+  "pyskills>=0.0.33,<0.1",
+  "beautifulsoup4>=4.12,<5",
   "python-dotenv>=1,<2",
   "filelock>=3.32,<4",
   "comm>=0.2,<1",

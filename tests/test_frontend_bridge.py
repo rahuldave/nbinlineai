@@ -19,6 +19,7 @@ from nbinlineai.frontend_bridge import (
 )
 from nbinlineai.handlers import ActionReplyHandler
 from nbinlineai.kernel import KernelDispatcher
+from nbinlineai.notebook_tools import NOTEBOOK_TOOL_FUNCTIONS
 from nbinlineai.prompt import run_prompt
 from nbinlineai.tool_schema import fastllm_tool
 
@@ -141,6 +142,56 @@ def test_insert_ack_is_standardized_and_args_bounded(name, cell_type):
             normalize_action(action, {"content": "hi", "execute": True})
         with pytest.raises(ValueError, match="after_cell_id"):
             normalize_action(action, {"content": "hi", "after_cell_id": "x" * 201})
+
+
+@pytest.mark.parametrize("name,args", [
+    ("find_cells", {"query": "value"}),
+    ("replace_cell", {"cell_id": "a", "expected_source": "old", "new_source": "new"}),
+    ("cell_str_replace", {"cell_id": "a", "old_str": "old", "new_str": "new"}),
+    ("cell_insert_line", {"cell_id": "a", "line": 2, "content": "x", "expected_source": "old"}),
+    ("cell_replace_lines", {"cell_id": "a", "start_line": 1, "end_line": 2,
+                            "content": "x", "expected_source": "old"}),
+    ("delete_cell", {"cell_id": "a", "expected_source": "old"}),
+    ("move_cell", {"cell_id": "a", "after_cell_id": "b"}),
+    ("copy_cell", {"cell_id": "a", "after_cell_id": "b"}),
+    ("split_cell", {"cell_id": "a", "line": 2, "expected_source": "old\nnew"}),
+    ("merge_cells", {"first_cell_id": "a", "second_cell_id": "b",
+                     "expected_first": "old", "expected_second": "new"}),
+])
+def test_live_cell_actions_are_allowlisted_and_bounded(name, args):
+    normalized = normalize_action(name, args)
+    assert normalized.items() >= args.items()
+    with pytest.raises(ValueError, match="Unexpected"):
+        normalize_action(name, {**args, "execute": True})
+    with pytest.raises(ValueError):
+        normalize_action(name, {key: value for key, value in args.items() if key != next(iter(args))})
+
+
+def test_live_cell_stubs_require_an_ai_prompt_and_registry_is_immutable():
+    assert len(NOTEBOOK_TOOL_FUNCTIONS) == 10
+    for name, stub in NOTEBOOK_TOOL_FUNCTIONS.items():
+        with pytest.raises(RuntimeError, match="cannot be called directly from Python"):
+            stub(**_minimal_action_arguments(name))
+        assert normalize_action(name, _minimal_action_arguments(name))
+    with pytest.raises(TypeError):
+        NOTEBOOK_TOOL_FUNCTIONS["other"] = lambda: None
+
+
+def _minimal_action_arguments(name):
+    return {
+        "find_cells": {"query": "x"},
+        "replace_cell": {"cell_id": "a", "expected_source": "", "new_source": ""},
+        "cell_str_replace": {"cell_id": "a", "old_str": "x", "new_str": ""},
+        "cell_insert_line": {"cell_id": "a", "line": 1, "content": "", "expected_source": ""},
+        "cell_replace_lines": {"cell_id": "a", "start_line": 1, "end_line": 1,
+                               "content": "", "expected_source": ""},
+        "delete_cell": {"cell_id": "a", "expected_source": ""},
+        "move_cell": {"cell_id": "a", "after_cell_id": "b"},
+        "copy_cell": {"cell_id": "a", "after_cell_id": "b"},
+        "split_cell": {"cell_id": "a", "line": 2, "expected_source": "x\ny"},
+        "merge_cells": {"first_cell_id": "a", "second_cell_id": "b",
+                        "expected_first": "x", "expected_second": "y"},
+    }[name]
 
 
 def test_aliased_special_tool_never_calls_kernel(monkeypatch: pytest.MonkeyPatch):

@@ -1,11 +1,10 @@
 """Opt-in kernel and notebook tools for AI prompt cells.
 
-File tools inspect saved .ipynb files relative to the kernel working directory.
+Saved-notebook readers and fastcore-backed file tools use the kernel filesystem.
 Live cell tools are dispatched by the JupyterLab extension; their Python stubs
 are intentionally not callable directly.
 """
 
-import builtins
 import inspect
 import json
 import os
@@ -17,54 +16,68 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from ._tool_helpers import (
+    MAX_REPR_CHARS,
+    MAX_RESULT_CHARS,
+    PUBLIC_NAME,
+    _bounded,
+    _limit,
+    _resolve_python_name,
+    _text,
+)
+from .execution_tools import EXECUTION_TOOL_FUNCTIONS
+from .fastcore_tools import (
+    FASTCORE_TOOL_FUNCTIONS,
+    create_file,
+    file_insert_line,
+    file_replace_lines,
+    file_str_replace,
+    list_files,
+    path_info,
+    show_doc,
+    view_file,
+)
+from .inspection_tools import INSPECTION_TOOL_FUNCTIONS
 from .kernel_insert_tools import InsertToolsReceipt, request_insert_tools
-from .web_tools import fetch_url_markdown
+from .notebook_tools import NOTEBOOK_TOOL_FUNCTIONS
+from .source_tools import SOURCE_TOOL_FUNCTIONS
+from .web_tools import fetch_url_markdown, read_url_section
+
+__all__ = [
+    "MAX_REPR_CHARS",
+    "MAX_RESULT_CHARS",
+    "SPECIAL_TOOL_FUNCTIONS",
+    "TOOL_FUNCTIONS",
+    "TOOL_GROUPS",
+    "create_file",
+    "file_insert_line",
+    "file_replace_lines",
+    "file_str_replace",
+    "find_notebook_cells",
+    "insert_code",
+    "insert_markdown",
+    "insert_tools",
+    "inspect_python",
+    "list_cells",
+    "list_files",
+    "list_notebooks",
+    "path_info",
+    "read_cell",
+    "read_notebook_cell",
+    "read_url",
+    "read_url_section",
+    "search_kernel_names",
+    "show_doc",
+    "tool_catalog",
+    "tools_markdown",
+    "url_to_note",
+    "view_file",
+]
 
 MAX_NOTEBOOK_BYTES = 8_000_000
-MAX_RESULT_CHARS = 3_200  # The kernel bridge returns at most 4,000 characters.
-MAX_REPR_CHARS = 3_900  # Its result is repr(text), which may escape every character.
 MAX_VISITED_ENTRIES = 2_000
 MAX_DIRECTORY_DEPTH = 6
 SKIP_DIRECTORIES = {".git", ".venv", "venv", "node_modules", "__pycache__"}
-PUBLIC_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
-
-
-def _bounded(
-    value: str,  # Full result text.
-    notice: str = "\n[truncated; narrow the request]",  # Visible truncation notice.
-) -> str:  # Result small enough for the kernel bridge.
-    """Bound result text with an explicit truncation notice."""
-    if len(value) <= MAX_RESULT_CHARS and len(repr(value)) <= MAX_REPR_CHARS:
-        return value
-    low, high = 0, min(len(value), MAX_RESULT_CHARS - len(notice))
-    while low < high:
-        middle = (low + high + 1) // 2
-        if len(repr(value[:middle] + notice)) <= MAX_REPR_CHARS:
-            low = middle
-        else:
-            high = middle - 1
-    return value[:low] + notice
-
-
-def _text(
-    value: str,  # User-supplied text.
-    label: str,  # Field name for errors.
-    maximum: int = 1_000,  # Maximum accepted length.
-) -> str:  # Validated text.
-    """Require a bounded, nonblank string."""
-    if not isinstance(value, str) or not value.strip() or len(value) > maximum:
-        raise ValueError(f"{label} must be nonempty text of at most {maximum} characters")
-    return value
-
-
-def _limit(
-    value: int,  # Requested result count.
-    maximum: int,  # Maximum accepted count.
-) -> int:  # Validated count.
-    """Require a small positive integer result count."""
-    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
-        raise ValueError(f"limit must be an integer from 1 to {maximum}")
-    return value
 
 
 def _cells(
@@ -257,31 +270,6 @@ def read_notebook_cell(
     return _bounded("\n".join([header, *excerpt]), "\n[truncated; request a narrower line range]")
 
 
-def _resolve_python_name(
-    name: str,  # Name in the live user namespace or Python builtins.
-) -> Any:  # Explicitly resolved object without evaluating source code.
-    """Resolve a public name or short attribute path without calling it."""
-    parts = _text(name, "name", 200).split(".")
-    if len(parts) > 4 or any(PUBLIC_NAME.fullmatch(part) is None for part in parts):
-        raise ValueError("name must be a public Python identifier or short attribute path")
-    from IPython import get_ipython
-
-    shell = get_ipython()
-    namespace = getattr(shell, "user_ns", {}) if shell is not None else {}
-    if parts[0] in namespace:
-        value = namespace[parts[0]]
-    elif parts[0] in vars(builtins):
-        value = vars(builtins)[parts[0]]
-    else:
-        raise ValueError("Python name is not defined in the live kernel or builtins")
-    for part in parts[1:]:
-        try:
-            value = inspect.getattr_static(value, part)
-        except AttributeError as exc:
-            raise ValueError(f"Python attribute {part} is not present") from exc
-    return value
-
-
 def inspect_python(
     name: str,  # Explicit public name in the live kernel or builtins.
     section: str = "help",  # help, signature, or source.
@@ -371,6 +359,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "insert_markdown": insert_markdown,
     "insert_code": insert_code,
     "url_to_note": url_to_note,
+    **NOTEBOOK_TOOL_FUNCTIONS,
 })
 
 
@@ -382,13 +371,71 @@ TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "read_notebook_cell": read_notebook_cell,
     "inspect_python": inspect_python,
     "read_url": read_url,
+    **FASTCORE_TOOL_FUNCTIONS,
     **SPECIAL_TOOL_FUNCTIONS,
+    **SOURCE_TOOL_FUNCTIONS,
+    **INSPECTION_TOOL_FUNCTIONS,
+    **EXECUTION_TOOL_FUNCTIONS,
+    "read_url_section": read_url_section,
+})
+
+# Re-export the explicitly curated module registries, never module internals.
+for _name, _function in TOOL_FUNCTIONS.items():
+    globals()[_name] = _function
+    if _name not in __all__:
+        __all__.append(_name)
+del _name, _function
+
+TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
+    "starter": (
+        "search_kernel_names", "list_notebooks", "find_notebook_cells", "read_notebook_cell",
+        "inspect_python", "read_url", "path_info", "list_files", "view_file", "create_file",
+        "file_str_replace", "file_insert_line", "file_replace_lines", "show_doc",
+        "list_cells", "read_cell", "insert_markdown", "insert_code", "url_to_note",
+    ),
+    "files": (
+        "path_info", "list_files", "view_file", "create_file", "file_str_replace",
+        "file_insert_line", "file_replace_lines", "file_strs_replace", "view_file_hashes",
+        "file_replace_checked", "search_files", "document_outline", "read_document_section",
+    ),
+    "code": (
+        "search_files", "search_notebooks", "ast_search", "ast_rewrite", "file_ast_replace",
+        "python_symbols", "source_doc", "source_files", "view_file", "view_file_hashes",
+        "file_replace_checked", "inspect_python", "show_doc",
+    ),
+    "inspect": (
+        "search_kernel_names", "inspect_python", "show_doc", "api_names", "search_docs",
+        "inspect_value", "search_value", "source_files", "source_doc", "list_skills", "read_skill",
+    ),
+    "notebook": (
+        "list_cells", "read_cell", "find_cells", "insert_markdown", "insert_code", "replace_cell",
+        "cell_str_replace", "cell_insert_line", "cell_replace_lines", "delete_cell",
+        "move_cell", "copy_cell", "split_cell", "merge_cells",
+    ),
+    "saved_notebooks": (
+        "list_notebooks", "find_notebook_cells", "read_notebook_cell", "search_notebooks",
+        "notebook_outline", "source_doc",
+    ),
+    "web": ("read_url", "read_url_section", "url_to_note", "insert_markdown"),
+    "execution": ("run_python", "run_shell", "trace_function", "tmux_sessions", "tmux_read"),
 })
 
 
+def tool_catalog(
+    group: str = "",  # Optional group name, or empty for every group.
+) -> str:  # A setup reference without enabled tool declarations.
+    """List available tool groups and names without enabling any functions."""
+    if not isinstance(group, str) or (group and group not in TOOL_GROUPS):
+        raise ValueError("Unknown tool group; use tool_catalog() for the available names")
+    groups = {group: TOOL_GROUPS[group]} if group else TOOL_GROUPS
+    return "\n\n".join(f"{name} ({len(names)} tools): " + ", ".join(names)
+                         for name, names in groups.items())
+
+
 def tools_markdown(
-    names: list[str] | None = None,  # Selected registered/custom names, or all known names.
+    names: list[str] | None = None,  # Explicit names, or the selected group's tools.
     custom: Mapping[str, Callable[..., Any]] | None = None,  # Explicit custom alias-to-callable map.
+    group: str = "starter",  # Tool group used when names is omitted.
 ) -> str:  # Markdown with one removable reference per tool.
     """Print chosen built-in/custom references; this does not register a tool."""
     aliases = {} if custom is None else custom
@@ -399,11 +446,15 @@ def tools_markdown(
                 or alias in TOOL_FUNCTIONS or not callable(function)):
             raise ValueError("custom aliases must be distinct public names bound to callables")
     available = {**TOOL_FUNCTIONS, **aliases}
-    selected = list(available) if names is None else names
+    if not isinstance(group, str) or group not in TOOL_GROUPS:
+        raise ValueError("Unknown tool group; use tool_catalog() for the available names")
+    selected = [*TOOL_GROUPS[group], *aliases] if names is None else names
     if not isinstance(selected, list) or any(not isinstance(name, str) for name in selected):
         raise TypeError("names must be a list of registered tool names or None")
     if len(selected) != len(set(selected)):
         raise ValueError("Tool names must not be repeated")
+    if len(selected) > 20:
+        raise ValueError("Select at most 20 tools; tool and variable references share that limit")
     unknown = [name for name in selected if name not in available]
     if unknown:
         raise ValueError(f"Unknown built-in tool: {unknown[0]}")
@@ -417,8 +468,9 @@ def tools_markdown(
 
 
 def insert_tools(
-    names: list[str] | None = None,  # Selected registered/custom names, or all known names.
+    names: list[str] | None = None,  # Explicit names, or the selected group's tools.
     custom: Mapping[str, Callable[..., Any]] | None = None,  # Explicit custom aliases.
+    group: str = "starter",  # Tool group used when names is omitted.
 ) -> "InsertToolsReceipt":  # Asynchronous status of the new Markdown cell.
     """Request a Markdown tool-reference cell immediately below this code cell.
 
@@ -426,7 +478,7 @@ def insert_tools(
     The returned receipt starts as requested and later says inserted or error;
     save the notebook after the new cell appears. No model or API key is used.
     """
-    markdown = tools_markdown(names, custom)
+    markdown = tools_markdown(names, custom, group)
     if markdown == "No built-in tools selected.":
         raise ValueError("Choose at least one tool to insert")
     return request_insert_tools(markdown)

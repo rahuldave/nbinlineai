@@ -9,7 +9,7 @@ import time
 from email.message import Message
 from html import escape
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 
 MAX_WEB_BYTES = 1_000_000
 MAX_WEB_CHARS = 8_000
@@ -238,11 +238,15 @@ def _sanitize_plain(
 
 def fetch_url_markdown(
     url: str,  # Public HTTP(S) page to read.
+    selector: str = "",  # Optional CSS selector for one HTML section.
+    extract_section: bool = False,  # Use the URL fragment when selector is omitted.
 ) -> str:  # Source-attributed page Markdown, bounded to 8,000 characters.
     """Fetch a public page as short sanitized Markdown for a tool or note."""
     if (not isinstance(url, str) or not url.strip() or len(url) > 2_000
             or any(ord(char) < 32 or ord(char) == 127 for char in url)):
         raise ValueError("url must be a public HTTP(S) URL of at most 2000 characters")
+    if not isinstance(selector, str) or len(selector) > 200:
+        raise ValueError("selector must be text of at most 200 characters")
     current = url.strip()
     deadline = time.monotonic() + MAX_WEB_TOTAL_SECONDS
     for redirect in range(MAX_REDIRECTS + 1):
@@ -271,10 +275,15 @@ def fetch_url_markdown(
         except LookupError as exc:
             raise ValueError("Page declared an unsupported text encoding") from exc
         if content_type in ("text/html", "application/xhtml+xml"):
+            fragment = unquote(urlsplit(url).fragment) if extract_section else ""
+            if selector or fragment:
+                text = _selected_html(text, selector, fragment)
             parser = _PageMarkdown()
             parser.feed(text)
             body = parser.markdown()
         else:
+            if selector:
+                raise ValueError("CSS selectors require an HTML page")
             body = _sanitize_plain(text)
         source = urlunsplit(urlsplit(current)._replace(fragment=""))
         result = f"Source: {source}\n\n{body or '[No readable text on page]'}"
@@ -282,3 +291,41 @@ def fetch_url_markdown(
             result = result[:MAX_WEB_CHARS - 42] + "\n[truncated; open the source URL for more]"
         return result
     raise AssertionError("Redirect loop exhausted without returning")
+
+
+def _selected_html(
+    html: str,  # Previously downloaded size-bounded HTML.
+    selector: str,  # Explicit CSS selector, or empty for a fragment ID.
+    fragment: str,  # Decoded original URL fragment.
+) -> str:  # The first selected element, or heading and its section siblings.
+    """Extract a page section before the existing sanitized Markdown conversion."""
+    from bs4 import BeautifulSoup, Tag
+    from soupsieve import SelectorSyntaxError
+
+    soup = BeautifulSoup(html, "html.parser")
+    try:
+        selected = soup.select_one(selector) if selector else soup.find(id=fragment)
+    except SelectorSyntaxError as exc:
+        raise ValueError("Invalid CSS selector") from exc
+    if selected is None:
+        raise ValueError("No page element matches the selector or URL fragment")
+    if selected.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+        level = int(selected.name[1])
+        parts = [str(selected)]
+        for sibling in selected.next_siblings:
+            if (isinstance(sibling, Tag) and sibling.name in {"h1", "h2", "h3", "h4", "h5", "h6"}
+                    and int(sibling.name[1]) <= level):
+                break
+            parts.append(str(sibling))
+        return "".join(parts)
+    return str(selected)
+
+
+def read_url_section(
+    url: str,  # Public page URL, optionally including a section fragment.
+    selector: str = "",  # Optional CSS selector for one HTML element or heading section.
+) -> str:  # Bounded source-attributed section text.
+    """Read one public web-page section using a CSS selector or URL fragment."""
+    from ._tool_helpers import _bounded
+
+    return _bounded(fetch_url_markdown(url, selector, extract_section=True))

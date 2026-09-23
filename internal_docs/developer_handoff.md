@@ -2,10 +2,12 @@
 
 Reviewed **2026-09-23**. Latest published package: **0.1.10**, source commit `03967c8233d3aff269c4272a014d05ab2001a711`, tag `v0.1.10`. This release adds Light/Dark AI-cell backgrounds, editable starters, focus guidance/landmarks and unexecuted code insertion, plus combined Jupyter AI examples. Final wheel/source checks, a clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for publication and test evidence, and the implementation sections below.
 
+**0.1.11 release preparation:** the expanded tool collection and separate public Tools reference / Examples guide are implemented after this release. Publication is being verified separately; the final release record below must be updated after upload. See [candidate assessment](fastcore_tool_candidates.md).
+
 ## Product and environment
 
 - Public repo: https://github.com/rahuldave/nbinlineai; website: https://rahuldave.com/nbinlineai/; PyPI package: `nbinlineai`.
-- GPL-3.0-only, matching ai-jup. Runtime Python >=3.11; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
+- GPL-3.0-only, matching ai-jup. Runtime Python >=3.12; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
 - A prebuilt Python wheel contains frontend assets and the auto-enabled Jupyter Server extension. Students install through JupyterLab's PyPI Extension Manager or their environment's uv/pip. Restart the **whole server** after installation/update, then refresh the page. Reloading only the frontend can leave new server routes unavailable.
 - API backends: OpenAI and Anthropic via pinned `python-fastllm==0.0.63`. A native inline ChatGPT subscription/Codex backend remains research only. A separate Jupyter AI Codex ACP chat route was successfully exercised; see the [worked-example run](codex_acp_example_run.md). Never treat a subscription as an API key or assume agent login configures inline requests.
 - Students supply their own keys through Configure AI. Private per-user JSON is under `$XDG_CONFIG_HOME/nbinlineai/credentials.json`, or `~/.config/nbinlineai/credentials.json` on macOS/Linux when XDG is absent; Windows falls back to APPDATA. Server environment keys and development `.env` are supported. The browser gets availability, not saved key values. Inspect storage behavior through `credentials.py` and tests, not by printing real credentials.
@@ -39,6 +41,11 @@ The shared budget is 64,000 serialized Unicode characters, including tool schema
 | Live namespace introspection and callable execution | `nbinlineai/kernel.py` |
 | Flat FastLLM schema translation, API request | `nbinlineai/tool_schema.py`, `nbinlineai/providers.py` |
 | Tool registry/formatting, bounded web reads | `nbinlineai/tools.py`, `nbinlineai/web_tools.py` |
+| Fastcore documentation/filesystem tools; shared bounds/name lookup | `nbinlineai/fastcore_tools.py`, `nbinlineai/_tool_helpers.py` |
+| Project/source search, AST changes and verified file edits | `nbinlineai/source_tools.py` |
+| API/value inspection, skill discovery and execution tracing | `nbinlineai/inspection_tools.py` |
+| Live notebook edit signatures and shared-model operations | `nbinlineai/notebook_tools.py`, `src/frontendCellEdits.ts` |
+| Separate subprocess execution and local tmux reads | `nbinlineai/execution_tools.py` |
 | Authenticated routes, session/kernel binding, safe errors | `nbinlineai/handlers.py`, `nbinlineai/__init__.py` |
 | Private keys and server/model configuration | `nbinlineai/credentials.py`, `nbinlineai/config.py` |
 
@@ -94,7 +101,7 @@ Keep versions aligned in `pyproject.toml`, `package.json`, `nbinlineai/__init__.
 
 GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
 
-Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, broad edit/delete/execute tools, durable action replay, other-notebook live operations, and ChatGPT subscription login. See the research index; do not interpret historical “proposed” sections as existing APIs.
+Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and ChatGPT subscription login. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
 
 ## Context selection in version 0.1.8
 
@@ -136,3 +143,38 @@ This section describes the current source; consult the release record for its pu
 - **Coexistence/examples:** read the pinned [Jupyter AI investigation](jupyter_ai_compatibility.md) and [actual Codex ACP run](codex_acp_example_run.md). Default Jupyter AI Run Cell executes explicit code directly and is a no-op for Markdown AI questions; its Run All uses the native path. The new pollinator and Codex revenue notebooks demonstrate agent chat plus inline tutoring. They are unrun templates; the Codex draft intentionally fails its diagnostic until repaired. All ten example notebook files (including the data fixture) are covered by headless checks, with only the established UI helper cell skipped.
 
 Browser tests now include `question-starters.spec.ts` (empty display, first click, editing, keyboard/undo, persistence) and `theme-colors.spec.ts` (Light/Dark tint, text readability, native editors, Copy and top-control geometry). `frontend-actions.spec.ts` covers inserted code through real Jupyter and save/reload, including the current Run All non-execution guarantee. The screenshot helper also captures a starter row and an illustrative unexecuted code draft; captions distinguish illustrative fixtures from actual provider runs. See the release record for exact pass counts and any corrected harness failures.
+
+## Unreleased fastcore tools and documentation split
+
+Source work on **2026-09-23**, after 0.1.10; **PyPI is unchanged**.
+
+- `nbinlineai/fastcore_tools.py` adds eight synchronous kernel tools: `show_doc`, `path_info`, `list_files`, `view_file`, `create_file`, `file_str_replace`, `file_insert_line`, and `file_replace_lines`. `tools.py` re-exports them and includes them in the nineteen-tool source registry. The default declaration helper now lists nineteen; the existing twenty-distinct-tool/variable cap still applies, so docs recommend selecting needed tools. No browser protocol changed.
+- `show_doc(name, module="")` uses fastcore's `MarkdownRenderer` for comments/NumPy-style parameter documentation. Its returned string is bounded Markdown and supports the same rich Markdown for direct notebook display. Existing live names need no new import; an explicit installed-module name imports in the kernel, with empty `name` showing module docs. Imports execute initialization; the documented function is not called. A no-import source-file documentation tool remains proposed.
+- Generic files use kernel cwd/absolute paths, bounded UTF-8 reads, a capped directory walk, no-clobber creation and explicit edits. Mutations reject supplied/resolved `.ipynb` paths. Match/range validation precedes writes; edits preserve permissions and use a staged file plus `os.replace`, with a stat-change check before staging. This is not a lock or atomic compare-and-swap against another writer. Existing live notebook cells still belong to JupyterLab.
+- Shared `_bounded`, `_text`, `_limit` and static live-name resolution moved unchanged to `_tool_helpers.py`, avoiding a registry/module import cycle. Fastcore is now a direct `>=2.2.30,<3` dependency; the lock retains installed 2.2.30. No dialoghelper, remold, rgapi, exhash, or nbdev dependency was added.
+- Public docs now separate [Tools reference](../docs/tools.md) from [Examples](../docs/examples.md), with updated page navigation and crosslinks. The reference contains the available-tool contracts plus a clearly proposed candidate table. [Pinned research](fastcore_tool_candidates.md) resurfaces AST search/rewrite, project search, source/API outlines, richer inspection, tracing and live-cell integration. `examples/fastcore-tools.ipynb` demonstrates both documentation styles and a disposable text-file workspace, without stored outputs or keys.
+
+Verification:
+
+- **171 Python tests passed**, including fourteen new focused tool tests, actual isolated-kernel schemas/calls, and all eleven example notebook files. Ruff, TypeScript checking, `uv lock --check`, and `git diff --check` passed.
+- **45 frontend unit tests passed**. There are no frontend runtime source changes, so no asset rebuild/relink was needed for this work.
+- **Seven inherited-tool browser regressions passed** on the isolated 8897 harness. The new fastcore test passed separately after correcting two test-harness mistakes: waiting for notebook/kernel readiness before setup, and exercising Keep with native Shift+Enter instead of clicking its correctly disabled Run button. It verifies actual kernel file effects, inherited schemas, rich rendered docs both directly and through the deterministic provider, and no repeat request/effects under Keep. This is eight passing focused tests across runs, not an uninterrupted full-suite browser run.
+- Public local documentation links/anchors were checked. The existing inherited-tools screenshot regenerated during regression testing was restored; no new illustration was claimed. Owned browser servers shut down, port 8888 was untouched, and no paid provider call occurred.
+
+Release work remains: choose/bump the next version, rebuild/check wheel and source archive, clean-install verification, PyPI publication, pushed source/tag, and verification of public artifacts/site. No commit, source push, package upload, or site deployment was performed in this implementation task.
+
+Follow-up inventory: the fastcore candidate research now distinguishes every direct provider in dialoghelper's pinned `stdtools.py`, additional dialoghelper modules, and the wider discoverable skill ecosystem. Newly surfaced candidates include pyskills API listing/documentation search and skill discovery, ipykernel-helper selector-based page extraction, batch replacement, and aidialog move/split/merge operations. These remain proposals. The repository environment imports nbinlineai through an editable source install; its installed distribution metadata still reports 0.1.0, so metadata alone is not a reliable indication of the source being imported here. The new Python module is importable without reinstalling in this environment. Already-running kernels may cache old imports, and separately installed notebook kernels need their own update. No user kernel or server was restarted or reinstalled during this check.
+
+## Version 0.1.11 tool collection
+
+The user subsequently requested implementation and a full release, superseding the implementation-only stopping point above. The current registry contains **55 tools**, including **15 browser-dispatched functions**. Public tools reference and examples are separate pages. Version metadata is 0.1.11; publication evidence belongs in the release record.
+
+- Tool groups: `starter` (the previous nineteen source tools), `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`. `tool_catalog()` is a declaration-free setup reference. `tools_markdown(group=...)` and `insert_tools(group=...)` select one group; explicit `names` remain supported. Helpers reject more than twenty selected names rather than generating an unusable declaration. This is our own combined tool/variable-reference guard, not a provider-imposed limit. The separate 64,000-character estimate remains.
+- Source tools use bounded rgapi search, remold/ast-grep Python syntax search and rewrite, static AST/token documentation without imports, saved-notebook outlines, exhash document sections, validated batch replacements and whole-file SHA-256 checked edits. Filesystem searches default to the kernel cwd and descendants; explicit paths may point elsewhere. This is not a sandbox or a promise that cwd equals the notebook folder.
+- Live tools search, replace, insert/range-edit, delete, move, copy, split and merge ordinary cells through the existing authenticated action bridge. AI question/answer cells are protected. Structural edits retain stable IDs when appropriate, preserve metadata/Markdown attachments and reject incompatible merge fields before mutation. Edited code clears stale execution counts/outputs. Copies and split-off cells get new IDs and no results. No operation executes or saves a cell.
+- Inspection adds static public API listings, bounded documentation search and common-container slices/search, source-file discovery, and static installed pyskill discovery/instructions. Explicit `module=` imports execute module initialization; source docs and skill descriptions do not import their targets. Tracing uses scoped standard-library tracing on supported Python 3.12+, calls the selected function once, bounds recorded events and restores the previous trace hook. It is execution, not a static read or a hard timeout.
+- `run_python` and `run_shell` execute separate processes with explicit working directories, a 1–20 second timeout and 64 KB output capture limit; the final model response remains 4,000 characters. Python uses the kernel interpreter but does not share its live namespace. These run with the kernel user's permissions and are not a sandbox. Local tmux inventory/read tools require tmux and do not address JupyterLab's terminal service.
+- `read_url_section` adds CSS-selector or fragment extraction within the existing bounded public-URL fetch. Ordinary `read_url` and URL notes retain their whole-page behavior.
+- New direct dependencies are fastcore, rgapi, remold, exhash, pyskills and Beautiful Soup. No dialoghelper/Solveit runtime is imported. Existing notebooks still discover declarations before context trimming; current `&` references and the shared-model/kernel distinction are unchanged.
+
+The full 0.1.11 release changes both Python and frontend assets: installed users need an upgrade in the server and selected kernel environments as appropriate, then a whole JupyterLab server restart/page refresh and fresh kernel imports. The earlier Python-only editable-install observation does not replace that release-upgrade instruction. Port 8888 must remain untouched by automation.

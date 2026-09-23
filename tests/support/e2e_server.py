@@ -6,6 +6,7 @@ or the user's running JupyterLab server.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import json
 import os
@@ -41,6 +42,77 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    cell_edit_sequences = {
+        "E2E_CELL_EDIT_SOURCE": [
+            ("find_cells", {"query": "UNSAVED_MARKER", "cell_type": "code"}),
+            ("replace_cell", {"cell_id": "target", "expected_source": "UNSAVED_MARKER = 10",
+                              "new_source": "UNSAVED_MARKER = 11"}),
+            ("replace_cell", {"cell_id": "target", "expected_source": "UNSAVED_MARKER = 10",
+                              "new_source": "UNSAVED_MARKER = 11"}),
+            ("replace_cell", {"cell_id": "ask", "expected_source": "E2E_CELL_EDIT_SOURCE",
+                              "new_source": "wrong"}),
+        ],
+        "E2E_CELL_EDIT_STRUCTURE": [
+            ("split_cell", {"cell_id": "a", "line": 2, "expected_source": "alpha\nbeta"}),
+            ("merge_cells", {"first_cell_id": "b", "second_cell_id": "c",
+                             "expected_first": "bravo", "expected_second": "charlie"}),
+            ("copy_cell", {"cell_id": "b", "after_cell_id": "d"}),
+            ("move_cell", {"cell_id": "d", "after_cell_id": "a"}),
+            ("delete_cell", {"cell_id": "e", "expected_source": "erase me"}),
+        ],
+        "E2E_CELL_EDIT_LINES": [
+            ("cell_insert_line", {"cell_id": "target", "line": 2, "content": "middle",
+                                  "expected_source": "first\nlast"}),
+            ("cell_replace_lines", {"cell_id": "target", "start_line": 2, "end_line": 2,
+                                    "content": "replaced", "expected_source": "first\nmiddle\nlast"}),
+            ("cell_str_replace", {"cell_id": "target", "old_str": "last", "new_str": "tail",
+                                  "expected_matches": 1}),
+        ],
+    }
+    for marker, sequence in cell_edit_sequences.items():
+        if marker not in current_user:
+            continue
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if len(results) < len(sequence):
+            name, arguments = sequence[len(results)]
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id=f"cell-edit-{len(results)}", name=name, arguments=arguments)]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "CELL_EDIT_DONE " + "\n".join(part.text for part in results)[:3500])]))
+    if "E2E_FASTCORE_TOOLS" in current_user:
+        required = {"show_doc", "file_str_replace", "view_file"}
+        if not required.issubset(schema_names):
+            return Completion(model=model, message=Msg("assistant", [Text(
+                "MISSING_FASTCORE_SCHEMAS " + ",".join(sorted(required.difference(schema_names)))
+            )]))
+        results = [
+            part for message in messages for part in getattr(message, "content", [])
+            if isinstance(part, ToolResult)
+        ]
+        calls = (
+            ("show_doc", {"name": "lesson_rate"}),
+            ("file_str_replace", {"path": "fastcore-fixture.txt", "old_str": "Original", "new_str": "Revised"}),
+            ("view_file", {"path": "fastcore-fixture.txt", "start_line": 1, "end_line": 2}),
+        )
+        if len(results) < len(calls):
+            name, arguments = calls[len(results)]
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id=f"e2e-fastcore-{len(results)}", name=name, arguments=arguments,
+            )]))
+
+        def result_text(part: ToolResult) -> str:
+            """Unquote the kernel dispatcher's repr of a returned string."""
+            try:
+                value = ast.literal_eval(part.text)
+            except (SyntaxError, ValueError):
+                return part.text
+            return value if isinstance(value, str) else part.text
+
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "Live function documentation:\n\n" + result_text(results[0])
+            + "\n\nEdited file contents:\n\n" + result_text(results[2])
+        )]))
     if "E2E_AI_AUDIT" in current_user:
         markers = (
             "EARLIER_AI_QUESTION", "EARLIER_AI_ANSWER",

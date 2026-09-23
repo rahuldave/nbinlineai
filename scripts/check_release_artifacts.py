@@ -21,12 +21,15 @@ EXAMPLE_REQUIRED = {
 } | {f"examples/{path.relative_to(EXAMPLE_DIR).as_posix()}" for path in EXAMPLE_DIR.rglob("*.ipynb")}
 SOURCE_REQUIRED = {
     "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
-    "docs/tools.md",
+    "docs/tools.md", "docs/examples.md",
     "pyproject.toml", "package.json", "yarn.lock",
-    "src/index.ts", "src/context.ts", "src/contextControls.ts", "src/frontendActions.ts", "src/insertTools.ts",
+    "src/index.ts", "src/context.ts", "src/contextControls.ts", "src/frontendActions.ts",
+    "src/frontendCellEdits.ts", "src/insertTools.ts",
     "src/insertToolsProtocol.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
     "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
+    "nbinlineai/fastcore_tools.py", "nbinlineai/source_tools.py", "nbinlineai/inspection_tools.py",
+    "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
     "nbinlineai/kernel_insert_tools.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
@@ -34,6 +37,8 @@ SOURCE_REQUIRED = {
 WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
     "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
+    "nbinlineai/fastcore_tools.py", "nbinlineai/source_tools.py", "nbinlineai/inspection_tools.py",
+    "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
     "nbinlineai/kernel_insert_tools.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
@@ -42,6 +47,7 @@ WHEEL_REQUIRED_SUFFIXES = {
     "share/doc/nbinlineai/docs/architecture.md",
     "share/doc/nbinlineai/docs/faq.md",
     "share/doc/nbinlineai/docs/tools.md",
+    "share/doc/nbinlineai/docs/examples.md",
 } | {f"share/doc/nbinlineai/{path}" for path in EXAMPLE_REQUIRED}
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)")
 REFERENCE_IMAGE = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")
@@ -136,7 +142,7 @@ def check_sdist(path: Path) -> dict[str, set[str]]:
                 if content is None:
                     raise SystemExit(f"Source archive could not read {suffix}")
                 _check_server_discovery(content.read(), f"Source archive {suffix}")
-        for filename in ("docs/user-guide.md", "docs/tools.md", "README.md"):
+        for filename in ("docs/user-guide.md", "docs/tools.md", "docs/examples.md", "README.md"):
             content = archive.extractfile(relative[filename]) if filename in relative else None
             if content is None:
                 raise SystemExit(f"Source archive could not read {filename}")
@@ -162,7 +168,7 @@ def check_wheel(path: Path, source_doc_images: dict[str, set[str]]) -> None:
         manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
         if manifest is not None:
             _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")
-        for filename in ("docs/user-guide.md", "docs/tools.md"):
+        for filename in ("docs/user-guide.md", "docs/tools.md", "docs/examples.md"):
             page = next((name for name in names if name.endswith("share/doc/nbinlineai/" + filename)), None)
             if page is not None:
                 prefix = page.removesuffix(filename)

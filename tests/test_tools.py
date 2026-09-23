@@ -19,17 +19,22 @@ def _notebook(
 
 
 def test_registry_and_markdown_are_explicit() -> None:  # No accidental model tools.
-    """Advertise eleven approved callables and omit the formatting helper."""
-    assert list(tools.TOOL_FUNCTIONS) == [
+    """Expose the curated registry while keeping default declarations within budget."""
+    assert len(tools.TOOL_FUNCTIONS) == 55
+    assert list(tools.TOOL_GROUPS["starter"]) == [
         "search_kernel_names", "list_notebooks", "find_notebook_cells", "read_notebook_cell",
-        "inspect_python", "read_url", "list_cells", "read_cell", "insert_markdown",
+        "inspect_python", "read_url", "path_info", "list_files", "view_file", "create_file",
+        "file_str_replace", "file_insert_line", "file_replace_lines", "show_doc",
+        "list_cells", "read_cell", "insert_markdown",
         "insert_code", "url_to_note",
     ]
     assert all(tools.TOOL_FUNCTIONS[name] is getattr(tools, name) for name in tools.TOOL_FUNCTIONS)
-    assert list(tools.SPECIAL_TOOL_FUNCTIONS) == [
-        "list_cells", "read_cell", "insert_markdown", "insert_code", "url_to_note"]
+    assert set(tools.SPECIAL_TOOL_FUNCTIONS) == {
+        "list_cells", "read_cell", "insert_markdown", "insert_code", "url_to_note",
+        "find_cells", "replace_cell", "cell_str_replace", "cell_insert_line", "cell_replace_lines",
+        "delete_cell", "move_cell", "copy_cell", "split_cell", "merge_cells"}
     markdown = tools.tools_markdown()
-    assert markdown.count("&`") == 11
+    assert markdown.count("&`") == 19
     assert "&`insert_code` — Insert an unexecuted code cell below the AI answer" in markdown
     assert "tools_markdown" not in markdown
     assert tools.tools_markdown(["read_notebook_cell"]).count("&`") == 1
@@ -38,6 +43,16 @@ def test_registry_and_markdown_are_explicit() -> None:  # No accidental model to
         tools.tools_markdown(["tools_markdown"])
     with pytest.raises(ValueError, match="must not be repeated"):
         tools.tools_markdown(["list_notebooks", "list_notebooks"])
+    with pytest.raises(ValueError, match="at most 20"):
+        tools.tools_markdown(list(tools.TOOL_FUNCTIONS))
+    for group, names in tools.TOOL_GROUPS.items():
+        assert len(names) <= 20
+        assert set(names) <= tools.TOOL_FUNCTIONS.keys()
+        assert tools.tools_markdown(group=group).count("&`") == len(names)
+    assert "&`" not in tools.tool_catalog()
+    assert "ast_search" in tools.tool_catalog("code")
+    with pytest.raises(ValueError, match="Unknown tool group"):
+        tools.tools_markdown(group="missing")
 
 
 def test_custom_reference_aliases_are_explicit_and_do_not_register() -> None:

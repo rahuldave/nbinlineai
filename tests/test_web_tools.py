@@ -212,3 +212,23 @@ def test_fetch_rejects_non_http_urls_and_credential_authorities() -> None:
     ):
         with pytest.raises(ValueError, match=error):
             web_tools.fetch_url_markdown(url)
+
+
+def test_section_extraction_keeps_heading_body_and_sanitizes(
+    monkeypatch: pytest.MonkeyPatch,  # Replace HTTP with bounded fixture HTML.
+) -> None:
+    """Read a specific heading section or selector without the rest of the page."""
+    html = ("<h1>Manual</h1><h2 id='first'>First</h2><p>Selected detail.</p>"
+            "<script>unwanted()</script><h2 id='second'>Second</h2><p>Other detail.</p>")
+    monkeypatch.setattr(web_tools, "_download_once", lambda url, deadline: (
+        200, _headers(), html.encode()
+    ))
+    section = web_tools.read_url_section("https://example.com/manual#first")
+    assert "First" in section and "Selected detail" in section
+    assert "Other detail" not in section and "unwanted" not in section
+    assert "Other detail" in web_tools.fetch_url_markdown("https://example.com/manual#first")
+    assert "Other detail" in web_tools.read_url_section("https://example.com/manual", "#second")
+    with pytest.raises(ValueError, match="No page element"):
+        web_tools.read_url_section("https://example.com/manual", ".missing")
+    with pytest.raises(ValueError, match="Invalid CSS"):
+        web_tools.read_url_section("https://example.com/manual", "[")

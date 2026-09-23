@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes version 0.1.10. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
+This guide describes version 0.1.11. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -15,7 +15,7 @@ For Run All, editing corrections, kernel loss, restarts, and cancellation questi
 - [Edit, rerun, and save](#3-edit-rerun-and-save)
 - [Context](#4-what-context-does-the-ai-receive)
 - [Variables and functions](#5-reference-live-variables-and-functions)
-- [Bundled tools and example notebooks](tools.md)
+- [Tools reference](tools.md) and [examples guide](examples.md)
 - [Saved cells](#6-how-cells-are-stored)
 - [API key storage](#7-where-keys-are-stored)
 - [Architecture](#8-how-it-works-underneath)
@@ -23,7 +23,7 @@ For Run All, editing corrections, kernel loss, restarts, and cancellation questi
 
 ## 1. Install and set up
 
-You need JupyterLab 4.2 or newer, Python 3.11 or newer, and an OpenAI or Anthropic **API key**.
+You need JupyterLab 4.2 or newer, Python 3.12 or newer, and an OpenAI or Anthropic **API key**.
 
 1. Open JupyterLab's **Extension Manager**, search for **nbinlineai**, and install it.
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
@@ -167,7 +167,7 @@ Put `` &`insert_code` `` in an ordinary Markdown note above your question, then 
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what it does.
 
-The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](faq.md#can-i-ask-the-ai-to-call-insert_markdown) and [tools guide](tools.md) for examples and limits.
+The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](faq.md#can-i-ask-the-ai-to-call-insert_markdown), [examples guide](examples.md), and [tools reference](tools.md).
 
 ![Illustrative question, retained answer, and a separate unexecuted code cell](images/insert-code.png)
 
@@ -341,9 +341,9 @@ Functions named with `&` in the current question or any ordinary Markdown/AI que
 
 From **0.1.7**, declare tools once in a Markdown note and use them in questions below. Several notes can add different tools; duplicate names are registered once. Enabled declarations remain effective even when their text is unchecked or omitted for space; the separate Tools checkbox withdraws declarations from that cell. AI answers, code, raw cells, and cells below the question do not register tools. Eligible Markdown is scanned even inside quotations and fenced code blocks. Live `$` variable interpolation remains limited to the **current question**.
 
-`nbinlineai.tools` includes eleven tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes or unexecuted code drafts. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into a Markdown note above your questions and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
+Version 0.1.11 includes 55 optional tools for live and saved notebook cells, project search, source and Python inspection, public pages, checked text edits, and bounded subprocesses. Import `tool_catalog` from `nbinlineai.tools`, then run `print(tool_catalog())` to see groups without offering anything. Import the functions you want, then run `print(tools_markdown([...]))` or choose a group with `tools_markdown(group="code")`; copy and shorten the references in a Markdown note above your questions. The default starter group has 19 tools, and a request permits 20 distinct tool and variable names combined. See the [tools reference](tools.md) and [examples guide](examples.md).
 
-Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this is separate from the text chosen by the Context controls. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default; `insert_code` inserts an ordinary code cell without running it. Save the notebook to preserve them. Rerunning a prompt can insert another cell, and cancelling does not undo a cell already inserted. The five tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
+Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this is separate from the text chosen by the Context controls. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default; `insert_code` inserts an ordinary code cell without running it. Save the notebook to preserve them. Rerunning a prompt can insert another cell, and cancelling does not undo a cell already inserted. The live-cell tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
 
 Use normal synchronous Python functions with named parameters, simple type annotations, and a helpful docstring. Async functions and signatures using positional-only parameters, `*args`, or `**kwargs` are not supported. Function output sent back to the model combines captured standard output and the return value's text representation.
 

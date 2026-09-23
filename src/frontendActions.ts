@@ -1,4 +1,5 @@
 import type { INotebookModel } from '@jupyterlab/notebook';
+import { performCellEdit } from './frontendCellEdits';
 
 export interface FrontendAction {
   request_id: string;
@@ -72,6 +73,21 @@ export class NotebookActionBridge {
         case 'read_cell': return { ok: true, text: this.readCell(args) };
         case 'insert_markdown': return { ok: true, cell_id: this.insertCell(args, 'markdown') };
         case 'insert_code': return { ok: true, cell_id: this.insertCell(args, 'code') };
+        case 'find_cells':
+        case 'replace_cell':
+        case 'cell_str_replace':
+        case 'cell_insert_line':
+        case 'cell_replace_lines':
+        case 'delete_cell':
+        case 'move_cell':
+        case 'copy_cell':
+        case 'split_cell':
+        case 'merge_cells': {
+          if (this.cellIndex(this.promptCellId) < 0 || this.cellIndex(this.outputCellId) < 0) {
+            throw new Error('The originating AI prompt or answer was removed.');
+          }
+          return { ok: true, text: performCellEdit(this.model, action.name, args).slice(0, 4000) };
+        }
         default: throw new Error('Unknown notebook action.');
       }
     } catch (error) {
@@ -88,6 +104,9 @@ export class NotebookActionBridge {
   }
 
   private listCells(args: Record<string, unknown>): string {
+    if (Object.keys(args).some(key => key !== 'start' && key !== 'limit')) {
+      throw new Error('Unsupported list_cells argument.');
+    }
     const start = integer(args.start, 0, 0, 100000, 'start');
     const limit = integer(args.limit, 20, 1, 50, 'limit');
     const cells: Array<Record<string, unknown>> = [];
@@ -116,6 +135,9 @@ export class NotebookActionBridge {
   }
 
   private readCell(args: Record<string, unknown>): string {
+    if (Object.keys(args).some(key => key !== 'cell_id' && key !== 'start_line' && key !== 'end_line')) {
+      throw new Error('Unsupported read_cell argument.');
+    }
     const id = args.cell_id;
     if (typeof id !== 'string' || !id.trim() || id.length > 200) throw new Error('Invalid cell ID.');
     const start = integer(args.start_line, 1, 1, 1000000, 'start line');

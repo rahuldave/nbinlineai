@@ -1,224 +1,154 @@
 ---
-title: Tools and examples
+title: Tools reference
 ---
 
-# Tools and example notebooks
+# Tools reference
 
-nbinlineai includes eleven tools and a helper that writes their Markdown references for you. Tools can inspect Python state, read saved notebooks, read the open notebook's unsaved cells, retrieve public documentation, and insert editable Markdown notes or unexecuted code cells. From **0.1.7**, declare tools once in ordinary Markdown or an AI question and they remain available to later AI questions below. Importing them alone does not expose them to the model.
+Version **0.1.11** offers 55 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
 
-## Import, print, paste
+A new release with frontend changes needs a **JupyterLab server restart** after installation or upgrade, followed by a browser reload. Restart the selected Python kernel and rerun imports too. The older editable-install, Python-only shortcut for the first eight fastcore tools does not apply to this release's live notebook edits. See [setup](user-guide.md) and [development](development.md).
 
-Run this in a **Python code cell**:
-
-```python
-from nbinlineai.tools import (
-    search_kernel_names,
-    list_notebooks,
-    find_notebook_cells,
-    read_notebook_cell,
-    inspect_python,
-    read_url,
-    list_cells,
-    read_cell,
-    insert_markdown,
-    insert_code,
-    url_to_note,
-    tools_markdown,
-)
-
-print(tools_markdown())
-```
-
-Copy the printed Markdown into an **ordinary Markdown cell above your AI questions**. Remove any tool lines you do not want available. For example, this note declares just one tool:
-
-```text
-- &`search_kernel_names` — Search names in the live Python kernel.
-```
-
-Now add an AI Prompt below it:
-
-```text
-Use the search tool to find live variables containing "score", and tell me their types.
-```
-
-Run the AI cell. The software finds the declaration above and sends the model a function description. Later AI questions inherit it too, without repeating `&`. It is still the model's choice whether to call a tool; ask it to use the tool when the task requires a lookup. You can also declare tools directly in an AI question, as in earlier versions.
-
-To print only a subset:
+## Choose and declare tools
 
 ```python
-print(tools_markdown(["find_notebook_cells", "read_notebook_cell"]))
+from nbinlineai.tools import search_files, source_doc, tools_markdown
+print(tools_markdown(["search_files", "source_doc"]))
 ```
 
-`tools_markdown()` returns a string. It is a convenience function for you, and is not included in the generated tool list. Six tools also work as direct Python calls; the five tools that access the open notebook require an AI prompt running through the extension.
+Paste the output into an ordinary Markdown cell above your AI question; delete any references you do not want to offer. To have the frontend insert that note below the calling code cell, use `insert_tools(["search_files", "source_doc"])`. The helper returns an asynchronous receipt: check its `status`, `cell_id`, or `error` in a later code cell. Save the notebook after insertion. The helper needs the nbinlineai frontend and ipykernel 6.18 or newer; `tools_markdown()` also works without the frontend.
 
-![A Markdown tool declaration shared by AI questions below it](images/inherited-tools.png)
+`tool_catalog(group="")` lists group names and member names **without `&` declarations**. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` default to the 19-tool starter group. Pass a group such as `"code"`, `"notebook"`, or `"web"`, or pass an explicit `names` list to select individual functions. `names` takes precedence over the group. Some groups contain overlapping tools, and the 20-reference limit still applies to a generated note. The available groups are `starter`, `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`.
 
-This demonstration uses a simulated provider and a real Python kernel; the declared custom function actually changes the live bonus counter.
+```python
+from nbinlineai.tools import *         # Import the toolbox; declarations choose model access.
+print(tool_catalog())                  # names only; no declarations
+print(tools_markdown(group="code"))    # removable & references
+```
 
-### Where do the references belong?
+An eligible ordinary Markdown cell or earlier AI question can declare tools for later questions. AI answers, code cells, raw cells, output, and cells below the question do not declare them. The **Tools** checkbox on each declaration cell controls whether its references count; it is independent of the **Context** text checkbox. The server discovers enabled references before optional context trimming, and Current question only retains enabled tool choices. Duplicate names count once. A missing imported name fails before the provider call. The current question's ``$`name` `` reads a live kernel value; earlier `$` references stay literal. A request permits **20 distinct tool and variable names combined**. This is nbinlineai’s own guardrail, not a provider-imposed tool limit. Schemas, instructions, and executed tool results use the shared 64,000-character estimate before optional notebook text. Keep answer skips a completed tool run; cancellation does not undo completed effects.
 
-| Where a reference appears | What happens |
+## Function index
+
+Every row below is an import from `nbinlineai.tools`. Signatures show the callable parameters and defaults. All functions are synchronous; model calls use named arguments. `tools_markdown`, `insert_tools`, and `tool_catalog` are setup helpers, not model tools.
+
+### Live Python and registered skills
+
+| Function | Purpose |
 | --- | --- |
-| In the **current AI prompt**, as ``&`function_name` `` | Registers that function for this request and makes it available to later questions below. |
-| In the **current AI prompt**, as ``$`variable_name` `` | Reads that variable's current kernel value into the request. |
-| In an ordinary Markdown cell above | `&` declares tools for questions below; `$` stays literal text. The note need not be executed. |
-| In an earlier AI question | `&` declares tools for questions below, even if that question was never run or its answer is kept. `$` is not read again. |
-| In an AI answer | Does not register tools or read variables, including after manual edits. Copy an intended declaration into an ordinary Markdown note. |
-| In code source, raw cells, or printed output | Does not register tools. Copy the references into a Markdown note or AI question. |
-| In any cell below the current question | Does not register tools for that question. |
+| `search_kernel_names(query: str, limit: int = 20)` | Find live Python kernel names containing a literal query, with types only. |
+| `inspect_python(name: str, section: str = 'help')` | Inspect a live Python name's help, signature, or available source. |
+| `show_doc(name: str, module: str = '')` | Show docs for a live name, or import `module` and inspect its public name. |
+| `api_names(name: str, module: str = '', query: str = '', limit: int = 30)` | List public members of a live object or explicitly imported module. |
+| `search_docs(name: str, query: str, module: str = '', depth: int = 1, limit: int = 20)` | Search public names and direct docstrings in a bounded object tree. |
+| `inspect_value(name: str, start: int = 0, limit: int = 20)` | Show a bounded slice of a live built-in container or text value. |
+| `search_value(name: str, query: str, limit: int = 20)` | Search bounded visible values in live text or a built-in container. |
+| `source_files(name: str, module: str = '', limit: int = 30)` | Find nearby Python source files for a live symbol or imported module. |
+| `list_skills(query: str = '', limit: int = 30)` | List installed pyskill entry points and static module descriptions. |
+| `read_skill(module: str)` | Read a registered pyskill's static module instructions without importing it. |
+| `trace_function(name: str, args_json: str = '[]', kwargs_json: str = '{}', max_events: int = 40)` | Call a live Python function once and show a bounded execution trace. |
 
-References in eligible Markdown are detected even inside fenced code blocks or quotations. Use a plain name such as `search_kernel_names` when merely discussing a function. Only simple Python names are supported in references: import a function directly rather than writing a module-qualified reference such as `tools.list_notebooks`.
+### Saved files and source
 
-Several notes can add tools at different points; duplicates are registered once. Discovery scans the full preceding snapshot **before** text is shortened to fit the context budget, so enabled declarations survive even when their prose is unchecked, outside the selected window or omitted by budget. A separate Tools checkbox on each declaring Markdown/AI question cell can withdraw its declarations; this saved choice defaults to enabled. Function descriptions still consume budget. Functions are inspected afresh in the live kernel on each run: rerun imports after a restart, and rerun a definition to use its changed implementation.
-
-To withdraw a tool, uncheck Tools on every applicable declaration cell, remove its `&` declarations, or move them below the question. Another enabled declaration of the same name can still offer it. The current question has its own Tools checkbox when it declares functions. A missing declared function causes an error before contacting the provider. A note inserted by `insert_markdown` or `url_to_note` is ordinary Markdown, so any literal tool references in it also become declarations for later questions; review imported notes accordingly.
-
-### Insert the declaration note directly
-
-To avoid copying the printed output, run this in a Python code cell in JupyterLab:
-
-```python
-from nbinlineai.tools import search_kernel_names, inspect_python, insert_tools
-
-insert_tools(["search_kernel_names", "inspect_python"])
-```
-
-`insert_tools()` requests a new ordinary Markdown declaration cell directly below the code cell where it is called. It uses the same selection and `custom` aliases as `tools_markdown()`. Import or define the selected functions first. The helper is not a model tool and makes no provider request; the AI questions below inherit the inserted declarations normally.
-
-The immediate result says **requested**. The browser inserts the cell and acknowledges it asynchronously. To inspect the acknowledgement, assign `receipt = insert_tools(...)`, then examine `receipt.status`, `receipt.cell_id`, or `receipt.error` in a later code cell. No acknowledgement within 30 seconds marks the receipt as an error; check whether the note already appeared before retrying, since a lost acknowledgement does not undo insertion.
-
-Edit the new note to remove tools or add explanation, then save the notebook. Running the helper again requests another note; it does not overwrite an edited declaration. Reopening the notebook does not rerun the insertion. This helper needs the running nbinlineai JupyterLab frontend, so use `tools_markdown()` to obtain plain text in a terminal or headless notebook.
-
-The notebook's Python kernel needs ipykernel 6.18 or newer for this helper. Installing nbinlineai enforces that requirement in its environment; if you select a kernel from a different environment, install or upgrade nbinlineai there too.
-
-## Included tools
-
-| Function | What it does |
+| Function | Purpose |
 | --- | --- |
-| `search_kernel_names(query, limit=20)` | Matching names and types in the live IPython namespace. It does not return variable values. Use an explicit `$` reference if you want a value. |
-| `list_notebooks(path=".", limit=30)` | Saved `.ipynb` paths under an explicit directory. |
-| `find_notebook_cells(path, query, limit=10)` | Literal text matches in a saved notebook's cell source, with identifiers and excerpts. |
-| `read_notebook_cell(path, cell_id, start_line=1, end_line=40)` | A saved cell's source with line numbers. Use an identifier returned by the search tool. |
-| `inspect_python(name, section="help")` | Documentation, signature, or source for a named Python object in the kernel. |
-| `read_url(url)` | A bounded text/Markdown excerpt from a public web page, returned to the model. |
-| `list_cells(start=0, limit=20)` | IDs, types, and short source previews from the current live notebook, including cells below the prompt. |
-| `read_cell(cell_id, start_line=1, end_line=40)` | Numbered source from a live cell, including unsaved edits. |
-| `insert_markdown(content, after_cell_id="")` | Insert an ordinary Markdown note in the live notebook. |
-| `insert_code(content, after_cell_id="")` | Insert an ordinary, editable code cell in the live notebook without executing it. |
-| `url_to_note(url, after_cell_id="")` | Fetch a public page and insert a source-attributed Markdown excerpt as an ordinary note. |
+| `path_info(path: str = '.')` | Show the kernel working directory and a path's resolved type and size. |
+| `list_files(path: str = '.', pattern: str = '*', recursive: bool = False, limit: int = 30)` | List visible file and directory paths, optionally matching a name pattern. |
+| `view_file(path: str, start_line: int = 1, end_line: int = 40)` | Read a bounded range of one UTF-8 text file with one-based line numbers. |
+| `create_file(path: str, contents: str)` | Create a new UTF-8 text file without replacing an existing path. |
+| `file_str_replace(path: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact literal only when its occurrence count matches expectation. |
+| `file_insert_line(path: str, line: int, new_str: str)` | Insert text after a one-based line; line 0 inserts before the first line. |
+| `file_replace_lines(path: str, start_line: int, end_line: int, new_content: str)` | Replace an explicit inclusive, one-based line range with UTF-8 text. |
+| `search_files(query: str, path: str = '.', pattern: str = '*', regex: bool = False, limit: int = 20)` | Search saved project text with bounded ripgrep results and file filters. |
+| `ast_search(pattern: str, path: str = '.', limit: int = 20)` | Find Python syntax patterns in bounded saved files. |
+| `ast_rewrite(source: str, pattern: str, replacement: str)` | Preview a declarative Python syntax rewrite without writing a file. |
+| `file_ast_replace(path: str, pattern: str, replacement: str, expected_matches: int = 1)` | Apply a syntax rewrite only when the match count is expected. |
+| `python_symbols(path: str, kind: str = 'definitions')` | List syntactic names bound or referenced in one saved Python file. |
+| `source_doc(path: str, symbol: str = '')` | Read Python source documentation statically, without importing the file. |
+| `document_outline(path: str, start: int = 0, limit: int = 20)` | List a saved document's heading or code sections with addresses. |
+| `read_document_section(path: str, section: str = '')` | Read a saved document section by an address from document_outline. |
+| `file_strs_replace(path: str, old_strings: list[str], new_strings: list[str])` | Replace several exact literals atomically when each old string occurs once. |
+| `view_file_hashes(path: str, start_line: int = 1, end_line: int = 40)` | Show numbered lines and the SHA-256 digest for a saved text file. |
+| `file_replace_checked(path: str, old_str: str, new_str: str, expected_sha256: str)` | Replace one literal only when the whole file has the expected SHA-256. |
 
-### Python and saved notebooks
+### Saved notebooks
 
-The file tools read **saved files on disk**, including cells below your prompt or in another notebook if you ask them to. Save first if you want them to see recent edits. They do not execute the notebook they inspect.
-
-Relative paths use the **kernel's current working directory**. You can check it with `Path.cwd()` from `pathlib`. Renaming or moving an open notebook does not necessarily change that directory. These functions have the same file permissions as your Python kernel; a directory argument is a search location, not a security sandbox.
-
-Results are bounded text with truncation notices. Use narrower searches or a smaller line range for more detail. Rich cell outputs and image pixels are not returned. `inspect_python` supports `help`, `signature`, and `source`; source may be unavailable for built-in functions or objects created interactively. Its name can contain up to four public identifier segments, such as `statistics.mean`, resolved from the live namespace or Python builtins without evaluating an expression. Use explicit `$` references for variable values.
-
-If importing `nbinlineai.tools` fails, install nbinlineai in the environment that runs your **notebook kernel**. Installing the extension only in a separate Jupyter server environment does not install Python imports in every kernel. After a kernel restart, rerun the import cell.
-
-### Live cells and notes
-
-Import `list_cells`, `read_cell`, and `insert_markdown` in a code cell, then try this AI prompt:
-
-```text
-Use &`list_cells` to find the exercise below this question.
-Use &`read_cell` to read it, then use &`insert_markdown` to add
-one hint after your answer. Do not solve the exercise.
-```
-
-These tools act on the **notebook that started the AI request**. Switching to another tab does not redirect them. They use stable cell IDs from the notebook model, so the target does not have to be visible or selected. Get IDs from `list_cells`; use those IDs with `read_cell` or the insertion tools.
-
-Without `after_cell_id`, notes are inserted after the current AI answer; multiple notes from that run appear in the order they were requested. Supply an existing cell ID to insert after that cell instead. Notes render as ordinary Markdown. They do not execute code, change the selected cell, or automatically save the notebook. **Save normally to keep them on disk.**
-
-You can edit the new notes just like any Markdown cell. A note above a later AI prompt contributes to its ordinary source context. It is separate from the AI answer, so rerunning that answer does not replace the note. A rerun can insert another note; Keep answer prevents the entire completed request from running again. Cancelling does not undo notes already inserted.
-
-![An AI prompt calls an imported tool and creates a separate editable Markdown note](images/live-notebook-tools.png)
-
-The provider response in this demonstration is simulated; the extension performs the actual notebook insertion.
-
-These five functions (`list_cells`, `read_cell`, `insert_markdown`, `insert_code`, `url_to_note`) are imported to describe the tools, but their work is routed through the server and browser. Calling their Python stubs directly raises an explanatory error. Headless notebook execution cannot perform these actions. Missing/deleted target cells, a closed notebook, an expired request, or a changed kernel session produce an error rather than selecting a different notebook or cell. New cells appear below the paired AI answer unless you supply an existing `after_cell_id`; mixed note and code insertions keep their call order. A newly inserted code cell is **not** part of the current Run All batch and remains unexecuted until you explicitly run it later. Review generated code before doing that.
-
-### Public documentation
-
-Use `read_url` when the model needs to consult a page in its answer. Use `url_to_note` when you want an editable excerpt **in its own Markdown cell**:
-
-```text
-Use &`url_to_note` to add a reading note from
-https://docs.python.org/3/tutorial/datastructures.html
-Use &`read_cell` to read the inserted cell, then ask me one
-question to consider while reading it.
-```
-
-The note contains a text conversion of the page, with its source URL. It is not a model-generated summary or a complete offline copy. These tools support public HTTP(S) HTML, Markdown, and plain text; they do not log in, run page JavaScript, or download PDFs and images. Local/private network addresses and URLs containing credentials are rejected. Downloads, redirects, text length, and wait times are bounded; long pages are truncated.
-
-### Ask for a code draft in a new cell
-
-Import `insert_code` in a Python setup cell, then declare ``&`insert_code` `` in an ordinary Markdown cell above the AI question. You can ask:
-
-> Use `insert_code` to add a short Python cell that plots the values in `measurements`. Leave the cell for me to review and run.
-
-The model supplies source text for a new **ordinary code cell**, placed after its AI answer by default. The tool does not run code, including when the question itself is part of Run All. It cannot ask the insertion interface to execute the cell. Read and edit the draft, run it explicitly when ready, then save the notebook to retain it.
-
-![Illustrative AI answer followed by its separate unexecuted code draft](images/insert-code.png)
-
-`read_url` fetches from the kernel's machine and returns page text to the model. `url_to_note` fetches from the Jupyter server's machine, asks the browser to insert it, and returns the new cell ID. Offer `read_cell` too if you want the model to read that note during the same request. A later prompt below the note receives it as ordinary source context, within the usual limits. Neither web tool sends your provider API key to the page. Review retrieved text like other outside material.
-
-![A public-page excerpt with a source link inserted as its own Markdown note](images/web-tools.png)
-
-This demonstration uses a simulated provider and sample page content. The note is inserted through the real frontend interface.
-
-### What enters later context?
-
-Default context uses bounded earlier source and completed AI exchanges. The Context dropdown and per-cell checkboxes can select wider source. Offered tools can independently read other cells or files; unchecking Context does not withdraw those tools; uncheck Tools on the declaration cells to do that. Current question only excludes surrounding text while retaining Tools choices. Including text below never registers its declarations.
-
-Tool results are available to the current model conversation. They are not saved as a separate tool transcript for future prompts. To retain material as notebook context, insert it as a note, or include it in the answer. Its position then determines whether a later prompt sees it.
-
-## Example notebooks
-
-The [examples folder on GitHub](https://github.com/rahuldave/nbinlineai/tree/main/examples) contains notebooks you can download and open in JupyterLab. Keep the `data/` folder alongside the examples. The package also installs a copy under `share/doc/nbinlineai/examples/` in its Python environment; copy that directory into your project before editing it.
-
-These notebooks contain prompts, setup code, and instructions, with no API keys or pre-generated AI answers. Configure your provider as usual. Run the Learning example one step at a time so you can answer the tutor before continuing.
-
-| Notebook | Try it |
+| Function | Purpose |
 | --- | --- |
-| [Context selection](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb) | Compare context modes, restore Custom choices, and control declaration cells separately with Tools (0.1.8). |
-| [Quick start](https://github.com/rahuldave/nbinlineai/blob/main/examples/quickstart.ipynb) | One live variable, one custom function, and your first AI call. |
-| [Live variables and tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-variables-and-tools.ipynb) | Compare a live value with a function call; inspect a real change to Python state. |
-| [Socratic learning dialogue](https://github.com/rahuldave/nbinlineai/blob/main/examples/socratic-learning-dialog.ipynb) | Answer the tutor in successive AI cells, edit an answer, and explore Keep overrides. |
-| [Bundled tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/bundled-tools.ipynb) | Generate tool references, find live variable names, and search/read the supplied saved notebook. |
-| [Live notebook tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-notebook-tools.ipynb) | Read unsaved cells below a question and insert an editable hint without selecting the target cell. |
-| [Python and web tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/python-and-web-tools.ipynb) | Inspect Python documentation/source, consult a public page, and turn it into a notebook note. |
-| [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Run a standard-library pollinator analysis, compare optional Jupyter AI chat planning with inline Learning questions, and review an optional unexecuted code draft. |
-| [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a zero-versus-missing-value bug, run explicit code cells, then explain the result with inline AI questions. The actual Codex trial passed the checks; the template retains the starting bug for learners. |
+| `list_notebooks(path: str = '.', limit: int = 30)` | List saved .ipynb paths, skipping hidden and environment directories. |
+| `find_notebook_cells(path: str, query: str, limit: int = 10)` | Find saved notebook cells by case-insensitive literal source text. |
+| `read_notebook_cell(path: str, cell_id: str, start_line: int = 1, end_line: int = 40)` | Read numbered saved cell source by ID or zero-based index:N fallback. |
+| `search_notebooks(query: str, path: str = '.', limit: int = 20)` | Search saved notebook cell source; include stable saved cell IDs. |
+| `notebook_outline(path: str, start: int = 0, limit: int = 20)` | Summarize a saved notebook's cells and stable IDs by index. |
 
-For the combined-extension examples, work step by step and paste the chat prompts into **Jupyter Chat**. Codex authentication belongs to Jupyter AI's adapter; nbinlineai's inline questions still use your separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) records the successful authenticated trial and its limits.
+### Live notebook cells
 
-For a locally installed copy, this Python code prints the examples directory. Run it in the environment where nbinlineai is installed:
+| Function | Purpose |
+| --- | --- |
+| `list_cells(start: int = 0, limit: int = 20)` | List live notebook cells, including unsaved edits, by ID and position. |
+| `read_cell(cell_id: str, start_line: int = 1, end_line: int = 40)` | Read live notebook cell source, including unsaved edits, by cell ID. |
+| `find_cells(query: str, cell_type: str = '', limit: int = 20)` | Find live notebook cells containing text, including unsaved edits. |
+| `insert_markdown(content: str, after_cell_id: str = '')` | Insert a Markdown note into the current live notebook after a cell. |
+| `insert_code(content: str, after_cell_id: str = '')` | Insert an unexecuted code cell below the AI answer, or after a chosen cell. |
+| `replace_cell(cell_id: str, expected_source: str, new_source: str)` | Replace an ordinary cell only when its source still matches. |
+| `cell_str_replace(cell_id: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact string when its occurrence count matches. |
+| `cell_insert_line(cell_id: str, line: int, content: str, expected_source: str)` | Insert content before a line in an unchanged ordinary cell. |
+| `cell_replace_lines(cell_id: str, start_line: int, end_line: int, content: str, expected_source: str)` | Replace inclusive source lines in an unchanged ordinary cell. |
+| `delete_cell(cell_id: str, expected_source: str)` | Delete an ordinary cell only when its source still matches. |
+| `move_cell(cell_id: str, after_cell_id: str)` | Move an ordinary cell after another cell without executing it. |
+| `copy_cell(cell_id: str, after_cell_id: str)` | Copy an ordinary cell after another cell without execution results. |
+| `split_cell(cell_id: str, line: int, expected_source: str)` | Split an unchanged ordinary cell before a source line. |
+| `merge_cells(first_cell_id: str, second_cell_id: str, expected_first: str, expected_second: str)` | Merge adjacent same-type cells when both sources match. |
 
-```python
-from pathlib import Path
-import sysconfig
+### Web pages
 
-print(Path(sysconfig.get_path("data")) / "share/doc/nbinlineai/examples")
-```
+| Function | Purpose |
+| --- | --- |
+| `read_url(url: str)` | Read a public web page as bounded, sanitized Markdown with its source URL. |
+| `read_url_section(url: str, selector: str = '')` | Read one public web-page section using a CSS selector or URL fragment. |
+| `url_to_note(url: str, after_cell_id: str = '')` | Fetch a public page and insert its bounded Markdown as a notebook note. |
 
-An AI call uses your configured provider and incurs normal API usage. **Keep answer** preserves a completed answer but does not replay a tool's past actions. The custom-tool example makes a visible change to Python state; its setup code can restore the initial state.
+### Processes and terminals
+
+| Function | Purpose |
+| --- | --- |
+| `run_python(code: str, cwd: str = '.', timeout: int = 10)` | Execute Python with the kernel's interpreter in a fresh process; effects are real. |
+| `run_shell(command: str, cwd: str = '.', timeout: int = 10)` | Execute a shell command in a separate process; effects are real, not sandboxed. |
+| `tmux_sessions()` | List local tmux panes; requires tmux and does not list JupyterLab terminals. |
+| `tmux_read(pane: str, lines: int = 40)` | Read a local tmux pane's recent screen/scrollback without sending input. |
+
+## Files, source, and saved notebooks
+
+File and source tools run on the **selected kernel's machine**, using its current working directory for relative paths. That directory may differ from the notebook's folder and from the Jupyter server's working directory. A search path is the starting location, not a filesystem sandbox; use an explicit path when the working directory is uncertain. These tools use the kernel user's filesystem permissions. They search saved files and therefore cannot see unsaved notebook edits. `path_info()` shows the kernel working directory and a resolved path.
+
+`list_files` lists one directory by default; `recursive=True` descends at most six levels and visits at most 2,000 entries. `search_files` uses ripgrep-style project search with an optional filename glob and literal or regex query. `search_notebooks` searches **saved cell source**, returning saved cell IDs. `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, and `notebook_outline` also work on saved `.ipynb` files; save first or use live-cell tools. `notebook_outline` paginates cell summaries and validates the saved structure. Search and outline results are bounded and mark partial results when a traversal, time, or result limit is reached. Existing saved-notebook reads are limited to 8 MB; source/project text reads are limited to 1 MB. Rich outputs and image pixels are not read into these source searches.
+
+`ast_search` uses Python syntax patterns such as `foo($X)` and returns saved file and line locations. It visits at most 2,000 entries, descends at most six levels, has a 1.5-second search deadline, and skips Python files over 128 KB with a partial-results notice. `ast_rewrite` returns a diff preview for source text. `file_ast_replace` applies the same declarative pattern/replacement rule to a saved file only when the match count equals `expected_matches`; parsing is limited to 128 KB. `python_symbols` reports syntactic definitions or references, not full cross-module resolution.
+
+`source_doc(path, symbol="")` parses a saved Python file **without importing or running it**. It can show the module, a class, or a dotted function/method definition, including the written signature, annotations, defaults, parameter comments, docstring, and public module/class declarations. By comparison, `show_doc(name, module="")` and other live inspection tools inspect objects in the running kernel. When you pass an explicit `module`, importing it runs that module's initialization; inspecting the chosen object does not call it. `inspect_value` and `search_value` read bounded live object data. `trace_function` **calls the live function** with supplied JSON arguments, records a bounded trace, and can have the function's real side effects.
+
+`document_outline` lists verified heading or code-section addresses from a saved local document. Pass an address copied from that outline to `read_document_section`; an empty `section` reads the whole bounded document. Its rendered text includes numbered links where present. `view_file_hashes` shows numbered lines and a **whole-file SHA-256**; give that digest to `file_replace_checked` with one exact old string to reject a stale edit. `file_strs_replace` checks that each distinct old string occurs exactly once and applies the replacements together. `create_file`, the line/literal editors, AST replacement, and digest-checked replacement reject `.ipynb` paths. Ordinary text edits are checked against a fresh read, preserve file mode, write atomically, and return bounded diffs. They do not lock out another writer. New text arguments are bounded; use the returned error to narrow a large edit.
+
+## Live notebook cells
+
+The live-cell functions use the open JupyterLab document model, including **unsaved and offscreen cells**. They bind to the notebook, session, kernel, and stable cell IDs that started the question; switching tabs cannot redirect a call. Direct Python calls to these browser-backed functions raise an explanatory error. `list_cells`, `read_cell`, and `find_cells` inspect source without executing it. `find_cells` scans at most 2,000 cells and 2,000,000 source characters; its result reports scanned cells and whether the search is partial or truncated. A total match count is supplied only after a complete scan. `insert_markdown`, `insert_code`, and `url_to_note` create ordinary editable cells after the paired answer by default, or after an explicit ID. Inserted code has empty outputs and does not execute, including during a current Run All.
+
+The ten live edit tools change **ordinary code, Markdown, or raw cells** through the document model. They do not edit AI question/answer cells. `replace_cell`, line edits, `delete_cell`, `split_cell`, and `merge_cells` require the exact current source text supplied as an `expected_...` argument; `cell_str_replace` requires an exact match count. Stale or missing cells fail instead of applying a guessed edit. Move and copy use stable source and anchor IDs. Copy and split create new IDs. Metadata not owned by nbinlineai is preserved, and edits to code source clear its stale outputs and execution count. No edit tool executes code or saves the notebook file. Save normally after inspecting a change. An acknowledgement means the **live document changed**, not that it was saved; inspect the notebook before retrying after a lost acknowledgement.
+
+## Web, processes, and terminal reading
+
+`read_url` returns a source-attributed excerpt from a public HTTP(S) page. `read_url_section` narrows that page with a CSS selector. `url_to_note` fetches a public page from the Jupyter server and inserts an editable Markdown note in the original notebook. Web fetches bound download size, redirects, and time, reject private/local or credential-bearing URLs, and do not log in, run JavaScript, or read PDF/image contents. Tool results are not automatically saved as transcripts.
+
+`run_python` executes code with the selected kernel's interpreter in a **fresh subprocess**, so it does not share live notebook variables. `run_shell` executes a shell command in a fresh process. Both run with the kernel user's real permissions, are **not sandboxed**, accept an existing `cwd`, enforce a 1–20 second timeout, and bound captured output. Command effects can persist after the call. `tmux_sessions` and `tmux_read` inspect a **local tmux** instance if installed; they do not list JupyterLab terminals, send keys, or create sessions.
 
 ## Your own functions
 
-Any suitable synchronous Python function imported or defined in the kernel can be registered with an `&` reference. Use named, typed parameters and a docstring explaining what it does. Functions may calculate results, update variables, or perform other operations you implement. See [variables and functions](user-guide.md#5-reference-live-variables-and-functions) for the supported signatures.
-
-The helper can include your own functions or imported aliases. The mapping keys must be the simple names actually available in your kernel:
+A synchronous Python function you import or define in the kernel can be offered with `&` if it has supported named, typed parameters and a docstring. Custom aliases can be supplied to the setup helpers, for example:
 
 ```python
-from nbinlineai.tools import read_cell as read_live
-
+from nbinlineai.tools import read_cell as read_live, tools_markdown
 print(tools_markdown(["read_live"], custom={"read_live": read_live}))
 ```
 
-Copying the resulting reference into a Markdown note makes the alias available to AI questions below. A reference in an AI question works for that question and later ones too. The helper does not import or register anything on its own.
+The alias must also be bound in the kernel namespace when the question runs. The tools draw on [dialoghelper research](https://github.com/AnswerDotAI/dialoghelper) but do not require dialoghelper, Solveit, or ipylab.
 
-The bundled tools were inspired by [dialoghelper](https://github.com/AnswerDotAI/dialoghelper)'s helpers. They use Jupyter's kernel, saved `.ipynb` files, and nbinlineai's own frontend interface; installing nbinlineai does not require Solveit, dialoghelper, or ipylab.
-
-[User guide](user-guide.md) · [FAQ](faq.md) · [Architecture](architecture.md)
+[Examples guide](examples.md) · [User guide](user-guide.md) · [FAQ](faq.md) · [Architecture](architecture.md)

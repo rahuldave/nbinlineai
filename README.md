@@ -8,7 +8,7 @@ The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) c
 
 ## Quick start
 
-You need Python 3.11 or newer and JupyterLab 4.2 or newer.
+You need Python 3.12 or newer and JupyterLab 4.2 or newer.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
 2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key.
@@ -140,24 +140,18 @@ The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/exampl
 
 ### Bundled tools
 
-Run this code cell to import the included tools and print their references:
+Version **0.1.11** offers 55 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
 
 ```python
-from nbinlineai.tools import (
-    search_kernel_names, list_notebooks,
-    find_notebook_cells, read_notebook_cell,
-    inspect_python, read_url, list_cells, read_cell,
-    insert_markdown, url_to_note, tools_markdown,
-)
+from nbinlineai.tools import search_files, source_doc, tool_catalog, tools_markdown
 
-print(tools_markdown())
+print(tool_catalog("code"))
+print(tools_markdown(["search_files", "source_doc"]))
 ```
 
-Paste the printed Markdown into an **ordinary Markdown cell above your AI questions**, and delete unwanted tool lines. Each question below inherits those tools while the declaration cell's Tools checkbox is enabled; you can add more declarations farther down. Current AI questions can still declare tools directly. Discovery scans all eligible cells above even when their text is too old to fit the context budget. Only `$` references in the current question retrieve live values. `tools_markdown()` is a convenience helper, not one of the listed tools.
+Paste the printed references into a Markdown cell and delete any unwanted lines. `insert_tools(["search_files", "source_doc"])` can request that note directly below its calling code cell. Each eligible AI question below inherits enabled declarations. Up to 20 distinct tool and variable names may appear in one request. The [tools reference](https://rahuldave.com/nbinlineai/tools.html) lists all exact signatures; the [examples guide](https://rahuldave.com/nbinlineai/examples.html) includes a disposable project notebook.
 
-To create the declaration note directly, run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names", "read_cell"])` in a Python cell after importing those tools. It inserts ordinary Markdown below that code cell without an AI request. Edit the note and save normally. `insert_tools()` with no selection lists all bundled tools.
-
-The eleven tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes or unexecuted code drafts. New cells are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons, including a tested Codex ACP example using Jupyter AI alongside nbinlineai.
+Tools can inspect live Python objects, search saved source files and notebooks, read or edit the current unsaved notebook by stable cell ID, extract public web-page sections, make checked text-file edits, and run bounded subprocesses. Saved-file paths resolve on the selected **kernel machine** from its current working directory, which may differ from the notebook folder. Source-file documentation uses static parsing; an explicit live-module inspection import runs module initialization. Live notebook edits never execute code or save the notebook automatically. Subprocess tools have real kernel-user permissions and no sandbox. Keep answer prevents a completed prompt from repeating its tool actions.
 
 By default, the model sees bounded earlier code, ordinary Markdown and completed AI pairs. Wider Context modes can include cells below as clearly labeled source. Custom choices save with the notebook; the current question and all its linked answers are always excluded from optional context. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 
@@ -165,7 +159,7 @@ This release supports text prompts and Python kernels. It does not send notebook
 
 ## Develop from source
 
-This section is for contributors. Installing the published package does not require Node.js or a source checkout. Development requires Python 3.11+, Node.js 22.12+ (or 20.19+), `uv`, and JupyterLab 4.2 or newer.
+This section is for contributors. Installing the published package does not require Node.js or a source checkout. Development requires Python 3.12+, Node.js 22.12+ (or 20.19+), `uv`, and JupyterLab 4.2 or newer.
 
 ```bash
 uv sync --python 3.12 --group dev --no-install-project

@@ -21,10 +21,9 @@ The optional live provider smoke makes billable API calls and is not required fo
 ## Build and inspect
 
 ```bash
-rm -rf dist
-uv build
-uvx twine check dist/*
-uv run --no-sync python scripts/check_release_artifacts.py dist
+uv build --out-dir dist/release-VERSION
+uvx twine check --strict dist/release-VERSION/*
+uv run --no-sync python scripts/check_release_artifacts.py dist/release-VERSION
 ```
 
 Inspect the wheel and source archive if any check fails. The source archive must contain the GPL license, Python and TypeScript source, build metadata, lockfiles, examples, and prebuilt labextension. It must exclude `.env`, credential files, virtual environments, dependencies, build caches, test artifacts, and private `internal_docs`. The wheel must include the frontend bundle, server extension configuration, and license. `uv build` may invoke the frontend build hook, so do not run it concurrently with browser tests.
@@ -36,7 +35,7 @@ For a fresh-install check, install the built wheel in a disposable Python enviro
 Publishing is done by a maintainer with PyPI credentials configured outside the repository. Do not put credentials in shell history, source files, notebook metadata, or release logs. Before each upload, check that the version does not already exist on PyPI; PyPI will not allow replacing an uploaded version.
 
 ```bash
-uv publish dist/*
+uv publish dist/release-VERSION/*
 ```
 
 After upload, verify the PyPI project page, README rendering, package files, and a fresh `pip install nbinlineai` in an isolated environment. Confirm JupyterLab discovers both extension entry points. For later changes, increment the version before building; PyPI releases are immutable.
@@ -176,3 +175,21 @@ Final artifacts in `dist/release-0110` passed strict Twine metadata validation, 
 Version `0.1.10` was published from source commit `03967c8233d3aff269c4272a014d05ab2001a711` and tagged `v0.1.10`; both source and tag are pushed. Wheel SHA256: `4e621425f5d98cd3e97239a54ed0a913ce70f3189f1621c5e72c2fee5223b2de`. Source archive SHA256: `f209b1a7723efcf332c1ed5616bdac281e5560f1b00b7c9af89c2892f7949fb8`. Both match public version-specific and project release metadata and are not yanked. PyPI reports 0.1.10 as latest, and its public simple install index lists both artifacts; initially cached 404/older metadata cleared on a fresh verification query.
 
 GitHub Pages deployment `35905085246` succeeded for the release source. Public home, user guide, FAQ, tools and architecture pages show the new release/examples; all eighteen public screenshot files match the reviewed local images byte for byte.
+
+## Version 0.1.11 verification
+
+Version `0.1.11` expands the registry to **55 opt-in tools** in eight selectable groups: starter, files, code, inspect, notebook, saved_notebooks, web and execution. It adds fastcore/docments documentation rendering, static source documentation, bounded ripgrep and AST searches, guarded text-file replacements, source and document outlines, value/API/skill inspection, function tracing, separate Python/shell processes, local tmux reads, web section extraction and ordinary live-cell editing. Fifteen tools use the existing browser action transport. Tool references and variables retain the combined twenty-name guard and separate 64,000-character estimate. Search paths default to the selected kernel's cwd; they are not filesystem sandboxes. Model-driven execution of live notebook cells and Solveit-specific facilities remain deferred.
+
+Public Tools reference and Examples are now separate pages. Two new disposable-file/project notebooks bring the total to **twelve notebook files**, including the data fixture. All 18 existing screenshots remain byte-identical to 0.1.10. README retains two illustrations. Runtime dependencies explicitly include fastcore, rgapi, remold, exhash, pyskills and Beautiful Soup; the package does not depend on dialoghelper or Solveit.
+
+The final Python suite passed **207 tests**, including actual-kernel schemas for all 55 tools and headless execution of all twelve example templates. Ruff and the lockfile check passed. The frontend suite passed **49 tests**, TypeScript checked, and production assets were rebuilt/relinked before browser tests. The full isolated Chromium run passed **63/67**. One existing context-selection test needed its rendered-Markdown editing interaction corrected; the three new edit scenarios initially waited for Done although Keep had correctly changed the status to Answer kept. The rebuilt focused run passed 10/12 and exposed a real move acknowledgement bug: Jupyter replaces the moved cell's wrapper, so reading its ID afterward produced undefined. Capturing the ID before the move fixed the message. The final rebuilt live-edit run passed **3/3**, including unsaved/stale source, output clearing, protected AI cells, split/merge/copy/move/delete, Keep/no repeated effects, line edits and saving. The line rendering assertion was also corrected to inspect CodeMirror line elements rather than flattened textContent. **All 67 distinct scenarios passed across the full run and focused reruns**; this was not an uninterrupted 67/67 run.
+
+The deterministic tests used isolated JupyterLab on 8897 with real Python kernels and no paid provider requests. Their owned server stopped after each run. Port 8888 was untouched.
+
+A fresh Python 3.11 installation exposed an inherited upstream compatibility defect: aidialog 0.0.35 declares Python >=3.11 but its `msg_parts.py` uses a backslash within an f-string expression (line 141), which requires Python 3.12. The import fails before nbinlineai starts. Version 0.1.11 therefore corrects `Requires-Python` and current setup documentation to **Python >=3.12**, removes the inaccurate 3.11 classifier, and verifies the final wheel in a fresh Python 3.12 environment. No third-party source was patched.
+
+Final artifacts in `dist/release-0111` passed strict Twine validation, archive checks (**155 source files; 77 wheel files**), version checks, credential-content scanning, and byte-for-byte comparisons with all twelve notebooks, eighteen screenshots and public Markdown pages. The initial broad credential pattern matched a public FAQ anchor containing `ask-`; the token-boundary-aware pattern and exact development-secret scan passed. The final wheel SHA256 is `aba471de94853c60d34758acb11d5915f84f7f7a80caf935805e7b237675d0eb`; the source archive SHA256 is `8d9efe14fa5a2031673ccc865bef85c3cf136275c42dff1d1c3d6df889936098`.
+
+A newly created Python 3.12.10 uv environment installed the final wheel and imported it from its own site-packages. It verified all 55 tools, 15 browser-dispatched functions, eight groups, source/AST/document/file/subprocess/documentation smoke checks, twelve notebooks and eighteen images. JupyterLab 4.6.4 found both extensions enabled/OK at 0.1.11. Its separate temporary JupyterLab on 8897 opened the packaged quickstart, displayed AI Prompt and Configure AI, and returned HTTP 200/version 0.1.11 from the status route. The screenshot was reviewed. No key was supplied or provider called, and the owned server was stopped.
+
+Publication evidence will be appended after upload.
