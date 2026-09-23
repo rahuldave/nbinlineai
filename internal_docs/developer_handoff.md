@@ -1,8 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.10**, source commit `03967c8233d3aff269c4272a014d05ab2001a711`, tag `v0.1.10`. This release adds Light/Dark AI-cell backgrounds, editable starters, focus guidance/landmarks and unexecuted code insertion, plus combined Jupyter AI examples. Final wheel/source checks, a clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for publication and test evidence, and the implementation sections below.
-
-**0.1.11 release preparation:** the expanded tool collection and separate public Tools reference / Examples guide are implemented after this release. Publication is being verified separately; the final release record below must be updated after upload. See [candidate assessment](fastcore_tool_candidates.md).
+Reviewed **2026-09-23**. Latest published package: **0.1.11**, source commit `f52aaed193d4c35587be30b23320334dda7b1f1d`, tag `v0.1.11`; source and tag are pushed. The release adds 55 opt-in tools in eight groups, ordinary live-cell edits, project/source search and checked file edits, documentation/inspection tools, bounded subprocess execution, and separate Tools reference / Examples pages. Minimum Python is corrected to **3.12** after a clean 3.11 install exposed incompatible upstream aidialog syntax. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for exact tests, hashes and deployment evidence, and [the tool inventory](fastcore_tool_candidates.md).
 
 ## Product and environment
 
@@ -144,7 +142,7 @@ This section describes the current source; consult the release record for its pu
 
 Browser tests now include `question-starters.spec.ts` (empty display, first click, editing, keyboard/undo, persistence) and `theme-colors.spec.ts` (Light/Dark tint, text readability, native editors, Copy and top-control geometry). `frontend-actions.spec.ts` covers inserted code through real Jupyter and save/reload, including the current Run All non-execution guarantee. The screenshot helper also captures a starter row and an illustrative unexecuted code draft; captions distinguish illustrative fixtures from actual provider runs. See the release record for exact pass counts and any corrected harness failures.
 
-## Unreleased fastcore tools and documentation split
+## Historical first fastcore tools and documentation split
 
 Source work on **2026-09-23**, after 0.1.10; **PyPI is unchanged**.
 
@@ -178,3 +176,5 @@ The user subsequently requested implementation and a full release, superseding t
 - New direct dependencies are fastcore, rgapi, remold, exhash, pyskills and Beautiful Soup. No dialoghelper/Solveit runtime is imported. Existing notebooks still discover declarations before context trimming; current `&` references and the shared-model/kernel distinction are unchanged.
 
 The full 0.1.11 release changes both Python and frontend assets: installed users need an upgrade in the server and selected kernel environments as appropriate, then a whole JupyterLab server restart/page refresh and fresh kernel imports. The earlier Python-only editable-install observation does not replace that release-upgrade instruction. Port 8888 must remain untouched by automation.
+
+Release verification: **207 Python tests**, **49 frontend unit tests**, and **67 distinct Chromium scenarios** passed across the full browser run and focused reruns. The final live-edit rerun passed 3/3 after fixing the move acknowledgement and test rendering assumptions. Strict artifact checks, a fresh Python 3.12 wheel install, both extension discoveries, an isolated installed-package quickstart UI check, and reinstalling 0.1.11 from public PyPI passed. The two public downloads match local SHA-256 hashes. GitHub Pages run `35917740174` succeeded and live Tools/Examples pages contain the new release. Owned servers are stopped; port 8888 was untouched. Installed users must upgrade and restart their whole JupyterLab server and selected kernels as described above.
