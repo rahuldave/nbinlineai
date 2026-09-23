@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes version 0.1.8, including selectable notebook context. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
+This guide describes version 0.1.9, including selectable notebook context. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -145,9 +145,9 @@ The same button is available for short snippets in Learning mode. It is interfac
 
 ### Edit questions and answers
 
-**Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click it to enter the editor. If it already has a completed answer, turn off **Keep answer**. Then press **Shift+Enter** or **Run AI** to run the revised prompt.
+**Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click the question text below its controls to enter the editor. If it already has a completed answer, turn off **Keep answer**. Then press **Shift+Enter** or **Run AI** to run the revised prompt.
 
-**Answers are editable too.** Double-click a completed AI answer and correct its Markdown, code, or explanation. Render it and save normally. Later AI prompts read the edited text when they run. They do not retrieve an older version from a hidden chat history.
+**Answers are editable too.** Double-click the answer text below its Context control and correct its Markdown, code, or explanation. Render it and save normally. Later AI prompts read the edited text when they run. They do not retrieve an older version from a hidden chat history.
 
 **Keep answer does not hide a correction from later prompts.** It preserves that prompt's existing answer. A later prompt can still read the corrected answer above it, but a later *completed answer* will remain unchanged if its own Keep answer setting prevents a rerun.
 
@@ -212,11 +212,15 @@ Save the notebook normally to keep the prompt and answer text. Reopening it rest
 
 ## 4. What context does the AI receive?
 
-The notebook toolbar keeps the mode, question target and short inclusion summary visible. Open **Context details** for counts, available tools and longer explanations; hover over the mode selector or cell controls for help.
+The notebook toolbar shows **Context**, the notebook-wide mode, and **Details**. The AI question you click determines which request you are inspecting; each cell's available checkboxes appear above its own content. You do not need a separate toolbar selection step before running a question.
 
-![Expanded Context details explains automatic text selection and independent tool choices](images/context-details.png)
+![Expanded Details shows the question, estimated context, and optional Check context action](images/context-details.png)
 
-Select an AI question to preview its context. The notebook header identifies **Context for AI question** and its position. Selecting a linked answer can target its question. Clicking another cell's **Include in AI context** checkbox keeps that question as the target. With no question selected, choose a mode first, then select the question whose context you want to inspect.
+Open **Details** when you want to inspect the question being previewed, inclusion counts, or available tools. Clicking an AI question or its linked answer sets that preview target. Clicking another cell's **Include in AI context** checkbox retains it. Even **Full notebook** depends on the question: its own answer must be excluded, its text consumes budget, and only applicable tool declarations at or above it are available. With no question selected, Details explains how to choose one; the notebook-wide mode can still be changed.
+
+**Check context**, inside Details, is optional. It recalculates the estimate without contacting the AI provider or regenerating an answer, for example after you change a Python value or function. You do not need to press it before **Run AI** or Shift+Enter: each run calculates its context automatically.
+
+During the check, the button and status show **Checking…**. On success, Details shows **Context checked**, the cell/tool counts and the check time, even if the same cells still fit. A busy kernel or a failed check displays its reason instead of a success message. An edited notebook or changed settings make the earlier result stale; the time is an inspection aid, not a saved promise about the next run.
 
 ### Choose the notebook's Context mode
 
@@ -238,11 +242,15 @@ The current question is always the required prompt. **Every answer linked to it 
 
 ### Choose individual cells
 
-Code, ordinary Markdown, AI questions and AI answers have accessible **Include in AI context** checkboxes. In explicit modes, a checked box means **selected as a candidate**. The adjacent **partial** or **omitted by budget** feedback tells you whether all of it fits. Disabled controls explain ineligible cells, the current question and its answers.
+Code, ordinary Markdown, AI questions and AI answers have accessible **Include in AI context** checkboxes. After you click an AI question and its estimate is ready, **Default** checks included cells, shows a mixed mark for a partially included cell, and leaves excluded cells unchecked. Before a question is selected, or while Default has no estimate, the controls are disabled.
 
-Changing a checkbox in a preset switches to **Custom** and starts with the displayed selection. A mixed Default cell becomes a whole-cell candidate; budgeting can still keep only part. Switching to a preset preserves your Custom choices. Choosing Custom again restores them; the first time, it starts from the displayed set. If Default has no current estimate yet, refresh it before initializing Custom, or first choose an explicit preset such as All above. Initial choices cover every existing cell, including empty/ineligible ones. An existing empty cell keeps its choice when filled; newly inserted cells default to included when eligible. Moves retain choices, and duplicates follow JupyterLab's metadata copying.
+In explicit modes, a checked box means **selected as a candidate**. The adjacent **partial** or **omitted by budget** feedback tells you whether all of it fits. Controls sit **above their own cell's content**, aligned with its text/editor. An AI answer's Context control sits above that answer; answers have no Tools switch. An AI question's Run/Cancel/Keep/Override row follows its Context line, still above the question text. Disabled controls explain ineligible cells and the current question's answers. The current question has an **always included** label instead of a checkbox; its own answer is excluded.
+
+Changing a checkbox in a preset switches to **Custom** and starts with the displayed selection. A mixed Default cell becomes a whole-cell candidate; budgeting can still keep only part. Switching to a preset preserves your Custom choices. Choosing Custom again restores them; the first time, it starts from the displayed set. If Default has no current estimate yet, use **Details → Check context** before initializing Custom, or first choose an explicit preset such as All above. Initial choices cover every existing cell, including empty/ineligible ones. An existing empty cell keeps its choice when filled; newly inserted cells default to included when eligible. Moves retain choices, and duplicates follow JupyterLab's metadata copying.
 
 Mode and Custom choices save with the notebook. The preview target, estimates and computed Default checks are temporary. Opening, rendering, selecting and previewing do not change the saved notebook.
+
+Checking a cell again does **not** automatically leave Custom, even if the selection matches a preset. Choose **Default** in the notebook's Context dropdown to restore automatic selection, or choose another preset there. Your stored Custom choices remain available when you return to Custom.
 
 ### Understand AI history and source
 
@@ -254,7 +262,7 @@ Running, failed, cancelled and orphaned answers remain ineligible. Code outputs,
 
 Preview shares the backend's actual context selector. It accounts for current live references and function descriptions, makes no provider request, calls no offered tool body and inserts no answer. It needs an existing idle Python kernel; missing definitions or a busy/unavailable kernel leave the precise estimate pending. Introspection can evaluate an object's Python representation, so preview is not a promise that arbitrary user-defined introspection has no effects.
 
-Edits, mode/target changes and kernel changes invalidate old estimates. Use **Refresh preview** after live state changes. A preview is only a **first-round estimate**: every run takes a fresh snapshot when its queued turn starts, independently of the preview target. Run All does this separately for each question. Later tool calls and results can leave less room for notebook text; the run status reports that trimming.
+Edits, mode/target changes and kernel changes invalidate old estimates. Use **Details → Check context** if you want to inspect an updated estimate after live state changes. A preview is only a **first-round estimate**: every run takes a fresh snapshot when its queued turn starts, independently of the preview target. Run All does this separately for each question. Later tool calls and results can leave less room for notebook text; the run status reports that trimming.
 
 Every mode uses the shared **64,000-character estimate**. Tools, instructions, expanded current question and completed tool traffic take priority. Remaining material is considered nearest first, with above winning distance ties. A boundary source cell retains its end above the question or its beginning below; history pairs remain whole. **Full notebook** does not mean unlimited capacity, and characters are not exact model tokens. See [budget details](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large).
 
@@ -367,7 +375,7 @@ For the request lifecycle, tool schemas, module map, and event-loop details, see
 | Server endpoint unavailable / 404 | Try **Retry** in Configure AI. If you just installed or updated, restart the whole server; browser reload alone may leave the server component unloaded. |
 | Provider unavailable / Run disabled | Save that provider's key, or select one already configured. |
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
-| AI misses your notes | Select the intended question, check its Context mode and cell choices, refresh preview, and inspect partial/omitted feedback. Rerun with Keep answer off after editing. |
+| AI misses your notes | Select the intended question, check its Context mode and cell choices, use **Details → Check context** if you want a fresh estimate, and inspect partial/omitted feedback. Rerun with Keep answer off after editing. |
 | AI misses a plot or code output | These are not currently included; add a text explanation to a Markdown cell above the prompt or to the prompt itself. |
 | AI asks questions when you want a direct answer | Choose Compact or Full in the notebook defaults or the cell's Override controls, then run it again. |
 | One cell ignores changed notebook defaults | Check its Override controls. Return it to notebook defaults if its saved choices are no longer needed. |

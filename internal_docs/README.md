@@ -1,6 +1,6 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-23**, for the **0.1.8** context-selection release. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-23**. Version **0.1.8** is published; the 0.1.9 control-layout documentation describes an unpublished release candidate. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
 ## A new task's reading order
 

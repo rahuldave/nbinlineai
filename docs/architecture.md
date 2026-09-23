@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in version 0.1.8, including context selection. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in version 0.1.9, including context selection. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -128,11 +128,11 @@ The server emits a context report before every provider round, with selected, el
 
 The authenticated `POST nbinlineai/context-preview` route uses the same normalization, reference inspection and context builder as execution. It requires kernel-execution authorization, a bound existing idle Python kernel and no provider key. It makes no provider request, calls no offered tool body and does not mutate the notebook. Live inspection may invoke user-defined Python representation/introspection; it is not intrinsically free of arbitrary user-code effects.
 
-The frontend retains a transient question target per notebook. Selecting a question or its linked answer updates it; clicking other inclusion controls retains it. A generation ties responses to the panel, model, kernel, target, snapshot and effective settings. Edits and binding changes invalidate old responses, requests are coalesced, and Refresh preview handles live-state changes. Unavailable/busy kernels and unresolved references are shown as pending/unavailable rather than guessed final inclusion. Actual execution always snapshots and inspects again.
+The frontend retains a transient question target per notebook. Selecting a question or its linked answer updates it; clicking other inclusion controls retains it. A generation ties responses to the panel, model, kernel, target, snapshot and effective settings. Edits and binding changes invalidate old responses, requests are coalesced, and **Details → Check context** permits explicit inspection after live-state changes. The collapsed toolbar contains only the notebook-wide mode and Details; target information and check status are inside Details. Pending checks show Checking, successful current-generation replies show counts and a transient completion time, and unavailable/busy kernels or unresolved references show the failure reason. Actual execution always snapshots and inspects again; inspecting context is not a prerequisite.
 
 Notebook metadata stores `nbinlineai.defaults.contextMode`; cell metadata stores `nbinlineai.contextInclude` for Custom text and independent `nbinlineai.toolsInclude` for declaration eligibility. Missing Tools flags inherit true. The wire carries `tools_include`; disabled declaration cells are filtered before name deduplication and introspection, so missing disabled functions do not fail the request. Duplicate enabled declarations still offer their names. Current question only resolves no optional text candidates while retaining these tool choices. Initializing Custom writes choices for every existing cell in a shared-model transaction and records initialization. Existing ineligible cells retain their choices after becoming eligible; newly added cells and imported Custom cells without flags inherit true, subject to eligibility. Presets retain stored Custom choices. Changing a preset checkbox seeds from its displayed selection, including any partially fitted Default cell, then applies the change.
 
-Default computes checks from authoritative inclusion; explicit modes show candidate checks plus separate budget feedback. Preview reports, targets and computed checks are never persisted. Merely opening, rendering, selecting or previewing a notebook does not dirty it. Lightweight controls attach to cell widgets and reattach through notebook lifecycle signals, while all selection reads the complete model including offscreen cells.
+Default computes checks from authoritative inclusion; explicit modes show candidate checks plus separate budget feedback. Preview reports, targets and computed checks are never persisted. Merely opening, rendering, selecting or previewing a notebook does not dirty it. Lightweight controls attach above each owning cell's content, aligned with the editor, and reattach through notebook lifecycle signals; the linked AI answer's controls sit above that answer. The current question shows an always-included label in place of an empty context checkbox. Selection still reads the complete model including offscreen cells.
 
 ## Turning Python functions into tools
 

@@ -24,6 +24,7 @@ const notebook = (page: Page) => panel(page).locator('.jp-Notebook');
 const cells = (page: Page) => notebook(page).locator('.jp-Cell');
 const mode = (page: Page) => panel(page).locator('[data-nbinlineai-context-mode]');
 const target = (page: Page) => panel(page).locator('[data-nbinlineai-context-target]');
+const details = (page: Page) => panel(page).locator('[data-nbinlineai-context-details]');
 const box = (cell: Locator) => cell.locator('[data-nbinlineai-context-include]');
 const toolsBox = (cell: Locator) => cell.locator('[data-nbinlineai-tools-include]');
 
@@ -86,6 +87,7 @@ async function save(page: Page) {
 
 async function preview(page: Page) {
   await waitKernelIdle(page);
+  await openDetails(page);
   const response = page.waitForResponse(r => r.url().endsWith('/nbinlineai/context-preview') && r.request().method() === 'POST');
   await panel(page).locator('[data-nbinlineai-context-refresh]').click();
   const result = await response;
@@ -93,10 +95,226 @@ async function preview(page: Page) {
   return { body: await result.json(), request: result.request().postDataJSON() };
 }
 
-async function selectQuestion(page: Page, index: number) {
-  await cells(page).nth(index).click();
-  await expect(target(page)).toContainText(/AI question/i);
+async function openDetails(page: Page) {
+  if (await details(page).getAttribute('open') === null) {
+    await details(page).locator('summary').click();
+  }
+  await expect(details(page)).toHaveAttribute('open', '');
 }
+
+async function selectQuestion(page: Page, index: number) {
+  await cells(page).nth(index).locator('.jp-Cell-inputWrapper').click();
+  await openDetails(page);
+  await expect(target(page)).toHaveText(`Context for AI question ${index + 1}`);
+}
+
+test('collapsed Context has one disclosure; Details explains a no-AI context check without duplicate instructions', async ({ page, request, browserName }) => {
+  await openNotebook(page, request, [code('source', 'value = 3'), question('ask', 'E2E_BASIC explain the value')]);
+  const row = panel(page).locator('.nbinlineai-context-row');
+  const summary = details(page).locator('summary');
+  const check = panel(page).locator('[data-nbinlineai-context-refresh]');
+  await expect(summary).toHaveText('Details');
+  await expect(details(page)).not.toHaveAttribute('open', '');
+  await expect(check).toBeHidden();
+  await expect(target(page)).toBeHidden();
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toBeHidden();
+  await expect(row).toBeVisible();
+  expect(await cells(page).allInnerTexts()).not.toEqual(expect.arrayContaining([expect.stringContaining('Select an AI question')]));
+  const markers = await summary.evaluate(element => ({
+    listStyle: getComputedStyle(element).listStyleType,
+    customArrow: getComputedStyle(element, '::before').borderLeftWidth
+  }));
+  expect(markers).toEqual({ listStyle: 'none', customArrow: '6px' });
+  await row.screenshot({ path: `test-results/context-toolbar-${browserName}.png` });
+
+  let providerRequests = 0;
+  let previewRequests = 0;
+  page.on('request', item => {
+    if (item.url().endsWith('/nbinlineai/prompt')) providerRequests += 1;
+    if (item.url().endsWith('/nbinlineai/context-preview')) previewRequests += 1;
+  });
+  await openDetails(page);
+  await expect(target(page)).toHaveText('Click an AI question to check its context.');
+  await expect(page.getByText('Click an AI question to check its context.', { exact: true })).toHaveCount(1);
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toBeEmpty();
+  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toBeEmpty();
+  await expect(check).toHaveAccessibleName('Check context');
+  await expect(check).toBeDisabled();
+  await expect(check).toHaveAttribute('title', /does not ask the AI or change the notebook/i);
+  await expect(check).toHaveAttribute('aria-description', /does not ask the AI or change the notebook/i);
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toHaveAttribute('aria-live', 'polite');
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toHaveAttribute('aria-atomic', 'true');
+  await expect(details(page)).toContainText(/without asking the AI/i);
+  expect(providerRequests).toBe(0);
+  expect(previewRequests).toBe(0);
+
+  await selectQuestion(page, 1);
+  await expect(target(page)).toHaveText('Context for AI question 2');
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toContainText('Context checked:');
+  await expect(check).toBeEnabled();
+  let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  let intercepted!: () => void;
+  const held = new Promise<void>(resolve => { intercepted = resolve; });
+  let delayNext = true;
+  await page.route('**/nbinlineai/context-preview', async route => {
+    if (!delayNext) { await route.continue(); return; }
+    delayNext = false;
+    const response = await route.fetch();
+    intercepted();
+    await gate;
+    await route.fulfill({ response });
+  });
+  const completed = page.waitForResponse(response => response.url().endsWith('/nbinlineai/context-preview') && response.request().method() === 'POST');
+  await check.click();
+  await held;
+  await expect(check).toBeDisabled();
+  await expect(check).toHaveText('Checking…');
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).toHaveText('Checking…');
+  release();
+  const result = await completed;
+  expect((await result.json()).included_cell_ids).toContain('source');
+  const status = panel(page).locator('[data-nbinlineai-context-status]');
+  await expect(status).toContainText(/Context checked: 1 cell, 0 tools · Last checked/);
+  await expect(check).toHaveText('Check context');
+  const checkedAt = status.locator('[data-nbinlineai-context-checked-at]');
+  const firstTime = await checkedAt.getAttribute('dateTime');
+  expect(firstTime).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  await check.click();
+  await expect.poll(async () => {
+    const value = await checkedAt.getAttribute('dateTime');
+    return value && value !== firstTime ? value : null;
+  }).not.toBeNull();
+  await expect(status).toContainText(/Context checked: 1 cell, 0 tools · Last checked/);
+  await page.route('**/nbinlineai/context-preview', route => route.fulfill({ status: 503, contentType: 'application/json', body: '{}' }));
+  await check.click();
+  await expect(status).toHaveText('Context check failed');
+  await expect(status.locator('[data-nbinlineai-context-checked-at]')).toHaveCount(0);
+  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText('Context preview failed (503).');
+  await expect(check).toBeEnabled();
+  expect(providerRequests).toBe(0);
+});
+
+test('each cell places its own controls above its text and keeps the question plainly included', async ({ page, request, browserName }) => {
+  await openNotebook(page, request, [
+    code('definition', 'def factor(value: int):\n    return value + 1'),
+    markdown('notes', '## Lesson notes\nUse &`factor` for the next question.'),
+    question('ask', 'E2E_BASIC explain factor'),
+    answer('reply', 'ask', 'Factor adds one to the value.')
+  ]);
+  const definition = cells(page).first();
+  await definition.click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(definition.locator('.jp-InputPrompt')).toContainText('1');
+  await selectQuestion(page, 2);
+  const all = cells(page);
+  const questionCell = all.nth(2);
+  await expect(box(questionCell)).toBeHidden();
+  await expect(questionCell.locator('[data-nbinlineai-context-text]')).toHaveText('Current question · always included');
+  await expect(all.nth(1).locator('[data-nbinlineai-tools-include]')).toBeVisible();
+  await expect(questionCell.locator('[data-nbinlineai-run]')).toBeVisible();
+
+  async function assertCell(index: number, hasPromptControls: boolean) {
+    const cell = all.nth(index);
+    const host = cell.locator(':scope > [data-nbinlineai-cell-controls]');
+    const line = host.locator('[data-nbinlineai-cell-context-line]');
+    const input = cell.locator(':scope > .jp-Cell-inputWrapper');
+    const editor = input.locator('.jp-InputArea-editor');
+    const [hostBox, lineBox, inputBox, editorBox] = await Promise.all([
+      host.boundingBox(), line.boundingBox(), input.boundingBox(), editor.boundingBox()
+    ]);
+    expect(hostBox).not.toBeNull();
+    expect(lineBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
+    expect(hostBox!.y + hostBox!.height).toBeLessThanOrEqual(inputBox!.y + 2);
+    const renderedBox = editorBox ? null : await cell.locator('.jp-RenderedHTMLCommon > :first-child').boundingBox();
+    const textBox = editorBox || renderedBox;
+    expect(textBox).not.toBeNull();
+    expect(lineBox!.y + lineBox!.height).toBeLessThanOrEqual(textBox!.y + 2);
+    expect(Math.abs(lineBox!.x - textBox!.x)).toBeLessThanOrEqual(editorBox ? 8 : 24);
+    if (hasPromptControls) {
+      const runRow = host.locator('.nbinlineai-controls');
+      const runBox = await runRow.boundingBox();
+      expect(runBox).not.toBeNull();
+      expect(lineBox!.y + lineBox!.height).toBeLessThanOrEqual(runBox!.y + 2);
+      expect(runBox!.y + runBox!.height).toBeLessThanOrEqual(inputBox!.y + 2);
+      expect(Math.abs(runBox!.x - textBox!.x)).toBeLessThanOrEqual(editorBox ? 8 : 24);
+    }
+  }
+  await assertCell(0, false);
+  await assertCell(1, false);
+  await assertCell(2, true);
+  await assertCell(3, false);
+
+  const markdownCell = all.nth(1);
+  await questionCell.locator('[data-nbinlineai-keep-answer]').uncheck();
+  await markdownCell.dblclick();
+  await expect(markdownCell.locator('.cm-content')).toBeVisible();
+  await assertCell(1, false);
+  let providerRequests = 0;
+  page.on('request', item => { if (item.url().endsWith('/nbinlineai/prompt')) providerRequests += 1; });
+  await questionCell.locator('[data-nbinlineai-run]').click();
+  await expect(questionCell.locator('.nbinlineai-status')).toContainText('Done');
+  expect(providerRequests).toBe(1);
+  await markdownCell.dblclick();
+  await expect(markdownCell.locator('.cm-content')).toBeVisible();
+  await expect(questionCell.locator('[data-nbinlineai-override-editor]')).toBeHidden();
+  await questionCell.locator('[data-nbinlineai-override]').click();
+  await expect(questionCell.locator('[data-nbinlineai-override-editor]')).toBeVisible();
+  await preview(page);
+  await expect(box(all.nth(0))).toBeEnabled();
+  await all.nth(0).locator('[data-nbinlineai-context-include]').click();
+  await expect(target(page)).toHaveText('Context for AI question 3');
+  await expect(all).toHaveCount(4);
+  await save(page);
+  await page.reload();
+  await expect(all).toHaveCount(4);
+  await selectQuestion(page, 2);
+  await assertCell(2, true);
+  await expect(box(questionCell)).toBeHidden();
+  await panel(page).screenshot({ path: `test-results/cell-controls-top-${browserName}.png` });
+});
+
+test('one click changes lower Context, Tools, and Keep choices after editing earlier Markdown', async ({ page, request }) => {
+  await openNotebook(page, request, [
+    code('definition', 'def factor(value: int):\n    return value + 1'),
+    markdown('editing', '## Earlier note\nEdit this note before choosing lower controls.'),
+    markdown('declaration', '&`factor`'),
+    code('source', 'value = 3'),
+    question('ask', 'E2E_BASIC explain value'),
+    answer('reply', 'ask', 'The value is three.')
+  ]);
+  const all = cells(page);
+  await all.first().click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(all.first().locator('.jp-InputPrompt')).toContainText('1');
+  await selectQuestion(page, 4);
+  await mode(page).selectOption('all-above');
+  await preview(page);
+  await expect(toolsBox(all.nth(2))).toBeChecked();
+  await expect(box(all.nth(3))).toBeChecked();
+  await expect(all.nth(4).locator('[data-nbinlineai-keep-answer]')).toBeChecked();
+
+  async function editEarlier() {
+    const editor = all.nth(1).locator('.cm-content');
+    if (!(await editor.isVisible())) await all.nth(1).locator('.jp-RenderedHTMLCommon').dblclick();
+    else await editor.click();
+    await expect(editor).toBeVisible();
+  }
+  await editEarlier();
+  await toolsBox(all.nth(2)).uncheck();
+  await expect(toolsBox(all.nth(2))).not.toBeChecked();
+  await expect(target(page)).toHaveText('Context for AI question 5');
+  await editEarlier();
+  await expect(box(all.nth(3))).toBeEnabled();
+  await box(all.nth(3)).uncheck();
+  await expect(box(all.nth(3))).not.toBeChecked();
+  await expect(target(page)).toHaveText('Context for AI question 5');
+  await editEarlier();
+  await all.nth(4).locator('[data-nbinlineai-keep-answer]').uncheck();
+  await expect(all.nth(4).locator('[data-nbinlineai-keep-answer]')).not.toBeChecked();
+  await expect(all).toHaveCount(6);
+});
 
 test('all seven modes use physical windows and expose authoritative selected IDs', async ({ page, request }) => {
   const fixture: Cell[] = [];
@@ -130,8 +348,7 @@ test('all seven modes use physical windows and expose authoritative selected IDs
     expect(result.body.selected_cell_ids).not.toContain('own-answer');
     expect(result.body.selected_cell_ids).not.toContain('a2');
   }
-  const details = panel(page).locator('[data-nbinlineai-context-details]');
-  await details.locator('summary').click();
+  await openDetails(page);
   await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText(/selected|included/i);
   const panelBounds = await panel(page).boundingBox();
   const refreshBounds = await panel(page).locator('[data-nbinlineai-context-refresh]').boundingBox();
@@ -198,6 +415,7 @@ test('the AI Prompt toolbar immediately targets its newly inserted question', as
   await page.getByRole('button', { name: 'AI Prompt' }).click();
   const prompt = notebook(page).locator('.nbinlineai-prompt-cell');
   await expect(prompt).toHaveCount(1);
+  await openDetails(page);
   await expect(target(page)).toHaveText('Context for AI question 2');
   await prompt.locator('.cm-content').fill('E2E_BASIC explain value');
   await expect(target(page)).toHaveText('Context for AI question 2');
@@ -218,7 +436,8 @@ test('checkboxes retain the target and Custom choices survive save and reload', 
   await selectQuestion(page, 2);
   await expect(box(cells(page).nth(0))).toHaveAttribute('aria-label', 'Include in AI context');
   await expect(box(cells(page).nth(1))).toHaveAttribute('aria-label', 'Include in AI context');
-  await expect(box(cells(page).nth(2))).toBeDisabled();
+  await expect(box(cells(page).nth(2))).toBeHidden();
+  await expect(cells(page).nth(2).locator('[data-nbinlineai-context-text]')).toHaveText('Current question · always included');
   await expect(box(cells(page).nth(3))).toBeDisabled();
   await mode(page).selectOption('full-notebook');
   await expect(box(cells(page).nth(4))).toBeChecked();
@@ -459,9 +678,10 @@ test('an edited cell invalidates a delayed preview response', async ({ page, req
   await panel(page).locator('[data-nbinlineai-context-refresh]').click();
   await held;
   await cells(page).first().locator('.cm-content').fill('value = 2 # SOURCE_AFTER');
-  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText(/needs refresh/i);
+  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText(/estimate needs updating/i);
   release();
-  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText(/needs refresh/i);
+  await expect(panel(page).locator('[data-nbinlineai-context-report]')).toContainText(/estimate needs updating/i);
+  await expect(panel(page).locator('[data-nbinlineai-context-status]')).not.toContainText('Context checked:');
   const fresh = await preview(page);
   expect(fresh.request.notebook_cells.find((cell: any) => cell.id === 'source').source).toContain('SOURCE_AFTER');
 });

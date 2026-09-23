@@ -67,7 +67,7 @@ uv run --no-sync jlpm test:e2e
 
 Focused browser example: `uv run --no-sync jlpm playwright test tests/e2e/inherited-tools.spec.ts`. Install Chromium using `uv run --no-sync jlpm playwright install chromium` if missing. The default suite makes no paid API requests; `NBINLINEAI_E2E_LIVE=1` explicitly opts into live checks. The fake provider lives only in `tests/support/e2e_server.py`, not runtime code.
 
-Last release evidence: **114 Python tests, 36 frontend unit tests, 45 distinct browser checks**, plus production build, lint, examples in real kernels, archive checks and clean installation. The full browser pass initially had two fixture failures; their corrected focused reruns passed. Do not describe that as a single uninterrupted 45/45 run. Details are in the release record.
+Version 0.1.8 evidence: **140 Python tests, 44 frontend unit tests, an uninterrupted 57/57 browser run**, plus production build, lint, examples in real kernels, archive checks and clean installation. Later patch checks are recorded below and in the release record; do not imply unchanged backend tests were rerun for a frontend-only patch.
 
 Known practical pitfalls:
 
@@ -77,13 +77,15 @@ Known practical pitfalls:
 - An AI answer fixture requires `isOutputCell`, a linked `promptCellId`, and appropriate status. Markdown text alone does not make an answer.
 - After cancellation, wait for final `Cancelled` plus disabled Cancel before retrying; `Cancelling…` is not completion.
 - Notebook virtualization makes rendered DOM an incomplete inventory. Derive selection from `model.cells`, and attach controls only to live widgets with disposal/reattachment support.
-- Context preview introspection itself makes the kernel busy briefly. Do not invalidate and automatically re-preview on every busy/idle transition; that creates a request loop. Restart/dead/kernel replacement invalidate estimates; Refresh preview handles changed live values.
+- Context preview introspection itself makes the kernel busy briefly. Do not invalidate and automatically re-preview on every busy/idle transition; that creates a request loop. Restart/dead/kernel replacement invalidate estimates; Details → Check context handles changed live values.
 - Keep cell-control geometry stable before the first AI question is selected. Showing a previously hidden Context row during Run's pointer-down can move the button before pointer-up and swallow the click. Cover direct first-click execution while a code cell is busy.
+- In 0.1.9, editing a Markdown cell can trigger JupyterLab's notebook mouse-down handler to switch back to command mode and render that cell before mouse-up. The resulting vertical shift can lose the first click on a later AI action button in WebKit. The frontend prevents primary mouse-down on its AI action buttons, using JupyterLab's `defaultPrevented` guard; keyboard activation and select inputs remain native. The focused WebKit geometry/reload and lower-cell Context/Tools/Keep first-click checks passed; Chromium equivalents passed. The earlier full Chromium run was 58/59 before its test interaction was corrected, so do not describe it as an uninterrupted all-pass run.
 - AI Prompt insertion activates a blank Markdown cell before tagging it as an AI question. Notify the context controller after tagging so the new active question becomes the preview target, including immediately after a checkbox interaction.
 - Browser request assertions must use the versioned `notebook_cells` snapshot. `preceding_cells` is supported only for legacy clients.
 - JupyterLab itself may normalize native notebook metadata on first load. Read-only preview tests should compare AI metadata and saved contents, then test dirty state after native initialization settles.
 - `insert_tools` is intentionally skipped only in the explicitly tagged optional headless example cell; all example tool declarations are validated against real imports/definitions.
 - Screenshot helper: `tests/support/capture_docs.mjs`. Use isolated fake-provider examples; captions identify simulations. Do not capture personal data/keys. README has a two-image limit.
+- For the 0.1.9 candidate, target caption, check button and check status live inside **Details**, not beside the mode selector. Browser tests must expand Details before interacting with them. Native disclosure markers differ across browsers; keep both standard and WebKit marker suppression when drawing the custom triangle.
 
 ## Release/docs workflow and deferred work
 
@@ -111,3 +113,13 @@ Verification on 2026-09-23:
 - `uv build --out-dir dist/context-selection-check`, strict Twine, archive checks and a credential-pattern scan passed. The source archive has 126 files and the wheel 62. A disposable uv environment with JupyterLab 4.6.4 installed the checked wheel, found both extensions enabled/OK, imported all seven modes, and contained the new example and illustrations.
 
 All owned test/capture servers were stopped. Port 8888 was untouched, and no paid provider call was made. These results are the original **pre-bump source verification**, run while version metadata still read 0.1.7. The 0.1.8 release packaging and publication are separate gates; this test record does not itself confirm a PyPI upload.
+
+## Context controls in version 0.1.9
+
+This patch changes presentation and check feedback, preserving selection and execution semantics. The collapsed row contains only Context mode and Details. Details contains the transient target caption, optional Check context action, help and report. The target comes from clicking an AI question or linked answer; it is not a separate toolbar choice. Before any target exists, cell Context controls remain disabled but no longer repeat an instruction beside every cell. The single instruction inside Details reads from live cell metadata so it distinguishes an existing question from a notebook with none.
+
+Per-cell controls now render above their owning cell's source or rendered content, aligned with the editor/text, including an AI answer's Context control. Answers do not have a Tools switch. An AI question's Run/Cancel/Keep/Override row follows its Context line, both above its question text. The targeted question displays **Current question · always included** as plain text instead of an empty Context checkbox. This fixes the visual ownership ambiguity from 0.1.8's bottom-placed controls. When testing widget reuse or virtualization, assert a control stays with its model ID rather than the nearest visible source below it.
+
+Check context displays Checking while pending, then current-generation included-cell/tool counts and a transient last-checked time. Same-count checks still visibly complete. Busy, failed, invalidated and stale replies cannot show a successful check or leave an old success timestamp. The live status is polite and atomic; it does not write notebook metadata. Running an AI question continues to inspect fresh state without requiring a manual check. Do not auto-check on every kernel busy/idle transition.
+
+The summary has one custom triangle, with both native standard and WebKit markers suppressed. The browser regression covers collapsed/expanded visibility, no repeated cell instruction, delayed-check feedback, same-count rechecks, and a failed check after success. The final verification and publication record is in [releasing](releasing.md).

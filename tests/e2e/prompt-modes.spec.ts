@@ -119,8 +119,7 @@ test('saved response style controls requests, server instructions, and learning 
   await expect(dialog.locator('select[data-nbinlineai-prompt-mode]')).toHaveValue('learning');
   await page.getByRole('button', { name: 'Done' }).click();
 
-  await prompt.click();
-  await page.keyboard.press('Enter');
+  await prompt.locator('.jp-RenderedHTMLCommon').dblclick();
   await expect(prompt.locator('.cm-content')).toBeVisible();
   await prompt.locator('.cm-content').fill('E2E_LEARNING_FIRST explain value');
   await runAndCaptureMode(page, prompt, 'learning');

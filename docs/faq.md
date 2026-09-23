@@ -4,9 +4,15 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.8**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.9**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
+
+### Where are the controls for an individual AI question?
+
+Starting in **0.1.9**, a cell's available Context/Tools controls sit above its own content, aligned with the text/editor. An AI answer has a Context control above its answer text but no Tools switch. An AI question's **Run AI**, **Cancel**, **Keep answer** and **Override** row sits below its Context line, still above its question text. The **AI defaults** and **Context** rows at the top of the notebook set notebook-wide choices; the cell's Override changes only that question.
+
+In **0.1.8 and earlier**, the controls were at the bottom. A checked Context immediately above an AI question could therefore belong to the preceding cell. Update to 0.1.9 for the clearer placement. The current question is labeled **Current question · always included** rather than showing an empty checkbox: its text is always sent.
 
 ### Does Run All run the AI cells?
 
@@ -57,7 +63,7 @@ Cancellation is not an undo operation. A function call already sent to the kerne
 
 ### Can I edit an AI answer directly?
 
-Yes. Double-click the answer's Markdown, correct its explanation or code, then render it and save. Later AI prompts read the edited text when they run, provided the completed prompt/answer pair is above them and within the context limits.
+Yes. Double-click the answer's Markdown text below its Context control, correct its explanation or code, then render it and save. Later AI prompts read the edited text when they run, provided the completed prompt/answer pair is above them and within the context limits.
 
 There is no hidden, original answer that overrides your edit. A rerun of the original prompt replaces its answer, including your manual edits; turn that prompt's Keep answer on to preserve them.
 
@@ -116,15 +122,27 @@ In Full notebook, All above, either ten-cell mode or Custom, it means selected a
 
 ### Which question do the controls describe?
 
-The header names the preview question. Select a question or its linked answer to change that target. Clicking a code or Markdown checkbox retains it. Execution uses the ID of the question actually running, so Run All takes a fresh snapshot for each question rather than reusing the preview target.
+The question named inside **Details** is the preview target. Click a question or its linked answer to change it; clicking a code or Markdown checkbox retains it. The collapsed toolbar only sets the notebook-wide mode. Execution uses the ID of the question actually running, so Run All takes a fresh snapshot for each question rather than reusing the preview target.
+
+Before you click a question, the Context checkboxes are disabled because there is no request to describe yet. The instruction inside Details means click an existing AI question in the notebook; it is not a separate action on each cell. For example, a cell can be above one question but below another, and a question's own answer is always excluded.
+
+### Must I check context before running an AI question?
+
+No. **Run AI**, Shift+Enter and Run All calculate the context automatically for each question. **Details → Check context** is only for inspecting what would fit without an AI request, such as after changing a Python value or function. It does not regenerate an answer. Even Full notebook needs a question as the inspection target so its own answer can be excluded and the applicable tools and remaining budget can be calculated.
+
+The button shows **Checking…** during inspection. Success displays **Context checked**, the included cell/tool counts and the check time. If nothing about the selection changed, the checkboxes stay the same; the new time confirms completion. A failed check displays its reason instead.
 
 ### What happens to Custom choices when I change modes or insert cells?
 
-Returning to Custom restores your choices. Editing a preset checkbox instead starts a new Custom set from that preset's displayed selection. If Default preview is unavailable, refresh before initializing Custom or start from an explicit preset. Initial choices cover all existing cells; an empty or failed cell retains its choice if it later becomes eligible. Newly inserted cells default to included when eligible. Moves preserve choices; duplicates copy metadata with JupyterLab's fresh cell ID. The mode and choices save in the notebook, while previews do not.
+Unchecking a cell switches to **Custom**. Checking it again stays in Custom, even if the choices now match a preset. To restore automatic selection, choose **Default** in the main **Context** dropdown; use that same dropdown for any other preset.
+
+Returning to Custom restores your choices. Editing a preset checkbox instead starts a new Custom set from that preset's displayed selection. If Default preview is unavailable, use **Details → Check context** before initializing Custom or start from an explicit preset. Initial choices cover all existing cells; an empty or failed cell retains its choice if it later becomes eligible. Newly inserted cells default to included when eligible. Moves preserve choices; duplicates copy metadata with JupyterLab's fresh cell ID. The mode and choices save in the notebook, while previews do not.
 
 ### Why is preview pending, stale or unavailable?
 
-An accurate estimate needs an existing idle kernel and any functions/values referenced by this question. Preview does not start a kernel, contact a provider, run an offered function or create an answer. Source/settings/target/kernel changes invalidate a response. Use Refresh preview after changing live Python state. Running the question always takes a fresh snapshot; later tool rounds can trim more text. A preview is not a saved guarantee of a later request.
+An accurate estimate needs an existing idle kernel and any functions/values referenced by this question. Preview does not start a kernel, contact a provider, run an offered function or create an answer. Source/settings/target/kernel changes invalidate a response. Use **Details → Check context** to inspect an updated estimate after changing live Python state. Running the question always takes a fresh snapshot; later tool rounds can trim more text. A preview is not a saved guarantee of a later request.
+
+In Default, an invalidated estimate can leave the boxes unchecked and disabled, including after a run inserts or updates an answer. That means the preview needs updating; it does not mean the completed request had no context. The question's run status reports what that request used. To inspect the next request, use **Details → Check context** once the kernel is idle.
 
 ### How do I exclude text without losing tools—or disable the tools too?
 

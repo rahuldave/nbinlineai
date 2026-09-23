@@ -23,7 +23,7 @@ You need Python 3.11 or newer and JupyterLab 4.2 or newer.
 | Ask about earlier code or notes | Write an ordinary question. Default uses nearby earlier source and completed AI turns; Context modes and checkboxes choose other cells. |
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
-| Correct an answer yourself | Double-click its Markdown and edit it. Later AI prompts read the corrected text when they run. |
+| Correct an answer yourself | Double-click its Markdown text below the Context control and edit it. Later AI prompts read the corrected text when they run. |
 | Ask for a revised answer | Edit the prompt, turn off **Keep answer**, and run it again; its existing answer is replaced. |
 | Work through a saved notebook | Leave the notebook's **Keep AI answers** on. Completed answers are preserved without another API call. |
 | Develop a notebook with fresh answers | Turn notebook **Keep AI answers** off. Pin any answer you are happy with using that cell's **Keep answer**. |
@@ -64,6 +64,8 @@ In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown
 - **Context (0.1.8):** choose Default, Full notebook, All above, 10 above, 10 above + below, Custom, or Current question only. Per-cell checkboxes choose notebook text; the backend preview identifies included, partial and omitted cells. Every mode uses the shared character budget. Separate Tools checkboxes enable declaration cells; enabled tools remain available even when their text is unchecked. Raw cells, code outputs and image data are omitted.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
+
+The Context toolbar shows the notebook mode and **Details**. Click an AI question to inspect its context; **Details → Check context** optionally shows counts and a check time without asking the AI. Each cell's Context and Tools choices appear above that cell's content, aligned with its text. Running a question always calculates context automatically.
 
 ## Choose a model
 

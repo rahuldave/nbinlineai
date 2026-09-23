@@ -32,7 +32,13 @@ uv run jupyter lab
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.8
+## New in version 0.1.9
+
+The Context toolbar now shows just the notebook mode and **Details**, with one disclosure arrow. Question-specific information and the optional **Check context** action are inside Details. A check shows progress, then cell/tool counts and a completion time, or a visible failure reason. Running an AI question always calculates context automatically.
+
+Each cell's Context/Tools controls now sit above its content, aligned with the text. AI question controls move above the question too, and the current question is plainly labeled as always included.
+
+## Added in version 0.1.8
 
 Version 0.1.8 adds selectable notebook context.
 

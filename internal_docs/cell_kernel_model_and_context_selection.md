@@ -1,6 +1,6 @@
 # Notebook cells, kernel state, and context selection
 
-Version **0.1.8** implementation, **2026-09-23**. The [feature brief](context_selection_next_feature.md) records the original design contract; selectable context is implemented in this release. The verification below was performed on the pre-bump source checkout; it is not evidence of a completed PyPI upload.
+Version **0.1.8** context selection is published; the control-layout notes for **0.1.9** describe an unpublished release candidate as of **2026-09-23**. The [feature brief](context_selection_next_feature.md) records the original design contract. The verification below describes the 0.1.8 pre-bump source checkout, not a separate 0.1.9 release gate.
 
 ## Two sources of truth
 
@@ -52,7 +52,9 @@ Only current-question `$` references resolve live values. The combined distinct 
 
 Authenticated `POST nbinlineai/context-preview` shares request normalization, live reference preparation and `build_context` with execution. It uses kernel-execution authorization, an existing idle Python kernel, a bounded timeout and no provider key. It makes no provider request, invokes no offered tool body, inserts no answer and performs no document mutation. Python representation/introspection can itself run user-defined code; do not call it intrinsically side-effect-free.
 
-Preview generations bind replies to the panel/model/session/kernel, question, source/order/metadata and effective settings. Edits and binding changes invalidate old reports, requests are coalesced, and Refresh preview permits explicit reinspection after live-state changes. Missing/busy kernels and unresolved names are reported honestly. A preview is a first-round estimate, not a guarantee about later live state. Execution always reinspects.
+Preview generations bind replies to the panel/model/session/kernel, question, source/order/metadata and effective settings. Edits and binding changes invalidate old reports, requests are coalesced, and **Details → Check context** permits explicit reinspection after live-state changes. In 0.1.9 the collapsed toolbar shows only the notebook-wide mode and Details; question target, transient progress/completion time, counts and help are inside Details. Missing/busy kernels and unresolved names are reported honestly. A preview is a first-round estimate, not a guarantee about later live state. Execution always reinspects, without requiring the user to run the check first.
+
+For 0.1.9, a cell's available Context and Tools controls attach above its own source or rendered content, aligned with the text/editor. A linked AI answer has Context above its answer text but no Tools switch. Run/Cancel/Keep/Override follow the Context line above their own AI question; the targeted question shows a plain always-included label in place of an empty context checkbox. This removes the 0.1.8 ambiguity where a control at the foot of one cell could appear beside the next cell's content. Placement changes no snapshot, metadata or declaration semantics.
 
 Reports distinguish selected candidates, eligible cells, mode/user exclusions, ineligible reasons, budget included/omitted/partial IDs, retained prefix/suffix, above/below counts, tools, characters and snapshot generation. These remain transient; later provider-round reports never overwrite saved choices.
 

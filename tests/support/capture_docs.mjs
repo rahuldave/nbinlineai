@@ -61,6 +61,19 @@ async function run(page, prompt) {
   return page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell').last();
 }
 
+async function checkContext(page, panel, prompt) {
+  await prompt.click();
+  const details = panel.locator('[data-nbinlineai-context-details]');
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+  const status = details.locator('[data-nbinlineai-context-status]');
+  const check = details.locator('[data-nbinlineai-context-refresh]');
+  await expect(check).toBeEnabled();
+  await check.click();
+  await expect(status).toContainText('Context checked:');
+  await details.locator('summary').click();
+  await expect(details).not.toHaveAttribute('open', '');
+}
+
 async function capture(page, filename, locators) {
   await locators[0].scrollIntoViewIfNeeded();
   const boxes = [];
@@ -114,6 +127,7 @@ try {
   ]);
   let prompt = await insert(page, 1, 'What does this average tell us?');
   let answer = await run(page, prompt);
+  await checkContext(page, panel, prompt);
   await capture(page, 'overview.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), panel.locator('.jp-Notebook .jp-Cell').first(), prompt, answer]);
   await capture(page, 'keep-answer.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt, answer]);
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
@@ -143,6 +157,7 @@ try {
   await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
   await prompt.locator('[data-nbinlineai-keep-answer]').check();
   await expect(prompt.locator('[data-nbinlineai-keep-inherit]')).toBeVisible();
+  await checkContext(page, panel, prompt);
   await capture(page, 'cell-overrides.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt]);
 
   // Two short Socratic turns, both visible in a single notebook.
@@ -198,6 +213,7 @@ try {
   await expect(contextSetup.locator('.jp-InputPrompt')).toContainText('1');
   prompt = await insert(page, 1, 'What does this average tell us?');
   answer = await run(page, prompt);
+  await checkContext(page, panel, prompt);
   await capture(page, 'context.png', [panel.locator('.jp-Notebook .jp-Cell').first(), prompt, answer, panel.locator('.jp-Notebook .jp-Cell').last()]);
 
   // Show independent text and tool choices with source on both sides of the question.
@@ -208,7 +224,7 @@ try {
   await expect(firstContext).toBeChecked();
   await firstContext.uncheck();
   await expect(panel.locator('[data-nbinlineai-context-mode]')).toHaveValue('custom');
-  await expect(panel.locator('[data-nbinlineai-context-status]')).toContainText(/\d+ included.*\d+ tools/);
+  await expect(panel.locator('[data-nbinlineai-context-status]')).toContainText(/\d+ included|Context checked:/);
   await expect(panel.locator('.jp-Notebook .jp-Cell').first().locator('[data-nbinlineai-tools-include]')).toBeChecked();
   await expect(panel.locator('.jp-Notebook .jp-Cell').last().locator('[data-nbinlineai-context-include]')).toBeChecked();
   await capture(page, 'context-selection.png', [
@@ -218,6 +234,9 @@ try {
     panel.locator('.jp-Notebook .jp-Cell').last()
   ]);
   await panel.locator('[data-nbinlineai-context-details] > summary').click();
+  await expect(panel.locator('[data-nbinlineai-context-refresh]')).toBeVisible();
+  await panel.locator('[data-nbinlineai-context-refresh]').click();
+  await expect(panel.locator('[data-nbinlineai-context-status]')).toContainText(/Context checked:/);
   await expect(panel.locator('[data-nbinlineai-context-report]')).toContainText('First-round estimate');
   await panel.locator('.nbinlineai-context-row').screenshot({ path: join(out, 'context-details.png') });
 
