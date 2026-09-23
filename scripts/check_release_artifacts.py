@@ -14,7 +14,7 @@ FORBIDDEN_PARTS = {
 }
 FORBIDDEN_FILES = {".env", "credentials.json", ".pypirc"}
 SOURCE_REQUIRED = {
-    "LICENSE", "README.md", "pyproject.toml", "package.json", "yarn.lock",
+    "LICENSE", "README.md", "USER_GUIDE.md", "pyproject.toml", "package.json", "yarn.lock",
     "src/index.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
@@ -23,6 +23,7 @@ WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/__init__.py", "nbinlineai/handlers.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
+    "share/doc/nbinlineai/USER_GUIDE.md",
 }
 
 

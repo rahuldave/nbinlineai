@@ -37,7 +37,7 @@ dev = ["pytest>=8", "ruff>=0.8"]
 [tool.hatch.build.targets.sdist]
 artifacts = ["nbinlineai/labextension"]
 only-include = [
-  "LICENSE", "README.md", "pyproject.toml", "uv.lock", "package.json", "yarn.lock",
+  "LICENSE", "README.md", "USER_GUIDE.md", "pyproject.toml", "uv.lock", "package.json", "yarn.lock",
   ".yarnrc.yml", "tsconfig.json", "install.json", "nbinlineai", "jupyter-config",
   "src", "style", "schema", "tests", "examples", "playwright.config.ts",
 ]
@@ -54,6 +54,7 @@ packages = ["nbinlineai"]
 "nbinlineai/labextension" = "share/jupyter/labextensions/nbinlineai"
 "install.json" = "share/jupyter/labextensions/nbinlineai/install.json"
 "jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
+"USER_GUIDE.md" = "share/doc/nbinlineai/USER_GUIDE.md"
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.9"]

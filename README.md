@@ -2,6 +2,10 @@
 
 Write AI prompts directly in JupyterLab notebooks. Each prompt has its own OpenAI or Anthropic model choice, and its answer appears in a paired markdown cell below it. Prompts and answers stay in the notebook when you save and reopen it.
 
+## User manual
+
+The full Markdown manual is `USER_GUIDE.md` in the source checkout. It covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. Future package builds also include it in the source archive and install it under `share/doc/nbinlineai/USER_GUIDE.md` in the Python environment. The quick start below is self-contained.
+
 ## Quick start
 
 You need Python 3.11 or newer and JupyterLab 4.
@@ -21,6 +25,14 @@ You need Python 3.11 or newer and JupyterLab 4.
 | Keep the conversation | Save the notebook; prompts and answers are saved with it. |
 
 Ordinary code cells keep their normal execution behavior. See the runnable example below for variable and function references.
+
+## Cells and context at a glance
+
+- **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
+- **Editing and rerunning:** edit a prompt and run it again to replace its paired answer. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically.
+- **Context:** code source above the prompt and completed earlier AI prompt/answer pairs are included within size limits. Ordinary Markdown notes, raw cells, code outputs, plots, and images are currently omitted.
+- **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
+- **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
 
 ## Choose a model
 
