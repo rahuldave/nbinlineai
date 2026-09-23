@@ -13,6 +13,8 @@ The portability ratings below are our engineering assessment of the inspected co
 
 Most capabilities are feasible in principle. The real decisions are the amount of integration work, whether they inspect or change state, and their value for a student notebook.
 
+The follow-up [ipylab assessment](ipylab_frontend_bridge_assessment.md) compares an existing Python/frontend library with these requirements. It confirms useful command/snippet support but identifies missing cell-specific reads, edit acknowledgements, and command results. Our existing frontend can supply the needed notebook operations through a dedicated protocol.
+
 ## 1. Small or saved-file adaptations
 
 | Upstream functions | What they do | How they fit here; what must change |
