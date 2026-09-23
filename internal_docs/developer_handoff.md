@@ -1,6 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.8**, source commit `9f1aa11b813bf7a343cf5b9c2214e8dab0950c2b`, tag `v0.1.8`. This release adds [context selection](context_selection_next_feature.md); the final wheel/source checks, clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for hashes and verification, and the 0.1.8 implementation and source-verification section below.
+Reviewed **2026-09-23**. Latest published package: **0.1.9**, source commit `c080d07b933b39799e67ef5721252967f38f5250`, tag `v0.1.9`. This release improves context controls, feedback and cell placement following 0.1.8's [context selection](context_selection_next_feature.md). Final wheel/source checks, a clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for publication and test evidence, and the implementation sections below.
 
 ## Product and environment
 
@@ -85,7 +85,7 @@ Known practical pitfalls:
 - JupyterLab itself may normalize native notebook metadata on first load. Read-only preview tests should compare AI metadata and saved contents, then test dirty state after native initialization settles.
 - `insert_tools` is intentionally skipped only in the explicitly tagged optional headless example cell; all example tool declarations are validated against real imports/definitions.
 - Screenshot helper: `tests/support/capture_docs.mjs`. Use isolated fake-provider examples; captions identify simulations. Do not capture personal data/keys. README has a two-image limit.
-- For the 0.1.9 candidate, target caption, check button and check status live inside **Details**, not beside the mode selector. Browser tests must expand Details before interacting with them. Native disclosure markers differ across browsers; keep both standard and WebKit marker suppression when drawing the custom triangle.
+- Since 0.1.9, target caption, check button and check status live inside **Details**, not beside the mode selector. Browser tests must expand Details before interacting with them. Native disclosure markers differ across browsers; keep both standard and WebKit marker suppression when drawing the custom triangle.
 
 ## Release/docs workflow and deferred work
 

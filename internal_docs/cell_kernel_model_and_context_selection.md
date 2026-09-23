@@ -1,6 +1,6 @@
 # Notebook cells, kernel state, and context selection
 
-Version **0.1.8** context selection is published; the control-layout notes for **0.1.9** describe an unpublished release candidate as of **2026-09-23**. The [feature brief](context_selection_next_feature.md) records the original design contract. The verification below describes the 0.1.8 pre-bump source checkout, not a separate 0.1.9 release gate.
+Version **0.1.8** introduced context selection; version **0.1.9** includes the improved control layout and check feedback. Both are published as of **2026-09-23**. The [feature brief](context_selection_next_feature.md) records the original design contract. The verification below describes the 0.1.8 pre-bump source checkout; see [releasing](releasing.md) for the separate 0.1.9 release gates.
 
 ## Two sources of truth
 
