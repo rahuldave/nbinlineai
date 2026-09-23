@@ -11,7 +11,7 @@ The full Markdown manual is `USER_GUIDE.md` in the source checkout and source ar
 You need Python 3.11 or newer and JupyterLab 4.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
-2. **Set up a key:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key. You can configure either provider or both.
+2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key. Choose **Compact**, **Full**, or **Learning** as your response style; Compact is the default.
 3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, such as "Explain the code above."
 4. **Run it:** choose a provider and model, then press **Shift+Enter** or click **Run AI**. **Default** uses the configured default model shown in the picker. The answer appears in a paired Markdown cell below the prompt.
 
@@ -21,10 +21,28 @@ You need Python 3.11 or newer and JupyterLab 4.
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
 | Revise an answer | Edit the prompt and run it again; its existing answer is updated. |
+| Learn through questions | Choose **Learning** in Configure AI. Answer each tutor question in a new AI Prompt cell below its response. |
+| Use suggested code | Click the copy icon on a code block in an AI answer, then paste into a code cell. |
 | Stop a response | Click **Cancel**. Calls already performed cannot be undone. |
 | Keep the conversation | Save the notebook; prompts and answers are saved with it. |
 
 Ordinary code cells keep their normal execution behavior. See the runnable example below for variable and function references.
+
+## Choose a response style
+
+Open **Configure AI → Response style**:
+
+| Style | How the AI responds |
+| --- | --- |
+| **Compact** (default) | Very succinct answers, with code when useful. |
+| **Full** | Detailed explanations and code when useful. |
+| **Learning** | A Socratic tutor: focused questions, hints, and feedback on your attempts. It is instructed to avoid complete solutions and use at most 3 lines of code per response, only when needed as a hint. It may suggest documentation to read. |
+
+The choice is saved in your JupyterLab user settings and applies to subsequent runs, including reruns. The current style is shown beside each AI prompt. A run already in progress keeps the style it started with.
+
+In **Learning**, start with a question such as “Help me understand why this loop skips an item.” When the tutor asks a question, insert another AI Prompt cell **below its answer**, write your reply, and run it. Earlier exchanges provide the conversation history. Repeat as you work through the problem; rerunning the original prompt replaces its answer instead of adding a conversation turn.
+
+In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown blocks. Code blocks in AI answers have a **Copy code** button: click it, create or select an ordinary code cell, and paste. Copying does not execute code. If the browser blocks clipboard access, select and copy the code manually. These styles guide the model; Learning is not an enforced assessment restriction.
 
 ## Cells and context at a glance
 

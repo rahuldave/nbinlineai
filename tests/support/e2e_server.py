@@ -18,6 +18,9 @@ from aidialog.msg_parts import Completion, Msg, Text, ToolResult, ToolUse
 
 async def fake_complete(backend: str, model: str, messages: list, tools: list) -> Completion:
     """Echo supplied context, with controlled tool, error, and cancel branches."""
+    latest = "".join(
+        part.text for part in getattr(messages[-1], "content", []) if isinstance(part, Text)
+    )
     transcript = "\n".join(
         str(getattr(part, "text", ""))
         for message in messages
@@ -28,6 +31,13 @@ async def fake_complete(backend: str, model: str, messages: list, tools: list) -
         raise RuntimeError("E2E synthetic provider failure")
     if "E2E_SLOW" in transcript:
         await asyncio.sleep(30)
+    if "E2E_LEARNING_FIRST" in latest:
+        return Completion(model=model, message=Msg("assistant", [Text("E2E_FIRST_TUTOR_REPLY")]))
+    if "E2E_CODE_BLOCK" in latest:
+        return Completion(
+            model=model,
+            message=Msg("assistant", [Text("Example:\n\n```python\nvalue = 2 + 2\nprint(value)\n```")]),
+        )
     if "E2E_TOOL" in transcript:
         results = [
             part for message in messages

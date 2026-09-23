@@ -103,6 +103,13 @@ class HandlerTests(AsyncHTTPTestCase):
         assert response.code == 400
         assert response.headers["Content-Type"].startswith("application/json")
 
+    def test_invalid_prompt_mode_is_http_400(self):
+        body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
+                "backend": "openai_api", "prompt_mode": "verbose"}
+        response = self._post(body)
+        assert response.code == 400
+        assert b"prompt_mode must be one of: compact, full, learning" in response.body
+
     def test_status_does_not_expose_secret(self):
         response = self.fetch("/nbinlineai/status", headers={"Authorization": "Bearer test"})
         assert response.code == 200

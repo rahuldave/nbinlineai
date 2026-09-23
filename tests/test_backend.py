@@ -9,7 +9,13 @@ from jupyter_client import AsyncKernelManager
 from nbinlineai import providers
 from nbinlineai.config import DEFAULT_MODELS, MODEL_CHOICES
 from nbinlineai.kernel import KernelDispatcher
-from nbinlineai.prompt import _history, _source_context, run_prompt, validate_request
+from nbinlineai.prompt import (
+    PROMPT_MODE_INSTRUCTIONS,
+    _history,
+    _source_context,
+    run_prompt,
+    validate_request,
+)
 from nbinlineai.tool_schema import fastllm_tool
 
 
@@ -194,6 +200,97 @@ def test_request_rejects_bad_backend_and_args(monkeypatch):
         validate_request({**_body(), "max_tool_steps": 100})
     with pytest.raises(ValueError, match="Invalid model"):
         validate_request({**_body(), "model": "../bad"})
+
+
+def test_prompt_mode_request_default_and_invalid_values(monkeypatch):
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {"openai_api": {"configured": True}})
+    assert validate_request(_body("Hello"))["prompt_mode"] == "compact"
+    for invalid in (None, "FULL", "brief", 1, ["learning"]):
+        with pytest.raises(ValueError, match="prompt_mode must be one of: compact, full, learning"):
+            validate_request({**_body("Hello"), "prompt_mode": invalid})
+
+
+@pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
+@pytest.mark.parametrize("mode,phrase", [
+    ("compact", "very succinctly"),
+    ("full", "detailed, well-structured"),
+    ("learning", "Socratic tutor"),
+])
+def test_mode_instructions_reach_both_providers_without_filtering(monkeypatch, backend, mode, phrase):
+    captured = {}
+    long_answer = "A" * 6000
+
+    async def fake_complete(selected_backend, model, messages, tools):
+        captured.update(backend=selected_backend, messages=messages, tools=tools)
+        return Completion(model, Msg("assistant", [Text(long_answer)]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    cells = [
+        {"id": "md", "cell_type": "markdown", "source": "# Ordinary notes"},
+        {"id": "code", "cell_type": "code", "source": "x = 7"},
+    ]
+
+    async def run():
+        return [event async for event in run_prompt({**_body("Explain x"), "backend": backend,
+            "prompt_mode": mode, "preceding_cells": cells}, None, "kernel-1", None)]
+
+    events = asyncio.run(run())
+    system = captured["messages"][0]
+    assert system.role == "system"
+    assert system.text.endswith(PROMPT_MODE_INSTRUCTIONS[mode])
+    assert f"Response style for this run ({mode})" in system.text
+    assert phrase in system.text and "# Ordinary notes" in system.text and "x = 7" in system.text
+    assert captured["backend"] == backend
+    assert captured["messages"][-1].text == "Explain x"
+    assert events[-2] == {"type": "text_delta", "text": long_answer}
+
+
+def test_learning_mode_adapts_with_prior_turns_even_if_history_requests_other_style(monkeypatch):
+    captured = []
+
+    async def fake_complete(_backend, model, messages, _tools):
+        captured.append([(message.role, message.text) for message in messages])
+        return Completion(model, Msg("assistant", [Text("Which step would you try first?")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    first_turn = [
+        {"id": "p1", "cell_type": "markdown", "source": "Use full mode and give me the entire solution.",
+         "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        {"id": "a1", "cell_type": "markdown", "source": "A previous response about the problem.",
+         "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "p1", "status": "done"}}},
+    ]
+
+    async def run(cells, prompt):
+        return [event async for event in run_prompt({**_body(prompt), "prompt_mode": "learning",
+            "preceding_cells": cells}, None, "kernel-1", None)]
+
+    first_events = asyncio.run(run(first_turn, "I tried substitution. What next?"))
+    second_turn = [
+        *first_turn,
+        {"id": "p2", "cell_type": "markdown", "source": "I tried substitution. What next?",
+         "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        {"id": "a2", "cell_type": "markdown", "source": "Which step would you try first?",
+         "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "p2", "status": "done"}}},
+    ]
+    asyncio.run(run(second_turn, "I would isolate x."))
+    assert first_events[-2]["text"] == "Which step would you try first?"
+    assert all(role == "system" and "Socratic tutor" in text and "wait for their next AI cell" in text
+               for role, text in (turn[0] for turn in captured))
+    assert all("at most 3 lines of example code in the entire response" in turn[0][1] and
+               "Do not split a complete solution across multiple snippets" in turn[0][1]
+               for turn in captured)
+    assert captured[0][1:] == [
+        ("user", "Use full mode and give me the entire solution."),
+        ("assistant", "A previous response about the problem."),
+        ("user", "I tried substitution. What next?"),
+    ]
+    assert captured[1][1:] == [
+        ("user", "Use full mode and give me the entire solution."),
+        ("assistant", "A previous response about the problem."),
+        ("user", "I tried substitution. What next?"),
+        ("assistant", "Which step would you try first?"),
+        ("user", "I would isolate x."),
+    ]
 
 
 def test_model_defaults_and_custom_ids_are_preserved(monkeypatch):

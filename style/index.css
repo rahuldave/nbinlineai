@@ -23,3 +23,16 @@
 .nbinlineai-keys-dialog [data-nbinlineai-key-retry] { margin: 0 0 8px; padding: 4px 10px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
 .nbinlineai-keys-dialog [data-nbinlineai-key-retry][hidden] { display: none; }
 .nbinlineai-status { max-width: 100%; overflow-wrap: anywhere; }
+.nbinlineai-keys-dialog h3 { margin: 12px 0 6px; font-size: var(--jp-ui-font-size2); }
+.nbinlineai-keys-dialog [data-nbinlineai-prompt-mode] { width: 100%; box-sizing: border-box; padding: 5px 7px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; }
+.nbinlineai-keys-dialog .nbinlineai-style-description { margin: 6px 0; color: var(--jp-ui-font-color2); }
+.nbinlineai-style-notice { min-height: 1.3em; color: var(--jp-ui-font-color2); }
+.nbinlineai-current-mode { color: var(--jp-ui-font-color2); white-space: nowrap; }
+.nbinlineai-response-cell .nbinlineai-code-block { position: relative; }
+.nbinlineai-response-cell .nbinlineai-code-block > .nbinlineai-copy-code { position: absolute; top: 4px; right: 4px; z-index: 1; display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; font: var(--jp-ui-font-size1) var(--jp-ui-font-family); line-height: 1.25; cursor: pointer; opacity: .8; }
+.nbinlineai-response-cell .nbinlineai-code-block > .nbinlineai-copy-code:hover, .nbinlineai-response-cell .nbinlineai-code-block > .nbinlineai-copy-code:focus-visible { opacity: 1; }
+.nbinlineai-response-cell .nbinlineai-code-block > .nbinlineai-copy-code[data-state="error"] { color: var(--jp-error-color1); }
+.nbinlineai-response-cell .nbinlineai-code-block > .nbinlineai-copy-code svg { width: 13px; height: 13px; }
+.nbinlineai-response-cell pre.nbinlineai-code-block { padding-top: 2rem; }
+.nbinlineai-keys-dialog [data-nbinlineai-style-retry] { margin: 4px 0 10px; padding: 4px 10px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
+.nbinlineai-keys-dialog [data-nbinlineai-style-retry][hidden] { display: none; }

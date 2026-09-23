@@ -14,6 +14,35 @@ MAX_CELLS = 200
 MAX_SOURCE_CHARS = 50000
 MAX_HISTORY_CHARS = 16000
 MAX_PROMPT_CHARS = 16000
+PROMPT_MODE_INSTRUCTIONS = {
+    "compact": (
+        "Answer the current question directly and very succinctly. Give only the explanation needed "
+        "to make the answer useful. If code helps, put it in a fenced Markdown block with an explicit "
+        "language tag such as ```python."
+    ),
+    "full": (
+        "Give a detailed, well-structured answer with the reasoning and explanation needed to understand "
+        "it. Include examples or code when useful. Put code in fenced Markdown blocks with explicit "
+        "language tags such as ```python."
+    ),
+    "learning": (
+        "Act as a Socratic tutor. Help the learner reason through the current problem by asking one or "
+        "a few focused questions, then wait for their next AI cell before advancing. Use the earlier "
+        "prompt-and-answer history to adapt to what they have already tried and understood. Give hints "
+        "and feedback, but do not provide a complete solution or substantial code. Only when needed "
+        "as a hint, include at most 3 lines of example code in the entire response, in one fenced "
+        "Markdown block with a language tag. Do not split a complete solution across multiple "
+        "snippets. You may suggest relevant documentation to consult, but do not claim "
+        "to have opened or read linked documentation unless its contents were actually provided."
+    ),
+}
+
+
+def _prompt_mode(body: dict) -> str:
+    mode = body.get("prompt_mode", "compact")
+    if not isinstance(mode, str) or mode not in PROMPT_MODE_INSTRUCTIONS:
+        raise ValueError("prompt_mode must be one of: compact, full, learning")
+    return mode
 
 
 def validate_request(body: dict) -> dict:
@@ -24,6 +53,7 @@ def validate_request(body: dict) -> dict:
             raise ValueError(f"{field} is required")
     if len(body["prompt"]) > MAX_PROMPT_CHARS:
         raise ValueError("Prompt is too large")
+    body["prompt_mode"] = _prompt_mode(body)
     if body.get("backend") not in KEY_NAMES:
         raise ValueError("Unsupported API backend")
     if not provider_status()[body["backend"]]["configured"]:
@@ -116,6 +146,7 @@ def _source_context(cells: list[dict]) -> tuple[str, dict]:
 
 
 async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
+    mode = _prompt_mode(body)
     prompt = body["prompt"]
     vars_ = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "$"))
     funcs = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "&"))
@@ -141,7 +172,13 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
         "tools": funcs,
     }
     yield {"type": "context", **context}
-    system = "You are a helpful notebook assistant. The code and Markdown shown are notebook source above this prompt. Code may be unexecuted or stale. Live variables and tools come from the current Python kernel. Only call registered tools when helpful.\n\nNotebook source above this prompt:\n" + source_text
+    system = (
+        "You are a helpful notebook assistant. The code and Markdown shown are notebook source above "
+        "this prompt. Code may be unexecuted or stale. Live variables and tools come from the current "
+        "Python kernel. Only call registered tools when helpful.\n\n"
+        "Notebook source above this prompt:\n" + source_text + "\n\n"
+        "Response style for this run (" + mode + "): " + PROMPT_MODE_INSTRUCTIONS[mode]
+    )
     messages = [Msg("system", [Text(system)]), *_history(body["preceding_cells"]), Msg("user", [Text(prompt)])]
     allowed = set(funcs)
     steps = 0

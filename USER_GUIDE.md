@@ -1,6 +1,6 @@
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.2. It explains everyday use, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown notes became part of the source context in 0.1.2; earlier versions included code source and completed AI conversations only.
+This guide describes nbinlineai 0.1.3. It explains everyday use, response styles, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown context arrived in 0.1.2; response styles and code-copy buttons arrived in 0.1.3.
 
 ## 1. Install and set up
 
@@ -10,6 +10,7 @@ You need JupyterLab 4, Python 3.11 or newer, and an OpenAI or Anthropic **API ke
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
 3. Open a Python notebook. Click **Configure AI** at the far right of the notebook toolbar, beside the kernel name.
 4. Paste your key into its provider's password field and click **Save**. The provider should show **Saved on this computer**.
+5. Under **Response style**, choose **Compact**, **Full**, or **Learning**. Compact is the default.
 
 For a project managed by uv, install and launch with:
 
@@ -44,13 +45,53 @@ An active Python kernel is required. nbinlineai does not automatically run the c
 - Choosing a model or running a prompt saves its effective provider in the cell. An existing saved provider/model is not silently replaced when you add or remove a key.
 - Changing providers clears that cell's previous model choice. Existing cells whose provider loses its key show setup guidance and cannot run until you add the key or select an available provider.
 
+### Response styles
+
+Open **Configure AI → Response style** to choose how the model should answer:
+
+| Style | What to expect |
+| --- | --- |
+| **Compact** | Very succinct answers with minimal explanation. Code is allowed when helpful, in fenced Markdown blocks. This is the default. |
+| **Full** | Detailed explanations, reasoning, examples, and code when helpful. Code is placed in fenced Markdown blocks. |
+| **Learning** | A Socratic tutor that asks focused questions, responds to your attempts, and helps you work out the solution. It is instructed not to provide complete solutions or substantial code; code hints are limited to 3 lines in total per response. It may suggest documentation. |
+
+The style is saved in your JupyterLab user settings. It applies to every subsequent AI run, including reruns of existing prompts. The current style is shown beside each AI prompt. Changing it does not rewrite saved answers or alter a response already in progress. It is separate from each cell's saved provider and model choice.
+
+These are instructions to the language model, not output filters. Learning mode guides tutoring behavior; it is not a technical guarantee that the model can never reveal a solution.
+
+### A Learning conversation
+
+1. Choose **Learning** in Configure AI.
+2. Insert an AI Prompt below the code or notes you are studying. Ask, for example: `Help me understand this loop. Ask me questions so I can figure it out.`
+3. Read the tutor's question.
+4. Select the tutor's answer cell and click **+ AI Prompt** to create a new prompt below it.
+5. Write your answer or attempt and run that new prompt. The AI receives the preceding conversation and responds to your reasoning.
+6. Continue with another AI prompt below each answer. You can add ordinary code or Markdown cells between exchanges to try an idea or explain your thinking.
+
+For example:
+
+```text
+You:   Help me understand why this loop skips an item.
+Tutor: What happens to the remaining indices when an item is removed?
+You:   I think the next item moves into the current index.
+Tutor: What index does the loop visit next, and which item might that miss?
+```
+
+Each “You” line is a new AI Prompt cell, and each tutor reply is its paired answer. Edit and rerun an old prompt when you want to replace that exchange; create a new prompt when you want to continue the conversation.
+
+### Copy code from an answer
+
+Code blocks in rendered AI answers have a **Copy code** button. Click it, select or create an ordinary code cell, then paste with your usual keyboard shortcut. The button copies the code text without the surrounding Markdown fences. Review and run the pasted code yourself; clicking Copy never executes it.
+
+The same button is available for short snippets in Learning mode. It is interface decoration: it is not stored in the notebook's Markdown or sent as AI context. If clipboard access fails, the interface tells you; select the code and copy it manually instead.
+
 ## 3. Edit, rerun, and save
 
 **Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click it to enter the editor. Press **Shift+Enter** or **Run AI** to run the revised prompt.
 
 **A rerun updates the paired answer.** It clears the previous answer as the new run starts, then writes the new response into that same answer cell. It does not append another answer each time. To keep an old answer for comparison, copy its text into an ordinary Markdown cell before rerunning.
 
-Each run uses the notebook's current preceding code and Markdown notes, available earlier AI conversations, selected model, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
+Each run uses the notebook's current preceding code and Markdown notes, available earlier AI conversations, selected model, current response style, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
 
 Click **Cancel** to stop an active response. Cancelling does not undo function calls that have already changed your notebook state. A partial answer may remain; cancelled and failed answers are not used as completed conversation history.
 
@@ -179,6 +220,9 @@ The AI networking runs asynchronously in Jupyter Server and streams results back
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
 | AI misses your notes | Put the Markdown cell above the prompt, rerun the prompt after editing, and check the context size limits. Markdown source is included starting with 0.1.2. |
 | AI misses a plot or code output | These are not currently included; add a text explanation to a Markdown cell above the prompt or to the prompt itself. |
+| AI asks questions when you want a direct answer | Choose Compact or Full in Configure AI and run the prompt again. |
+| A tutor conversation keeps starting over | Put your reply in a new AI Prompt below the tutor's answer. Rerunning the original prompt replaces that exchange. |
+| Code will not copy | If the browser blocks clipboard access, select the code text and copy it manually. |
 | Old answer disappeared after rerunning | Reruns replace the paired answer. Copy text into an ordinary Markdown cell beforehand to preserve another version. |
 | Model unavailable / key rejected / quota reached | Check the selected provider and model, then the key and account's API access or quota. |
 

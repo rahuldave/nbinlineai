@@ -1,23 +1,35 @@
 {
   "title": "nbinlineai",
-  "description": "AI prompt cell settings. API credentials are read only by the Jupyter server from its environment.",
+  "description": "AI prompt cell settings for response style, model, and tool steps. API keys are configured privately through Configure AI or the Jupyter server environment; they are never saved in notebooks.",
   "type": "object",
   "properties": {
     "defaultBackend": {
       "type": "string",
       "title": "Default provider",
-      "enum": ["openai_api", "anthropic_api"],
+      "enum": [
+        "openai_api",
+        "anthropic_api"
+      ],
       "default": "openai_api"
     },
     "backendModels": {
       "type": "object",
       "title": "Model for each API provider (blank uses server default)",
       "properties": {
-        "openai_api": {"type": "string", "default": ""},
-        "anthropic_api": {"type": "string", "default": ""}
+        "openai_api": {
+          "type": "string",
+          "default": ""
+        },
+        "anthropic_api": {
+          "type": "string",
+          "default": ""
+        }
       },
       "additionalProperties": false,
-      "default": {"openai_api": "", "anthropic_api": ""}
+      "default": {
+        "openai_api": "",
+        "anthropic_api": ""
+      }
     },
     "maxToolSteps": {
       "type": "integer",
@@ -25,6 +37,17 @@
       "minimum": 0,
       "maximum": 10,
       "default": 5
+    },
+    "promptMode": {
+      "type": "string",
+      "title": "Response style",
+      "description": "Applies to every next AI run, including reruns. Compact is succinct, Full gives detailed explanations and code, and Learning guides with questions and at most three lines of code without full solutions.",
+      "enum": [
+        "compact",
+        "full",
+        "learning"
+      ],
+      "default": "compact"
     }
   },
   "additionalProperties": false

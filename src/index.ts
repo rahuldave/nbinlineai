@@ -4,11 +4,13 @@ import { ICellModel, MarkdownCell } from '@jupyterlab/cells';
 import { INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ServerConnection } from '@jupyterlab/services';
-import { addIcon } from '@jupyterlab/ui-components';
+import { addIcon, copyIcon } from '@jupyterlab/ui-components';
 import { Widget } from '@lumino/widgets';
 import { precedingCells } from './context';
+import { copyCodeText } from './codeCopy';
 import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selectedModelChoice, promptHttpErrorMessage, serverUnavailableMessage } from './modelChoice';
 import { cellProvider, configured } from './providerChoice';
+import { promptMode as normalizePromptMode, promptModeLabel, PromptMode } from './promptMode';
 import { readEventStream, StreamEvent } from './sse';
 import '../style/index.css';
 
@@ -36,6 +38,12 @@ const statuses = new Map<string, { state: string; text: string }>();
 const serverSettings = ServerConnection.makeSettings();
 const runKey = (panel: NotebookPanel, cellId: string): string => `${panel.id}:${cellId}`;
 let settings: ISettingRegistry.ISettings | null = null;
+let settingRegistry: ISettingRegistry | null = null;
+let settingsReady: Promise<void> = Promise.resolve();
+let settingsError: string | null = null;
+let settingsWarning: string | null = null;
+let confirmedPromptMode: PromptMode = 'compact';
+let modeSavePending = false;
 let serverStatus: Status | null = null;
 let serverStatusError: string | null = null;
 let configureDialog: Promise<void> | null = null;
@@ -59,6 +67,35 @@ function modelFor(backend: Backend): string {
   const models = settings?.get('backendModels').composite as Record<string, unknown> | undefined;
   return typeof models?.[backend] === 'string' ? models[backend] as string : '';
 }
+function currentPromptMode(): PromptMode {
+  return confirmedPromptMode;
+}
+function onResponseSettingsChanged(): void {
+  if (!modeSavePending) confirmedPromptMode = normalizePromptMode(settings?.get('promptMode').composite);
+  notebookTracker?.forEach(decorate);
+}
+function bindResponseSettings(value: ISettingRegistry.ISettings): void {
+  settings?.changed.disconnect(onResponseSettingsChanged);
+  settings = value;
+  settingsError = null;
+  settingsWarning = null;
+  confirmedPromptMode = normalizePromptMode(value.get('promptMode').composite);
+  settings.changed.connect(onResponseSettingsChanged);
+  notebookTracker?.forEach(decorate);
+}
+async function reloadResponseSettings(): Promise<void> {
+  if (!settingRegistry) throw new Error('JupyterLab response style settings service is unavailable.');
+  try {
+    bindResponseSettings(await settingRegistry.reload(plugin.id));
+  } catch (error) {
+    const message = `Could not reload response style settings: ${error instanceof Error ? error.message : String(error)}`;
+    if (settings) settingsWarning = message;
+    else settingsError = message;
+    notebookTracker?.forEach(decorate);
+    throw error;
+  }
+}
+
 function maxToolSteps(): number {
   const value = settings?.get('maxToolSteps').composite;
   return typeof value === 'number' ? value : 5;
@@ -101,6 +138,43 @@ function status(panel: NotebookPanel, id: string, state: string, message: string
   if (output && ['running', 'done', 'error', 'cancelled'].includes(state)) setMetadata(output, { status: state });
   decorate(panel);
 }
+function decorateCodeCopy(widget: MarkdownCell): void {
+  for (const code of Array.from(widget.node.querySelectorAll<HTMLElement>('.jp-RenderedHTMLCommon pre > code'))) {
+    const pre = code.parentElement;
+    if (!pre || pre.querySelector(':scope > [data-nbinlineai-copy-code]')) continue;
+    pre.classList.add('nbinlineai-code-block');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'nbinlineai-copy-code';
+    button.dataset.nbinlineaiCopyCode = '';
+    button.setAttribute('aria-label', 'Copy code');
+    button.title = 'Copy code to clipboard';
+    const label = document.createElement('span');
+    label.textContent = 'Copy';
+    button.append(copyIcon.element(), label);
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      button.disabled = true;
+      void copyCodeText(code, async value => {
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(value);
+      }).then(() => {
+        label.textContent = 'Copied';
+        button.dataset.state = 'copied';
+        button.setAttribute('aria-label', 'Copied');
+        button.title = 'Code copied to clipboard';
+      }).catch(() => {
+        label.textContent = 'Copy failed';
+        button.dataset.state = 'error';
+        button.setAttribute('aria-label', 'Copy failed');
+        button.title = 'Clipboard unavailable; select the code to copy manually';
+      }).finally(() => { button.disabled = false; });
+    });
+    pre.appendChild(button);
+  }
+}
+
 function refreshOutput(panel: NotebookPanel, output: ICellModel): void {
   const widget = panel.content.widgets.find(cell => cell.model === output);
   if (widget instanceof MarkdownCell) {
@@ -181,6 +255,90 @@ async function showConfigureProviders(tracker: INotebookTracker): Promise<void> 
   const body = new Widget();
   body.node.className = 'nbinlineai-keys-dialog';
   body.node.dataset.nbinlineaiKeysDialog = '';
+  const styleHeading = document.createElement('h3');
+  styleHeading.textContent = 'Response style';
+  const styleSelect = document.createElement('select');
+  styleSelect.dataset.nbinlineaiPromptMode = '';
+  styleSelect.setAttribute('aria-label', 'Response style');
+  styleSelect.disabled = true;
+  for (const [value, label] of [
+    ['compact', 'Compact — very succinct'],
+    ['full', 'Full — detailed explanations and code'],
+    ['learning', 'Learning — questions, up to three lines of code, no full solutions']
+  ]) {
+    const option = document.createElement('option');
+    option.value = value; option.textContent = label; styleSelect.appendChild(option);
+  }
+  const styleDescription = document.createElement('p');
+  styleDescription.className = 'nbinlineai-style-description';
+  styleDescription.textContent = 'Applies to every next AI run, including reruns. Learning guides you with questions and at most three lines of code in brief hints, without a full solution.';
+  const styleNotice = document.createElement('div');
+  styleNotice.className = 'nbinlineai-style-notice';
+  styleNotice.setAttribute('role', 'status');
+  styleNotice.textContent = 'Loading response style settings…';
+  const styleRetry = document.createElement('button');
+  styleRetry.type = 'button';
+  styleRetry.textContent = 'Retry response style settings';
+  styleRetry.dataset.nbinlineaiStyleRetry = '';
+  styleRetry.hidden = true;
+  styleRetry.addEventListener('click', () => {
+    styleRetry.disabled = true;
+    styleNotice.textContent = 'Reloading response style settings…';
+    void reloadResponseSettings().then(() => {
+      styleSelect.value = currentPromptMode();
+      styleSelect.disabled = false;
+      styleRetry.hidden = true;
+      styleNotice.textContent = `${promptModeLabel(currentPromptMode())} is the current response style.`;
+    }).catch(() => {
+      styleSelect.disabled = true;
+      styleNotice.textContent = settingsError || settingsWarning || 'Could not reload response style settings. Choose Retry.';
+    }).finally(() => { styleRetry.disabled = false; });
+  });
+  body.node.append(styleHeading, styleSelect, styleDescription, styleNotice, styleRetry);
+  void settingsReady.then(() => {
+    if (settingsError || !settings) {
+      styleNotice.textContent = settingsError || 'Response style settings are unavailable.';
+      styleRetry.hidden = !settingRegistry;
+      return;
+    }
+    styleSelect.value = currentPromptMode();
+    styleSelect.disabled = false;
+    styleRetry.hidden = !settingsWarning;
+    styleNotice.textContent = settingsWarning || '';
+  });
+  styleSelect.addEventListener('change', () => {
+    const chosen = normalizePromptMode(styleSelect.value);
+    const previous = currentPromptMode();
+    if (!settings) {
+      styleSelect.value = previous;
+      styleNotice.textContent = 'Response style settings are unavailable. Nothing was saved.';
+      return;
+    }
+    styleSelect.disabled = true;
+    modeSavePending = true;
+    styleNotice.textContent = 'Saving response style…';
+    void settings.set('promptMode', chosen).then(() => {
+      const authoritative = normalizePromptMode(settings?.get('promptMode').composite);
+      confirmedPromptMode = authoritative;
+      styleSelect.value = authoritative;
+      settingsWarning = authoritative === chosen ? null : 'Saved response style differs from the requested style.';
+      styleRetry.hidden = !settingsWarning;
+      styleNotice.textContent = authoritative === chosen
+        ? `${promptModeLabel(chosen)} will apply to your next AI run and reruns.`
+        : `The saved response style is ${promptModeLabel(authoritative)}. Choose Retry response style settings to check it.`;
+      tracker.forEach(decorate);
+    }).catch(() => {
+      confirmedPromptMode = previous;
+      styleSelect.value = previous;
+      settingsWarning = 'Could not confirm the response style save.';
+      styleRetry.hidden = false;
+      styleNotice.textContent = 'Could not confirm the response style save. Choose Retry response style settings to check what was saved.';
+      tracker.forEach(decorate);
+    }).finally(() => { modeSavePending = false; styleSelect.disabled = false; });
+  });
+  const keysHeading = document.createElement('h3');
+  keysHeading.textContent = 'API keys';
+  body.node.appendChild(keysHeading);
   const intro = document.createElement('p');
   intro.textContent = 'Add your own API key for each provider you want to use. Saved keys stay on the computer running JupyterLab, outside notebooks, and are reused across your local Jupyter environments. Removing a saved key removes it for those environments too.';
   body.node.appendChild(intro);
@@ -312,7 +470,7 @@ async function showConfigureProviders(tracker: INotebookTracker): Promise<void> 
   updateRows();
   void loadKeys();
   try {
-    await showDialog({ title: 'Configure AI Providers', body, buttons: [Dialog.okButton({ label: 'Done' })] });
+    await showDialog({ title: 'Configure AI', body, buttons: [Dialog.okButton({ label: 'Done' })] });
   } finally {
     for (const row of rows.values()) row.input.value = '';
   }
@@ -329,6 +487,9 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
   if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return; }
   const sessionId = panel.sessionContext.session?.id;
   if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return; }
+  await settingsReady;
+  if (!settings) { status(panel, promptId, 'error', settingsError || 'Response style settings are unavailable. Open Configure AI and retry.'); return; }
+  const mode = currentPromptMode();
   if (!serverStatus || serverStatusError || serverStatus?.providers?.[cellProvider(metadata(prompt).backend, preferredBackend(), serverStatus.providers)]?.configured === false) {
     try { await fetchStatus(); }
     catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not reach the AI server.'); return; }
@@ -353,7 +514,7 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
       method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
       body: JSON.stringify({
         prompt: promptText, session_id: sessionId, prompt_cell_id: promptId,
-        preceding_cells: preceding, backend, model: selectedModel, max_tool_steps: maxToolSteps()
+        preceding_cells: preceding, backend, model: selectedModel, max_tool_steps: maxToolSteps(), prompt_mode: mode
       })
     });
     if (!response.ok) {
@@ -501,10 +662,14 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   configure.dataset.nbinlineaiConfigure = '';
   configure.textContent = 'Configure AI';
   configure.addEventListener('click', () => { if (notebookTracker) void configureProviders(notebookTracker); });
+  const modeLabel = document.createElement('span');
+  modeLabel.dataset.nbinlineaiCurrentMode = '';
+  modeLabel.className = 'nbinlineai-current-mode';
+  modeLabel.title = 'Set in Configure AI; applies to the next run and reruns';
   const label = document.createElement('span');
   label.className = 'nbinlineai-status';
   label.setAttribute('role', 'status');
-  controls.append(provider, modelSelect, modelInput, run, cancel, configure, label);
+  controls.append(provider, modelSelect, modelInput, run, cancel, configure, modeLabel, label);
   syncModelControls(controls, provider.value as Backend, prompt && metadata(prompt).model || '');
   return controls;
 }
@@ -516,7 +681,10 @@ function decorate(panel: NotebookPanel): void {
     widget.toggleClass('nbinlineai-prompt-cell', !!meta.isPromptCell);
     widget.toggleClass('nbinlineai-output-cell', !!meta.isOutputCell);
     widget.toggleClass('nbinlineai-response-cell', !!meta.isOutputCell);
-    if (meta.isOutputCell && widget instanceof MarkdownCell && !widget.rendered) widget.rendered = true;
+    if (meta.isOutputCell && widget instanceof MarkdownCell) {
+      if (!widget.rendered) widget.rendered = true;
+      decorateCodeCopy(widget);
+    }
     if (!meta.isPromptCell) { widget.node.querySelector(':scope > .nbinlineai-controls')?.remove(); continue; }
     let controls = widget.node.querySelector(':scope > .nbinlineai-controls') as HTMLElement | null;
     if (!controls) { controls = makeControls(panel, cell.id); widget.node.appendChild(controls); }
@@ -541,6 +709,8 @@ function decorate(panel: NotebookPanel): void {
     const cancelButton = controls.querySelector('[data-nbinlineai-cancel]') as HTMLButtonElement;
     runButton.disabled = running || selectedAvailability === false;
     cancelButton.disabled = !running;
+    const modeLabel = controls.querySelector('[data-nbinlineai-current-mode]') as HTMLElement;
+    modeLabel.textContent = settingsError || `${promptModeLabel(currentPromptMode())} responses${settingsWarning ? ' · settings unconfirmed' : ''}`;
     const label = controls.querySelector('.nbinlineai-status') as HTMLElement;
     const key = runKey(panel, cell.id);
     let current = statuses.get(key);
@@ -559,11 +729,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
     notebookTracker = tracker;
-    if (registry) void registry.load(plugin.id).then(value => {
-      settings = value;
-      settings.changed.connect(() => tracker.forEach(decorate));
+    settingRegistry = registry;
+    if (registry) settingsReady = registry.load(plugin.id).then(bindResponseSettings).catch(error => {
+      settingsError = `Could not load response style settings: ${error instanceof Error ? error.message : String(error)}`;
       tracker.forEach(decorate);
-    }).catch(console.error);
+    });
+    else settingsError = 'JupyterLab response style settings are unavailable.';
     void fetchStatus().then(() => tracker.forEach(decorate)).catch(error => { console.warn('nbinlineai status unavailable:', error); tracker.forEach(decorate); });
     app.commands.addCommand(commandInsert, { label: 'Insert AI Prompt Cell', execute: () => { const panel = tracker.currentWidget; if (panel) insertPrompt(panel); } });
     app.commands.addCommand(commandRun, { label: 'Run AI Prompt Cell', isEnabled: () => isPrompt(tracker.currentWidget?.content.activeCell?.model), execute: () => {
@@ -597,7 +768,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }, true);
         const observer = new MutationObserver(records => {
           if (records.some(record => Array.from(record.addedNodes).some(node =>
-            node instanceof Element && (node.matches('.jp-Cell') || !!node.querySelector('.jp-Cell'))
+            node instanceof Element && (node.matches('.jp-Cell, pre, pre > code') || !!node.querySelector('.jp-Cell, pre > code'))
           ))) decorate(panel);
         });
         observer.observe(panel.content.node, { childList: true, subtree: true });
