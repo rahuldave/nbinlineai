@@ -196,3 +196,50 @@ toolbar content, future component release, or simultaneous agent edits.
    edits separately. The deterministic combined Run All and single-cell
    command paths above cover only the default RTC-free setup, using a fake
    provider and temporary configuration.
+
+## 0.1.11 Extension Manager update investigation
+
+On 2026-09-23, a reported in-app update hang was investigated in another isolated
+Python 3.12.10 environment. This test installed published nbinlineai 0.1.10,
+Jupyter AI 3.2.0, JupyterLab 4.6.4, jupyter-server-mcp 0.3.0 and pip 26.2.1,
+then clicked **Update to 0.1.11** in the actual Extension Manager. The manager's
+initial blank-query catalogue took approximately 35 seconds to load; the
+nbinlineai status endpoint returned HTTP 200 throughout. The update POST returned
+HTTP 201, status `ok`, and `needs_restart` including frontend and server. A fresh
+installed-extension listing reported both installed and latest version 0.1.11.
+The package compatibility check passed for all 175 installed distributions.
+
+After restarting only this isolated server, the combined deterministic execution
+smoke passed: native Run All ordered code, inline tool effects and later code;
+Keep avoided repeating an answer; Jupyter AI's single-cell command executed code
+and left AI Markdown as a no-op; source edits retained nbinlineai metadata. No
+real provider or ACP agent was called. Matched startup/shutdown checks with and
+without Jupyter AI also exited after two SIGINT signals, including while a real
+blank-query catalogue request remained pending. These checks do not reproduce
+an already engaged ACP session or an interrupted pip transaction.
+
+The reported screenshot contains two independent pending states. JupyterLab's
+thin animated blue bar represents a pending action such as an install POST;
+Discover's “Updating extensions list…” represents a catalogue GET. Its PyPI
+manager runs pip dry-run and installation in executor threads without a process
+timeout, while catalogue enumeration uses an XML-RPC call without an explicit
+network timeout. This identifies plausible places to inspect a stalled request;
+it does **not** establish the cause in the reported environment. The normal
+successful frontend update path explicitly refreshes the installed list, so a
+simple missing-cache-invalidation explanation is insufficient.
+
+The available user-level Jupyter configuration was inspected read-only. The
+active Python settings were nbdev notebook pre-save hooks, and the extension
+manager acknowledgement was enabled; no user-level nbinlineai frontend override
+was found. No user configuration, package installation or notebook was changed.
+The reported launcher was `uv run jupyter lab .`; its originating project folder
+and exact environment were still unconfirmed at this point. Do not confuse the
+source repository's editable development environment with that user environment.
+
+For a stuck package manager, a temporary launch with
+`uv run --no-sync jupyter lab --LabApp.extension_manager=readonly .` avoids the
+PyPI manager and uv's automatic environment synchronization without rewriting a
+configuration file. An upgrade in a uv project should also update its declared
+requirements/lockfile when applicable; do not blindly perform an exact `uv sync`
+that can remove unrelated extensions. Check the actual launch environment before
+making changes. The user's server on port 8888 was not accessed or stopped.

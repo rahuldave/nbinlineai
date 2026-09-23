@@ -178,3 +178,17 @@ The user subsequently requested implementation and a full release, superseding t
 The full 0.1.11 release changes both Python and frontend assets: installed users need an upgrade in the server and selected kernel environments as appropriate, then a whole JupyterLab server restart/page refresh and fresh kernel imports. The earlier Python-only editable-install observation does not replace that release-upgrade instruction. Port 8888 must remain untouched by automation.
 
 Release verification: **207 Python tests**, **49 frontend unit tests**, and **67 distinct Chromium scenarios** passed across the full browser run and focused reruns. The final live-edit rerun passed 3/3 after fixing the move acknowledgement and test rendering assumptions. Strict artifact checks, a fresh Python 3.12 wheel install, both extension discoveries, an isolated installed-package quickstart UI check, and reinstalling 0.1.11 from public PyPI passed. The two public downloads match local SHA-256 hashes. GitHub Pages run `35917740174` succeeded and live Tools/Examples pages contain the new release. Owned servers are stopped; port 8888 was untouched. Installed users must upgrade and restart their whole JupyterLab server and selected kernels as described above.
+
+## Follow-up: reported Extension Manager update hang
+
+A 2026-09-23 report described the PyPI manager's animated blue bar and a stalled
+Discover catalogue during the 0.1.10→0.1.11 update. Actual isolated upgrade and
+post-restart coexistence with Jupyter AI 3.2.0 passed, as did matched SIGINT checks
+with/without Jupyter AI and while catalogue requests were pending. The exact
+user-environment cause is **not yet established**. The launch command is
+`uv run jupyter lab .`; the originating folder remains to be identified. Read
+[the detailed evidence and limitations](jupyter_ai_compatibility.md#0111-extension-manager-update-investigation).
+The user authorized read-only inspection of home/Jupyter configuration and
+explicitly prohibited removing anything. Preserve that constraint; no personal
+configuration, package environment or notebook was changed. Do not remove the
+nbdev save hooks or clear caches speculatively. User port 8888 remains off limits.
