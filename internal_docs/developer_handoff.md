@@ -183,10 +183,19 @@ Release verification: **207 Python tests**, **49 frontend unit tests**, and **67
 
 A 2026-09-23 report described the PyPI manager's animated blue bar and a stalled
 Discover catalogue during the 0.1.10→0.1.11 update. Actual isolated upgrade and
-post-restart coexistence with Jupyter AI 3.2.0 passed, as did matched SIGINT checks
-with/without Jupyter AI and while catalogue requests were pending. The exact
-user-environment cause is **not yet established**. The launch command is
-`uv run jupyter lab .`; the originating folder remains to be identified. Read
+post-restart coexistence with Jupyter AI 3.2.0 passed, as did initial SIGINT checks
+with/without Jupyter AI and while catalogue requests were pending. The actual
+course environment was subsequently identified as Python **3.14.0**, launched
+with `uv run jupyter lab .`. A disposable clone of its 183 published package
+versions exposed the new **rgapi/exhash Rust source builds**: neither dependency
+had a macOS ARM CPython 3.14 wheel. Pip installation succeeded in **106.9 seconds**;
+the installed tool smoke and dependency compatibility checks passed. A second
+matched environment's real UI upgrade succeeded in **3.891 seconds** after those
+wheels were cached. This establishes a hidden first-install delay introduced by
+0.1.11. A controlled 14-second installer wait reproduced delayed process exit
+after two accepted terminal Ctrl-C presses; the HTTP server remained responsive
+before shutdown. This demonstrates an executor shutdown delay, not proof of the
+reported native-build freeze. The exact user Ctrl-C failure remains unconfirmed. Read
 [the detailed evidence and limitations](jupyter_ai_compatibility.md#0111-extension-manager-update-investigation).
 The user authorized read-only inspection of home/Jupyter configuration and
 explicitly prohibited removing anything. Preserve that constraint; no personal

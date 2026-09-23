@@ -239,6 +239,35 @@ No. Closing a notebook stops the extension's ongoing request, but it does not un
 
 ## Saving, installation, and limits
 
+### Why can updating to 0.1.11 show a moving blue bar for a long time?
+
+The new project search and document navigation tools add two native dependencies:
+`rgapi` and `exhash`. Their released versions (0.1.30 and 0.4.16) did not provide
+prebuilt packages for **Python 3.14 on Apple Silicon** when 0.1.11 was released.
+Pip builds them from Rust source instead. That requires a Rust compiler and took
+about 107 seconds in our matching test; other machines can take longer.
+JupyterLab's Extension Manager hides the compiler output behind its progress bar.
+
+To see installation progress, use the terminal in the same Python environment
+that launches JupyterLab. After stopping the server normally, run this in that
+activated environment:
+
+```bash
+python -m pip install --verbose --upgrade nbinlineai==0.1.11
+```
+
+For a uv project whose server environment is `.venv`, use
+`.venv/bin/python` in place of `python`. Restart the whole server after the
+upgrade, refresh the browser, and restart existing kernels before importing the
+new tools. Fastcore does not need a separate manual installation.
+
+We also tested the real 0.1.10-to-0.1.11 update with Python 3.14 and Jupyter AI
+3.2.0 together. It completed in about four seconds once the compiled packages
+were cached. This explains one long wait; it does not establish that every
+unresponsive update has the same cause. The
+[investigation record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md#matched-python-314-follow-up)
+distinguishes successful tests from the still-unconfirmed shutdown report.
+
 ### Can I run nbinlineai alongside Jupyter AI for Claude or Codex ACP chat?
 
 An isolated test of **nbinlineai 0.1.9 + Jupyter AI 3.2.0 + JupyterLab 4.6.4** successfully installed and opened both extensions. A deterministic execution check also preserved native Run All ordering, kept completed AI answers, and retained nbinlineai metadata when a Jupyter AI command edited a question. No paid model or authenticated ACP-agent request was used in that check.

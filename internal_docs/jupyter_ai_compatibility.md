@@ -243,3 +243,82 @@ configuration file. An upgrade in a uv project should also update its declared
 requirements/lockfile when applicable; do not blindly perform an exact `uv sync`
 that can remove unrelated extensions. Check the actual launch environment before
 making changes. The user's server on port 8888 was not accessed or stopped.
+
+### Matched Python 3.14 follow-up
+
+The user subsequently identified the course project's launch environment. A
+read-only distribution inventory established Python **3.14.0**, nbinlineai
+**0.1.10**, JupyterLab **4.6.4**, Jupyter AI **3.2.0**, Jupyter Server **2.21.1**,
+and pip **26.2.1**. Fastcore **2.2.30** was already installed; that snapshot does
+not establish when it arrived. Neither rgapi nor exhash was installed. The
+extension packages were installed additions rather than declared project
+dependencies. No project files, installed packages, configuration or personal
+notebooks were changed during inspection.
+
+Both native dependencies were introduced directly by nbinlineai **0.1.11**:
+`rgapi` implements `search_files` / `search_notebooks`, and `exhash` implements
+`document_outline` / `read_section`. They are independent Answer.AI packages
+identified in the dialoghelper research, not dependencies introduced by Jupyter
+AI. At investigation time, [rgapi 0.1.30](https://pypi.org/project/rgapi/0.1.30/#files)
+and [exhash 0.4.16](https://pypi.org/project/exhash/0.4.16/#files) had macOS ARM
+wheels through CPython 3.13 but no CPython 3.14 wheel. Pip therefore selected
+their source archives. Both use maturin/PyO3 and require Rust 1.91 or newer; the
+test host's Rust 1.95 satisfied that requirement. The other new native
+dependencies, ast-grep-py and libcst, had applicable prebuilt wheels.
+
+A disposable Python 3.14.0 environment reproduced all **183 published package
+versions** from the inventory, excluding only the user's local project package.
+Using JupyterLab's pinned-version pip constraint, a dry run completed in **7.6
+seconds**. Actual installation then completed successfully in **106.9 seconds**:
+the exhash Rust build took **52.33 seconds**, and rgapi took **46.53 seconds**.
+These figures are observations on this host, not an installation-time guarantee.
+The source builds populated pip's normal wheel cache; the user's course
+environment was not upgraded. The installed-package smoke verified the 55-tool
+registry, eight groups, representative search/AST/documentation/execution tools,
+12 packaged notebooks and 18 illustrations. All **190 installed distributions**
+passed the dependency compatibility check.
+
+A second fresh environment with the same baseline versions exercised the actual
+Extension Manager upgrade on port 8897, with Jupyter AI enabled and an ephemeral
+MCP port. With the newly built wheels cached, the update POST succeeded with HTTP
+201 in **3.891 seconds**, requested frontend/server restart, and a refreshed
+installed-extension listing reported 0.1.11. The nbinlineai status endpoint
+remained responsive during catalogue loading. Only owned test servers were
+stopped; no real provider/ACP agent was called.
+
+After restarting that upgraded Python 3.14 environment, the deterministic real
+kernel/browser coexistence smoke also passed: native Run All ordered code, an
+inline tool effect and later code; Keep preserved a completed answer; Jupyter
+AI's single-cell command executed code and treated an AI Markdown question as a
+no-op; editing question source preserved its nbinlineai metadata.
+
+This reproduces a substantial first-install delay caused by the release's new
+native dependencies and concealed by JupyterLab's quiet pip invocation. It does
+not by itself reproduce an indefinite freeze or the reported Ctrl-C failure.
+The initial Python 3.12 release checks missed this source-build path. Do not
+describe the successful cached update as proof that every cold installation or
+every engaged Jupyter AI session shuts down correctly.
+
+### Controlled shutdown probe
+
+A separate Python 3.14 probe used a real JupyterLab server, an actual extension
+install POST and a pseudo-terminal. Only the isolated bootstrap's
+`jupyterlab.extensions.pypi.run` was replaced with a controlled **14-second**
+blocking dry-run result, so no package was installed or removed. All Jupyter
+configuration/runtime directories were disposable, the HTTP port was 8897, and
+the Jupyter AI MCP port was explicitly ephemeral.
+
+The status endpoint returned HTTP 200 before and during the simulated wait.
+The first terminal Ctrl-C displayed the normal shutdown confirmation, and the
+second was accepted as `received signal 2, stopping`. The HTTP request then
+disconnected, but the process did not exit until the worker's wait ended:
+**14.266 seconds after the accepted second Ctrl-C**. The owned server and MCP
+listener exited, and scratch files were retained.
+
+This demonstrates a conditional shutdown delay: the PyPI manager runs blocking
+work through an executor, and Python waits for surviving executor threads at
+interpreter shutdown. It is a simulated blocked installation, not a reproduced
+native-build deadlock. Real pip/cargo child processes in the terminal's foreground
+process group can themselves receive Ctrl-C. That distinction, network waits and
+an already engaged ACP agent remain outside this probe; the exact reported
+Ctrl-C failure is still unconfirmed.
