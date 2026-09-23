@@ -68,9 +68,9 @@ This demonstration uses a simulated provider and a real Python kernel; the decla
 
 References in eligible Markdown are detected even inside fenced code blocks or quotations. Use a plain name such as `search_kernel_names` when merely discussing a function. Only simple Python names are supported in references: import a function directly rather than writing a module-qualified reference such as `tools.list_notebooks`.
 
-Several notes can add tools at different points; duplicates are registered once. Discovery scans the full preceding snapshot **before** text is shortened to fit the context budget, so early declarations survive even when their prose is omitted. Function descriptions still consume budget. Functions are inspected afresh in the live kernel on each run: rerun imports after a restart, and rerun a definition to use its changed implementation.
+Several notes can add tools at different points; duplicates are registered once. Discovery scans the full preceding snapshot **before** text is shortened to fit the context budget, so enabled declarations survive even when their prose is unchecked, outside the selected window or omitted by budget. A separate Tools checkbox on each declaring Markdown/AI question cell can withdraw its declarations; this saved choice defaults to enabled. Function descriptions still consume budget. Functions are inspected afresh in the live kernel on each run: rerun imports after a restart, and rerun a definition to use its changed implementation.
 
-To withdraw a tool from later requests, remove all its `&` declarations above and in the current question, or move the declaration below the question. There is no per-question tool exclusion switch yet. A missing declared function causes an error before contacting the provider. A note inserted by `insert_markdown` or `url_to_note` is ordinary Markdown, so any literal tool references in it also become declarations for later questions; review imported notes accordingly.
+To withdraw a tool, uncheck Tools on every applicable declaration cell, remove its `&` declarations, or move them below the question. Another enabled declaration of the same name can still offer it. The current question has its own Tools checkbox when it declares functions. A missing declared function causes an error before contacting the provider. A note inserted by `insert_markdown` or `url_to_note` is ordinary Markdown, so any literal tool references in it also become declarations for later questions; review imported notes accordingly.
 
 ### Insert the declaration note directly
 
@@ -158,7 +158,7 @@ This demonstration uses a simulated provider and sample page content. The note i
 
 ### What enters later context?
 
-Automatic context remains bounded source **above the current prompt**, plus completed AI exchanges. Explicit tools can read other cells or files when you include their references; they do not enable an automatic whole-notebook context mode.
+Default context uses bounded earlier source and completed AI exchanges. The Context dropdown and per-cell checkboxes can select wider source. Offered tools can independently read other cells or files; unchecking Context does not withdraw those tools; uncheck Tools on the declaration cells to do that. Current question only excludes surrounding text while retaining Tools choices. Including text below never registers its declarations.
 
 Tool results are available to the current model conversation. They are not saved as a separate tool transcript for future prompts. To retain material as notebook context, insert it as a note, or include it in the answer. Its position then determines whether a later prompt sees it.
 
@@ -170,6 +170,7 @@ These notebooks contain prompts, setup code, and instructions, with no API keys 
 
 | Notebook | Try it |
 | --- | --- |
+| [Context selection](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb) | Compare context modes, restore Custom choices, and control declaration cells separately with Tools (current source build). |
 | [Quick start](https://github.com/rahuldave/nbinlineai/blob/main/examples/quickstart.ipynb) | One live variable, one custom function, and your first AI call. |
 | [Live variables and tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-variables-and-tools.ipynb) | Compare a live value with a function call; inspect a real change to Python state. |
 | [Socratic learning dialogue](https://github.com/rahuldave/nbinlineai/blob/main/examples/socratic-learning-dialog.ipynb) | Answer the tutor in successive AI cells, edit an answer, and explore Keep overrides. |

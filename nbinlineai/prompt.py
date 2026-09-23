@@ -9,12 +9,14 @@ from fasttransport.errors import APIError
 
 from . import providers
 from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
-from .context_budget import ai_role, build_context, eligible_units
+from .context_budget import ai_role, build_context
+from .context_selection import CONTEXT_MODES, select_context
 from .tool_schema import fastllm_tools
 from .web_tools import MAX_WEB_TOTAL_SECONDS, fetch_url_markdown
 
 REFERENCE = re.compile(r"([\$&])`([A-Za-z_][A-Za-z0-9_]*)`")
 MAX_CELLS = 10_000
+MAX_SNAPSHOT_CHARS = 4_000_000
 MAX_PROMPT_CHARS = 16000
 MAX_PROMPT_INSTRUCTIONS_CHARS = 8000
 PROMPT_MODE_INSTRUCTIONS = {
@@ -48,7 +50,7 @@ def _prompt_mode(body: dict) -> str:
     return mode
 
 
-def validate_request(body: dict) -> dict:
+def validate_request(body: dict, *, preview: bool = False) -> dict:
     if not isinstance(body, dict):
         raise TypeError("Request body must be a JSON object")
     for field in ("prompt", "session_id", "prompt_cell_id"):
@@ -62,11 +64,13 @@ def validate_request(body: dict) -> dict:
         if (not isinstance(instructions, str) or not instructions.strip()
                 or len(instructions) > MAX_PROMPT_INSTRUCTIONS_CHARS):
             raise ValueError("prompt_instructions must be nonempty text of at most 8000 characters")
-    if body.get("backend") not in KEY_NAMES:
+    backend = body.get("backend", "openai_api" if preview else None)
+    if backend not in KEY_NAMES:
         raise ValueError("Unsupported API backend")
-    if not provider_status()[body["backend"]]["configured"]:
+    body["backend"] = backend
+    if not preview and not provider_status()[backend]["configured"]:
         raise ValueError("Selected API provider is not configured")
-    model = body.get("model") or DEFAULT_MODELS[body["backend"]]
+    model = body.get("model") or DEFAULT_MODELS[backend]
     if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
         raise ValueError("Invalid model name")
     body["model"] = model
@@ -76,7 +80,7 @@ def validate_request(body: dict) -> dict:
     if effort == "default":
         body["reasoning_effort"] = None
     else:
-        choices = MODEL_CAPABILITIES[body["backend"]].get(model, {}).get("efforts", [])
+        choices = MODEL_CAPABILITIES[backend].get(model, {}).get("efforts", [])
         if effort not in choices:
             raise ValueError("reasoning_effort is unavailable for the selected model")
         body["reasoning_effort"] = effort
@@ -84,16 +88,67 @@ def validate_request(body: dict) -> dict:
     if isinstance(steps, bool) or not isinstance(steps, int) or not 0 <= steps <= 10:
         raise ValueError("max_tool_steps must be between 0 and 10")
     body["max_tool_steps"] = steps
-    cells = body.get("preceding_cells")
-    if not isinstance(cells, list) or len(cells) > MAX_CELLS:
-        raise ValueError("preceding_cells must be a list of at most 10000 cells")
+    version = body.get("snapshot_version")
+    if version is None:
+        cells = body.get("preceding_cells")
+        if not isinstance(cells, list) or len(cells) > MAX_CELLS:
+            raise ValueError("preceding_cells must be a list of at most 10000 cells")
+        body["context_mode"] = "default"
+        body["_legacy_snapshot"] = True
+    elif type(version) is int and version == 1:
+        cells = body.get("notebook_cells")
+        if not isinstance(cells, list) or len(cells) > MAX_CELLS:
+            raise ValueError("notebook_cells must be a list of at most 10000 cells")
+        if not isinstance(body.get("context_mode", "default"), str) or body.get("context_mode", "default") not in CONTEXT_MODES:
+            raise ValueError("Invalid context mode")
+        body["context_mode"] = body.get("context_mode", "default")
+        body["_legacy_snapshot"] = False
+    else:
+        raise ValueError("Unsupported notebook snapshot version; refresh JupyterLab")
+    if len(json.dumps(cells, ensure_ascii=False, default=str)) > MAX_SNAPSHOT_CHARS:
+        raise ValueError("Notebook snapshot exceeds the 4000000-character request limit")
+    ids = set()
     for cell in cells:
-        if not isinstance(cell, dict) or not isinstance(cell.get("id"), str):
-            raise TypeError("Invalid preceding cell")
+        if not isinstance(cell, dict) or not isinstance(cell.get("id"), str) or not cell["id"]:
+            raise TypeError("Invalid notebook cell")
+        if len(cell["id"]) > 200 or cell["id"] in ids:
+            raise ValueError("Notebook cell IDs must be unique and at most 200 characters")
+        ids.add(cell["id"])
         if cell.get("cell_type") not in ("code", "markdown", "raw"):
-            raise ValueError("Invalid preceding cell type")
+            raise ValueError("Invalid notebook cell type")
         if not isinstance(cell.get("source"), str):
-            raise TypeError("Invalid preceding cell source")
+            raise TypeError("Invalid notebook cell source")
+        if not isinstance(cell.get("metadata", {}), dict):
+            raise TypeError("Invalid notebook cell metadata")
+        ai = cell.get("metadata", {}).get("nbinlineai")
+        if ai is not None and not isinstance(ai, dict):
+            raise TypeError("Invalid AI cell metadata")
+        if ai and ai_role(cell):
+            if cell["cell_type"] != "markdown":
+                raise ValueError("AI questions and answers must be Markdown cells")
+            if ai_role(cell) == "response":
+                link = ai.get("promptCellId") or ai.get("prompt_cell_id")
+                if link is not None and (not isinstance(link, str) or len(link) > 200):
+                    raise ValueError("Invalid AI answer question link")
+                status = ai.get("status", "done")
+                if status not in ("running", "done", "error", "cancelled"):
+                    raise ValueError("Invalid AI answer status")
+        if "context_include" in cell and not isinstance(cell["context_include"], bool):
+            raise TypeError("context_include must be a boolean")
+        if "tools_include" in cell and not isinstance(cell["tools_include"], bool):
+            raise TypeError("tools_include must be a boolean")
+    if version == 1 and body["prompt_cell_id"] not in ids:
+        raise ValueError("Current AI question is missing from the notebook snapshot")
+    if version == 1:
+        current = next(cell for cell in cells if cell["id"] == body["prompt_cell_id"])
+        if ai_role(current) != "prompt" or current["cell_type"] != "markdown":
+            raise ValueError("Current cell must be an AI question")
+        if current["source"].strip() != body["prompt"]:
+            raise ValueError("Current question changed; refresh its notebook snapshot")
+    generation = body.get("preview_generation")
+    if generation is not None and (isinstance(generation, bool) or not isinstance(generation, (str, int))
+                                   or isinstance(generation, str) and len(generation) > 200):
+        raise ValueError("Invalid preview generation")
     return body
 
 
@@ -103,7 +158,8 @@ def _inherited_tools(
     """Find tool declarations in ordinary Markdown and AI questions only."""
     names = []
     for cell in cells:
-        if cell["cell_type"] != "markdown" or ai_role(cell) == "response":
+        if (cell["cell_type"] != "markdown" or ai_role(cell) == "response"
+                or cell.get("tools_include", True) is False):
             continue
         names.extend(name for kind, name in REFERENCE.findall(cell["source"]) if kind == "&")
     return list(dict.fromkeys(names))
@@ -129,17 +185,33 @@ def _special_arguments(arguments):
     return arguments
 
 
-async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None):
+async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, preview: bool = False):
     mode = _prompt_mode(body)
     prompt = body["prompt"]
     vars_ = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "$"))
-    current_funcs = [name for kind, name in REFERENCE.findall(prompt) if kind == "&"]
-    funcs = list(dict.fromkeys([*current_funcs, *_inherited_tools(body["preceding_cells"])]))
+    cells = body["preceding_cells"] if body.get("_legacy_snapshot", "notebook_cells" not in body) else body["notebook_cells"]
+    if body.get("_legacy_snapshot", "notebook_cells" not in body):
+        preceding = cells
+    else:
+        preceding = cells[:next(index for index, cell in enumerate(cells)
+                                if cell["id"] == body["prompt_cell_id"])]
+    current_tools_enabled = True if body.get("_legacy_snapshot", "notebook_cells" not in body) else next(
+        cell for cell in cells if cell["id"] == body["prompt_cell_id"]
+    ).get("tools_include", True)
+    current_funcs = ([name for kind, name in REFERENCE.findall(prompt) if kind == "&"]
+                     if current_tools_enabled else [])
+    funcs = list(dict.fromkeys([*current_funcs, *_inherited_tools(preceding)]))
     if set(vars_) & set(funcs):
         raise ValueError("A name cannot be both a variable and a tool in one prompt")
     if len(vars_) + len(funcs) > 20:
         raise ValueError("Too many live kernel references, including inherited tools (limit 20)")
-    info = await dispatcher.inspect(kernel_id, kernel, vars_, funcs) if vars_ or funcs else {}
+    if vars_ or funcs:
+        if preview:
+            info = await dispatcher.inspect_preview(kernel_id, kernel, vars_, funcs)
+        else:
+            info = await dispatcher.inspect(kernel_id, kernel, vars_, funcs)
+    else:
+        info = {}
     if "error" in info:
         raise ValueError(f"Kernel introspection failed: {info['error']}")
     for name in [*vars_, *funcs]:
@@ -150,26 +222,57 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     for name in vars_:
         prompt = prompt.replace(f"$`{name}`", info[name]["repr"])
     tools = fastllm_tools({name: info[name] for name in funcs})
-    special_tools = {name: info[name]["frontend_special"] for name in funcs
-                     if "frontend_special" in info[name]}
-    units = eligible_units(body["preceding_cells"])
+    if body.get("_legacy_snapshot", "notebook_cells" not in body):
+        from .context_budget import eligible_units
+
+        units = eligible_units(cells)
+        selected_legacy_ids = {cell["id"] for unit in units
+                               for cell in (unit.cell, unit.prompt, unit.answer) if cell}
+        selection_report = {"context_mode": "default", "selected_cell_ids": [
+            cell["id"] for cell in cells if cell["id"] in selected_legacy_ids
+        ], "excluded_cell_ids": [], "ineligible_cells": []}
+    else:
+        selection = select_context(cells, body["prompt_cell_id"], body["context_mode"])
+        units = selection.units
+        selection_report = selection.report
+    if body.get("preview_generation") is not None:
+        selection_report["snapshot_generation"] = body["preview_generation"]
+    selection_report["snapshot_version"] = 1 if not body.get("_legacy_snapshot") else 0
+    selection_report["tool_disabled_cell_ids"] = [cell["id"] for cell in cells
+                                                  if cell.get("tools_include", True) is False]
     system_prefix = (
-        "You are a helpful notebook assistant. The code and Markdown shown are notebook source above "
-        "this prompt. Code may be unexecuted or stale. Live variables and tools come from the current "
-        "Python kernel. Only call registered tools when helpful.\n\n"
-        "Notebook source above this prompt:\n"
+        "You are a helpful notebook assistant. The labeled code, Markdown and AI cells are notebook "
+        "source relative to this question. Code may be unexecuted or stale. AI cells labeled as "
+        "source are not prior chat turns. Live variables and tools come from the current Python kernel. "
+        "Only call registered tools when helpful.\n\nNotebook source:\n"
     )
     system_suffix = (
         "\n\n"
         "Response style for this run (" + mode + "): "
         + body.get("prompt_instructions", PROMPT_MODE_INSTRUCTIONS[mode])
     )
+    return cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info
+
+
+async def preview_context(body: dict, dispatcher, kernel_id: str, kernel) -> dict:
+    prepared = await prepare_context(body, dispatcher, kernel_id, kernel, preview=True)
+    cells, units, tools, prefix, suffix, prompt, report, vars_, funcs, info = prepared
+    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report)
+    return {"type": "context", **built.counts,
+            "variables": {name: info[name] for name in vars_}, "tools": funcs}
+
+
+async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None):
+    prepared = await prepare_context(body, dispatcher, kernel_id, kernel)
+    cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info = prepared
+    special_tools = {name: info[name]["frontend_special"] for name in funcs
+                     if "frontend_special" in info[name]}
     executed_messages: list[Msg] = []
     allowed = set(funcs)
     steps = 0
     while True:
-        built = build_context(body["preceding_cells"], units, tools, system_prefix,
-                              system_suffix, prompt, executed_messages)
+        built = build_context(cells, units, tools, system_prefix,
+                              system_suffix, prompt, executed_messages, selection_report)
         messages = built.messages
         yield {"type": "context", **built.counts,
                "variables": {name: info[name] for name in vars_}, "tools": funcs}

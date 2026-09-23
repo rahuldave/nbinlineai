@@ -1,6 +1,6 @@
 # Task prompt: selectable notebook context
 
-Copy the text below into a new task opened in this repository. The linked brief contains recommended defaults for edge cases; read it before implementation.
+Original task prompt, retained as design history. The feature is now implemented in source; the brief records the user's later addition of independent per-cell Tools controls and Current question only mode. Use the current handoff for implementation status.
 
 ---
 

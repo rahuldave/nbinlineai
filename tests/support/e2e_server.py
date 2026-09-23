@@ -41,6 +41,22 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    if "E2E_AI_AUDIT" in current_user:
+        markers = (
+            "EARLIER_AI_QUESTION", "EARLIER_AI_ANSWER",
+            "LATER_AI_QUESTION", "LATER_AI_ANSWER", "OWN_MOVED_ANSWER",
+        )
+        locations = []
+        for marker in markers:
+            roles = [
+                str(message.role) for message in messages
+                if marker in "".join(
+                    part.text for part in getattr(message, "content", [])
+                    if isinstance(part, Text)
+                )
+            ]
+            locations.append(f"{marker}={','.join(roles) or 'absent'}")
+        return Completion(model=model, message=Msg("assistant", [Text("; ".join(locations))]))
     if "E2E_INHERIT_INSPECT" in current_user:
         details = (
             f"INHERITED_SCHEMAS={','.join(schema_names)}; "

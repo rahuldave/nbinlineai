@@ -40,7 +40,7 @@ The current implementation has **two transports**, reviewed against source on 20
 | Model calls `list_cells`, `read_cell`, `insert_markdown` (or composed `url_to_note`) | Server SSE `frontend_action`; authenticated browser POST `nbinlineai/action-reply` | Server awaits up to 45 seconds; no waiting Python tool body | `frontend_bridge.py`, `handlers.py`, `src/frontendActions.ts`, sequential `src/sse.ts` |
 | Python code cell calls `insert_tools` | Jupyter comm target `nbinlineai.insert_tools.v1`; browser comm acknowledgement | Returns a mutable receipt immediately; 30-second acknowledgement timeout | `kernel_insert_tools.py`, `src/insertTools.ts`, `src/insertToolsProtocol.ts` |
 
-These transports do not grant general arbitrary JavaScript access or execute cells on the model's behalf. Both bind mutations to original identities and acknowledge the live model only. Context selection itself needs a model snapshot/preview extension, not a third general-purpose mutation bridge. The proposed preview API is not implemented yet.
+These transports do not grant general arbitrary JavaScript access or execute cells on the model's behalf. Both bind mutations to original identities and acknowledge the live model only. Context selection itself needs a model snapshot/preview extension, not a third general-purpose mutation bridge. The authenticated `nbinlineai/context-preview` route now shares the snapshot/selection pipeline with execution. It performs bounded introspection on an existing idle kernel and returns stable included/omitted/partial IDs, with no provider request, offered tool call or notebook mutation.
 
 The model-driven interface below is distinct from the direct Python `insert_tools` helper. The latter uses comm target `nbinlineai.insert_tools.v1` with the current execute-request ID, source code-cell ID, and bounded generated Markdown. `src/insertTools.ts` tracks the actual outgoing request from native cell execution, then validates the comm's parent and the original panel/model/kernel before insertion. Multiple helper calls share an insertion tail for their execution; redelivery of the same comm ID does not create another note. Python receives asynchronous acknowledgement in `InsertToolsReceipt`; it does not run or block an event loop to wait. Save normally after insertion. Headless clients cannot perform the browser mutation; `tools_markdown()` remains usable for plain text. See [`nbinlineai/kernel_insert_tools.py`](../nbinlineai/kernel_insert_tools.py) and [`src/insertToolsProtocol.ts`](../src/insertToolsProtocol.ts).
 
@@ -115,7 +115,7 @@ Reviewed [dialoghelper at 118fff2](https://github.com/AnswerDotAI/dialoghelper/t
 
 Namespace/file tools correspond to `names_containing`, `list_dialogs`, `find_msgs`, and `read_msgid`/`view_msg`; the formatter corresponds to `mk_toollist`. The frontend supplies the missing model reads and limited insertion for `url2note`-style behavior. No ipylab dependency is needed: our extension already owns the panel/model, and acknowledged stable-ID actions fit better than current-widget command dispatch.
 
-Still deferred: editing/deleting existing cells, AI-triggered code execution, images/screenshots, shell tools, AST rewriting, tracing, other-notebook live operations, and automatic context selectors. See [cell/kernel model](cell_kernel_model_and_context_selection.md) before expanding those contracts.
+Still deferred: editing/deleting existing cells, AI-triggered code execution, images/screenshots, shell tools, AST rewriting, tracing, other-notebook live operations, and model-aware token budgeting. See [cell/kernel model](cell_kernel_model_and_context_selection.md) before expanding those contracts.
 
 ## Verification
 
@@ -124,3 +124,7 @@ Still deferred: editing/deleting existing cells, AI-triggered code execution, im
 - Frontend: unsaved/below-prompt source, pagination, exact anchors/order, deduplication, missing cells, sequential SSE.
 - Isolated JupyterLab: real kernel and browser with a fake provider, observable reads/insertions, tab switches, save behavior, Keep and native Run All regressions.
 - Artifacts: wheel/source include runtime, public docs/screenshots, examples/fixtures; exclude credentials and private internal docs.
+
+## Context selection integration (current source, after 0.1.7)
+
+Context mode and cell checkboxes select notebook text independently of tool declarations. Enabled earlier ordinary Markdown and AI questions still declare tools even when unchecked for Context or budget-omitted. The separate per-cell Tools checkbox defaults true and can withdraw that cell's declarations; duplicate enabled declarations remain effective. Current question only removes optional notebook text but preserves Tools choices. Including below-question text never registers its tools. The header exposes tools separately. Preview and each actual queued run use the full live ordered snapshot; only the current question resolves `$` values. Newly inserted notes inherit Custom inclusion when eligible, and later queued questions see them through fresh snapshots. Neither existing mutation transport changed.

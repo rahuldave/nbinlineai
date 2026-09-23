@@ -1,6 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.7**, source commit `e8cdacf32539109ff5f019b2e6cacd71c8025068`, tag `v0.1.7`. The release verification record was committed as `44466b0`. See [releasing](releasing.md) for hashes and verification. No runtime work is unfinished for that release. The next requested work is [context selection](context_selection_next_feature.md); this handoff prepares it without implementing it.
+Reviewed **2026-09-23**. Latest published package: **0.1.7**, source commit `e8cdacf32539109ff5f019b2e6cacd71c8025068`, tag `v0.1.7`. The release verification record was committed as `44466b0`. See [releasing](releasing.md) for hashes and verification. The current source build adds [context selection](context_selection_next_feature.md) after that release; it has not been published. See the implementation and verification section below.
 
 ## Product and environment
 
@@ -13,27 +13,28 @@ Reviewed **2026-09-23**. Latest published package: **0.1.7**, source commit `e8c
 
 ## Shipped behavior to retain
 
-Questions/answers are editable Markdown with AI metadata, not new nbformat types. Notebook defaults contain provider/model/style/effort/Keep; prompt overrides inherit unless set. Compact, Full, Learning have editable user instructions. Learning asks tutor questions and limits suggested code. Rendered code fences have Copy controls.
+Questions/answers are editable Markdown with AI metadata, not new nbformat types. Notebook defaults contain provider/model/style/effort/Keep/Context; prompt overrides inherit unless set. Compact, Full, Learning have editable user instructions. Learning asks tutor questions and limits suggested code. Rendered code fences have Copy controls.
 
 Keep is on by default, inherits from notebook defaults, and skips completed protected requests/tools. Native Run All and Shift+Enter are integrated through the public cell executor and a per-notebook queue. Editing an answer changes its later history text; it does not rerun downstream protected answers or restore kernel state. Errors/cancel stop the current batch, and completed effects cannot be rolled back.
 
 0.1.7 discovers `&` tool declarations in the current question plus **all earlier ordinary Markdown and AI questions**, independently of prose trimming. Tools are resolved from the live kernel per run; code/raw/answers/outputs and later cells do not declare tools. Only `$` in the current question resolves variables. The combined distinct reference cap is 20.
 
-The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each provider round without repeating tools. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Reporting currently has counts, not included cell IDs; selectable context needs to extend that contract.
+The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each provider round without repeating tools. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Current source also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
 
 ## Source map
 
 | Responsibility | Files |
 | --- | --- |
 | Plugin, commands, cell executor, notebook header, AI decorations, run lifecycle | `src/index.ts` (large; prefer small extracted modules for new logic) |
-| Ordered model snapshot | `src/context.ts` |
+| Ordered model snapshot and context modes | `src/context.ts` |
+| Context controls, saved Custom choices and preview lifecycle | `src/contextControls.ts` |
 | Settings/defaults, Keep precedence, model/provider/style choices | `src/defaults.ts`, `keepAnswer.ts`, `providerChoice.ts`, `modelChoice.ts`, `promptMode.ts`, `schema/plugin.json` |
 | Per-notebook execution order and batch failure/cancel | `src/executionQueue.ts` |
 | SSE ordering and visible context reports | `src/sse.ts`, `src/contextStatus.ts` |
 | Model-tool browser operations | `src/frontendActions.ts`, `nbinlineai/frontend_bridge.py`, `nbinlineai/handlers.py` |
 | Python helper browser insertion | `src/insertTools.ts`, `src/insertToolsProtocol.ts`, `nbinlineai/kernel_insert_tools.py` |
 | Request validation, reference discovery, tool loop | `nbinlineai/prompt.py` |
-| Shared context selection/character accounting | `nbinlineai/context_budget.py` |
+| Candidate selection and character accounting | `nbinlineai/context_selection.py`, `nbinlineai/context_budget.py` |
 | Live namespace introspection and callable execution | `nbinlineai/kernel.py` |
 | Flat FastLLM schema translation, API request | `nbinlineai/tool_schema.py`, `nbinlineai/providers.py` |
 | Tool registry/formatting, bounded web reads | `nbinlineai/tools.py`, `nbinlineai/web_tools.py` |
@@ -76,6 +77,11 @@ Known practical pitfalls:
 - An AI answer fixture requires `isOutputCell`, a linked `promptCellId`, and appropriate status. Markdown text alone does not make an answer.
 - After cancellation, wait for final `Cancelled` plus disabled Cancel before retrying; `Cancelling…` is not completion.
 - Notebook virtualization makes rendered DOM an incomplete inventory. Derive selection from `model.cells`, and attach controls only to live widgets with disposal/reattachment support.
+- Context preview introspection itself makes the kernel busy briefly. Do not invalidate and automatically re-preview on every busy/idle transition; that creates a request loop. Restart/dead/kernel replacement invalidate estimates; Refresh preview handles changed live values.
+- Keep cell-control geometry stable before the first AI question is selected. Showing a previously hidden Context row during Run's pointer-down can move the button before pointer-up and swallow the click. Cover direct first-click execution while a code cell is busy.
+- AI Prompt insertion activates a blank Markdown cell before tagging it as an AI question. Notify the context controller after tagging so the new active question becomes the preview target, including immediately after a checkbox interaction.
+- Browser request assertions must use the versioned `notebook_cells` snapshot. `preceding_cells` is supported only for legacy clients.
+- JupyterLab itself may normalize native notebook metadata on first load. Read-only preview tests should compare AI metadata and saved contents, then test dirty state after native initialization settles.
 - `insert_tools` is intentionally skipped only in the explicitly tagged optional headless example cell; all example tool declarations are validated against real imports/definitions.
 - Screenshot helper: `tests/support/capture_docs.mjs`. Use isolated fake-provider examples; captions identify simulations. Do not capture personal data/keys. README has a two-image limit.
 
@@ -83,6 +89,25 @@ Known practical pitfalls:
 
 Keep versions aligned in `pyproject.toml`, `package.json`, `nbinlineai/__init__.py`, lockfiles and rebuilt extension metadata. Use a separate artifact directory per version; strict Twine, archive/credential checks, fresh wheel installation, both extension discovery checks, and public hashes are documented in [releasing](releasing.md). Do not modify immutable uploaded releases. Generated `lib/`, `dist/`, and prebuilt assets are ignored; build them, do not hand-edit them.
 
-GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs should describe shipped behavior only. A documentation-only handoff does not need a new PyPI version.
+GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
 
-Deferred: selectable/full/nearby context (next), exact model-token capacity and output/reasoning reserves, richer outputs/images, broad edit/delete/execute tools, durable action replay, other-notebook live operations, and ChatGPT subscription login. See the research index; do not interpret historical “proposed” sections as existing APIs.
+Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, broad edit/delete/execute tools, durable action replay, other-notebook live operations, and ChatGPT subscription login. See the research index; do not interpret historical “proposed” sections as existing APIs.
+
+## Context selection in current source (after 0.1.7)
+
+Seven Context modes and cell inclusion controls are implemented. The target question stays in transient panel state; execution snapshots its own stable prompt ID at its queued turn. Custom mode persists the notebook policy and per-cell text choices in shared metadata without overwriting unrelated keys. Default checks come from the shared backend preview; explicit-mode checks represent candidates with separate partial/omitted feedback.
+
+New requests send versioned full ordered snapshots; legacy preceding-only requests remain supported. Authenticated context preview needs an existing idle kernel and no API key. It returns first-round IDs and accounting without provider calls, offered tool calls or document mutation. All modes preserve fixed-material-first character budgeting and per-round tool-group retention. Both existing mutation transports remain unchanged.
+
+Following the user's implementation-time refinement, declaring ordinary Markdown/AI question cells have separate saved Tools toggles (`toolsInclude`, default true). The seventh Context mode, Current question only, excludes optional source while retaining these choices. Duplicate enabled declarations still offer a tool. Below declarations never register merely through text selection.
+
+The illustrated user guide, FAQ, architecture and `examples/context-selection.ipynb` document the behavior. No version bump, PyPI publication or deployment is part of this task. The public docs explicitly identify these controls as newer than published 0.1.7.
+
+Verification on 2026-09-23:
+
+- **140 Python tests**, Ruff, and **44 frontend unit tests** passed. Production assets were rebuilt and relinked before browser checks.
+- The final uninterrupted isolated JupyterLab run passed **57/57 browser tests** in 5.2 minutes, with a real Python kernel and deterministic provider. Coverage includes all seven modes, saved text/tool choices, preview/run parity, stale responses, below-question AI source, active targets and new question insertion, first-click Run while Python is busy, answer editing, native Run All, Keep, both insertion protocols, and save/reload.
+- The capture helper refreshed eleven guide screenshots, including new `context-selection.png` and `context-details.png`; tool browser tests refreshed their own illustrations. The compact controls, expanded explanations and example were visually reviewed. Local documentation/image links resolve.
+- `uv build --out-dir dist/context-selection-check`, strict Twine, archive checks and a credential-pattern scan passed. The source archive has 126 files and the wheel 62. A disposable uv environment with JupyterLab 4.6.4 installed the checked wheel, found both extensions enabled/OK, imported all seven modes, and contained the new example and illustrations.
+
+All owned test/capture servers were stopped. Port 8888 was untouched, and no paid provider call was made. These are source-build validation artifacts at the unchanged 0.1.7 version, not a new published release; bump the version before any future publication.

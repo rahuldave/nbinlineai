@@ -17,7 +17,7 @@ from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, pro
 from .credentials import CredentialStore
 from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
 from .kernel import KernelDispatcher
-from .prompt import PROMPT_MODE_INSTRUCTIONS, run_prompt, validate_request
+from .prompt import PROMPT_MODE_INSTRUCTIONS, preview_context, run_prompt, validate_request
 
 
 def _require_single_user_server(handler):
@@ -112,6 +112,35 @@ class PromptHandler(APIHandler):
         super().on_connection_close()
 
 
+class ContextPreviewHandler(APIHandler):
+    def initialize(self, dispatcher):
+        self.dispatcher = dispatcher
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self):
+        _require_single_user_server(self)
+        try:
+            body = validate_request(self.get_json_body(), preview=True)
+            kernel_id, kernel = await self.dispatcher.resolve(body["session_id"])
+            if not self.dispatcher.preview_ready(kernel_id, kernel):
+                raise HTTPError(409, "Kernel is busy; refresh the context preview when it is idle")
+            report = await asyncio.wait_for(
+                preview_context(body, self.dispatcher, kernel_id, kernel), timeout=7
+            )
+            current_id, current_kernel = await self.dispatcher.resolve(body["session_id"])
+            if current_id != kernel_id or current_kernel is not kernel:
+                raise HTTPError(409, "Notebook kernel changed; refresh the context preview")
+            if not self.dispatcher.preview_ready(kernel_id, kernel):
+                raise HTTPError(409, "Kernel changed or became busy; refresh the context preview")
+        except (ValueError, TypeError) as exc:
+            status = 409 if "Kernel is busy" in str(exc) else 400
+            raise HTTPError(status, str(exc)) from exc
+        except TimeoutError as exc:
+            raise HTTPError(409, "Context preview timed out; refresh when the kernel is idle") from exc
+        self.finish(report)
+
+
 class ActionReplyHandler(APIHandler):
     def initialize(self, dispatcher, bridge):
         self.dispatcher = dispatcher
@@ -173,6 +202,8 @@ def setup_handlers(web_app):
         (url_path_join(base_url, "nbinlineai", "status"), StatusHandler),
         (url_path_join(base_url, "nbinlineai", "prompt"), PromptHandler,
          {"dispatcher": dispatcher, "bridge": bridge}),
+        (url_path_join(base_url, "nbinlineai", "context-preview"), ContextPreviewHandler,
+         {"dispatcher": dispatcher}),
         (url_path_join(base_url, "nbinlineai", "action-reply"), ActionReplyHandler,
          {"dispatcher": dispatcher, "bridge": bridge}),
         (url_path_join(base_url, "nbinlineai", "settings", "keys"), KeySettingsHandler),

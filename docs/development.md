@@ -33,9 +33,9 @@ uv run --no-sync jlpm test:e2e
 
 | Layer | What it checks |
 | --- | --- |
-| Python | Authentication, credentials, inherited declarations, nearest-first character accounting, tool execution, provider payloads, insertion receipts, styles, effort, and cancellation. |
-| Frontend unit tests | Choice resolution, defaults and overrides, Keep answer, code-copy behavior, live model actions, context reports, insertion request validation, and asynchronous event ordering. |
-| Browser tests | A real JupyterLab interface and Python kernel: shared tool declarations, context trimming, direct helper insertion and Run All ordering, settings, saving/reopening, live-cell actions, styles, and rerun protection. |
+| Python | Authentication, credentials, context selection and preview/run parity, inherited declarations and opt-outs, nearest-first character accounting, tool execution, provider payloads, insertion receipts, styles, effort, and cancellation. |
+| Frontend unit tests | Context windows and saved choices, defaults and overrides, Keep answer, code-copy behavior, live model actions, context reports, insertion request validation, and asynchronous event ordering. |
+| Browser tests | A real JupyterLab interface and Python kernel: all Context modes, accessible text/tool choices, stale previews, shared tool declarations, direct helper insertion and Run All ordering, settings, saving/reopening, live-cell actions, styles, and rerun protection. |
 
 The default browser suite substitutes a deterministic provider, so it does not incur API charges. It starts its own JupyterLab on `127.0.0.1:8897`, uses temporary notebooks/configuration/fake keys, refuses port 8888, and disables automatic port retries. Set `NBINLINEAI_E2E_PORT` to use another free port. Install Chromium if requested:
 

@@ -189,15 +189,39 @@ try {
 
   // Notes and code above the prompt are context; the later note remains below it.
   panel = await notebook(page, 'Notebook context.ipynb', [
-    { cell_type: 'markdown', source: '## Project notes\nThe quiz scores are 6, 8, and 10. Compare the mean with each score.' },
-    { cell_type: 'code', source: 'scores = [6, 8, 10]\naverage = sum(scores) / len(scores)' },
+    { cell_type: 'markdown', source: '## Project notes\nThe quiz scores are 6, 8, and 10. Compare the mean with each score.\n\n&`study_helper`' },
+    { cell_type: 'code', source: 'scores = [6, 8, 10]\naverage = sum(scores) / len(scores)\ndef study_helper(value: int):\n    return value' },
     { cell_type: 'markdown', source: '## Later exercise\nTry a different set of scores after this question.' }
   ]);
+  const contextSetup = panel.locator('.jp-Notebook .jp-CodeCell').first();
+  await contextSetup.click(); await page.keyboard.press('Shift+Enter');
+  await expect(contextSetup.locator('.jp-InputPrompt')).toContainText('1');
   prompt = await insert(page, 1, 'What does this average tell us?');
   answer = await run(page, prompt);
   await capture(page, 'context.png', [panel.locator('.jp-Notebook .jp-Cell').first(), prompt, answer, panel.locator('.jp-Notebook .jp-Cell').last()]);
 
-  console.log('Captured nine illustrative JupyterLab screenshots in docs/images/');
+  // Show independent text and tool choices with source on both sides of the question.
+  await prompt.click();
+  await panel.locator('[data-nbinlineai-context-mode]').selectOption('ten-above-below');
+  await expect(panel.locator('[data-nbinlineai-context-target]')).toContainText(/^Context for AI question 3$/);
+  const firstContext = panel.locator('.jp-Notebook .jp-Cell').first().locator('[data-nbinlineai-context-include]');
+  await expect(firstContext).toBeChecked();
+  await firstContext.uncheck();
+  await expect(panel.locator('[data-nbinlineai-context-mode]')).toHaveValue('custom');
+  await expect(panel.locator('[data-nbinlineai-context-status]')).toContainText(/\d+ included.*\d+ tools/);
+  await expect(panel.locator('.jp-Notebook .jp-Cell').first().locator('[data-nbinlineai-tools-include]')).toBeChecked();
+  await expect(panel.locator('.jp-Notebook .jp-Cell').last().locator('[data-nbinlineai-context-include]')).toBeChecked();
+  await capture(page, 'context-selection.png', [
+    panel.locator('[data-nbinlineai-notebook-defaults]'),
+    panel.locator('.jp-Notebook .jp-Cell').first(),
+    prompt,
+    panel.locator('.jp-Notebook .jp-Cell').last()
+  ]);
+  await panel.locator('[data-nbinlineai-context-details] > summary').click();
+  await expect(panel.locator('[data-nbinlineai-context-report]')).toContainText('First-round estimate');
+  await panel.locator('.nbinlineai-context-row').screenshot({ path: join(out, 'context-details.png') });
+
+  console.log('Captured eleven illustrative JupyterLab screenshots in docs/images/');
 } finally {
   await api?.dispose();
   await browser?.close();

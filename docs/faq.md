@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe **nbinlineai 0.1.7**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe the **current source build**. Context controls are newer than published 0.1.7. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -86,25 +86,66 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 ### Does the AI see every cell and all Python variables?
 
-No. It receives bounded code and ordinary Markdown **above the current prompt**, plus earlier completed AI exchanges. Code outputs, plots, image pixels, raw-cell content, later source cells, and automatic file contents are excluded.
+No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content and automatic file contents remain excluded.
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See the [context table and limits](user-guide.md#4-what-context-does-the-ai-receive).
 
 ### How does nbinlineai choose context when the notebook is large?
 
-Version 0.1.7 uses a shared **64,000-character estimate** for each provider request:
+Every Context mode uses a shared **64,000-character estimate** for each provider request:
 
 | Material | Selection rule |
 | --- | --- |
 | Tools | Discover declarations throughout eligible cells above, then account for all their function descriptions first. Tools survive omission of the notes that declared them. |
 | Current question and instructions | Account for the question **after** live-value substitution, system/style instructions, and message formatting. |
-| Ordinary code, Markdown, and completed earlier AI exchanges | Start with the **nearest preceding** material and work upward until the remaining space is used. Send the retained material in its original order. |
-| Boundary cell | Keep the end of an ordinary source cell when only part fits, marked as partial. AI prompt/answer pairs stay whole; stop if the next pair will not fit. |
+| Selected source and completed earlier AI exchanges | Start with the nearest eligible candidates, with above winning distance ties. Default considers earlier material only. Send retained material in original order. |
+| Boundary cell | Keep the end of source above or the beginning of source below, marked as partial. AI history pairs stay whole; stop if the next pair will not fit. |
 | Tool rounds | Recalculate with the accumulated tool calls and results. Older notebook context may be removed to make room; completed tools are not replayed. |
 
-There is no relevance search or automatic summary. This is a window that grows upward from the question, not a selection of scattered older cells that happen to fit. These limits do not modify or delete notebook cells. The old 200-cell restriction is removed; a separate transport safety limit accepts up to 10,000 preceding cells.
+There is no relevance search or automatic summary. Selection stops at the first budget boundary instead of skipping to smaller distant cells. These limits do not modify or delete notebook cells. A separate transport safety limit accepts up to 10,000 cells in the ordered snapshot; oversize snapshots fail explicitly.
 
 The status reports included cells and offered tools. **Done · context trimmed** means a provider round omitted or shortened eligible context. Hover over the status for included, omitted, and partial cell counts, tool names, and the character estimate. This report lasts in the open browser session; it is not a saved transcript or exact model-token count.
+
+### How do Default and All above differ?
+
+Default's boxes show the cells the backend estimates will fit. All above checks all eligible candidates and separately marks budget omissions or partial cells. Their ordinary-source and complete-pair selection follows the same budget. All above can additionally include a standalone AI question or completed answer as labeled source; Default retains the legacy complete-pair eligibility.
+
+### Does a checked box guarantee the whole cell reaches the model?
+
+In Full notebook, All above, either ten-cell mode or Custom, it means selected as a candidate. **Partial** and **omitted by budget** describe actual first-round inclusion. Default uses checked/mixed boxes for the fitted set itself. Full notebook remains budget limited. Current-question answers are always excluded, even if moved above their question.
+
+### Which question do the controls describe?
+
+The header names the preview question. Select a question or its linked answer to change that target. Clicking a code or Markdown checkbox retains it. Execution uses the ID of the question actually running, so Run All takes a fresh snapshot for each question rather than reusing the preview target.
+
+### What happens to Custom choices when I change modes or insert cells?
+
+Returning to Custom restores your choices. Editing a preset checkbox instead starts a new Custom set from that preset's displayed selection. If Default preview is unavailable, refresh before initializing Custom or start from an explicit preset. Initial choices cover all existing cells; an empty or failed cell retains its choice if it later becomes eligible. Newly inserted cells default to included when eligible. Moves preserve choices; duplicates copy metadata with JupyterLab's fresh cell ID. The mode and choices save in the notebook, while previews do not.
+
+### Why is preview pending, stale or unavailable?
+
+An accurate estimate needs an existing idle kernel and any functions/values referenced by this question. Preview does not start a kernel, contact a provider, run an offered function or create an answer. Source/settings/target/kernel changes invalidate a response. Use Refresh preview after changing live Python state. Running the question always takes a fresh snapshot; later tool rounds can trim more text. A preview is not a saved guarantee of a later request.
+
+### How do I exclude text without losing tools—or disable the tools too?
+
+Use the two independent cell controls. **Context** selects text. **Tools** appears on Markdown and AI question cells containing declarations, and defaults to on. Uncheck Tools to withdraw that cell's declarations. A duplicate declaration in another enabled applicable cell can still offer the same tool. Tool choices save across every Context mode; new declaration cells default to enabled.
+
+Choose **Current question only** to deselect all optional text while retaining your Tools choices. Automatic budget omissions never disable tools, and this mode never re-enables deliberately disabled ones. Below-question declarations remain out of scope even when their source is selected. The current question's Tools checkbox can withdraw its own declarations without excluding its required text.
+
+These controls do not reset Python state. Only the current question's `$` references resolve live values. Previously executed code can affect the kernel from anywhere, and offered read tools can retrieve other text. Restart/rerun setup only when you deliberately want to reset Python state.
+
+### Why can a tool still be available after I disable one declaration cell?
+
+A Tools checkbox means **use declarations from this cell**, not disable those function names everywhere. For example:
+
+| Notebook order | Saved Tools choice | Effect on the current question |
+| --- | --- | --- |
+| Markdown A declares `search` | Off | A does not offer it. |
+| Markdown B also declares `search` | On | B still offers `search`. |
+| **Current AI question** | — | Can use `search` through B. |
+| Markdown C declares `calculate` | On | C is below, so `calculate` is unavailable here. |
+
+Turn Tools off on both A and B to withdraw `search` from this question. A stays off when switching Default, Custom or any other Context mode, and after saving/reopening. Full notebook can select C's text, but its enabled declaration applies only to a later question. An AI question's own enabled declarations also apply to itself.
 
 ### What happens if the request exceeds the model's context window?
 
@@ -114,7 +155,7 @@ Before each provider call, nbinlineai trims optional notebook context to its cha
 
 Partial answer text may remain, but the failed exchange is excluded from later AI history. Tool actions already completed remain in effect, so inspect any changes before rerunning. A failure on a later tool round can happen even though the first request fitted.
 
-To reduce the request, shorten long source cells and questions, remove unwanted tool declarations above, use smaller tool results, or pass a small summary variable instead of a large value. A model with a larger context window may help with provider overflow; it does not change nbinlineai's own character budget. There are no per-cell context exclusion controls yet.
+To reduce the request, shorten long source cells and questions, remove unwanted tool declarations above, use smaller tool results, or pass a small summary variable instead of a large value. A model with a larger context window may help with provider overflow; it does not change nbinlineai's own character budget. Use Custom or Current question only to reduce optional text; use Tools checkboxes to reduce offered function descriptions.
 
 ### Is a long answer hitting an output limit the same problem?
 
@@ -190,7 +231,7 @@ Live `$` lookups still happen only in the current question. Tool references insi
 
 ### Does an early tool disappear when its note no longer fits in context?
 
-No. Tool discovery scans all eligible cells above before choosing the text window. Its function schema stays available even when the declaration note is omitted. The callable must still exist in the live kernel; rerun imports or definitions after restarting it. Keep answer on the declaration's AI question does not disable inheritance.
+No. Tool discovery scans all eligible cells above before choosing the text window. Its function schema stays available when the note is unchecked for Context, outside the window or omitted by budget, provided its separate Tools checkbox is enabled. An enabled callable must still exist in the live kernel; rerun imports or definitions after restarting it. Keep answer on the declaration's AI question does not disable inheritance.
 
 ### Can I create the tools note without copying and pasting?
 
@@ -200,11 +241,11 @@ Save normally. A deliberate rerun creates another note; simply reopening the not
 
 ### How do I stop offering an inherited tool?
 
-Remove all references to it from eligible cells above and from the current question, or move those declarations below the question. Changes apply on the next AI run; an already-running request keeps its snapshot. There is no per-question disable switch yet. Deleting or renaming the Python function alone leaves a missing declaration, which causes an error rather than silently dropping the tool.
+Uncheck Tools on every applicable cell that declares it, or remove/move those declarations below the question. The choice is per declaration cell; another enabled declaration of the same name still offers it. Changes apply on the next AI run; an already-running request keeps its snapshot. Deleting or renaming the Python function alone leaves a missing declaration, which causes an error rather than silently dropping the tool.
 
 ### Why can't the file tools see my latest edit?
 
-`list_notebooks`, `find_notebook_cells`, and `read_notebook_cell` inspect **saved `.ipynb` files**. Save your edits first, and check the path relative to the kernel's current working directory. To read the open notebook including unsaved changes, offer `list_cells` and `read_cell` instead. Automatic context also uses the current frontend source, but only above the prompt.
+`list_notebooks`, `find_notebook_cells`, and `read_notebook_cell` inspect **saved `.ipynb` files**. Save your edits first, and check the path relative to the kernel's current working directory. To read the open notebook including unsaved changes, offer `list_cells` and `read_cell` instead. Selected context also uses the current frontend source, including below-question source when the mode selects it.
 
 ### Does listing all tools give the AI access to every function in the package?
 
@@ -212,7 +253,7 @@ No. `tools_markdown()` lists ten bundled tools from an explicit registry; it doe
 
 ### Can the AI read cells below my question now?
 
-Only when you explicitly provide a tool that can do so. `list_cells` and `read_cell` inspect the current notebook, including below the question. Saved-file tools can also read other cells or notebooks from disk. These results enter the current tool conversation; automatic context still stops above the prompt. Whole-notebook and nearby-cell context selectors are not implemented.
+Yes. Full notebook, 10 above + below and Custom can select below-question source. Later AI cells are labeled source, never prior chat history. Independently, offered `list_cells` and `read_cell` tools can inspect below; saved-file tools can read other cells or notebooks. Unchecking a cell does not prohibit separately offered tools from reading it.
 
 ### Does a tool insert a real note, or just text in the AI answer?
 

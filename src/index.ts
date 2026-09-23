@@ -6,7 +6,8 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { addIcon, copyIcon } from '@jupyterlab/ui-components';
 import { Widget } from '@lumino/widgets';
-import { precedingCells } from './context';
+import { notebookCells, snapshotTransportError } from './context';
+import { NotebookContextControls, PreviewRequest, notebookContextMode } from './contextControls';
 import { copyCodeText } from './codeCopy';
 import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selectedModelChoice, promptHttpErrorMessage, serverUnavailableMessage } from './modelChoice';
 import { configured, defaultProvider } from './providerChoice';
@@ -48,6 +49,7 @@ const pendingCancels = new Set<string>();
 const panelsByModel = new WeakMap<INotebookModel, NotebookPanel>();
 const statuses = new Map<string, { state: string; text: string; tooltip?: string }>();
 const pendingSnapshots = new Set<NotebookPanel>();
+const contextControls = new WeakMap<NotebookPanel, NotebookContextControls>();
 const serverSettings = ServerConnection.makeSettings();
 const runKey = (panel: NotebookPanel, cellId: string): string => `${panel.id}:${cellId}`;
 let settings: ISettingRegistry.ISettings | null = null;
@@ -148,7 +150,7 @@ function resolvedFor(panel: NotebookPanel, cell?: ICellModel | null) {
 function onResponseSettingsChanged(): void {
   if (!modeSavePending) confirmedPromptMode = normalizePromptMode(settings?.get('promptMode').composite);
   if (!instructionsSavePending) confirmedInstructions = readInstructionOverrides(settings?.get('promptInstructions').composite);
-  notebookTracker?.forEach(decorate);
+  notebookTracker?.forEach(panel => { contextControls.get(panel)?.invalidate(); decorate(panel); });
 }
 function bindResponseSettings(value: ISettingRegistry.ISettings): void {
   settings?.changed.disconnect(onResponseSettingsChanged);
@@ -160,7 +162,7 @@ function bindResponseSettings(value: ISettingRegistry.ISettings): void {
   instructionNotices = {};
   settings.changed.connect(onResponseSettingsChanged);
   flushPendingSnapshots();
-  notebookTracker?.forEach(decorate);
+  notebookTracker?.forEach(panel => { contextControls.get(panel)?.invalidate(); decorate(panel); });
 }
 async function reloadResponseSettings(): Promise<void> {
   if (!settingRegistry) throw new Error('JupyterLab response style settings service is unavailable.');
@@ -298,6 +300,25 @@ async function fetchStatus(): Promise<void> {
     serverStatusError = error instanceof Error ? error.message : 'Could not reach the AI server.';
     throw error;
   }
+}
+
+async function fetchContextPreview(panel: NotebookPanel, body: PreviewRequest, signal: AbortSignal): Promise<unknown> {
+  await settingsReady;
+  const prompt = getCell(panel, body.prompt_cell_id);
+  if (!prompt) throw new Error('The selected AI question was removed.');
+  const effective = resolvedFor(panel, prompt);
+  const instructions = confirmedInstructions[effective.promptMode];
+  const response = await fetch(serverUrl('nbinlineai/context-preview'), {
+    method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal,
+    body: JSON.stringify({ ...body, backend: effective.backend, model: effective.model || undefined,
+      prompt_mode: effective.promptMode, ...(instructions ? { prompt_instructions: instructions } : {}) })
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { message?: string; error?: string };
+    throw new Error(result.message || result.error || (response.status === 409 ? 'Kernel is busy. Refresh when it is idle.' :
+      response.status === 404 ? 'Context preview is unavailable. Restart the Jupyter server after updating.' : `Context preview failed (${response.status}).`));
+  }
+  return response.json();
 }
 
 async function fetchKeyStatus(): Promise<KeyStatus> {
@@ -690,9 +711,11 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   const { backend, promptMode: mode } = effective;
   const available = configured(serverStatus?.providers || null, backend);
   if (available === false) { status(panel, promptId, 'error', 'API key required. Choose Configure AI or another provider.'); return false; }
-  let preceding: ReturnType<typeof precedingCells>;
-  try { preceding = precedingCells(notebook, promptId); }
+  let cells: ReturnType<typeof notebookCells>;
+  try { cells = notebookCells(notebook, promptId); }
   catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return false; }
+  const snapshotError = snapshotTransportError(cells);
+  if (snapshotError) { status(panel, promptId, 'error', snapshotError); return false; }
   let output: ICellModel;
   try { output = ensureOutput(panel, promptId); }
   catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not create an AI answer cell.'); return false; }
@@ -714,7 +737,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
       method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
       body: JSON.stringify({
         prompt: promptText, session_id: sessionId, prompt_cell_id: promptId,
-        preceding_cells: preceding, backend, model: selectedModel, max_tool_steps: maxToolSteps(), prompt_mode: mode,
+        snapshot_version: 1, notebook_cells: cells, context_mode: notebookContextMode(panel),
+        backend, model: selectedModel, max_tool_steps: maxToolSteps(), prompt_mode: mode,
         ...(instructions ? { prompt_instructions: instructions } : {}),
         ...(effort ? { reasoning_effort: effort } : {})
       })
@@ -742,8 +766,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
           status(panel, promptId, 'running', runningContextText(report), contextTooltip(report, run.contextTrimmed));
         } else {
           const count = typeof event.cell_count === 'number' && Number.isSafeInteger(event.cell_count) && event.cell_count >= 0
-            ? event.cell_count : preceding.length;
-          status(panel, promptId, 'running', `Using ${count} preceding cells…`);
+            ? event.cell_count : cells.length;
+          status(panel, promptId, 'running', `Using ${count} notebook cells…`);
         }
       } else if (event.type === 'frontend_action') {
         if (!serverRunId || event.run_id !== serverRunId) throw new Error('The notebook action did not match this AI run.');
@@ -839,6 +863,7 @@ function insertPrompt(panel: NotebookPanel): void {
   if (!cell) return;
   setMetadata(cell.model, { isPromptCell: true });
   cell.model.sharedModel.setSource('');
+  contextControls.get(panel)?.onActiveCellChanged(true);
   maybeSnapshotNotebookDefaults(panel);
   notebook.mode = 'edit';
   decorate(panel);
@@ -947,6 +972,7 @@ function syncNotebookDefaultsRow(panel: NotebookPanel): void {
   if (configured(serverStatus?.providers || null, effective.backend) === false) effort.disabled = true;
   const keep = row.querySelector('[data-nbinlineai-notebook-keep-answers]') as HTMLInputElement;
   keep.checked = defaults.keepAnswers !== false;
+  contextControls.get(panel)?.syncHeader();
 }
 
 function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
@@ -977,6 +1003,27 @@ function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
   keep.addEventListener('change', () => setNotebookDefaults(panel, { keepAnswers: keep.checked }));
   syncNotebookDefaultsRow(panel);
   return widget;
+}
+
+function createNotebookContextRow(panel: NotebookPanel): { widget: Widget; observer: ResizeObserver } {
+  const widget = new Widget();
+  widget.node.style.minHeight = '32px';
+  const row = document.createElement('div');
+  row.className = 'nbinlineai-context-row';
+  const context = contextControls.get(panel)!;
+  const title = document.createElement('span'); title.textContent = 'Context'; title.className = 'nbinlineai-context-title';
+  row.append(title, context.modeSelect, context.caption, context.refreshButton, context.details);
+  widget.node.append(row);
+  const observer = new ResizeObserver(() => {
+    if (widget.isDisposed || panel.isDisposed) return;
+    const height = Math.ceil(row.getBoundingClientRect().height);
+    if (height > 0 && widget.node.style.minHeight !== `${height}px`) {
+      widget.node.style.minHeight = `${height}px`;
+      panel.contentHeader.fit();
+    }
+  });
+  observer.observe(row);
+  return { widget, observer };
 }
 
 function patchCellOverrides(cell: ICellModel, patch: Partial<CellMetadata>): void {
@@ -1084,6 +1131,7 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
 }
 function decorate(panel: NotebookPanel): void {
   if (panel.isDisposed) return;
+  contextControls.get(panel)?.prepareDecoration();
   const prefix = `${panel.id}:`;
   for (const key of statuses.keys()) {
     if (!key.startsWith(prefix)) continue;
@@ -1094,11 +1142,12 @@ function decorate(panel: NotebookPanel): void {
   for (const widget of panel.content.widgets) {
     const cell = widget.model;
     const meta = metadata(cell);
+    contextControls.get(panel)?.decorateCell(cell, widget.node);
     widget.toggleClass('nbinlineai-prompt-cell', !!meta.isPromptCell);
     widget.toggleClass('nbinlineai-output-cell', !!meta.isOutputCell);
     widget.toggleClass('nbinlineai-response-cell', !!meta.isOutputCell);
     if (meta.isOutputCell && widget instanceof MarkdownCell) {
-      if (!widget.rendered) widget.rendered = true;
+      if (!widget.rendered && !(panel.content.activeCell === widget && panel.content.mode === 'edit')) widget.rendered = true;
       decorateCodeCopy(widget);
     }
     if (!meta.isPromptCell) { widget.node.querySelector(':scope > .nbinlineai-controls')?.remove(); continue; }
@@ -1221,10 +1270,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
     app.commands.addCommand(commandConfigure, { label: 'Configure AI Providers', execute: () => configureProviders(tracker) });
     for (const command of [commandInsert, commandRun, commandCancel, commandConfigure]) palette?.addItem({ command, category: 'AI' });
     const setup = (panel: NotebookPanel) => {
-      const model = panel.content.model;
-      if (model) panelsByModel.set(model, panel);
+      let boundModel = panel.content.model;
+      if (boundModel) panelsByModel.set(boundModel, panel);
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
+        const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
+          const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
+          return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];
+        });
+        contextControls.set(panel, context);
         const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Add or remove API keys', onClick: () => { void configureProviders(tracker); } });
         panel.toolbar.addItem('nbinlineai-configure', configureButton);
         const insertButton = new ToolbarButton({ icon: addIcon, label: 'AI Prompt', tooltip: 'Insert AI Prompt Cell', onClick: () => insertPrompt(panel) });
@@ -1232,10 +1286,42 @@ const plugin: JupyterFrontEndPlugin<void> = {
           panel.toolbar.addItem('nbinlineai-insert', insertButton);
         }
         panel.contentHeader.addWidget(createNotebookDefaultsRow(panel));
+        const contextRow = createNotebookContextRow(panel);
+        panel.contentHeader.addWidget(contextRow.widget);
+        panel.contentHeader.fit();
         decorate(panel);
-        panel.content.model?.metadataChanged.connect(() => decorate(panel));
-        panel.content.activeCellChanged.connect(() => decorate(panel));
-        panel.content.model?.cells.changed.connect(() => { window.requestAnimationFrame(() => decorate(panel)); });
+        const onMetadataChanged = () => decorate(panel);
+        const onCellsChanged = () => { context.invalidate(); window.requestAnimationFrame(() => decorate(panel)); };
+        const onContentChanged = () => { context.invalidate(); };
+        const bindModel = () => {
+          const next = panel.content.model;
+          if (boundModel === next) return;
+          if (boundModel) {
+            boundModel.metadataChanged.disconnect(onMetadataChanged);
+            boundModel.cells.changed.disconnect(onCellsChanged);
+            boundModel.contentChanged.disconnect(onContentChanged);
+            panelsByModel.delete(boundModel);
+          }
+          boundModel = next;
+          if (next) {
+            panelsByModel.set(next, panel);
+            next.metadataChanged.connect(onMetadataChanged);
+            next.cells.changed.connect(onCellsChanged);
+            next.contentChanged.connect(onContentChanged);
+          }
+          context.onModelChanged();
+        };
+        if (boundModel) {
+          boundModel.metadataChanged.connect(onMetadataChanged);
+          boundModel.cells.changed.connect(onCellsChanged);
+          boundModel.contentChanged.connect(onContentChanged);
+        }
+        panel.content.modelChanged.connect(bindModel);
+        bindModel();
+        panel.content.activeCellChanged.connect(() => { context.onActiveCellChanged(); decorate(panel); });
+        panel.sessionContext.kernelChanged.connect(() => { context.invalidate(); });
+        panel.sessionContext.statusChanged.connect((_, state) => context.onKernelStatus(state));
+        context.onActiveCellChanged();
         const observer = new MutationObserver(records => {
           if (records.some(record => Array.from(record.addedNodes).some(node =>
             node instanceof Element && (node.matches('.jp-Cell, pre, pre > code') || !!node.querySelector('.jp-Cell, pre > code'))
@@ -1243,8 +1329,16 @@ const plugin: JupyterFrontEndPlugin<void> = {
         });
         observer.observe(panel.content.node, { childList: true, subtree: true });
         panel.disposed.connect(() => {
+          context.dispose();
+          contextRow.observer.disconnect();
           observer.disconnect();
-          if (model) panelsByModel.delete(model);
+          panel.content.modelChanged.disconnect(bindModel);
+          if (boundModel) {
+            boundModel.metadataChanged.disconnect(onMetadataChanged);
+            boundModel.cells.changed.disconnect(onCellsChanged);
+            boundModel.contentChanged.disconnect(onContentChanged);
+            panelsByModel.delete(boundModel);
+          }
           pendingSnapshots.delete(panel);
           for (const key of pendingPromptRuns.keys()) if (key.startsWith(`${panel.id}:`)) pendingCancels.add(key);
           for (const [key, run] of runs) if (key.startsWith(`${panel.id}:`)) { run.controller.abort(); runs.delete(key); }

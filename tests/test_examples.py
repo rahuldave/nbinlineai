@@ -12,6 +12,7 @@ from jupyter_client import AsyncKernelManager
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = [
+    "context-selection.ipynb",
     "quickstart.ipynb",
     "live-variables-and-tools.ipynb",
     "socratic-learning-dialog.ipynb",

@@ -1,6 +1,6 @@
 # Context selection controls: frontend feasibility
 
-Research date: 2026-09-23. This is a design handoff, **not an implemented feature**. Local API evidence is from the installed JupyterLab 4.6.4 source in `node_modules`; `ai-jup` was checked at [commit `2ac432b`](https://github.com/AnswerDotAI/ai-jup/tree/2ac432b6c7662da0e894272831be9f7f18182901). The broader data-flow and future-mode questions are in [cell, kernel, and context selection](cell_kernel_model_and_context_selection.md). The [next-feature brief](context_selection_next_feature.md) resolves the recommended product semantics; alternatives discussed below are research, not shipped behavior.
+Research date: 2026-09-23. This is the original design research; the feature is now implemented in source after published 0.1.7. The observations below describe the pre-feature baseline. Local API evidence is from the installed JupyterLab 4.6.4 source in `node_modules`; `ai-jup` was checked at [commit `2ac432b`](https://github.com/AnswerDotAI/ai-jup/tree/2ac432b6c7662da0e894272831be9f7f18182901). The broader data-flow and future-mode questions are in [cell, kernel, and context selection](cell_kernel_model_and_context_selection.md). The [next-feature brief](context_selection_next_feature.md) resolves the recommended product semantics; alternatives discussed below are research, not shipped behavior.
 
 ## Verified current capabilities
 
@@ -46,3 +46,7 @@ No context-include checkbox or mode dropdown appears in the [inspected `ai-jup` 
 4. Browser-test a prompt using cells above and below, a moved answer, an unsaved edit, and a below AI turn. Inspect the actual backend payload/context event so the mode and checkbox display cannot disagree with submitted context. Confirm AI output/source never gains checkbox markup and no selected cell silently becomes an executable tool.
 
 Feasibility: the frontend UI and durable metadata are supported by public JupyterLab 4.6.4 model/widget APIs. The harder work is defining coherent selection semantics and extending the server request/context assembler for below cells, Custom, linked AI turns, and inherited tools. No runtime code was changed for this assessment.
+
+## Implementation API check
+
+The context-control implementation was checked against the primary JupyterLab **v4.2.0** sources, not only the installed 4.6 series: [cell widgets](https://github.com/jupyterlab/jupyterlab/blob/v4.2.0/packages/cells/src/widget.ts) expose `ready` and `inViewportChanged`; [notebook widgets](https://github.com/jupyterlab/jupyterlab/blob/v4.2.0/packages/notebook/src/widget.ts) expose model widgets and active-cell signals; cell/notebook models expose shared metadata and content-change signals. No content-factory replacement or ipylab dependency was added. Controls use complete model snapshots and lightweight widget decoration. The runtime regression suite uses the installed real JupyterLab and an isolated server.

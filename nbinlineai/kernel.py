@@ -89,6 +89,10 @@ class KernelDispatcher:
         self.kernels = kernel_manager
         self._locks: dict[str, asyncio.Lock] = {}
 
+    def preview_ready(self, kernel_id: str, kernel) -> bool:
+        lock = self._locks.get(kernel_id)
+        return getattr(kernel, "execution_state", None) == "idle" and not (lock and lock.locked())
+
     async def resolve(self, session_id: str):
         if not isinstance(session_id, str) or not session_id:
             raise HTTPError(400, "session_id is required")
@@ -115,9 +119,14 @@ class KernelDispatcher:
                 raise HTTPError(400, "Only Python kernels are supported") from exc
         return kernel_id, kernel
 
-    async def execute(self, kernel_id: str, kernel, operation: str, payload: dict, timeout: float = 20):
+    async def execute(self, kernel_id: str, kernel, operation: str, payload: dict, timeout: float = 20,
+                      *, require_idle: bool = False):
         lock = self._locks.setdefault(kernel_id, asyncio.Lock())
+        if require_idle and not self.preview_ready(kernel_id, kernel):
+            raise ValueError("Kernel is busy; refresh the context preview when it is idle")
         async with lock:
+            if require_idle and getattr(kernel, "execution_state", None) != "idle":
+                raise ValueError("Kernel is busy; refresh the context preview when it is idle")
             client = kernel.client()
             client.start_channels()
             msg_id = None
@@ -169,6 +178,13 @@ class KernelDispatcher:
         if any(not IDENTIFIER.fullmatch(name) for name in names):
             raise HTTPError(400, "Invalid Python name")
         return await self.execute(kernel_id, kernel, "inspect", {"names": names, "functions": functions})
+
+    async def inspect_preview(self, kernel_id: str, kernel, variables: list[str], functions: list[str]):
+        names = list(dict.fromkeys([*variables, *functions]))
+        if any(not IDENTIFIER.fullmatch(name) for name in names):
+            raise HTTPError(400, "Invalid Python name")
+        return await self.execute(kernel_id, kernel, "inspect", {"names": names, "functions": functions},
+                                  timeout=5, require_idle=True)
 
     async def call(self, session_id: str, kernel_id: str, kernel, allowed: set[str], name: str, arguments):
         current_id, current_kernel = await self.resolve(session_id)

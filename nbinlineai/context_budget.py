@@ -28,6 +28,7 @@ class ContextUnit:
     cell: dict[str, Any] | None = None
     prompt: dict[str, Any] | None = None
     answer: dict[str, Any] | None = None
+    position: str = "above"
 
 
 @dataclass
@@ -111,30 +112,42 @@ def _escaped_chars(
 def _source_label(
     cell: dict[str, Any],  # Ordinary code or Markdown cell.
     partial: bool,  # Whether only its nearest source suffix is included.
+    position: str = "above",
 ) -> str:  # Labeled source prefix.
     """Label source without implying that code was executed."""
-    label = (f"Code cell {cell['id']} (source; execution count {cell.get('execution_count')})"
-             if cell["cell_type"] == "code" else f"Markdown cell {cell['id']} (source)")
+    role = ai_role(cell)
+    if role:
+        ai = cell.get("metadata", {}).get("nbinlineai", {})
+        linked = ai.get("promptCellId") or ai.get("prompt_cell_id") if role == "response" else None
+        label = f"AI {'answer' if role == 'response' else 'question'} cell {cell['id']} (notebook source {position}"
+        if linked:
+            label += f"; linked question {linked}"
+        label += ")"
+    else:
+        label = (f"Code cell {cell['id']} (source {position}; execution count {cell.get('execution_count')})"
+                 if cell["cell_type"] == "code" else f"Markdown cell {cell['id']} (source {position})")
     if partial:
-        label += " [partial; nearest source suffix retained]"
+        label += f" [partial; nearest source {'suffix' if position == 'above' else 'prefix'} retained]"
     return f"[{label}]\n"
 
 
 def _partial_suffix(
     cell: dict[str, Any],  # Source cell at the budget boundary.
     remaining: int,  # Escaped-character allowance for this source chunk.
+    position: str = "above",
 ) -> str:  # Largest labeled nonempty suffix that fits, or empty.
     """Clip one boundary cell from its top while keeping nearest text."""
     source = cell["source"]
-    label = _source_label(cell, partial=True)
+    label = _source_label(cell, partial=True, position=position)
     low, high = 0, len(source)
     while low < high:
         middle = (low + high + 1) // 2
-        if _escaped_chars(label + source[-middle:]) <= remaining:
+        chunk = source[-middle:] if position == "above" else source[:middle]
+        if _escaped_chars(label + chunk) <= remaining:
             low = middle
         else:
             high = middle - 1
-    return label + source[-low:] if low else ""
+    return label + (source[-low:] if position == "above" else source[:low]) if low else ""
 
 
 def build_context(
@@ -145,6 +158,7 @@ def build_context(
     system_suffix: str,  # Fixed style text after notebook source.
     current_prompt: str,  # Current question after live variable expansion.
     executed_messages: list[Msg],  # Completed assistant/tool groups to preserve.
+    selection_report: dict[str, Any] | None = None,
 ) -> BuiltContext:  # Messages and per-round accounting.
     """Fit schemas and fixed messages first, then nearest units without gaps."""
     tool_schema_chars = json_chars(tools)
@@ -175,15 +189,15 @@ def build_context(
         assert unit.cell is not None
         cell = unit.cell
         separator = separator_cost if selected_sources else 0
-        full = _source_label(cell, partial=False) + cell["source"]
+        full = _source_label(cell, partial=False, position=unit.position) + cell["source"]
         cost = _escaped_chars(full) + separator
         if used + cost <= MAX_CONTEXT_CHARS:
             selected_sources.append((unit.anchor, cell, full, len(cell["source"]), False))
             used += cost
             continue
-        partial = _partial_suffix(cell, MAX_CONTEXT_CHARS - used - separator)
+        partial = _partial_suffix(cell, MAX_CONTEXT_CHARS - used - separator, unit.position)
         if partial:
-            retained = len(partial) - len(_source_label(cell, partial=True))
+            retained = len(partial) - len(_source_label(cell, partial=True, position=unit.position))
             selected_sources.append((unit.anchor, cell, partial, retained, True))
             used += _escaped_chars(partial) + separator
         break
@@ -223,4 +237,34 @@ def build_context(
         "context_budget_chars": MAX_CONTEXT_CHARS,
         "tool_schema_chars": tool_schema_chars,
     }
+    selected_ids = [item[1]["id"] for item in selected_sources]
+    selected_ids.extend(cell["id"] for pair in selected_pairs
+                        for cell in (pair.prompt, pair.answer) if cell)
+    partial_ids = [item[1]["id"] for item in selected_sources if item[4]]
+    candidate_ids = [unit.cell["id"] for unit in units if unit.cell]
+    candidate_ids.extend(cell["id"] for unit in units for cell in (unit.prompt, unit.answer) if cell)
+    candidate_set = set(candidate_ids)
+    included_set = set(selected_ids)
+    counts.update({
+        "included_cell_ids": [cell["id"] for cell in cells if cell["id"] in included_set],
+        "omitted_cell_ids": [cell["id"] for cell in cells
+                             if cell["id"] in candidate_set and cell["id"] not in included_set],
+        "partial_cell_ids": partial_ids,
+        "partial_cells": [{"id": cell_id, "retained": "suffix" if next(
+            (unit.position for unit in units if unit.cell and unit.cell["id"] == cell_id), "above"
+        ) == "above" else "prefix"} for cell_id in partial_ids],
+    })
+    if selection_report:
+        counts.update(selection_report)
+        if selection_report.get("context_mode") == "default":
+            counts["selected_cell_ids"] = counts["included_cell_ids"]
+            counts["selected_cell_count"] = len(counts["included_cell_ids"])
+    counts["eligible_candidate_count"] = len(candidate_set)
+    counts["budget_omitted_cell_count"] = len(counts["omitted_cell_ids"])
+    counts["included_above_cell_count"] = sum(
+        1 for unit in units if unit.position == "above" for cell in
+        ([unit.cell] if unit.cell else [unit.prompt, unit.answer])
+        if cell and cell["id"] in included_set
+    )
+    counts["included_below_cell_count"] = len(included_set) - counts["included_above_cell_count"]
     return BuiltContext(messages, counts)

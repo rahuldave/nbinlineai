@@ -4,13 +4,13 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in nbinlineai 0.1.7. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in the current source build, including context selection added after published 0.1.7. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
 ```text
 Browser: JupyterLab + nbinlineai frontend
-    | authenticated HTTP: prompt, preceding cells, choices
+    | authenticated HTTP: prompt, ordered snapshot, choices / preview
     v
 Jupyter Server + nbinlineai Python extension
     |-- FastLLM asynchronous client --> OpenAI / Anthropic API
@@ -41,10 +41,10 @@ Editing a completed answer changes the source that later requests use as history
 ## One prompt request
 
 1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no API request.
-2. It resolves cell overrides over notebook defaults over user preferences. It snapshots the current prompt, cells above it, the notebook session ID, and the effective settings.
+2. It resolves cell overrides over notebook defaults over user preferences. When its queued turn starts, it snapshots the actual prompt ID, all live cell models in order, the context policy, notebook session ID and effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Tool declarations in ordinary Markdown and AI questions above are combined with those in the current question, before context selection. The kernel inspects those functions afresh. Variable references are read and substituted only in the current question.
-5. The server accounts for tools, the expanded question, and instructions, then fills the remaining character budget with nearest preceding source and complete AI pairs. It sends selected material in chronological order.
+5. The server accounts for tools, the expanded question, and instructions, then fills the remaining character budget from selected eligible source and complete earlier AI pairs, nearest first. It sends selected material in chronological order.
 6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result, budgets again with the same notebook snapshot, and continues the conversation without replaying completed tools.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
@@ -58,7 +58,7 @@ JupyterLab owns the notebook document model: an ordered list of cells, each with
 
 For an individual Run command, the active notebook and selected cell identify the target. During Run All, JupyterLab hands the executor each target cell. The extension captures that **prompt cell's ID**. A later selection change does not make a different cell the target of the request.
 
-`precedingCells(model, promptCellId)` in `src/context.ts` walks the ordered model from the start and stops when it reaches that ID. Everything visited is above the prompt; the remaining cells are below it. The boundary comes from document position, not screen coordinates, scroll position, a cell's execution count, or the kernel's history.
+The snapshot builder in `src/context.ts` walks every live cell model in order and includes the target question ID. The server derives above/below from this order. Legacy `preceding_cells` requests retain their older above-only contract. The boundary comes from document position, not screen coordinates, scroll position, a cell's execution count, or the kernel's history.
 
 ```text
 Frontend document model                 Kernel process
@@ -68,11 +68,12 @@ Frontend document model                 Kernel process
   cell D: paired answer
   cell E: later code
 
-Request source context: cells A and B
+Default source candidates: cells A and B
+Full notebook also considers E; D is always excluded for C
 Explicit live references: selected names from the kernel namespace
 ```
 
-The browser sends a snapshot of the preceding cells with their IDs, types, current source, metadata, and code execution counts, along with the prompt text and notebook session ID. The server then enforces the cell-count and source/history limits. Code execution counts are descriptive; they do not decide inclusion. A range execution snapshots each AI prompt when it reaches its turn, so earlier updated answers can enter later requests.
+The browser sends a versioned ordered snapshot with IDs, types, current source, relevant metadata, explicit Custom choices and code execution counts, along with the prompt text and notebook session ID. The server then enforces the cell-count and source/history limits. Code execution counts are descriptive; they do not decide inclusion. A range execution snapshots each AI prompt when it reaches its turn, so earlier updated answers can enter later requests.
 
 ### What the kernel knows
 
@@ -94,20 +95,22 @@ These sources can disagree without either being broken. Editing `score = 10` to 
 
 ### What the server includes
 
-The browser sends cells **above the prompt in notebook order**. The server selects nearest preceding code, ordinary Markdown, and completed AI pairs within one shared budget, then restores the selected material's chronological order. Source appears in the system context; AI pairs become conversational messages, rather than being duplicated as ordinary Markdown.
+Selection uses the shared backend path for both preview and execution. Default preserves nearest-above ordinary source and complete history pairs. Full notebook, All above, both ten-cell windows, Custom and Current question only resolve candidates before budgeting. The ten-cell windows count physical positions after removing the current question and all its linked answers; ineligible cells still count toward the window.
 
-The source snapshot excludes later cells, code outputs, raw-cell content, image pixels, and automatic file contents. Linked pages are not fetched. The [user guide](user-guide.md#9-troubleshooting-and-limits) lists all size and round limits.
+The current question and every linked answer are excluded by ID everywhere. Earlier completed pairs become history only when both cells are selected and above; deterministic duplicate handling chooses one completed answer. Independently selected AI cells and AI material below or straddling the question are explicitly labeled source with role, link and position. Running, failed, cancelled and orphaned answers remain ineligible. Default retains its legacy pair-only eligibility.
 
-Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads `get_ipython().user_ns` in the running kernel, not a value inferred from the displayed source. A variable reference sends a bounded `repr` string; arbitrary objects are not serialized to the provider.
+Source appears with system instructions; complete earlier pairs become user/assistant messages. Each representation preserves notebook order. Code outputs, raw-cell content, image pixels and automatic file contents are absent, and linked pages are not fetched. The [user guide](user-guide.md#9-troubleshooting-and-limits) lists limits.
+
+Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads the running kernel namespace, not a value inferred from source. Only current-question `$` references retrieve bounded representations. Enabled earlier ordinary Markdown/AI-question tool declarations remain in scope independently of selected prose; selected below-question declarations never register tools.
 
 ### Selection budgets and provider overflow
 
 The current algorithm in `nbinlineai/prompt.py` is deterministic and uses **characters**, not model tokens:
 
-1. `validate_request` permits up to 10,000 preceding cells, a current question of up to 16,000 characters, and custom style instructions of up to 8,000 characters. The snapshot includes all cell types; the transport cap is not a context-selection rule.
-2. Discover tool names in all eligible Markdown/AI questions above plus the current question. Exclude AI answers, code/raw cells, and anything below. Deduplicate before fresh kernel introspection. `$` discovery stays limited to the current question.
+1. `validate_request` permits up to 10,000 ordered snapshot cells, a current question of up to 16,000 characters, and custom style instructions of up to 8,000 characters. The snapshot includes all cell types; the transport cap is not a context-selection rule.
+2. Discover tool names in all enabled eligible Markdown/AI questions above plus the enabled current-question declarations. Exclude AI answers, code/raw cells, and anything below. Deduplicate before fresh kernel introspection. `$` discovery stays limited to the current question.
 3. Count serialized tool definitions first, then messages containing system/style instructions, the expanded current question, and any ongoing tool conversation. This fixed material must fit the shared 64,000-character budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
-4. Walk optional source and complete AI pairs from nearest to farthest above the question, adding what fits. Ordinary boundary source can retain only its ending, with a partial-source marker. AI pairs remain whole; stop rather than skip a non-fitting pair to select smaller older ones.
+4. Walk selected source and complete earlier AI pairs by distance, above winning ties. A pair is anchored at its answer. Boundary source can retain its ending above or beginning below, with an explicit partial-source marker. AI pairs remain whole; stop rather than skip a non-fitting pair to select smaller older ones.
 5. Restore selected source and history to chronological order. Send source with system instructions, completed pairs as user/assistant messages, then the current question and its tool conversation. These two representations are still separate; the selection budget is shared.
 6. Before each subsequent provider call, include all accumulated tool calls/results in the fixed material and select again from the **original snapshot**. This can remove more old context. Tools already called are not executed again by this selection pass.
 
@@ -119,13 +122,17 @@ This is an application-level character estimate, **not a model-aware token budge
 
 If fixed material alone exceeds the application budget, the run stops before that provider call with a size error. Recognized provider context-overflow errors also receive an actionable message. There is no automatic summarization, continuation, or retry after provider rejection. A provider finish reason of `length` instead produces **“Model response exceeded the output limit”**. Both mark the answer failed; streamed partial text can remain, completed tool effects remain, and the failed exchange is not used as later history.
 
-The server emits a context report before every provider round, with included/omitted/partial cell counts, source/history truncation, tool names, and counted characters. The frontend shows **Done · context trimmed** if any round shortened eligible context. Hover text explains the counts and explicitly labels them as character estimates. This report is transient browser state, not a persisted per-run transcript. See the [FAQ](faq.md#what-happens-if-the-request-exceeds-the-models-context-window) for user recovery steps.
+The server emits a context report before every provider round, with selected, eligible, excluded, included/omitted/partial cell IDs and counts, ineligibility reasons, above/below counts, partial regions, source/history truncation, tool names and counted characters. The frontend shows **Done · context trimmed** if any round shortened eligible context. Hover text explains the counts and explicitly labels them as character estimates. This report is transient browser state, not a persisted per-run transcript. See the [FAQ](faq.md#what-happens-if-the-request-exceeds-the-models-context-window) for user recovery steps.
 
-### Future context selection
+### Preview and saved choices
 
-Per-cell inclusion switches, whole-notebook context, and a window around the prompt are **not implemented**. The frontend model makes those selections feasible, but the request contract and backend filtering currently assume preceding cells. Expanding the source selection would not expand the kernel's scope: live references already use the whole current namespace.
+The authenticated `POST nbinlineai/context-preview` route uses the same normalization, reference inspection and context builder as execution. It requires kernel-execution authorization, a bound existing idle Python kernel and no provider key. It makes no provider request, calls no offered tool body and does not mutate the notebook. Live inspection may invoke user-defined Python representation/introspection; it is not intrinsically free of arbitrary user-code effects.
 
-Before implementing selection modes, we need to define what a window counts, how moved cells affect the selection, how size limits are reported, and how later AI exchanges are treated. In particular, the current prompt's old paired answer must not accidentally become context for its own rerun, and future exchanges must not be presented as earlier conversation. Detailed feasibility notes are maintained in the repository's `internal_docs/cell_kernel_model_and_context_selection.md`.
+The frontend retains a transient question target per notebook. Selecting a question or its linked answer updates it; clicking other inclusion controls retains it. A generation ties responses to the panel, model, kernel, target, snapshot and effective settings. Edits and binding changes invalidate old responses, requests are coalesced, and Refresh preview handles live-state changes. Unavailable/busy kernels and unresolved references are shown as pending/unavailable rather than guessed final inclusion. Actual execution always snapshots and inspects again.
+
+Notebook metadata stores `nbinlineai.defaults.contextMode`; cell metadata stores `nbinlineai.contextInclude` for Custom text and independent `nbinlineai.toolsInclude` for declaration eligibility. Missing Tools flags inherit true. The wire carries `tools_include`; disabled declaration cells are filtered before name deduplication and introspection, so missing disabled functions do not fail the request. Duplicate enabled declarations still offer their names. Current question only resolves no optional text candidates while retaining these tool choices. Initializing Custom writes choices for every existing cell in a shared-model transaction and records initialization. Existing ineligible cells retain their choices after becoming eligible; newly added cells and imported Custom cells without flags inherit true, subject to eligibility. Presets retain stored Custom choices. Changing a preset checkbox seeds from its displayed selection, including any partially fitted Default cell, then applies the change.
+
+Default computes checks from authoritative inclusion; explicit modes show candidate checks plus separate budget feedback. Preview reports, targets and computed checks are never persisted. Merely opening, rendering, selecting or previewing a notebook does not dirty it. Lightweight controls attach to cell widgets and reattach through notebook lifecycle signals, while all selection reads the complete model including offscreen cells.
 
 ## Turning Python functions into tools
 
@@ -169,7 +176,7 @@ The tool result combines captured standard output with the return value's repres
 
 `nbinlineai.tools` supplies ten functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Four describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note`. Importing the package does not register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases. Paste these into an ordinary Markdown note or AI question; questions below inherit its declarations. Printed code output and AI answers do not declare tools.
 
-The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, while automatic source/history context keeps its preceding-cell boundary. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
+The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, separately from the selected notebook text. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
 
 ### Creating a tool declaration from Python
 
@@ -201,7 +208,7 @@ By default insertion follows the paired answer; repeated default insertions in t
 
 SSE callbacks run sequentially and await reply delivery. The browser deduplicates a request ID within its run, rejecting reuse with changed arguments; the server accepts a reply only once. Timeout, cancellation, disconnect, and completion expire pending action IDs. A disconnected client cannot resume that run. An insertion already applied remains even if its acknowledgement or the rest of the answer is lost; a new prompt run can insert again. There is no rollback or cross-run deduplication.
 
-The interface does not provide general browser execution, arbitrary Jupyter command dispatch, cross-notebook edits, or a Python-to-browser blocking RPC. Future context selectors can use the existing frontend snapshot builder independently of this bridge; see the repository's `internal_docs/cell_kernel_model_and_context_selection.md` for feasibility notes.
+The interface does not provide general browser execution, arbitrary Jupyter command dispatch, cross-notebook edits, or a Python-to-browser blocking RPC. Context selection and preview use the snapshot builder independently of these mutation transports.
 
 ## Settings and credentials
 
@@ -248,7 +255,8 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | Path | Purpose |
 | --- | --- |
 | `src/index.ts` | JupyterLab plugin, notebook controls, settings dialog, request lifecycle. |
-| `src/context.ts` | Cell-model traversal and the boundary before the target prompt ID. |
+| `src/context.ts` | Ordered live-model snapshots, including unsaved/offscreen cells. |
+| `src/context.ts`, `src/contextControls.ts` | Context policy, saved choices, per-cell controls and authoritative preview lifecycle. |
 | `src/frontendActions.ts` | Bounded live notebook operations, insertion order, and action deduplication. |
 | `src/sse.ts` | Sequential parsing and awaiting of streamed event callbacks. |
 | `src/defaults.ts`, `src/keepAnswer.ts` | Setting inheritance and rerun protection. |
@@ -256,7 +264,8 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `src/codeCopy.ts` | Clipboard controls on rendered code blocks. |
 | `schema/plugin.json` | JupyterLab user-settings schema. |
 | `nbinlineai/handlers.py` | Authenticated HTTP endpoints and server-sent events. |
-| `nbinlineai/prompt.py` | Validation, context, style instructions, provider/tool loop. |
+| `nbinlineai/prompt.py` | Shared execution/preview preparation, validation, style instructions and provider/tool loop. |
+| `nbinlineai/context_selection.py`, `nbinlineai/context_budget.py` | Candidate eligibility/history, below-source labels and shared character accounting. |
 | `nbinlineai/providers.py` | FastLLM API adapter. |
 | `nbinlineai/kernel.py` | Session-bound kernel inspection and execution. |
 | `nbinlineai/frontend_bridge.py` | Bound run/action registry, argument/reply validation, and expiring asynchronous waiters. |
@@ -265,4 +274,4 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `nbinlineai/web_tools.py` | Bounded public-page retrieval and text/Markdown conversion. |
 | `nbinlineai/config.py`, `nbinlineai/credentials.py` | Model capabilities, configuration, and key storage. |
 
-Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/prompt`, `POST nbinlineai/action-reply`, `GET/POST nbinlineai/settings/keys`, and `DELETE nbinlineai/settings/keys/{backend}`. These use Jupyter authentication and kernel-execution authorization.
+Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/context-preview`, `POST nbinlineai/prompt`, `POST nbinlineai/action-reply`, `GET/POST nbinlineai/settings/keys`, and `DELETE nbinlineai/settings/keys/{backend}`. These use Jupyter authentication and kernel-execution authorization.

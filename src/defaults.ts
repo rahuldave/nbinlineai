@@ -1,5 +1,6 @@
 import { Backend, Availability, defaultProvider } from './providerChoice';
 import { PromptMode } from './promptMode';
+import { ContextMode } from './context';
 
 export interface AIDefaults {
   backend?: Backend;
@@ -7,6 +8,7 @@ export interface AIDefaults {
   promptMode?: PromptMode;
   reasoningEffort?: string;
   keepAnswers?: boolean;
+  contextMode?: ContextMode;
 }
 export interface AIOverrides extends AIDefaults {}
 export interface ResolvedAI {
@@ -50,6 +52,7 @@ export function snapshotDefaults(existing: AIDefaults, effective: ResolvedAI): A
     model: existing.model || effective.model,
     promptMode: existing.promptMode || effective.promptMode,
     reasoningEffort: existing.reasoningEffort || effective.reasoningEffort || 'default',
-    keepAnswers: existing.keepAnswers ?? true
+    keepAnswers: existing.keepAnswers ?? true,
+    ...(existing.contextMode ? { contextMode: existing.contextMode } : {})
   };
 }

@@ -1,22 +1,22 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-23**, after published **0.1.7**. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-23**, for the context-selection implementation after published **0.1.7**. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
 ## A new task's reading order
 
 1. [AGENTS.md](../AGENTS.md): constraints, invariants, tools, and verification workflow.
 2. [Developer handoff](developer_handoff.md): current state, source map, testing details, and known limitations.
-3. [Cell/kernel model and context selection](cell_kernel_model_and_context_selection.md): exact 0.1.7 snapshot, tool discovery, budget, and execution boundaries.
+3. [Cell/kernel model and context selection](cell_kernel_model_and_context_selection.md): current snapshot, selection, tool discovery, budget, preview and execution boundaries.
 4. [Bundled tools and frontend interface](bundled_tools.md): shipped tools, server/browser request-reply, Python/browser comm, limits and lifecycle.
 5. [Release records](releasing.md): tested and published versions, hashes, and deployment results.
 
-## Next task: selectable context
+## Context-selection implementation references
 
 - [Feature brief and recommended semantics](context_selection_next_feature.md)
 - [Frontend feasibility and upstream evidence](context_selection_frontend_feasibility.md)
 - [Copyable task prompt](context_selection_task_prompt.md)
 
-These are a plan for the next feature. This handoff does not implement it.
+The brief and task prompt preserve the original design contract. Context selection is now implemented in source; the handoff records verification. The latest published package remains 0.1.7.
 
 ## Research and historical decisions
 

@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.7. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see. Version 0.1.7 adds inherited tool declarations and nearest-first context selection; the bundled tools arrived in 0.1.6 and native Run All integration in 0.1.5.
+This guide describes the current source build, including selectable notebook context. These controls are newer than the published 0.1.7 package. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -183,7 +183,7 @@ You can instead add an ordinary Markdown cell explaining a correction. Later AI 
 
 **A rerun updates the paired answer.** It clears the previous answer as the new run starts, then writes the new response into that same answer cell. It does not append another answer each time. To keep an old answer for comparison, copy its text into an ordinary Markdown cell before rerunning.
 
-Each run uses the notebook's current preceding code and Markdown notes, available earlier AI conversations, selected model, current response style, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
+Each run uses the notebook's current context policy and cell choices, selected model, response style and kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
 
 ### Run a whole notebook or a range
 
@@ -212,45 +212,63 @@ Save the notebook normally to keep the prompt and answer text. Reopening it rest
 
 ## 4. What context does the AI receive?
 
-nbinlineai takes a snapshot when a prompt reaches its turn to execute. During Run All, this happens separately for each AI prompt, so earlier updated answers are available to later prompts. Source selection uses notebook order, not execution order.
+The notebook toolbar keeps the mode, question target and short inclusion summary visible. Open **Context details** for counts, available tools and longer explanations; hover over the mode selector or cell controls for help.
 
-| Information | Included? |
+![Expanded Context details explains automatic text selection and independent tool choices](images/context-details.png)
+
+Select an AI question to preview its context. The notebook header identifies **Context for AI question** and its position. Selecting a linked answer can target its question. Clicking another cell's **Include in AI context** checkbox keeps that question as the target. With no question selected, choose a mode first, then select the question whose context you want to inspect.
+
+### Choose the notebook's Context mode
+
+| Context | What it selects |
 | --- | --- |
-| The current prompt text | Yes. |
-| Code cell source above the prompt | Yes, within size limits. This can include unexecuted or edited code. |
-| Ordinary Markdown notes above the prompt | Yes, as source text alongside code in notebook order. This includes explanations, assignment instructions, and equations written in Markdown or LaTeX. |
-| Earlier AI prompts and their completed, paired answers | Yes, when both are above the current prompt, within the shared context budget. |
-| Raw cells above the prompt | No, currently. |
-| Printed output, tracebacks, tables, plots, or images from code cells | No, currently. Include relevant text explicitly or refer to a prepared variable. |
-| Cell source below the prompt | No. |
-| Every variable in memory | No. Explicit `$` references retrieve selected values. |
-| Files in the project folder | No automatic file reading. |
+| **Default** | Automatically fits nearest earlier code, Markdown and completed AI pairs. Checked cells reflect the backend's first-round estimate; a partially included cell has a mixed checkbox. |
+| **Full notebook** | Eligible cells above and below the question, within the same budget. |
+| **All above** | All eligible cells above, including independently selected AI question/answer source. |
+| **10 above** | The ten physical positions before the question, then eligibility and budget limits. |
+| **10 above + below** | Ten physical positions on each side, then eligibility and budget limits. |
+| **Custom** | Your saved individual cell choices. |
+| **Current question only** | No optional notebook text. The current question and enabled tools remain. |
 
-AI prompt/answer cells are also Markdown, but they enter through conversation history instead of the ordinary source context. They are not included twice. Pending, cancelled, failed, or unpaired AI exchanges are not added as ordinary Markdown notes.
+The current question is always the required prompt. **Every answer linked to it is excluded**, wherever moved or duplicated. For the ten-cell windows, remove that question and its linked answers before counting. Raw, empty and otherwise ineligible cells still occupy positions: if the next ten cells contain two empty cells, the mode does not reach two cells farther to replace them. The generated answer never takes one of the ten below slots.
 
-**Large notebooks:** first account for tools, instructions, and the current question, then collect context from the **nearest preceding cells upward** within a shared 64,000-character estimate. Old source may be omitted or its beginning cut; AI exchanges are kept as complete pairs. Tool declarations above remain available even when their note is outside this window. **Done · context trimmed** reports shortening; hover over the status for counts and tool names. This is a character estimate, not a guarantee that the request fits every model. See [how context is chosen](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large) and [model context overflow](faq.md#what-happens-if-the-request-exceeds-the-models-context-window).
+![Context modes and inclusion checkboxes on notebook cells](images/context-selection.png)
 
-For example:
+*Illustration from an isolated demonstration notebook. Provider responses in documentation screenshots are simulated.*
 
-```text
-Markdown: lesson introduction
-Code A
-AI prompt 1
-AI answer 1
-Markdown: interpretation and next question
-Code B
-AI prompt 2   <- receives the notes and code above, plus the completed AI exchange
-Markdown: next section   <- not included
-Code C                  <- not included
-```
+### Choose individual cells
 
-Markdown is sent as text, including any link or image syntax. nbinlineai does not fetch linked pages, read linked files, or send the image pixels. Include the needed explanation directly in a Markdown cell or your prompt.
+Code, ordinary Markdown, AI questions and AI answers have accessible **Include in AI context** checkboxes. In explicit modes, a checked box means **selected as a candidate**. The adjacent **partial** or **omitted by budget** feedback tells you whether all of it fits. Disabled controls explain ineligible cells, the current question and its answers.
 
-![Notebook notes and code above an AI question, with a later section below the answer](images/context.png)
+Changing a checkbox in a preset switches to **Custom** and starts with the displayed selection. A mixed Default cell becomes a whole-cell candidate; budgeting can still keep only part. Switching to a preset preserves your Custom choices. Choosing Custom again restores them; the first time, it starts from the displayed set. If Default has no current estimate yet, refresh it before initializing Custom, or first choose an explicit preset such as All above. Initial choices cover every existing cell, including empty/ineligible ones. An existing empty cell keeps its choice when filled; newly inserted cells default to included when eligible. Moves retain choices, and duplicates follow JupyterLab's metadata copying.
 
-**Live kernel state is a separate source of information.** A referenced variable or function can have been created by a cell below the prompt, by a cell run out of order, or by code that has since been edited or deleted. The “above the prompt” boundary applies to notebook source and conversation history; it does not restrict where live Python values originally came from.
+Mode and Custom choices save with the notebook. The preview target, estimates and computed Default checks are temporary. Opening, rendering, selecting and previewing do not change the saved notebook.
 
-There is no separate persistent chat history: earlier conversation is reconstructed from the notebook cells on each run. Keep prompts and their answers together. Moving cells changes the context available on the next run.
+### Understand AI history and source
+
+Both cells of a completed earlier AI pair must be selected and above the current question to form conversation history. The pair stays whole under budgeting. In explicit modes, a selected question or completed answer on its own is labeled **AI notebook source**, including its role, linked ID and position. AI material below the question, including complete pairs, is also labeled source; it is never presented as a prior conversation. Default preserves the earlier pair-only behavior.
+
+Running, failed, cancelled and orphaned answers remain ineligible. Code outputs, plots, image pixels, attachments and raw-cell text are excluded. Ordinary Markdown is source text: a link or image reference does not fetch the linked content. No code is run merely because its checkbox is checked.
+
+### Preview and limits
+
+Preview shares the backend's actual context selector. It accounts for current live references and function descriptions, makes no provider request, calls no offered tool body and inserts no answer. It needs an existing idle Python kernel; missing definitions or a busy/unavailable kernel leave the precise estimate pending. Introspection can evaluate an object's Python representation, so preview is not a promise that arbitrary user-defined introspection has no effects.
+
+Edits, mode/target changes and kernel changes invalidate old estimates. Use **Refresh preview** after live state changes. A preview is only a **first-round estimate**: every run takes a fresh snapshot when its queued turn starts, independently of the preview target. Run All does this separately for each question. Later tool calls and results can leave less room for notebook text; the run status reports that trimming.
+
+Every mode uses the shared **64,000-character estimate**. Tools, instructions, expanded current question and completed tool traffic take priority. Remaining material is considered nearest first, with above winning distance ties. A boundary source cell retains its end above the question or its beginning below; history pairs remain whole. **Full notebook** does not mean unlimited capacity, and characters are not exact model tokens. See [budget details](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large).
+
+### Choose text and tools separately
+
+**Context** chooses a cell's text. Markdown and AI question cells containing tool declarations also have a **Tools** checkbox, labeled **Use tools from this cell**. Tools default to on, even when that cell's text is unchecked, outside a window or omitted by budget. The header lists the tools actually available for the target question separately.
+
+Uncheck Tools to stop that cell declaring functions. This is a saved per-cell choice, independent of Context mode. If another enabled cell declares the same tool, that other declaration still makes it available; see the [duplicate-declaration example](faq.md#why-can-a-tool-still-be-available-after-i-disable-one-declaration-cell). The current question's own declarations can also be turned off; its required question text stays included. New declaration cells default to enabled. Code, raw cells and AI answers never declare tools.
+
+**Current question only** deselects all optional notebook text while retaining your Tools choices. It does not re-enable tools you deliberately turned off. This makes it possible to ask a question with tools but no surrounding source. Default's automatic budget trimming never disables a tool.
+
+Only enabled declarations in the current question or earlier ordinary Markdown/AI questions apply. A saved Tools choice below the target does not make that tool available here, even if Full notebook selects its text. Only `$` references in the current question read live values.
+
+A referenced variable or function may have been created below the question, run out of order, or come from a deleted cell. Context choices do not reset Python state. Explicitly offered read tools can retrieve other text during a run. Keep answer continues to control execution; it does not decide which completed answers may be selected as context.
 
 ## 5. Reference live variables and functions
 
@@ -283,11 +301,11 @@ References must be simple Python names, not expressions such as `df.head()` or `
 
 Functions named with `&` in the current question or any ordinary Markdown/AI question above it are exposed as tools. The extension reads their current signatures and docstrings, describes them to the model, checks returned arguments, and calls them in the same notebook kernel. These are real function calls and can change variables or perform other actions implemented by your function. A reference permits a call; it does not guarantee that the model will choose to make one.
 
-From **0.1.7**, declare tools once in a Markdown note and use them in questions below. Several notes can add different tools; duplicate names are registered once. Declarations remain effective even when their text is omitted from context for space. AI answers, code, raw cells, and cells below the question do not register tools. Eligible Markdown is scanned even inside quotations and fenced code blocks. Live `$` variable interpolation remains limited to the **current question**.
+From **0.1.7**, declare tools once in a Markdown note and use them in questions below. Several notes can add different tools; duplicate names are registered once. Enabled declarations remain effective even when their text is unchecked or omitted for space; the separate Tools checkbox withdraws declarations from that cell. AI answers, code, raw cells, and cells below the question do not register tools. Eligible Markdown is scanned even inside quotations and fenced code blocks. Live `$` variable interpolation remains limited to the **current question**.
 
 `nbinlineai.tools` includes ten tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into a Markdown note above your questions and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
 
-Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this does not change automatic context, which still looks above it. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default. Save the notebook to preserve them. Rerunning a prompt can insert another note, and cancelling does not undo a note already inserted. The four tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
+Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this is separate from the text chosen by the Context controls. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default. Save the notebook to preserve them. Rerunning a prompt can insert another note, and cancelling does not undo a note already inserted. The four tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
 
 Use normal synchronous Python functions with named parameters, simple type annotations, and a helpful docstring. Async functions and signatures using positional-only parameters, `*args`, or `**kwargs` are not supported. Function output sent back to the model combines captured standard output and the return value's text representation.
 
@@ -349,7 +367,7 @@ For the request lifecycle, tool schemas, module map, and event-loop details, see
 | Server endpoint unavailable / 404 | Try **Retry** in Configure AI. If you just installed or updated, restart the whole server; browser reload alone may leave the server component unloaded. |
 | Provider unavailable / Run disabled | Save that provider's key, or select one already configured. |
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
-| AI misses your notes | Put the Markdown cell above the prompt, rerun the prompt after editing, and check the context size limits. Markdown source is included starting with 0.1.2. |
+| AI misses your notes | Select the intended question, check its Context mode and cell choices, refresh preview, and inspect partial/omitted feedback. Rerun with Keep answer off after editing. |
 | AI misses a plot or code output | These are not currently included; add a text explanation to a Markdown cell above the prompt or to the prompt itself. |
 | AI asks questions when you want a direct answer | Choose Compact or Full in the notebook defaults or the cell's Override controls, then run it again. |
 | One cell ignores changed notebook defaults | Check its Override controls. Return it to notebook defaults if its saved choices are no longer needed. |
@@ -367,9 +385,9 @@ Current size limits are deliberately bounded:
 
 | Item | Limit and behavior |
 | --- | --- |
-| Request context | A shared 64,000-character estimate covering serialized tools and messages. Tools, instructions, the expanded question, and ongoing tool traffic take priority; remaining space goes to nearest preceding source and complete AI pairs. |
-| Preceding cells | Up to 10,000 cells in the snapshot as a transport safety limit. All eligible cells are scanned for tool declarations before text selection. |
-| Source at the context boundary | An ordinary code/Markdown cell may contribute only its ending, labeled partial. AI pairs are never split. Older material is omitted. |
+| Request context | A shared 64,000-character estimate covering serialized tools and messages. Tools, instructions, the expanded question, and ongoing tool traffic take priority; remaining space goes to nearest selected source and complete earlier AI pairs. |
+| Notebook snapshot | Up to 10,000 ordered cells as a transport safety limit. All earlier eligible Markdown/AI questions are scanned for declarations before text selection. |
+| Source at the context boundary | Source may contribute only its ending above or beginning below, labeled partial. AI history pairs are never split. More distant material is omitted. |
 | Current prompt | Up to 16,000 characters before live-value substitution. |
 | Live references | Up to 20 distinct names combined: current-question variables plus all inherited/current tools. |
 | Variable representation | Up to 2,000 characters per value. |

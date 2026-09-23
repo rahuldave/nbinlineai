@@ -20,7 +20,7 @@ You need Python 3.11 or newer and JupyterLab 4.2 or newer.
 
 | To… | Do this |
 | --- | --- |
-| Ask about earlier code or notes | Write an ordinary question. The AI sees code and ordinary Markdown above the prompt, plus earlier AI turns. |
+| Ask about earlier code or notes | Write an ordinary question. Default uses nearby earlier source and completed AI turns; Context modes and checkboxes choose other cells. |
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
 | Correct an answer yourself | Double-click its Markdown and edit it. Later AI prompts read the corrected text when they run. |
@@ -61,7 +61,7 @@ In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown
 
 - **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
 - **Editing and rerunning:** edit questions or answers directly. Rerunning a prompt replaces its paired answer, including manual edits. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically when earlier content changes.
-- **Context:** reserve room for tools and the current question, then collect source and completed AI exchanges from the nearest cells above upward. Selected material is sent in notebook order within a shared character budget. Raw cells and code outputs are omitted; image data is not sent.
+- **Context:** choose Default, Full notebook, All above, 10 above, 10 above + below, Custom, or Current question only. Per-cell checkboxes choose notebook text; the backend preview identifies included, partial and omitted cells. Every mode uses the shared character budget. Separate Tools checkboxes enable declaration cells; enabled tools remain available even when their text is unchecked. Raw cells, code outputs and image data are omitted. These controls are in the current source build, newer than published 0.1.7.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
 
@@ -148,13 +148,13 @@ from nbinlineai.tools import (
 print(tools_markdown())
 ```
 
-Paste the printed Markdown into an **ordinary Markdown cell above your AI questions**, and delete unwanted tool lines. Each question below inherits those tools; you can add more declarations farther down. Current AI questions can still declare tools directly. Discovery scans all eligible cells above even when their text is too old to fit the context budget. Only `$` references in the current question retrieve live values. `tools_markdown()` is a convenience helper, not one of the listed tools.
+Paste the printed Markdown into an **ordinary Markdown cell above your AI questions**, and delete unwanted tool lines. Each question below inherits those tools while the declaration cell's Tools checkbox is enabled; you can add more declarations farther down. Current AI questions can still declare tools directly. Discovery scans all eligible cells above even when their text is too old to fit the context budget. Only `$` references in the current question retrieve live values. `tools_markdown()` is a convenience helper, not one of the listed tools.
 
 To create the declaration note directly, run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names", "read_cell"])` in a Python cell after importing those tools. It inserts ordinary Markdown below that code cell without an AI request. Edit the note and save normally. `insert_tools()` with no selection lists all bundled tools.
 
 The ten tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes. New notes are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons.
 
-The model sees bounded code and ordinary Markdown source from cells **above** the prompt and earlier AI turns. Your explanations, assignment instructions, equations, and other Markdown notes are included as text. It does not see later cells. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
+By default, the model sees bounded earlier code, ordinary Markdown and completed AI pairs. Wider Context modes can include cells below as clearly labeled source. Custom choices save with the notebook; the current question and all its linked answers are always excluded from optional context. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 
 This release supports text prompts and Python kernels. It does not send notebook images or rich outputs as model context, and it does not offer ChatGPT subscription sign-in.
 

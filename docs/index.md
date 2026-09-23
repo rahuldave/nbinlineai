@@ -32,6 +32,13 @@ uv run jupyter lab
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
+## In the current source build
+
+The Context controls are newer than published 0.1.7.
+
+- Choose Default, Full notebook, All above, 10 above, 10 above + below, Custom or Current question only, with separate text/tool checkboxes and an authoritative first-round preview.
+- Save Custom choices while keeping inherited tools independent of selected text. Try the [context-selection example](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb).
+
 ## In version 0.1.7
 
 - Declare tools once in ordinary Markdown or an AI question; later AI questions inherit them, even when the declaration text no longer fits in context.

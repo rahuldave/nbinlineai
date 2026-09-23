@@ -38,6 +38,14 @@ test('an untrimmed final round still discloses an earlier trimmed round', () => 
   assert.match(contextTooltip(report, true), /earlier provider round trimmed context/);
 });
 
+test('current-question-only report keeps authoritative zero selected cells', () => {
+  const report = parseContextReport({ ...reportEvent, cell_count: 0, selected_cell_ids: [], included_cell_ids: [],
+    omitted_cell_ids: [], partial_cell_ids: [], omitted_cell_count: 0, partial_cell_count: 0,
+    source_truncated: false, history_truncated: false });
+  assert.ok(report);
+  assert.match(contextTooltip(report), /0 included of 0 selected notebook cells/);
+});
+
 test('older or invalid reports fall back instead of showing misleading counts', () => {
   assert.equal(parseContextReport({ cell_count: 3, tools: ['read_cell'] }), null);
   assert.equal(parseContextReport({ ...reportEvent, cell_count: -1 }), null);

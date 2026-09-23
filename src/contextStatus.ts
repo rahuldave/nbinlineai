@@ -10,6 +10,11 @@ export interface ContextReport {
   tools: string[];
   sourceTruncated: boolean;
   historyTruncated: boolean;
+  selectedCellIds: string[];
+  hasSelectionIds: boolean;
+  includedCellIds: string[];
+  omittedCellIds: string[];
+  partialCellIds: string[];
 }
 
 function count(value: unknown): number | null {
@@ -34,8 +39,17 @@ export function parseContextReport(event: Record<string, unknown>): ContextRepor
   return {
     includedCells, submittedCells, omittedCells, partialCells, contextChars, budgetChars,
     toolSchemaChars, tools: tools as string[],
-    sourceTruncated: event.source_truncated, historyTruncated: event.history_truncated
+    sourceTruncated: event.source_truncated, historyTruncated: event.history_truncated,
+    selectedCellIds: ids(event.selected_cell_ids), hasSelectionIds: validIds(event.selected_cell_ids), includedCellIds: ids(event.included_cell_ids),
+    omittedCellIds: ids(event.omitted_cell_ids), partialCellIds: ids(event.partial_cell_ids)
   };
+}
+
+function validIds(value: unknown): value is string[] {
+  return Array.isArray(value) && value.length <= 10000 && value.every(item => typeof item === 'string');
+}
+function ids(value: unknown): string[] {
+  return validIds(value) ? value : [];
 }
 
 export function contextWasTrimmed(report: ContextReport): boolean {
@@ -58,7 +72,8 @@ export function contextTooltip(report: ContextReport, trimmedInEarlierRound = fa
   const tools = report.tools.length ? report.tools.join(', ') : 'none';
   const earlier = trimmedInEarlierRound && !contextWasTrimmed(report)
     ? 'An earlier provider round trimmed context. ' : '';
-  return `${earlier}${report.includedCells} included of ${report.submittedCells} submitted preceding cells; ` +
+  const denominator = report.hasSelectionIds ? `${report.selectedCellIds.length} selected notebook cells` : `${report.submittedCells} submitted preceding cells`;
+  return `${earlier}${report.includedCells} included of ${denominator}; ` +
     `${report.omittedCells} omitted eligible cells; ${report.partialCells} partial cells. ` +
     `Tools (${report.tools.length}): ${tools}. ` +
     `Character estimate: ${report.contextChars.toLocaleString('en-US')} / ${report.budgetChars.toLocaleString('en-US')} budget; ` +

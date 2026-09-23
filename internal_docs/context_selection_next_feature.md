@@ -1,6 +1,12 @@
 # Next feature: notebook context selection
 
-**Planning brief, 2026-09-23. Not implemented in 0.1.7.** The user requested this feature for a new task. The modes and per-cell controls are requested; the detailed semantics below are engineering recommendations for that task, not behavior already shipped or separately approved by the user.
+**Design contract, 2026-09-23. Implemented in the current source build after published 0.1.7.** The user requested this feature for a new task. The modes and per-cell controls are requested; the detailed semantics below are engineering recommendations for that task, not behavior already shipped or separately approved by the user.
+
+## User refinement during implementation
+
+The user clarified that text selection and deliberate tool withdrawal need independent **per-cell** controls. This supersedes the original tool-permission deferral below: add a **Tools** checkbox to declaring ordinary Markdown/AI question cells, saved as `nbinlineai.toolsInclude`, default true. It filters declarations from that cell before introspection, including the current question. Duplicate declarations in other enabled applicable cells still offer their tool. Text omission never changes this saved preference; below declarations remain out of scope.
+
+Add a seventh mode, **Current question only**, that selects no optional text while preserving Tools choices. It never re-enables a tool the user deliberately disabled. Original six modes remain. Both kinds of choices save with the notebook; the original Custom text initialization rules still apply.
 
 ## Request and feasibility
 
@@ -55,7 +61,7 @@ The independent-cell policy above is a deliberate extension beyond 0.1.7's pair-
 
 Preserve 0.1.7 inheritance: scan **all earlier ordinary Markdown/AI questions**, plus current-question declarations, before context budgeting. Preset windows, Custom unchecking, and budget omission do not revoke those declarations. No new automatic declaration scope below the current question, even in Full notebook. This preserves the user's immediately preceding requirement that early tool registrations remain available to all later questions.
 
-Show inherited tool names/count separately from prose selection and explain: **Context checkboxes choose notebook text; tools declared above remain available.** Users withdraw a tool by removing its declarations (or moving them below); a future tool-permission UI is separate scope. Do not accidentally derive schemas from only the selected text. Current `$` lookups remain current-question-only.
+Show inherited tool names/count separately from prose selection and explain: **Context chooses text; Tools controls declarations.** Enabled declarations remain available when their text is excluded. Users withdraw declarations with the separate per-cell Tools checkbox, by removing them, or by moving them below (see the user refinement above). Do not accidentally derive schemas from only the selected text. Current `$` lookups remain current-question-only.
 
 An excluded source cell can also have previously changed Python state, and explicit read tools can retrieve other text during the run. Context selection is not a kernel reset or a prohibition on those separately offered tools. Put these cases in the FAQ.
 
@@ -90,4 +96,4 @@ Extend pure frontend selection helpers, backend request normalization/selection,
 7. Real isolated JupyterLab with real Python kernel and deterministic provider: six modes, Custom save/reload, two tabs/notebooks, Run All snapshots at each question, Keep overrides, edits after preview, cell insertions by tools/`insert_tools`, cancellation. Never use port 8888.
 8. Update README (max two images), illustrated user guide, FAQ, architecture, relevant example notebook, and internal context/protocol/handoff notes. Explain Default versus All above, full-but-budget-limited, checkmarks versus actual use, below AI source, tool independence, preview staleness, kernel state and saved metadata. Capture screenshots in isolated fixtures.
 
-Implement and verify the feature in the next task. Do not start it as part of this documentation-only handoff. [Copyable task prompt](context_selection_task_prompt.md).
+This brief is retained as the implementation contract. See the current developer handoff for verification results. [Copyable task prompt](context_selection_task_prompt.md).

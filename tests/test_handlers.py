@@ -14,6 +14,7 @@ from tornado.web import Application
 
 from nbinlineai import __version__
 from nbinlineai.handlers import (
+    ContextPreviewHandler,
     KeySettingsHandler,
     KeySettingsItemHandler,
     PromptHandler,
@@ -33,11 +34,25 @@ class _Authorizer:
 
 
 class _Dispatcher:
+    def __init__(self):
+        self.kernel = type("Kernel", (), {"execution_state": "idle"})()
+
     async def resolve(self, session_id):
-        return "kernel-1", object()
+        return "kernel-1", self.kernel
+
+    async def inspect_preview(self, kernel_id, kernel, variables, functions):
+        return {}
+
+    def preview_ready(self, kernel_id, kernel):
+        return kernel.execution_state == "idle"
 
 
 class _Prompt(PromptHandler):
+    async def prepare(self):
+        self._current_user = "test-user" if self.request.headers.get("Authorization") == "Bearer test" else None
+
+
+class _Preview(ContextPreviewHandler):
     async def prepare(self):
         self._current_user = "test-user" if self.request.headers.get("Authorization") == "Bearer test" else None
 
@@ -63,9 +78,11 @@ class HandlerTests(AsyncHTTPTestCase):
         self._old_xdg = os.environ.get("XDG_CONFIG_HOME")
         os.environ["XDG_CONFIG_HOME"] = self._key_home.name
         self.authorizer = _Authorizer()
+        self.dispatcher = _Dispatcher()
         return Application(
             [
-                (r"/nbinlineai/prompt", _Prompt, {"dispatcher": _Dispatcher()}),
+                (r"/nbinlineai/prompt", _Prompt, {"dispatcher": self.dispatcher}),
+                (r"/nbinlineai/context-preview", _Preview, {"dispatcher": self.dispatcher}),
                 (r"/nbinlineai/status", _Status),
                 (r"/nbinlineai/settings/keys", _Keys),
                 (r"/nbinlineai/settings/keys/([^/]+)", _KeyItem),
@@ -90,6 +107,32 @@ class HandlerTests(AsyncHTTPTestCase):
             headers["Authorization"] = "Bearer test"
         return self.fetch("/nbinlineai/prompt", method="POST", body=json.dumps(body), headers=headers,
                           follow_redirects=False)
+
+    def test_preview_is_authenticated_and_has_cell_ids_without_provider_key(self):
+        body = {"snapshot_version": 1, "notebook_cells": [
+            {"id": "note", "cell_type": "markdown", "source": "Hello"},
+            {"id": "p", "cell_type": "markdown", "source": "Question",
+             "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        ], "context_mode": "all-above", "prompt": "Question", "session_id": "s",
+            "prompt_cell_id": "p", "preview_generation": "rev-1"}
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        unauthorized = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers={"Content-Type": "application/json"},
+                                  follow_redirects=False)
+        assert unauthorized.code != 200
+        response = self.fetch("/nbinlineai/context-preview", method="POST",
+                              body=json.dumps(body), headers=headers)
+        assert response.code == 200
+        report = json.loads(response.body)
+        assert report["included_cell_ids"] == ["note"]
+        assert report["snapshot_generation"] == "rev-1"
+        assert report["tools"] == []
+
+        self.dispatcher.kernel.execution_state = "busy"
+        busy = self.fetch("/nbinlineai/context-preview", method="POST",
+                          body=json.dumps(body), headers=headers)
+        assert busy.code == 409
+        assert b"Kernel is busy" in busy.body
 
     def test_auth_and_execute_permission(self):
         response = self._post({}, auth=False)
