@@ -8,11 +8,10 @@ from jupyter_client import AsyncKernelManager
 
 from nbinlineai import providers
 from nbinlineai.config import DEFAULT_MODELS, MODEL_CAPABILITIES, MODEL_CHOICES
+from nbinlineai.context_budget import MAX_CONTEXT_CHARS, build_context, eligible_units
 from nbinlineai.kernel import KernelDispatcher
 from nbinlineai.prompt import (
     PROMPT_MODE_INSTRUCTIONS,
-    _history,
-    _source_context,
     run_prompt,
     validate_request,
 )
@@ -111,7 +110,7 @@ def test_live_kernel_introspection_dispatch_and_provider_loop(monkeypatch):
 
             monkeypatch.setattr(providers, "complete", fake_complete)
             events = [event async for event in run_prompt(_body(), dispatcher, kernel_id, bound_kernel)]
-            assert [event["type"] for event in events] == ["context", "tool_start", "tool_result", "text_delta", "done"]
+            assert [event["type"] for event in events] == ["context", "tool_start", "tool_result", "context", "text_delta", "done"]
             assert events[0]["variables"]["x"]["repr"] == "7"
             assert events[2]["text"] == "7"
             assert "x = 7" in calls[0][2][0].text
@@ -132,7 +131,10 @@ def test_history_only_complete_pairs():
         {"id": "p2", "cell_type": "markdown", "source": "pending", "metadata": {"nbinlineai": {"isPromptCell": True}}},
         {"id": "o2", "cell_type": "markdown", "source": "partial", "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "p2", "status": "running"}}},
     ]
-    assert [(m.role, m.text) for m in _history(cells)] == [("user", "question"), ("assistant", "answer")]
+    built = build_context(cells, eligible_units(cells), [], "", "", "next", [])
+    assert [(m.role, m.text) for m in built.messages[1:3]] == [
+        ("user", "question"), ("assistant", "answer")]
+    assert built.counts["cell_count"] == 2
 
 
 @pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
@@ -179,16 +181,18 @@ def test_mixed_notebook_source_is_ordered_without_ai_history_duplication(monkeyp
 
 def test_combined_source_limit_and_malformed_metadata():
     cells = [
-        {"id": "m", "cell_type": "markdown", "source": "m" * 30000, "metadata": "broken"},
-        {"id": "c", "cell_type": "code", "source": "c" * 25000, "metadata": {"nbinlineai": "broken"}},
-        {"id": "after", "cell_type": "markdown", "source": "SHOULD_NOT_APPEAR"},
+        {"id": "m", "cell_type": "markdown", "source": "m" * 35000, "metadata": "broken"},
+        {"id": "c", "cell_type": "code", "source": "c" * 35000, "metadata": {"nbinlineai": "broken"}},
+        {"id": "after", "cell_type": "markdown", "source": "NEAREST_SOURCE"},
     ]
-    source, counts = _source_context(cells)
-    assert counts == {"code_cells": 1, "markdown_cells": 1, "code_chars": 20000,
-                      "markdown_chars": 30000, "source_chars": 50000, "source_truncated": True}
-    assert "SHOULD_NOT_APPEAR" not in source
-    assert source.index("Markdown cell m") < source.index("Code cell c")
-    assert len(_history(cells)) == 0
+    built = build_context(cells, eligible_units(cells), [], "", "", "next", [])
+    counts = built.counts
+    assert counts["code_cells"] == 1 and counts["markdown_cells"] == 2
+    assert counts["partial_cell_count"] == 1 and counts["source_truncated"] is True
+    assert counts["context_chars"] <= MAX_CONTEXT_CHARS
+    source = built.messages[0].text
+    assert source.index("Markdown cell m") < source.index("Code cell c") < source.index("NEAREST_SOURCE")
+    assert source.endswith("NEAREST_SOURCE")
 
 
 def test_request_rejects_bad_backend_and_args(monkeypatch):
@@ -266,7 +270,7 @@ def test_custom_style_reaches_provider_with_history_and_tool_roundtrip(monkeypat
         return [event async for event in run_prompt(body, Dispatcher(), "kernel-1", None)]
 
     events = asyncio.run(run())
-    assert [event["type"] for event in events] == ["context", "tool_start", "tool_result", "text_delta", "done"]
+    assert [event["type"] for event in events] == ["context", "tool_start", "tool_result", "context", "text_delta", "done"]
     assert len(captured) == 2
     for selected_backend, messages, tools, effort in captured:
         assert selected_backend == backend and effort == "low" and tools

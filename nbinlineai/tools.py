@@ -17,6 +17,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from .kernel_insert_tools import InsertToolsReceipt, request_insert_tools
 from .web_tools import fetch_url_markdown
 
 MAX_NOTEBOOK_BYTES = 8_000_000
@@ -404,3 +405,19 @@ def tools_markdown(
         summary = " ".join((getdoc(available[name]) or "Call this tool.").splitlines()[0].split())[:180]
         lines.append(f"- &`{name}` — {summary}")
     return "\n".join(lines)
+
+
+def insert_tools(
+    names: list[str] | None = None,  # Selected registered/custom names, or all known names.
+    custom: Mapping[str, Callable[..., Any]] | None = None,  # Explicit custom aliases.
+) -> "InsertToolsReceipt":  # Asynchronous status of the new Markdown cell.
+    """Request a Markdown tool-reference cell immediately below this code cell.
+
+    The nbinlineai JupyterLab extension inserts into the live notebook model.
+    The returned receipt starts as requested and later says inserted or error;
+    save the notebook after the new cell appears. No model or API key is used.
+    """
+    markdown = tools_markdown(names, custom)
+    if markdown == "No built-in tools selected.":
+        raise ValueError("Choose at least one tool to insert")
+    return request_insert_tools(markdown)

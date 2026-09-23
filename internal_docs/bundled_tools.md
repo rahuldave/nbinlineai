@@ -1,6 +1,6 @@
 # Bundled tools and frontend interface
 
-Implementation design for **0.1.6**, following approval to build the interface, the tools it enables, and examples. Public instructions are in [Tools and examples](../docs/tools.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
+Implementation design introduced in **0.1.6**, with tool inheritance updated for **0.1.7**. Public instructions are in [Tools and examples](../docs/tools.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
 
 ## Who owns what?
 
@@ -23,8 +23,9 @@ The explicit `TOOL_FUNCTIONS` registry contains ten tools:
 - Kernel dispatch: `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, `inspect_python`, `read_url`.
 - Special frontend dispatch: `list_cells`, `read_cell`, `insert_markdown`, `url_to_note`.
 - Separate user helper: `tools_markdown(names=None, custom=None)`. Returns removable Markdown references, optionally including explicit alias-to-callable mappings; it is not itself listed as a tool.
+- Separate user helper in 0.1.7: `insert_tools(names=None, custom=None)`. Uses the same formatting, then requests an ordinary Markdown declaration below the calling code cell through an execution-bound Jupyter comm. It is not a model tool and requires no provider key.
 
-Formatting is not registration. Users import functions, print references, and paste desired lines into the current AI question. Only that question's `&` references define its allowlist. Earlier Markdown and AI exchanges contribute text without granting access. Printed code outputs are not automatic context. The same scope applies to `$` references; the existing regex scans quotations and fences too.
+Formatting is not registration. Users import functions, print references, and paste desired lines into ordinary Markdown notes or AI questions. In 0.1.7, the server scans all ordinary Markdown and AI question cells above plus the current question for `&` declarations before context trimming. It unions/deduplicates names and inspects the current kernel on each run. AI answers, code/raw cells, and printed output do not declare tools. `$` references still resolve only in the current question. The existing regex scans quotations and fences too. Several declarations can accumulate through a notebook; an omitted declaration's schema remains available. No metadata flag or execution of the declaration cell is required. See [context selection](cell_kernel_model_and_context_selection.md) for the shared budget and discovery boundary.
 
 All schemas still come from kernel signature/docstring introspection and translation into FastLLM's flat function schema. Names sent to the provider are user-referenced identifiers, including aliases. No callable objects are shipped to the provider.
 
@@ -32,7 +33,11 @@ Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTI
 
 ## Request/reply protocol
 
+The model-driven interface below is distinct from the direct Python `insert_tools` helper. The latter uses comm target `nbinlineai.insert_tools.v1` with the current execute-request ID, source code-cell ID, and bounded generated Markdown. `src/insertTools.ts` tracks the actual outgoing request from native cell execution, then validates the comm's parent and the original panel/model/kernel before insertion. Multiple helper calls share an insertion tail for their execution; redelivery of the same comm ID does not create another note. Python receives asynchronous acknowledgement in `InsertToolsReceipt`; it does not run or block an event loop to wait. Save normally after insertion. Headless clients cannot perform the browser mutation; `tools_markdown()` remains usable for plain text. See [`nbinlineai/kernel_insert_tools.py`](../nbinlineai/kernel_insert_tools.py) and [`src/insertToolsProtocol.ts`](../src/insertToolsProtocol.ts).
+
 `FrontendBridge` is a server-local registry shared by prompt and reply handlers. After normal Jupyter authentication/execute authorization and session resolution, a run binds an unpredictable `run_id` to session ID, prompt cell ID, kernel ID, and kernel manager identity. It can hold one pending action ID and asynchronous future.
+
+The direct helper requires explicit `comm>=0.2,<1` and `ipykernel>=6.18` dependencies. JupyterLab's broader transitive ipykernel minimum alone does not guarantee the separate comm package is connected to the running kernel. [ipykernel 6.18.0](https://github.com/ipython/ipykernel/releases/tag/v6.18.0) introduced the extracted comm package; its [kernel source](https://github.com/ipython/ipykernel/blob/v6.18.0/ipykernel/ipkernel.py) wires `comm.create_comm`. A separately selected kernel environment must meet this requirement too.
 
 The context event announces the run ID before any action. The browser binds the first ID and rejects changed or missing bindings. Each special call yields:
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.6"
+version = "0.1.7"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,11 +29,13 @@ dependencies = [
   "python-fastllm==0.0.63",
   "python-dotenv>=1,<2",
   "filelock>=3.32,<4",
+  "comm>=0.2,<1",
+  "ipykernel>=6.18",
 ]
 
 [project.urls]
 Repository = "https://github.com/rahuldave/nbinlineai"
-Documentation = "https://rahuldave.github.io/nbinlineai/"
+Documentation = "https://rahuldave.com/nbinlineai/"
 Issues = "https://github.com/rahuldave/nbinlineai/issues"
 
 [dependency-groups]

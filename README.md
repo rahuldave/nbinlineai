@@ -61,7 +61,7 @@ In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown
 
 - **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
 - **Editing and rerunning:** edit questions or answers directly. Rerunning a prompt replaces its paired answer, including manual edits. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically when earlier content changes.
-- **Context:** code and ordinary Markdown source above the prompt are included in notebook order within size limits. Completed earlier AI prompt/answer pairs are included separately as conversation history, without duplicating their text in the source context. Raw cells and code outputs are omitted; image data is not sent.
+- **Context:** reserve room for tools and the current question, then collect source and completed AI exchanges from the nearest cells above upward. Selected material is sent in notebook order within a shared character budget. Raw cells and code outputs are omitted; image data is not sent.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
 
@@ -131,7 +131,7 @@ What is $`score`? Call &`add_bonus` with value 3, then explain the result.
 
 The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/examples) teach live variables, tools, and step-by-step learning conversations. Copies are included in the package under `share/doc/nbinlineai/examples/`.
 
-`$` followed by a backtick-quoted Python name uses its **live value from the running kernel**. This can differ from what the notebook source currently says. To let the model call a function you defined in the kernel, name it with `&`, for example ``Call &`add_bonus` with value 3``. Only functions named in that prompt are made available as tools. This release supports ordinary synchronous Python functions with named parameters and simple annotations. Function calls can change notebook state; cancelling a prompt cannot undo an earlier call.
+`$` followed by a backtick-quoted Python name in the current question uses its **live value from the running kernel**. This can differ from what the notebook source currently says. To offer a function, name it with `&`, for example ``Call &`add_bonus` with value 3``. From **0.1.7**, tool references in ordinary Markdown and AI questions above also carry forward: declare a tool once, then use it in later AI questions without repeating the reference. AI answers do not register tools. This release supports ordinary synchronous Python functions with named parameters and simple annotations. Function calls can change notebook state; cancelling a prompt cannot undo an earlier call.
 
 ### Bundled tools
 
@@ -148,7 +148,9 @@ from nbinlineai.tools import (
 print(tools_markdown())
 ```
 
-Paste the printed Markdown into the **AI cell you are running**, add your question, and delete any unwanted tool lines. Ordinary Markdown above the prompt is context only; it does not register tools or expand live variables. `tools_markdown()` is a convenience helper, not one of the listed tools.
+Paste the printed Markdown into an **ordinary Markdown cell above your AI questions**, and delete unwanted tool lines. Each question below inherits those tools; you can add more declarations farther down. Current AI questions can still declare tools directly. Discovery scans all eligible cells above even when their text is too old to fit the context budget. Only `$` references in the current question retrieve live values. `tools_markdown()` is a convenience helper, not one of the listed tools.
+
+To create the declaration note directly, run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names", "read_cell"])` in a Python cell after importing those tools. It inserts ordinary Markdown below that code cell without an AI request. Edit the note and save normally. `insert_tools()` with no selection lists all bundled tools.
 
 The ten tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes. New notes are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons.
 

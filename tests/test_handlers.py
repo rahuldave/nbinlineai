@@ -7,6 +7,7 @@ import tempfile
 from unittest.mock import patch
 
 from aidialog.msg_parts import Completion, Msg, Text
+from fastllm.acomplete import ContextWindowExceededError as ProviderContextWindowExceededError
 from fasttransport.errors import APIError
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
@@ -228,6 +229,27 @@ class HandlerTests(AsyncHTTPTestCase):
             assert response.code == 200
             assert expected.encode() in response.body
             assert b"test-saved-secret-key" not in response.body
+
+    def test_provider_context_overflow_is_actionable_and_sanitized(self):
+        body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
+                "backend": "openai_api"}
+
+        async def fail(*_args):
+            raise ProviderContextWindowExceededError(
+                "private-test-value exceeded provider context", status_code=400,
+                raw={"secret": "private-test-value"},
+            )
+
+        with patch("nbinlineai.prompt.provider_status", return_value={
+            "openai_api": {"configured": True}
+        }), patch("nbinlineai.providers.complete", fail):
+            response = self._post(body)
+        events = [json.loads(line.removeprefix("data: ")) for line in
+                  response.body.decode().splitlines() if line.startswith("data: ")]
+        assert [event["type"] for event in events] == ["context", "error"]
+        assert "context window exceeded" in events[-1]["message"]
+        assert "Shorten the prompt" in events[-1]["message"]
+        assert b"private-test-value" not in response.body
 
 
 class NonRootRoutesTests(AsyncHTTPTestCase):

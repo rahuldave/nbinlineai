@@ -1,7 +1,7 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
 import { Dialog, ICommandPalette, ToolbarButton, showDialog } from '@jupyterlab/apputils';
 import { ICellModel, MarkdownCell } from '@jupyterlab/cells';
-import { INotebookCellExecutor, INotebookModel, INotebookTracker, NotebookActions, NotebookPanel, runCell as runStandardCell } from '@jupyterlab/notebook';
+import { INotebookCellExecutor, INotebookModel, INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { addIcon, copyIcon } from '@jupyterlab/ui-components';
@@ -16,6 +16,8 @@ import { effectiveKeepAnswer, keepsCompletedAnswer } from './keepAnswer';
 import { enqueueNotebookCell } from './executionQueue';
 import { readEventStream, StreamEvent } from './sse';
 import { NotebookActionBridge } from './frontendActions';
+import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
+import { runTrackedStandardCell } from './insertTools';
 import '../style/index.css';
 
 type Backend = 'openai_api' | 'anthropic_api';
@@ -33,7 +35,7 @@ interface CellMetadata {
 interface ProviderStatus { configured: boolean; source?: 'saved' | 'environment' | null; default_model: string; models: string[] }
 interface KeyStatus { providers: Record<Backend, { configured: boolean; source: 'saved' | 'environment' | null }> }
 interface Status { providers: Record<Backend, ProviderStatus>; default_models: Record<Backend, string>; prompt_mode_instructions?: Record<PromptMode, string>; model_capabilities?: Record<Backend, Record<string, { efforts: string[]; default_effort: string | null }>> }
-interface RunState { controller: AbortController; panel: NotebookPanel; output: ICellModel; text: string; done: boolean }
+interface RunState { controller: AbortController; panel: NotebookPanel; output: ICellModel; text: string; done: boolean; context: ContextReport | null; contextTrimmed: boolean }
 const metadataKey = 'nbinlineai';
 const commandInsert = 'nbinlineai:insert-prompt-cell';
 const commandRun = 'nbinlineai:run-prompt-cell';
@@ -44,7 +46,7 @@ const runs = new Map<string, RunState>();
 const pendingPromptRuns = new Map<string, Promise<boolean>>();
 const pendingCancels = new Set<string>();
 const panelsByModel = new WeakMap<INotebookModel, NotebookPanel>();
-const statuses = new Map<string, { state: string; text: string }>();
+const statuses = new Map<string, { state: string; text: string; tooltip?: string }>();
 const pendingSnapshots = new Set<NotebookPanel>();
 const serverSettings = ServerConnection.makeSettings();
 const runKey = (panel: NotebookPanel, cellId: string): string => `${panel.id}:${cellId}`;
@@ -215,10 +217,12 @@ function ensureOutput(panel: NotebookPanel, promptId: string): ICellModel {
   });
   return model.cells.get(index + 1);
 }
-function status(panel: NotebookPanel, id: string, state: string, message: string): void {
+function status(panel: NotebookPanel, id: string, state: string, message: string, tooltip?: string): void {
   if (panel.isDisposed) return;
   const key = runKey(panel, id);
-  statuses.set(key, { state, text: message });
+  const previous = statuses.get(key);
+  statuses.set(key, { state, text: message,
+    tooltip: tooltip ?? (state === 'running' && previous?.state === 'running' ? previous.tooltip : undefined) });
   const output = findOutput(panel, id);
   if (output && runs.get(key)?.output === output && ['running', 'done', 'error', 'cancelled'].includes(state)) setMetadata(output, { status: state });
   decorate(panel);
@@ -666,6 +670,7 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   const notebook = panel.content.model;
   if (!prompt || !isPrompt(prompt) || !notebook) return false;
   if (protectedAnswer(panel, prompt)) return true;
+  statuses.delete(runKey(panel, promptId));
   const promptText = prompt.sharedModel.getSource().trim();
   if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return false; }
   const sessionId = panel.sessionContext.session?.id;
@@ -694,7 +699,7 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   output.sharedModel.setSource('');
   setMetadata(output, { status: 'running' });
   const controller = new AbortController();
-  const run: RunState = { controller, panel, output, text: '', done: false };
+  const run: RunState = { controller, panel, output, text: '', done: false, context: null, contextTrimmed: false };
   const bridge = new NotebookActionBridge(notebook, promptId, output.id);
   let serverRunId: string | null = null;
   runs.set(runKey(panel, promptId), run);
@@ -730,8 +735,16 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
           }
           serverRunId = event.run_id;
         }
-        const count = typeof event.cell_count === 'number' ? event.cell_count : preceding.length;
-        status(panel, promptId, 'running', `Using ${count} preceding cells…`);
+        const report = parseContextReport(event);
+        if (report) {
+          run.context = report;
+          run.contextTrimmed ||= contextWasTrimmed(report);
+          status(panel, promptId, 'running', runningContextText(report), contextTooltip(report, run.contextTrimmed));
+        } else {
+          const count = typeof event.cell_count === 'number' && Number.isSafeInteger(event.cell_count) && event.cell_count >= 0
+            ? event.cell_count : preceding.length;
+          status(panel, promptId, 'running', `Using ${count} preceding cells…`);
+        }
       } else if (event.type === 'frontend_action') {
         if (!serverRunId || event.run_id !== serverRunId) throw new Error('The notebook action did not match this AI run.');
         if (typeof event.request_id !== 'string' || typeof event.name !== 'string') throw new Error('Invalid notebook action request.');
@@ -742,7 +755,7 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
         }
         const result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
-        status(panel, promptId, 'running', `${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`);
+        status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
         const reply = await fetch(serverUrl('nbinlineai/action-reply'), {
           method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
           body: JSON.stringify({ run_id: serverRunId, request_id: event.request_id,
@@ -751,15 +764,16 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
         if (!reply.ok) throw new Error(`The notebook action reply was rejected (${reply.status}).`);
         const acknowledgement = await reply.json() as { accepted?: boolean };
         if (acknowledgement.accepted !== true) throw new Error('The notebook action reply was not acknowledged.');
-        status(panel, promptId, 'running', result.ok ? 'Notebook action completed; generating…' : `Notebook action failed: ${result.text}`);
-      } else if (event.type === 'tool_start') status(panel, promptId, 'running', `Running ${String(event.name || 'tool')}…`);
-      else if (event.type === 'tool_result') status(panel, promptId, 'running', `${String(event.name || 'Tool')} completed; generating…`);
+        status(panel, promptId, 'running', runningProgressText(result.ok ? 'Notebook action completed; generating…' : `Notebook action failed: ${result.text}`, run.context));
+      } else if (event.type === 'tool_start') status(panel, promptId, 'running', runningProgressText(`Running ${String(event.name || 'tool')}…`, run.context));
+      else if (event.type === 'tool_result') status(panel, promptId, 'running', runningProgressText(`${String(event.name || 'Tool')} completed; generating…`, run.context));
       else if (event.type === 'error') throw new Error(String(event.message || 'AI request failed.'));
       else if (event.type === 'done') run.done = true;
     });
     if (!run.done) throw new Error('The response ended before completion.');
     refreshOutput(panel, output);
-    status(panel, promptId, 'done', 'Done');
+    status(panel, promptId, 'done', completedContextText(run.contextTrimmed),
+      run.context ? contextTooltip(run.context, run.contextTrimmed) : undefined);
     return true;
   } catch (error) {
     if (controller.signal.aborted) {
@@ -1070,6 +1084,12 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
 }
 function decorate(panel: NotebookPanel): void {
   if (panel.isDisposed) return;
+  const prefix = `${panel.id}:`;
+  for (const key of statuses.keys()) {
+    if (!key.startsWith(prefix)) continue;
+    const prompt = getCell(panel, key.slice(prefix.length));
+    if (!isPrompt(prompt) || (statuses.get(key)?.state === 'done' && !findOutput(panel, prompt!.id))) statuses.delete(key);
+  }
   syncNotebookDefaultsRow(panel);
   for (const widget of panel.content.widgets) {
     const cell = widget.model;
@@ -1140,7 +1160,10 @@ function decorate(panel: NotebookPanel): void {
       ? availableCount === 0 ? 'No API key configured. Choose Configure AI.' : 'API key required. Choose Configure AI or another provider.'
       : '';
     label.dataset.state = serverStatusError ? 'error' : selectedAvailability === false ? 'error' : current?.state || 'idle';
-    label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice || (protectedCompleted ? 'Answer kept' : '') || current?.text || (serverStatus ? '' : 'Checking AI providers…');
+    label.title = serverStatusError || selectedAvailability === false ? '' : current?.tooltip || '';
+    label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice ||
+      (current?.state === 'done' && current.text.includes('context trimmed') ? current.text : '') ||
+      (protectedCompleted ? 'Answer kept' : '') || current?.text || (serverStatus ? '' : 'Checking AI providers…');
   }
 }
 const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
@@ -1166,7 +1189,7 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
           return success;
         });
       }
-      return enqueueNotebookCell(options.notebook, () => runStandardCell(options));
+      return enqueueNotebookCell(options.notebook, () => runTrackedStandardCell(options, panelsByModel.get(options.notebook)));
     }
   })
 };

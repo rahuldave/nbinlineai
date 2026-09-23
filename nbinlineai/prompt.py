@@ -9,13 +9,12 @@ from fasttransport.errors import APIError
 
 from . import providers
 from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
+from .context_budget import ai_role, build_context, eligible_units
 from .tool_schema import fastllm_tools
 from .web_tools import MAX_WEB_TOTAL_SECONDS, fetch_url_markdown
 
 REFERENCE = re.compile(r"([\$&])`([A-Za-z_][A-Za-z0-9_]*)`")
-MAX_CELLS = 200
-MAX_SOURCE_CHARS = 50000
-MAX_HISTORY_CHARS = 16000
+MAX_CELLS = 10_000
 MAX_PROMPT_CHARS = 16000
 MAX_PROMPT_INSTRUCTIONS_CHARS = 8000
 PROMPT_MODE_INSTRUCTIONS = {
@@ -87,7 +86,7 @@ def validate_request(body: dict) -> dict:
     body["max_tool_steps"] = steps
     cells = body.get("preceding_cells")
     if not isinstance(cells, list) or len(cells) > MAX_CELLS:
-        raise ValueError("preceding_cells must be a list of at most 200 cells")
+        raise ValueError("preceding_cells must be a list of at most 10000 cells")
     for cell in cells:
         if not isinstance(cell, dict) or not isinstance(cell.get("id"), str):
             raise TypeError("Invalid preceding cell")
@@ -98,70 +97,16 @@ def validate_request(body: dict) -> dict:
     return body
 
 
-def _ai_role(cell: dict) -> str | None:
-    metadata = cell.get("metadata")
-    if not isinstance(metadata, dict):
-        return None
-    ai = metadata.get("nbinlineai")
-    if not isinstance(ai, dict):
-        return None
-    if ai.get("isPromptCell") or ai.get("is_prompt_cell") or ai.get("role") == "prompt":
-        return "prompt"
-    if ai.get("isOutputCell") or ai.get("is_output_cell") or ai.get("role") == "response":
-        return "response"
-    return None
-
-
-def _history(cells: list[dict]) -> list[Msg]:
-    prompts = {}
-    pairs = []
+def _inherited_tools(
+    cells: list[dict],  # Complete preceding snapshot, before context trimming.
+) -> list[str]:  # Distinct tool names declared in eligible Markdown source.
+    """Find tool declarations in ordinary Markdown and AI questions only."""
+    names = []
     for cell in cells:
-        role = _ai_role(cell)
-        if role == "prompt":
-            prompts[cell["id"]] = cell["source"]
-        elif role == "response":
-            ai = cell["metadata"]["nbinlineai"]
-            prompt_id = ai.get("promptCellId") or ai.get("prompt_cell_id")
-            if ai.get("status", "done") == "done" and prompt_id in prompts:
-                pairs.append((prompts[prompt_id], cell["source"]))
-    selected = []
-    remaining = MAX_HISTORY_CHARS
-    for prompt, response in reversed(pairs):
-        if len(prompt) + len(response) > remaining:
-            break
-        selected.append((prompt, response))
-        remaining -= len(prompt) + len(response)
-    result = []
-    for prompt, response in reversed(selected):
-        result.extend([Msg("user", [Text(prompt)]), Msg("assistant", [Text(response)])])
-    return result
-
-
-def _source_context(cells: list[dict]) -> tuple[str, dict]:
-    chunks = []
-    counts = {"code_cells": 0, "markdown_cells": 0, "code_chars": 0, "markdown_chars": 0,
-              "source_chars": 0, "source_truncated": False}
-    for cell in cells:
-        kind = cell["cell_type"]
-        if kind not in ("code", "markdown") or _ai_role(cell) is not None:
+        if cell["cell_type"] != "markdown" or ai_role(cell) == "response":
             continue
-        source = cell["source"]
-        if not source:
-            continue
-        remaining = MAX_SOURCE_CHARS - counts["source_chars"]
-        if remaining <= 0:
-            counts["source_truncated"] = True
-            break
-        included = source[:remaining]
-        label = f"Code cell {cell['id']} (source; execution count {cell.get('execution_count')})" if kind == "code" else f"Markdown cell {cell['id']} (source)"
-        chunks.append(f"[{label}]\n{included}")
-        counts[f"{kind}_cells"] += 1
-        counts[f"{kind}_chars"] += len(included)
-        counts["source_chars"] += len(included)
-        if len(included) < len(source):
-            counts["source_truncated"] = True
-            break
-    return "\n\n".join(chunks), counts
+        names.extend(name for kind, name in REFERENCE.findall(cell["source"]) if kind == "&")
+    return list(dict.fromkeys(names))
 
 
 def _special_arguments(arguments):
@@ -188,11 +133,12 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     mode = _prompt_mode(body)
     prompt = body["prompt"]
     vars_ = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "$"))
-    funcs = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "&"))
+    current_funcs = [name for kind, name in REFERENCE.findall(prompt) if kind == "&"]
+    funcs = list(dict.fromkeys([*current_funcs, *_inherited_tools(body["preceding_cells"])]))
     if set(vars_) & set(funcs):
         raise ValueError("A name cannot be both a variable and a tool in one prompt")
     if len(vars_) + len(funcs) > 20:
-        raise ValueError("Too many live kernel references")
+        raise ValueError("Too many live kernel references, including inherited tools (limit 20)")
     info = await dispatcher.inspect(kernel_id, kernel, vars_, funcs) if vars_ or funcs else {}
     if "error" in info:
         raise ValueError(f"Kernel introspection failed: {info['error']}")
@@ -206,25 +152,27 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     tools = fastllm_tools({name: info[name] for name in funcs})
     special_tools = {name: info[name]["frontend_special"] for name in funcs
                      if "frontend_special" in info[name]}
-    source_text, source_counts = _source_context(body["preceding_cells"])
-    context = {
-        **source_counts,
-        "variables": {name: info[name] for name in vars_},
-        "tools": funcs,
-    }
-    yield {"type": "context", **context}
-    system = (
+    units = eligible_units(body["preceding_cells"])
+    system_prefix = (
         "You are a helpful notebook assistant. The code and Markdown shown are notebook source above "
         "this prompt. Code may be unexecuted or stale. Live variables and tools come from the current "
         "Python kernel. Only call registered tools when helpful.\n\n"
-        "Notebook source above this prompt:\n" + source_text + "\n\n"
+        "Notebook source above this prompt:\n"
+    )
+    system_suffix = (
+        "\n\n"
         "Response style for this run (" + mode + "): "
         + body.get("prompt_instructions", PROMPT_MODE_INSTRUCTIONS[mode])
     )
-    messages = [Msg("system", [Text(system)]), *_history(body["preceding_cells"]), Msg("user", [Text(prompt)])]
+    executed_messages: list[Msg] = []
     allowed = set(funcs)
     steps = 0
     while True:
+        built = build_context(body["preceding_cells"], units, tools, system_prefix,
+                              system_suffix, prompt, executed_messages)
+        messages = built.messages
+        yield {"type": "context", **built.counts,
+               "variables": {name: info[name] for name in vars_}, "tools": funcs}
         try:
             if body.get("reasoning_effort") not in (None, "default"):
                 response = await providers.complete(
@@ -323,4 +271,4 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
                 result = f"Error: {exc}"
             results.append(result)
             yield {"type": "tool_result", "id": call.id, "name": call.name, "text": result}
-        messages.extend([completion.message, mk_tool_res_msg(calls, results)])
+        executed_messages.extend([completion.message, mk_tool_res_msg(calls, results)])

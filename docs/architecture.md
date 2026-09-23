@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in nbinlineai 0.1.6. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in nbinlineai 0.1.7. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -43,9 +43,9 @@ Editing a completed answer changes the source that later requests use as history
 1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no API request.
 2. It resolves cell overrides over notebook defaults over user preferences. It snapshots the current prompt, cells above it, the notebook session ID, and the effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
-4. Explicit variable references are read from the kernel and substituted into the current prompt. Explicit function references become the tool allowlist for this request.
-5. The server assembles bounded notebook source, completed earlier conversations, the current question, and the selected style instructions.
-6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result and continues the model conversation.
+4. Tool declarations in ordinary Markdown and AI questions above are combined with those in the current question, before context selection. The kernel inspects those functions afresh. Variable references are read and substituted only in the current question.
+5. The server accounts for tools, the expanded question, and instructions, then fills the remaining character budget with nearest preceding source and complete AI pairs. It sends selected material in chronological order.
+6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result, budgets again with the same notebook snapshot, and continues the conversation without replaying completed tools.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
 The server disables automatic provider retries: silently repeating a request that can call functions could repeat a side effect. A user-initiated rerun is a new request.
@@ -94,7 +94,7 @@ These sources can disagree without either being broken. Editing `score = 10` to 
 
 ### What the server includes
 
-The browser sends cells **above the prompt in notebook order**. The server includes code and ordinary Markdown source in one bounded source context. Earlier completed AI prompt/answer pairs become conversational messages, rather than being duplicated as ordinary Markdown.
+The browser sends cells **above the prompt in notebook order**. The server selects nearest preceding code, ordinary Markdown, and completed AI pairs within one shared budget, then restores the selected material's chronological order. Source appears in the system context; AI pairs become conversational messages, rather than being duplicated as ordinary Markdown.
 
 The source snapshot excludes later cells, code outputs, raw-cell content, image pixels, and automatic file contents. Linked pages are not fetched. The [user guide](user-guide.md#9-troubleshooting-and-limits) lists all size and round limits.
 
@@ -104,21 +104,22 @@ Live state is separate. A variable can come from a cell executed below the promp
 
 The current algorithm in `nbinlineai/prompt.py` is deterministic and uses **characters**, not model tokens:
 
-1. `validate_request` rejects more than 200 preceding cells, a current prompt longer than 16,000 characters, or a custom style instruction longer than 8,000 characters. Cell-count validation happens before filtering out raw cells or incomplete AI exchanges.
-2. `_source_context` visits ordinary code and Markdown from the top downward. It includes up to 50,000 source characters in total, slicing the boundary cell if necessary and omitting the rest. Cell labels and message formatting are additional text outside this count.
-3. `_history` forms completed prompt/answer pairs, then selects a suffix by visiting the pairs in reverse notebook order. It stops at the first pair that would exceed the separate 16,000-character history budget; it does not skip that pair to find smaller older ones or cut a pair in half. Selected pairs are sent in chronological order.
-4. `run_prompt` substitutes live values in the current question and constructs the messages: system instructions plus ordinary source, retained user/assistant pairs, then the current question. The question's 16,000-character validation occurs **before** substitution. Each variable representation is bounded to 2,000 characters, but repeated references can repeat that text.
-5. Function signatures and descriptions go in the request's separate tools field. Each tool round appends the model's tool-call message and its results to the conversation and submits the growing conversation again. Source/history selection is not repeated during these rounds.
+1. `validate_request` permits up to 10,000 preceding cells, a current question of up to 16,000 characters, and custom style instructions of up to 8,000 characters. The snapshot includes all cell types; the transport cap is not a context-selection rule.
+2. Discover tool names in all eligible Markdown/AI questions above plus the current question. Exclude AI answers, code/raw cells, and anything below. Deduplicate before fresh kernel introspection. `$` discovery stays limited to the current question.
+3. Count serialized tool definitions first, then messages containing system/style instructions, the expanded current question, and any ongoing tool conversation. This fixed material must fit the shared 64,000-character budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
+4. Walk optional source and complete AI pairs from nearest to farthest above the question, adding what fits. Ordinary boundary source can retain only its ending, with a partial-source marker. AI pairs remain whole; stop rather than skip a non-fitting pair to select smaller older ones.
+5. Restore selected source and history to chronological order. Send source with system instructions, completed pairs as user/assistant messages, then the current question and its tool conversation. These two representations are still separate; the selection budget is shared.
+6. Before each subsequent provider call, include all accumulated tool calls/results in the fixed material and select again from the **original snapshot**. This can remove more old context. Tools already called are not executed again by this selection pass.
 
-For example, 40,000 characters in an early Markdown cell followed by 20,000 characters in a code cell includes the note and the first 10,000 characters of code. Source nearer the question can be omitted. Separately, a newest AI exchange larger than 16,000 characters means no AI history is retained.
+For example, if tools and the current request leave 30,000 characters, a nearby 20,000-character code cell takes priority over a much older 40,000-character note. The remaining allowance can retain the end of that note after accounting for serialization and labels. A tool declared at the note's beginning remains available even when that text is omitted.
 
-These are bounds on individual parts, **not a model-aware context budget**. The extension does not estimate the complete input tokens, compare them with a model's capacity, or reserve context space for output and reasoning. Tool schemas, wrapper text, substituted values, and accumulated tool traffic also matter. Tool step and result limits bound some growth but cannot guarantee that every provider request fits.
+This is an application-level character estimate, **not a model-aware token budget**. Serialized messages include labels, substituted values, and tool traffic; tool schemas count separately. Provider-specific conversion and tokenization differ, so the extension cannot guarantee that every request fits the chosen model. It does not yet reserve context capacity for output and reasoning using that model's limits.
 
 `nbinlineai/providers.py` sets an output ceiling of 16,384 tokens, 32,768 for effective `high` effort, or 65,536 for `xhigh`/`max`. This is a generation allowance, not the notebook context limit or an implemented reservation of room in it. Provider rules determine how input, output, and reasoning allowances interact.
 
-If a provider rejects the input, the error reaches `PromptHandler`. Its current error sanitization maps context overflow to the generic **“Model request failed”**. There is no automatic shrinking, summarization, continuation, or retry. A provider finish reason of `length` instead produces **“Model response exceeded the output limit”**. Both mark the answer failed; streamed partial text can remain, completed tool effects remain, and the failed exchange is not used as later history.
+If fixed material alone exceeds the application budget, the run stops before that provider call with a size error. Recognized provider context-overflow errors also receive an actionable message. There is no automatic summarization, continuation, or retry after provider rejection. A provider finish reason of `length` instead produces **“Model response exceeded the output limit”**. Both mark the answer failed; streamed partial text can remain, completed tool effects remain, and the failed exchange is not used as later history.
 
-The server emits source counts and `source_truncated` in its context event, but the current frontend does not display a truncation warning. Its “Using … preceding cells” status falls back to the submitted cell count. History omissions and a full token budget are not reported. See the [FAQ](faq.md#what-happens-if-the-request-exceeds-the-models-context-window) for user recovery steps.
+The server emits a context report before every provider round, with included/omitted/partial cell counts, source/history truncation, tool names, and counted characters. The frontend shows **Done · context trimmed** if any round shortened eligible context. Hover text explains the counts and explicitly labels them as character estimates. This report is transient browser state, not a persisted per-run transcript. See the [FAQ](faq.md#what-happens-if-the-request-exceeds-the-models-context-window) for user recovery steps.
 
 ### Future context selection
 
@@ -166,9 +167,17 @@ The tool result combines captured standard output with the return value's repres
 
 ### Bundled tools
 
-`nbinlineai.tools` supplies ten functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Four describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note`. The server does not automatically register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases, for the user to paste into a current AI prompt. A preceding Markdown list or printed code output does not change the run's allowlist.
+`nbinlineai.tools` supplies ten functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Four describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note`. Importing the package does not register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases. Paste these into an ordinary Markdown note or AI question; questions below inherit its declarations. Printed code output and AI answers do not declare tools.
 
 The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, while automatic source/history context keeps its preceding-cell boundary. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
+
+### Creating a tool declaration from Python
+
+`insert_tools(names=None, custom=None)` is a user helper, separate from the ten model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
+
+The Python helper sends a bounded request through a Jupyter comm. The frontend's native execution wrapper binds the actual outgoing execute-request ID and cell ID to the original notebook model and kernel. A matching comm request can insert the note; later active-cell or tab changes do not redirect it. The frontend acknowledges the inserted cell ID after the live-model change. Several calls in one execution preserve their order. Reexecuting the code deliberately creates fresh notes; rendering saved outputs does not replay an insertion.
+
+The helper returns an asynchronous receipt and does not wait inside the kernel's event loop. An immediate display can therefore say **requested** before the acknowledgement arrives. There is no nested event loop, provider tool loop, or automatic disk save. This bridge only inserts the generated Markdown; it does not expose arbitrary browser operations. Sources: `nbinlineai/kernel_insert_tools.py`, `src/insertTools.ts`, and `src/insertToolsProtocol.ts`.
 
 ### Frontend request/reply interface
 

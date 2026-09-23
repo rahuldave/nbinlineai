@@ -32,11 +32,11 @@ uv run jupyter lab
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## In version 0.1.6
+## In version 0.1.7
 
-- Import ten tools for Python inspection, saved-notebook searches, live cell reads, public documentation, and editable Markdown notes.
-- Generate a tool list with `tools_markdown()`, paste it into an AI prompt, and remove unwanted references.
-- Try the included notebooks on live values, callable tools, live notebook actions, web notes, and Socratic learning conversations.
+- Declare tools once in ordinary Markdown or an AI question; later AI questions inherit them, even when the declaration text no longer fits in context.
+- Keep the nearest preceding notes, code, and complete AI exchanges within a shared character budget, after accounting for tools and the current question.
+- See when context was trimmed, and try the updated examples with shared declarations and real function calls.
 
 ## Notebook conversations
 

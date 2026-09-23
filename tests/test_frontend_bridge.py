@@ -161,7 +161,7 @@ def test_aliased_special_tool_never_calls_kernel(monkeypatch: pytest.MonkeyPatch
                 assert event["name"] == "list_cells"
                 await bridge.reply(_reply(run, event), dispatcher)
         assert [event["type"] for event in events] == [
-            "context", "tool_start", "frontend_action", "tool_result", "text_delta", "done"
+            "context", "tool_start", "frontend_action", "tool_result", "context", "text_delta", "done"
         ]
         assert dispatcher.calls == []
         bridge.close(run)

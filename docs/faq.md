@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe **nbinlineai 0.1.6**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe **nbinlineai 0.1.7**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -92,28 +92,29 @@ Explicit references such as ``$`score` `` retrieve selected live values. A live 
 
 ### How does nbinlineai choose context when the notebook is large?
 
-Version 0.1.6 uses separate character limits, with different selection rules:
+Version 0.1.7 uses a shared **64,000-character estimate** for each provider request:
 
 | Material | Selection rule |
 | --- | --- |
-| Ordinary code and Markdown above the question | Start at the **top of the notebook**, include up to 50,000 source characters, and stop. The last included cell can be cut partway through. Later source is omitted. |
-| Completed earlier AI exchanges | Work backward from the most recent complete prompt/answer pair, keeping whole pairs within 16,000 characters. Stop at the first pair that does not fit, then send the retained pairs in their original order. |
-| Current question | Accept up to 16,000 characters before inserting live variable values. |
-| Number of preceding cells | Reject requests with more than 200 cells above the question, counting all cell types. This is a validation limit, not a rule that chooses 200 cells. |
+| Tools | Discover declarations throughout eligible cells above, then account for all their function descriptions first. Tools survive omission of the notes that declared them. |
+| Current question and instructions | Account for the question **after** live-value substitution, system/style instructions, and message formatting. |
+| Ordinary code, Markdown, and completed earlier AI exchanges | Start with the **nearest preceding** material and work upward until the remaining space is used. Send the retained material in its original order. |
+| Boundary cell | Keep the end of an ordinary source cell when only part fits, marked as partial. AI prompt/answer pairs stay whole; stop if the next pair will not fit. |
+| Tool rounds | Recalculate with the accumulated tool calls and results. Older notebook context may be removed to make room; completed tools are not replayed. |
 
-There is no relevance search or automatic summary. Ordinary source currently favors **earlier** cells; only AI history favors recent exchanges. If the newest AI exchange alone exceeds its history budget, no earlier AI history is included. These limits do not modify or delete notebook cells.
+There is no relevance search or automatic summary. This is a window that grows upward from the question, not a selection of scattered older cells that happen to fit. These limits do not modify or delete notebook cells. The old 200-cell restriction is removed; a separate transport safety limit accepts up to 10,000 preceding cells.
 
-The brief “Using … preceding cells” status counts the submitted cells; it does **not** guarantee that all their text reached the model. There is currently no detailed inclusion preview or visible truncation warning.
+The status reports included cells and offered tools. **Done · context trimmed** means a provider round omitted or shortened eligible context. Hover over the status for included, omitted, and partial cell counts, tool names, and the character estimate. This report lasts in the open browser session; it is not a saved transcript or exact model-token count.
 
 ### What happens if the request exceeds the model's context window?
 
-The character limits above do **not** guarantee that a request fits the selected model. nbinlineai does not yet count the complete request in model tokens or budget against that model's context window. Instructions, cell labels, inserted variable values, tool descriptions, and tool conversations add more input. Tool calls and results accumulate during a run without another context-selection pass.
+The character estimate above does **not** guarantee that a request fits the selected model. nbinlineai counts its serialized messages and tools, but does not yet use the model's tokenizer or reserve capacity according to its input, output, and reasoning rules. Custom models can have different limits.
 
-If the provider rejects an oversized request, the run fails. In 0.1.6, this normally appears as **“Model request failed”**; context-overflow errors do not yet have their own helpful message. nbinlineai does not automatically summarize, shrink, or retry the request. An error also stops the remaining cells in the current Run All batch.
+Before each provider call, nbinlineai trims optional notebook context to its character budget. If tools, instructions, the current question, and the ongoing tool conversation alone exceed that budget, it stops with an actionable size error. If the provider still rejects the request as too large, a recognized context-overflow error explains the problem. It does not automatically summarize or retry a rejected request. An error also stops the remaining cells in the current Run All batch.
 
 Partial answer text may remain, but the failed exchange is excluded from later AI history. Tool actions already completed remain in effect, so inspect any changes before rerunning. A failure on a later tool round can happen even though the first request fitted.
 
-To reduce the request, use a shorter notebook containing the needed setup and notes, shorten long source cells and questions, offer fewer tools, or pass a small summary variable instead of a large value. A model with a larger context window may help with provider overflow; it does not change nbinlineai's own character and cell limits. There are no per-cell context exclusion controls yet.
+To reduce the request, shorten long source cells and questions, remove unwanted tool declarations above, use smaller tool results, or pass a small summary variable instead of a large value. A model with a larger context window may help with provider overflow; it does not change nbinlineai's own character budget. There are no per-cell context exclusion controls yet.
 
 ### Is a long answer hitting an output limit the same problem?
 
@@ -183,9 +184,23 @@ Restart the **whole Jupyter server**, then refresh the browser. Restarting only 
 
 ### Can I put all my tool references in an ordinary Markdown cell?
 
-That cell supplies context, but does not register callable tools. The `&` references must appear in the **current AI prompt**. References in past AI prompts also do not carry forward. Import the functions into the kernel first, and use `print(tools_markdown())` from `nbinlineai.tools` to generate a list you can paste and shorten. See [Tools and examples](tools.md).
+Yes, from **0.1.7**. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `print(tools_markdown())` from `nbinlineai.tools` to generate a list you can paste and shorten. See [Tools and examples](tools.md).
 
-The same scope rule applies to `$` references: ordinary Markdown and previous AI cells do not cause fresh variable lookups. References inside quotations or fenced code in the current AI prompt are still recognized.
+Live `$` lookups still happen only in the current question. Tool references inside quotations or fenced code in eligible Markdown count as declarations; use a plain function name when merely discussing one.
+
+### Does an early tool disappear when its note no longer fits in context?
+
+No. Tool discovery scans all eligible cells above before choosing the text window. Its function schema stays available even when the declaration note is omitted. The callable must still exist in the live kernel; rerun imports or definitions after restarting it. Keep answer on the declaration's AI question does not disable inheritance.
+
+### Can I create the tools note without copying and pasting?
+
+Yes. Run `from nbinlineai.tools import insert_tools`, then `insert_tools(["search_kernel_names"])` in a Python cell after importing that function. The helper requests an ordinary Markdown declaration cell immediately below its calling code cell, without making an AI request. Custom functions are supported through the same `custom` mapping as `tools_markdown()`. See the [helper example](tools.md#insert-the-declaration-note-directly).
+
+Save normally. A deliberate rerun creates another note; simply reopening the notebook does not. The helper needs the nbinlineai JupyterLab frontend. `tools_markdown()` remains the option for plain text without a browser.
+
+### How do I stop offering an inherited tool?
+
+Remove all references to it from eligible cells above and from the current question, or move those declarations below the question. Changes apply on the next AI run; an already-running request keeps its snapshot. There is no per-question disable switch yet. Deleting or renaming the Python function alone leaves a missing declaration, which causes an error rather than silently dropping the tool.
 
 ### Why can't the file tools see my latest edit?
 
@@ -193,7 +208,7 @@ The same scope rule applies to `$` references: ordinary Markdown and previous AI
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. `tools_markdown()` lists ten bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into each prompt. The model can call only functions registered for that request. Ordinary functions run with the Python kernel's permissions; the four live notebook tools have a separate, limited browser interface.
+No. `tools_markdown()` lists ten bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into Markdown notes or AI questions. The model can call only functions declared above or in the current question. Ordinary functions run with the Python kernel's permissions; the four live notebook tools have a separate, limited browser interface.
 
 ### Can the AI read cells below my question now?
 

@@ -23,14 +23,17 @@ SOURCE_REQUIRED = {
     "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
     "docs/tools.md",
     "pyproject.toml", "package.json", "yarn.lock",
-    "src/index.ts", "src/frontendActions.ts", "style/index.css", "schema/plugin.json",
+    "src/index.ts", "src/frontendActions.ts", "src/insertTools.ts",
+    "src/insertToolsProtocol.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
     "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
+    "nbinlineai/context_budget.py", "nbinlineai/kernel_insert_tools.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
 } | EXAMPLE_REQUIRED
 WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
     "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
+    "nbinlineai/context_budget.py", "nbinlineai/kernel_insert_tools.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
     "share/doc/nbinlineai/docs/user-guide.md",

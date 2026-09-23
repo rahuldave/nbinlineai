@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.6. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Version 0.1.6 adds bundled tools and example notebooks; the notebook Keep default and native Run All integration were introduced in 0.1.5.
+This guide describes nbinlineai 0.1.7. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see. Version 0.1.7 adds inherited tool declarations and nearest-first context selection; the bundled tools arrived in 0.1.6 and native Run All integration in 0.1.5.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -219,7 +219,7 @@ nbinlineai takes a snapshot when a prompt reaches its turn to execute. During Ru
 | The current prompt text | Yes. |
 | Code cell source above the prompt | Yes, within size limits. This can include unexecuted or edited code. |
 | Ordinary Markdown notes above the prompt | Yes, as source text alongside code in notebook order. This includes explanations, assignment instructions, and equations written in Markdown or LaTeX. |
-| Earlier AI prompts and their completed, paired answers | Yes, when both are above the current prompt, within the history limit. |
+| Earlier AI prompts and their completed, paired answers | Yes, when both are above the current prompt, within the shared context budget. |
 | Raw cells above the prompt | No, currently. |
 | Printed output, tracebacks, tables, plots, or images from code cells | No, currently. Include relevant text explicitly or refer to a prepared variable. |
 | Cell source below the prompt | No. |
@@ -228,7 +228,7 @@ nbinlineai takes a snapshot when a prompt reaches its turn to execute. During Ru
 
 AI prompt/answer cells are also Markdown, but they enter through conversation history instead of the ordinary source context. They are not included twice. Pending, cancelled, failed, or unpaired AI exchanges are not added as ordinary Markdown notes.
 
-**Large notebooks:** ordinary code and Markdown are collected from the **top downward** until 50,000 source characters are reached; nearer cells can therefore be omitted. AI history separately keeps recent complete exchanges within 16,000 characters. More than 200 preceding cells rejects the request. These character limits do not guarantee that the complete request fits the model's token limit, and the cell-count status is not a complete inclusion report. See [how context is chosen](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large) and [what happens on model context overflow](faq.md#what-happens-if-the-request-exceeds-the-models-context-window).
+**Large notebooks:** first account for tools, instructions, and the current question, then collect context from the **nearest preceding cells upward** within a shared 64,000-character estimate. Old source may be omitted or its beginning cut; AI exchanges are kept as complete pairs. Tool declarations above remain available even when their note is outside this window. **Done · context trimmed** reports shortening; hover over the status for counts and tool names. This is a character estimate, not a guarantee that the request fits every model. See [how context is chosen](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large) and [model context overflow](faq.md#what-happens-if-the-request-exceeds-the-models-context-window).
 
 For example:
 
@@ -281,11 +281,11 @@ The screenshot below shows a variant that changes the live variable: its functio
 
 References must be simple Python names, not expressions such as `df.head()` or `obj.attribute`. Assign an expression to a named variable first if you want to reference its result.
 
-Only functions explicitly named with `&` in the current prompt are exposed as tools. The extension reads their signatures and docstrings, describes them to the model, checks returned arguments, and calls them in the same notebook kernel. These are real function calls and can change variables or perform other actions implemented by your function. A reference permits a call; it does not guarantee that the model will choose to make one.
+Functions named with `&` in the current question or any ordinary Markdown/AI question above it are exposed as tools. The extension reads their current signatures and docstrings, describes them to the model, checks returned arguments, and calls them in the same notebook kernel. These are real function calls and can change variables or perform other actions implemented by your function. A reference permits a call; it does not guarantee that the model will choose to make one.
 
-Putting tool references in an ordinary Markdown cell above supplies context but does **not** register tools. References in an earlier AI prompt also do not carry forward. Put the references in each AI cell that should be allowed to use them; the same rule applies to live `$` variable interpolation. The current prompt is scanned even inside quotations and fenced code blocks.
+From **0.1.7**, declare tools once in a Markdown note and use them in questions below. Several notes can add different tools; duplicate names are registered once. Declarations remain effective even when their text is omitted from context for space. AI answers, code, raw cells, and cells below the question do not register tools. Eligible Markdown is scanned even inside quotations and fenced code blocks. Live `$` variable interpolation remains limited to the **current question**.
 
-From **0.1.6**, `nbinlineai.tools` includes ten tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into the current AI cell and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
+`nbinlineai.tools` includes ten tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into a Markdown note above your questions and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
 
 Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this does not change automatic context, which still looks above it. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default. Save the notebook to preserve them. Rerunning a prompt can insert another note, and cancelling does not undo a note already inserted. The four tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
 
@@ -367,11 +367,11 @@ Current size limits are deliberately bounded:
 
 | Item | Limit and behavior |
 | --- | --- |
-| Preceding cells | More than 200 preceding cells rejects the request; this count includes all cell types. |
-| Code and ordinary Markdown source | A combined limit of 50,000 source characters, collected in notebook order from the top downward; excess source is omitted. AI exchanges use the separate history budget. |
-| Conversation history | Up to 16,000 characters across complete prompt/answer pairs, starting with the newest pair and stopping when the next pair does not fit. |
+| Request context | A shared 64,000-character estimate covering serialized tools and messages. Tools, instructions, the expanded question, and ongoing tool traffic take priority; remaining space goes to nearest preceding source and complete AI pairs. |
+| Preceding cells | Up to 10,000 cells in the snapshot as a transport safety limit. All eligible cells are scanned for tool declarations before text selection. |
+| Source at the context boundary | An ordinary code/Markdown cell may contribute only its ending, labeled partial. AI pairs are never split. Older material is omitted. |
 | Current prompt | Up to 16,000 characters before live-value substitution. |
-| Live references | Up to 20 distinct variable/function names per prompt. |
+| Live references | Up to 20 distinct names combined: current-question variables plus all inherited/current tools. |
 | Variable representation | Up to 2,000 characters per value. |
 | Function result | Up to 4,000 characters per tool result. |
 | Tool rounds | Default 5; configurable from 0 to 10 in nbinlineai's JupyterLab settings. |

@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 
+from fastllm.acomplete import ContextWindowExceededError as ProviderContextWindowExceededError
 from fasttransport.errors import APIError
 from jupyter_server.auth.decorator import authorized
 from jupyter_server.auth.identity import IdentityProvider, PasswordIdentityProvider
@@ -29,6 +30,8 @@ def _require_single_user_server(handler):
 
 
 def _safe_provider_error(exc: APIError) -> str:
+    if isinstance(exc, ProviderContextWindowExceededError):
+        return "Model context window exceeded. Shorten the prompt or notebook context, or register fewer tools."
     if exc.status_code in (401, 403):
         return "API key rejected; check Configure AI"
     if exc.status_code == 429:

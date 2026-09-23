@@ -1,4 +1,4 @@
-"""Only the active AI prompt can opt into live kernel references."""
+"""Current variables and inherited Markdown tool references."""
 
 import asyncio
 import json
@@ -6,15 +6,16 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+import pytest
 from aidialog.msg_parts import Completion, Msg, Text, ToolUse
 from jupyter_client import AsyncKernelManager
 
 from nbinlineai import providers
-from nbinlineai.prompt import run_prompt
+from nbinlineai.prompt import run_prompt, validate_request
 
 
 def _preceding_cells() -> list[dict[str, Any]]:
-    """Return ordinary source and prior AI history with inert references."""
+    """Return ordinary source and prior AI history with mixed references."""
     return [
         {
             "id": "notes",
@@ -61,7 +62,7 @@ def _request(prompt: str) -> dict[str, Any]:  # prompt: current AI cell text
 
 
 class RecordingDispatcher:
-    """Record precisely which live names the active prompt requests."""
+    """Record fresh inspection of current variables and inherited tools."""
 
     def __init__(self) -> None:
         """Start with no kernel operations."""
@@ -75,18 +76,16 @@ class RecordingDispatcher:
         variables: list[str],  # names requested by the current prompt
         functions: list[str],  # callable names requested by the current prompt
     ) -> dict[str, Any]:
-        """Return descriptions only for the two allowed current references."""
+        """Return descriptions for every requested name without executing tools."""
         assert kernel_id == "test-kernel"
         self.inspections.append((variables, functions))
-        assert variables == ["live_value"]
-        assert functions == ["do_work"]
-        return {
-            "live_value": {"type": "int", "repr": "7"},
-            "do_work": {
+        result = {name: {"type": "int", "repr": "7"} for name in variables}
+        result.update({name: {
                 "docstring": "Add to the live value.",
-                "parameters": {"value": {"type": "int", "description": "Amount to add"}},
-            },
-        }
+                "parameters": ({"value": {"type": "int", "description": "Amount to add"}}
+                               if name == "do_work" else {}),
+            } for name in functions})
+        return result
 
     async def call(
         self,
@@ -104,8 +103,8 @@ class RecordingDispatcher:
         return "10"
 
 
-def test_prior_source_and_ai_history_references_are_context_only(monkeypatch) -> None:  # monkeypatch: pytest fixture
-    """Previous cells cannot trigger inspection or register provider tools."""
+def test_markdown_and_ai_questions_inherit_tools_without_prior_variables(monkeypatch) -> None:  # monkeypatch: pytest fixture
+    """Ordinary Markdown and AI questions register tools; code/answers do not."""
     dispatcher = RecordingDispatcher()
     captured: dict[str, Any] = {}
 
@@ -128,11 +127,11 @@ def test_prior_source_and_ai_history_references_are_context_only(monkeypatch) ->
         )]
 
     events = asyncio.run(collect())
-    assert dispatcher.inspections == []
+    assert dispatcher.inspections == [([], ["markdown_tool", "history_tool"])]
     assert dispatcher.calls == []
-    assert captured["tools"] == []
+    assert [tool["name"] for tool in captured["tools"]] == ["markdown_tool", "history_tool"]
     assert [event["type"] for event in events] == ["context", "text_delta", "done"]
-    assert events[0]["variables"] == {} and events[0]["tools"] == []
+    assert events[0]["variables"] == {} and events[0]["tools"] == ["markdown_tool", "history_tool"]
     system, old_prompt, old_answer, current_prompt = captured["messages"]
     assert "$`markdown_value`" in system.text and "&`markdown_tool`" in system.text
     assert "$`code_value`" in system.text and "&`code_tool`" in system.text
@@ -166,27 +165,114 @@ def test_only_current_references_expand_and_register_a_callable(monkeypatch) -> 
     async def collect() -> list[dict[str, Any]]:
         """Consume the function round without provider or kernel I/O."""
         return [event async for event in run_prompt(
-            _request("Use $`live_value` and $`live_value`; call &`do_work` once."),
+            _request("Use $`live_value` and $`live_value`; call &`do_work` and &`markdown_tool` once."),
             dispatcher,
             "test-kernel",
             object(),
         )]
 
     events = asyncio.run(collect())
-    assert dispatcher.inspections == [(["live_value"], ["do_work"])]
-    assert dispatcher.calls == [({"do_work"}, "do_work", {"value": 3})]
+    assert dispatcher.inspections == [(["live_value"], ["do_work", "markdown_tool", "history_tool"])]
+    assert dispatcher.calls == [({"do_work", "markdown_tool", "history_tool"}, "do_work", {"value": 3})]
     assert [event["type"] for event in events] == [
-        "context", "tool_start", "tool_result", "text_delta", "done"
+        "context", "tool_start", "tool_result", "context", "text_delta", "done"
     ]
     assert events[0]["variables"]["live_value"]["repr"] == "7"
-    assert events[0]["tools"] == ["do_work"]
+    assert events[0]["tools"] == ["do_work", "markdown_tool", "history_tool"]
     first_messages, first_tools = provider_calls[0]
-    assert [tool["name"] for tool in first_tools] == ["do_work"]
-    assert first_messages[-1].text == "Use 7 and 7; call &`do_work` once."
+    assert [tool["name"] for tool in first_tools] == ["do_work", "markdown_tool", "history_tool"]
+    assert first_messages[-1].text == "Use 7 and 7; call &`do_work` and &`markdown_tool` once."
     assert "$`markdown_value`" in first_messages[0].text
     assert "$`history_value`" in first_messages[1].text
     assert provider_calls[1][0][-1].role == "tool"
     assert provider_calls[1][0][-1].content[0].text == "10"
+
+
+def test_old_markdown_declaration_survives_context_trimming(monkeypatch) -> None:  # monkeypatch: pytest fixture
+    """Scan all submitted cells for tools before the context budget drops old prose."""
+    dispatcher = RecordingDispatcher()
+    captured: dict[str, Any] = {}
+
+    async def fake_complete(
+        backend: str,  # Selected provider.
+        model: str,  # Selected model.
+        messages: list[Msg],  # Budgeted provider messages.
+        tools: list[dict[str, Any]],  # Registered schemas.
+    ) -> Completion:
+        """Record the provider payload without making a network request."""
+        captured.update(messages=messages, tools=tools)
+        return Completion(model, Msg("assistant", [Text("Ready.")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {
+        "openai_api": {"configured": True}
+    })
+    cells = [{"id": "old-tool", "cell_type": "markdown", "source": "Use &`old_tool`."}]
+    cells.extend({"id": f"note-{index}", "cell_type": "markdown", "source": "x" * 300}
+                 for index in range(250))
+    body = validate_request({**_request("Please answer."), "preceding_cells": cells})
+
+    async def collect() -> list[dict[str, Any]]:
+        """Exercise the real selection path with a fake dispatcher and provider."""
+        return [event async for event in run_prompt(body, dispatcher, "test-kernel", object())]
+
+    events = asyncio.run(collect())
+    assert dispatcher.inspections == [([], ["old_tool"])]
+    assert [tool["name"] for tool in captured["tools"]] == ["old_tool"]
+    assert "Use &`old_tool`." not in captured["messages"][0].text
+    assert events[0]["preceding_cell_count"] == 251
+    assert events[0]["cell_count"] < 251
+    assert events[0]["source_truncated"] is True
+
+
+def test_inherited_refs_count_toward_combined_limit() -> None:
+    """Reject inherited tools beyond the combined current-variable/tool cap."""
+    body = {**_request("Explain $`current_value`."), "preceding_cells": [
+        {"id": "catalog", "cell_type": "markdown",
+         "source": " ".join(f"&`tool_{index}`" for index in range(20))}
+    ]}
+
+    async def collect() -> None:
+        """The validation error occurs before any dispatcher interaction."""
+        async for _event in run_prompt(body, RecordingDispatcher(), "test-kernel", object()):
+            pass
+
+    with pytest.raises(ValueError, match="including inherited tools"):
+        asyncio.run(collect())
+
+
+def test_repeated_live_variable_expansion_can_exhaust_fixed_budget(monkeypatch) -> None:  # monkeypatch: pytest fixture
+    """Count expanded current text before any provider call or source selection."""
+    class LargeValueDispatcher(RecordingDispatcher):
+        """Return a short-name variable with a large live representation."""
+
+        async def inspect(
+            self,
+            kernel_id: str,  # Bound kernel identifier.
+            kernel: object,  # Test kernel placeholder.
+            variables: list[str],  # Requested current-prompt variables.
+            functions: list[str],  # Requested tool names.
+        ) -> dict[str, Any]:
+            """Expand one variable into repeated fixed prompt material."""
+            assert variables == ["big"] and functions == []
+            return {"big": {"type": "str", "repr": "x" * 40_000}}
+
+    async def unexpected_complete(*_args: Any, **_kwargs: Any) -> Completion:
+        """A fixed-budget overflow must never contact a provider."""
+        raise AssertionError("provider should not be called")
+
+    monkeypatch.setattr(providers, "complete", unexpected_complete)
+
+    async def collect() -> None:
+        """Expand the same live variable twice in one current question."""
+        async for _event in run_prompt(
+            {**_request("Compare $`big` and $`big`."), "preceding_cells": []},
+            LargeValueDispatcher(), "test-kernel", object()
+        ):
+            pass
+
+    with pytest.raises(ValueError, match="Shorten the prompt"):
+        asyncio.run(collect())
 
 
 class _NotebookSessions:
@@ -235,6 +321,54 @@ async def _execute_setup(
                 return
     finally:
         client.stop_channels()
+
+
+def test_inherited_tool_is_inspected_fresh_after_kernel_redefinition(monkeypatch) -> None:  # monkeypatch: pytest fixture
+    """A Markdown declaration resolves the current callable signature on every run."""
+    from nbinlineai.kernel import KernelDispatcher
+
+    seen_parameters: list[set[str]] = []
+
+    async def fake_complete(
+        backend: str,  # Selected provider.
+        model: str,  # Selected model.
+        messages: list[Msg],  # Current notebook context.
+        tools: list[dict[str, Any]],  # Freshly inspected callable schemas.
+    ) -> Completion:
+        """Record the live schema for this run."""
+        assert backend == "openai_api"
+        seen_parameters.append(set(tools[0]["parameters"]["properties"]))
+        return Completion(model, Msg("assistant", [Text("Ready.")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    body = {**_request("Use the declared helper."), "preceding_cells": [
+        {"id": "catalog", "cell_type": "markdown", "source": "Available: &`changing`"}
+    ]}
+
+    async def run() -> None:
+        """Redefine and then remove one callable in a real IPython kernel."""
+        kernel = AsyncKernelManager(kernel_name="python3")
+        await kernel.start_kernel()
+        try:
+            dispatcher = KernelDispatcher(_NotebookSessions(), _NotebookKernels(kernel))
+            kernel_id, bound_kernel = await dispatcher.resolve("test-session")
+            await _execute_setup(kernel, "def changing(first: int) -> str:\n    return str(first)")
+            assert [event["type"] async for event in run_prompt(
+                body, dispatcher, kernel_id, bound_kernel
+            )] == ["context", "text_delta", "done"]
+            await _execute_setup(kernel, "def changing(second: str) -> str:\n    return second")
+            assert [event["type"] async for event in run_prompt(
+                body, dispatcher, kernel_id, bound_kernel
+            )] == ["context", "text_delta", "done"]
+            await _execute_setup(kernel, "del changing")
+            with pytest.raises(ValueError, match="changing: Name is not defined"):
+                async for _event in run_prompt(body, dispatcher, kernel_id, bound_kernel):
+                    pass
+        finally:
+            await kernel.shutdown_kernel(now=True)
+
+    asyncio.run(run())
+    assert seen_parameters == [{"first"}, {"second"}]
 
 
 def test_imported_builtin_tools_execute_through_a_real_kernel(
@@ -311,11 +445,12 @@ def test_imported_builtin_tools_execute_through_a_real_kernel(
                     name, arguments, expected, seen_results, state
                 ))
                 events = [event async for event in run_prompt(
-                    _request(f"Use &`{name}` for this task."), dispatcher, kernel_id, bound_kernel
+                    {**_request(f"Use &`{name}` for this task."), "preceding_cells": []},
+                    dispatcher, kernel_id, bound_kernel
                 )]
                 assert state["calls"] == 2
                 assert [event["type"] for event in events] == [
-                    "context", "tool_start", "tool_result", "text_delta", "done"
+                    "context", "tool_start", "tool_result", "context", "text_delta", "done"
                 ]
                 assert events[0]["tools"] == [name]
                 assert expected in seen_results[0]

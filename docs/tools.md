@@ -4,7 +4,7 @@ title: Tools and examples
 
 # Tools and example notebooks
 
-Starting with **0.1.6**, nbinlineai includes ten tools and a helper that writes their Markdown references for you. Tools can inspect Python state, read saved notebooks, read the open notebook's unsaved cells, retrieve public documentation, and insert Markdown notes. Importing them does not expose them to the model automatically.
+nbinlineai includes ten tools and a helper that writes their Markdown references for you. Tools can inspect Python state, read saved notebooks, read the open notebook's unsaved cells, retrieve public documentation, and insert Markdown notes. From **0.1.7**, declare tools once in ordinary Markdown or an AI question and they remain available to later AI questions below. Importing them alone does not expose them to the model.
 
 ## Import, print, paste
 
@@ -28,15 +28,19 @@ from nbinlineai.tools import (
 print(tools_markdown())
 ```
 
-Copy the printed Markdown into the **AI Prompt cell you are about to run**. Add your question, and remove any tool lines you do not want available. For example:
+Copy the printed Markdown into an **ordinary Markdown cell above your AI questions**. Remove any tool lines you do not want available. For example, this note declares just one tool:
 
 ```text
-Find the names of live variables containing "score", and tell me their types.
-
 - &`search_kernel_names` — Search names in the live Python kernel.
 ```
 
-Run the AI cell. The model receives a function description and can call it with arguments. It is still the model's choice whether to call a tool; ask it to use the tool when the task requires a lookup.
+Now add an AI Prompt below it:
+
+```text
+Use the search tool to find live variables containing "score", and tell me their types.
+```
+
+Run the AI cell. The software finds the declaration above and sends the model a function description. Later AI questions inherit it too, without repeating `&`. It is still the model's choice whether to call a tool; ask it to use the tool when the task requires a lookup. You can also declare tools directly in an AI question, as in earlier versions.
 
 To print only a subset:
 
@@ -46,23 +50,45 @@ print(tools_markdown(["find_notebook_cells", "read_notebook_cell"]))
 
 `tools_markdown()` returns a string. It is a convenience function for you, and is not included in the generated tool list. Six tools also work as direct Python calls; the four tools that access the open notebook require an AI prompt running through the extension.
 
-![Generated tool references and a prompt using a bundled function to find a live kernel name](images/bundled-tools.png)
+![A Markdown tool declaration shared by AI questions below it](images/inherited-tools.png)
 
-This demonstration uses a simulated provider and a real Python kernel; the imported function performs the actual name lookup.
+This demonstration uses a simulated provider and a real Python kernel; the declared custom function actually changes the live bonus counter.
 
 ### Where do the references belong?
 
 | Where a reference appears | What happens |
 | --- | --- |
-| In the **current AI prompt**, as ``&`function_name` `` | Registers that imported function as a callable tool for this request. |
+| In the **current AI prompt**, as ``&`function_name` `` | Registers that function for this request and makes it available to later questions below. |
 | In the **current AI prompt**, as ``$`variable_name` `` | Reads that variable's current kernel value into the request. |
-| In an ordinary Markdown cell above | Supplies source text as context; does not register tools or read variables. |
-| In an earlier AI prompt/answer | Can supply conversation history; does not register tools for the new request. |
-| In the printed output of a Python cell | Does not register tools. Ordinary code outputs are not included in automatic context. Copy the references into the AI prompt. |
+| In an ordinary Markdown cell above | `&` declares tools for questions below; `$` stays literal text. The note need not be executed. |
+| In an earlier AI question | `&` declares tools for questions below, even if that question was never run or its answer is kept. `$` is not read again. |
+| In an AI answer | Does not register tools or read variables, including after manual edits. Copy an intended declaration into an ordinary Markdown note. |
+| In code source, raw cells, or printed output | Does not register tools. Copy the references into a Markdown note or AI question. |
+| In any cell below the current question | Does not register tools for that question. |
 
-References in the current prompt are detected even inside fenced code blocks or quotations. Remove a reference entirely if you do not want it registered. Only simple Python names are supported: import a function directly rather than writing a module-qualified reference such as `tools.list_notebooks`.
+References in eligible Markdown are detected even inside fenced code blocks or quotations. Use a plain name such as `search_kernel_names` when merely discussing a function. Only simple Python names are supported in references: import a function directly rather than writing a module-qualified reference such as `tools.list_notebooks`.
 
-Each new AI prompt needs its own tool references. Merely discussing a function, importing it, or listing it in notes does not grant the model access to it.
+Several notes can add tools at different points; duplicates are registered once. Discovery scans the full preceding snapshot **before** text is shortened to fit the context budget, so early declarations survive even when their prose is omitted. Function descriptions still consume budget. Functions are inspected afresh in the live kernel on each run: rerun imports after a restart, and rerun a definition to use its changed implementation.
+
+To withdraw a tool from later requests, remove all its `&` declarations above and in the current question, or move the declaration below the question. There is no per-question tool exclusion switch yet. A missing declared function causes an error before contacting the provider. A note inserted by `insert_markdown` or `url_to_note` is ordinary Markdown, so any literal tool references in it also become declarations for later questions; review imported notes accordingly.
+
+### Insert the declaration note directly
+
+To avoid copying the printed output, run this in a Python code cell in JupyterLab:
+
+```python
+from nbinlineai.tools import search_kernel_names, inspect_python, insert_tools
+
+insert_tools(["search_kernel_names", "inspect_python"])
+```
+
+`insert_tools()` requests a new ordinary Markdown declaration cell directly below the code cell where it is called. It uses the same selection and `custom` aliases as `tools_markdown()`. Import or define the selected functions first. The helper is not a model tool and makes no provider request; the AI questions below inherit the inserted declarations normally.
+
+The immediate result says **requested**. The browser inserts the cell and acknowledges it asynchronously. To inspect the acknowledgement, assign `receipt = insert_tools(...)`, then examine `receipt.status`, `receipt.cell_id`, or `receipt.error` in a later code cell. No acknowledgement within 30 seconds marks the receipt as an error; check whether the note already appeared before retrying, since a lost acknowledgement does not undo insertion.
+
+Edit the new note to remove tools or add explanation, then save the notebook. Running the helper again requests another note; it does not overwrite an edited declaration. Reopening the notebook does not rerun the insertion. This helper needs the running nbinlineai JupyterLab frontend, so use `tools_markdown()` to obtain plain text in a terminal or headless notebook.
+
+The notebook's Python kernel needs ipykernel 6.18 or newer for this helper. Installing nbinlineai enforces that requirement in its environment; if you select a kernel from a different environment, install or upgrade nbinlineai there too.
 
 ## Included tools
 
@@ -174,7 +200,7 @@ from nbinlineai.tools import read_cell as read_live
 print(tools_markdown(["read_live"], custom={"read_live": read_live}))
 ```
 
-Copying the resulting reference into an AI prompt allows that alias for this request. The helper does not import or register anything on its own.
+Copying the resulting reference into a Markdown note makes the alias available to AI questions below. A reference in an AI question works for that question and later ones too. The helper does not import or register anything on its own.
 
 The bundled tools were inspired by [dialoghelper](https://github.com/AnswerDotAI/dialoghelper)'s helpers. They use Jupyter's kernel, saved `.ipynb` files, and nbinlineai's own frontend interface; installing nbinlineai does not require Solveit, dialoghelper, or ipylab.
 

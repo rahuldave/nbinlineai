@@ -37,6 +37,39 @@ async def fake_complete(
         for part in getattr(message, "content", [])
         if isinstance(part, (Text, ToolResult))
     )
+    schema_names = [tool["name"] for tool in tools]
+    system_text = "".join(
+        part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
+    )
+    if "E2E_INHERIT_INSPECT" in current_user:
+        details = (
+            f"INHERITED_SCHEMAS={','.join(schema_names)}; "
+            f"OLD_SOURCE={'OLD_SOURCE_SHOULD_TRIM' in system_text}; "
+            f"NEAR_SOURCE={'NEAREST_SOURCE_INCLUDED' in system_text}; "
+            f"ANSWER_ONLY_SOURCE={'ANSWER_ONLY_DECLARATION' in system_text}; "
+            f"CODE_ONLY_SOURCE={'CODE_ONLY_DECLARATION' in system_text}; "
+            f"CURRENT_QUESTION={current_user}"
+        )
+        return Completion(model=model, message=Msg("assistant", [Text(details)]))
+    if ("E2E_INHERIT_CALL_BUMP" in current_user
+            or "E2E_INHERIT_CALL_ALIAS" in current_user
+            or "Use the available `record_bonus` function exactly once" in current_user):
+        name = ("record_bonus" if "record_bonus" in current_user else
+                "bump_alias" if "E2E_INHERIT_CALL_ALIAS" in current_user else "bump")
+        if name not in schema_names:
+            return Completion(model=model, message=Msg("assistant", [Text(f"MISSING_DECLARED_SCHEMA {name}")]))
+        results = [
+            part for message in messages for part in getattr(message, "content", [])
+            if isinstance(part, ToolResult)
+        ]
+        if not results:
+            arguments = {"points": 4} if name == "record_bonus" else {"value": 4}
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-inherited-call", name=name, arguments=arguments,
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"The declared {name} function ran in this notebook's Python kernel. Result: {results[-1].text}"
+        )]))
     if "E2E_ERROR" in transcript:
         raise RuntimeError("E2E synthetic provider failure")
     if "E2E_SLOW" in transcript:
@@ -118,7 +151,11 @@ async def fake_complete(
         return Completion(model=model, message=Msg("assistant", [Text(
             f"Web note result: {results[-1].text}"
         )]))
-    if "&`search_kernel_names`" in current_user and "study_roster_marker" in current_user:
+    if "search_kernel_names" in current_user and "study_roster_marker" in current_user:
+        if "search_kernel_names" not in schema_names:
+            return Completion(model=model, message=Msg("assistant", [Text(
+                "MISSING_DECLARED_SCHEMA search_kernel_names"
+            )]))
         results = [
             part for message in messages
             for part in getattr(message, "content", [])

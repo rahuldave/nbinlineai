@@ -54,7 +54,8 @@ test('shipped bundled-tools notebook imports a read-only tool and returns its re
   const posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
   await prompt.locator('[data-nbinlineai-run]').click();
   const body = (await posted).postDataJSON();
-  expect(body.prompt).toContain('&`search_kernel_names`');
+  expect(body.prompt).not.toContain('&`search_kernel_names`');
+  expect(body.preceding_cells.some((cell: any) => cell.source.includes('&`search_kernel_names`') && cell.cell_type === 'markdown')).toBeTruthy();
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const answer = notebook.locator('.nbinlineai-response-cell');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('study_roster_marker');

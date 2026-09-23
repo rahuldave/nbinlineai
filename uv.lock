@@ -1123,10 +1123,12 @@ wheels = [
 
 [[package]]
 name = "nbinlineai"
-version = "0.1.6"
+version = "0.1.7"
 source = { editable = "." }
 dependencies = [
+    { name = "comm" },
     { name = "filelock" },
+    { name = "ipykernel" },
     { name = "jupyter-server" },
     { name = "jupyterlab" },
     { name = "python-dotenv" },
@@ -1141,7 +1143,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "comm", specifier = ">=0.2,<1" },
     { name = "filelock", specifier = ">=3.32,<4" },
+    { name = "ipykernel", specifier = ">=6.18" },
     { name = "jupyter-server", specifier = ">=2,<3" },
     { name = "jupyterlab", specifier = ">=4.2,<5" },
     { name = "python-dotenv", specifier = ">=1,<2" },
