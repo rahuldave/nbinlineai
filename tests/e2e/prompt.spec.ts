@@ -19,6 +19,10 @@ function code(source: string): Cell {
   return { id: Math.random().toString(36).slice(2, 10), cell_type: 'code', source, metadata: {}, outputs: [], execution_count: null };
 }
 
+function markdown(source: string): Cell {
+  return { id: Math.random().toString(36).slice(2, 10), cell_type: 'markdown', source, metadata: {} };
+}
+
 async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[]) {
   const name = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}.ipynb`;
   const notebook = {
@@ -108,6 +112,23 @@ test('context stops at prompt and live variable comes from the running kernel', 
   await expect(answer).toContainText('x = 999');
   await expect(answer).toContainText('E2E_CONTEXT inspect 7');
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/done|complete|ready/i);
+});
+
+test('server context includes ordinary Markdown above the prompt in notebook order', async ({ page, request }) => {
+  await openNotebook(page, request, [
+    markdown('## MD_ABOVE_DETERMINISTIC\nThe assignment asks for a short explanation.'),
+    code('value = 5 # CODE_AFTER_MARKDOWN'),
+    markdown('## MD_BELOW_EXCLUDED\nThis belongs after the prompt.')
+  ]);
+  const prompt = await insertPrompt(page, 1, 'E2E_BASIC use the notebook context');
+  await prompt.locator('button[data-nbinlineai-run]').click();
+  await expect(prompt.locator('.nbinlineai-status')).toContainText('Done');
+  const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
+  await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('MD_ABOVE_DETERMINISTIC');
+  await expect(answer).toContainText('CODE_AFTER_MARKDOWN');
+  await expect(answer).not.toContainText('MD_BELOW_EXCLUDED');
+  const rendered = await answer.innerText();
+  expect(rendered.indexOf('MD_ABOVE_DETERMINISTIC')).toBeLessThan(rendered.indexOf('CODE_AFTER_MARKDOWN'));
 });
 
 test('provider selection is sent with the prompt and ordinary code still runs', async ({ page, request }) => {

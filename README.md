@@ -4,7 +4,7 @@ Write AI prompts directly in JupyterLab notebooks. Each prompt has its own OpenA
 
 ## User manual
 
-The full Markdown manual is `USER_GUIDE.md` in the source checkout. It covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. Future package builds also include it in the source archive and install it under `share/doc/nbinlineai/USER_GUIDE.md` in the Python environment. The quick start below is self-contained.
+The full Markdown manual is `USER_GUIDE.md` in the source checkout and source archive. It covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. Starting with 0.1.2, packages also install it under `share/doc/nbinlineai/USER_GUIDE.md` in the Python environment. The quick start below is self-contained.
 
 ## Quick start
 
@@ -17,7 +17,7 @@ You need Python 3.11 or newer and JupyterLab 4.
 
 | To… | Do this |
 | --- | --- |
-| Ask about earlier code | Write an ordinary question. The AI sees code above the prompt and earlier AI turns. |
+| Ask about earlier code or notes | Write an ordinary question. The AI sees code and ordinary Markdown above the prompt, plus earlier AI turns. |
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
 | Revise an answer | Edit the prompt and run it again; its existing answer is updated. |
@@ -30,7 +30,7 @@ Ordinary code cells keep their normal execution behavior. See the runnable examp
 
 - **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
 - **Editing and rerunning:** edit a prompt and run it again to replace its paired answer. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically.
-- **Context:** code source above the prompt and completed earlier AI prompt/answer pairs are included within size limits. Ordinary Markdown notes, raw cells, code outputs, plots, and images are currently omitted.
+- **Context:** code and ordinary Markdown source above the prompt are included in notebook order within size limits. Completed earlier AI prompt/answer pairs are included separately as conversation history, without duplicating their text in the source context. Raw cells and code outputs are omitted; image data is not sent.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
 
@@ -94,7 +94,7 @@ The source distribution also includes `examples/quickstart.ipynb` with these cel
 
 `$` followed by a backtick-quoted Python name uses its **live value from the running kernel**. This can differ from what the notebook source currently says. To let the model call a function you defined in the kernel, name it with `&`, for example ``Call &`add_bonus` with value 3``. Only functions named in that prompt are made available as tools. This release supports ordinary synchronous Python functions with named parameters and simple annotations. Function calls can change notebook state; cancelling a prompt cannot undo an earlier call.
 
-The model sees bounded code source from cells **above** the prompt and earlier AI turns. It does not see later cells. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
+The model sees bounded code and ordinary Markdown source from cells **above** the prompt and earlier AI turns. Your explanations, assignment instructions, equations, and other Markdown notes are included as text. It does not see later cells. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 
 This release supports text prompts and Python kernels. It does not send notebook images or rich outputs as model context, and it does not offer ChatGPT subscription sign-in.
 

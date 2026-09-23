@@ -9,7 +9,7 @@ from jupyter_client import AsyncKernelManager
 from nbinlineai import providers
 from nbinlineai.config import DEFAULT_MODELS, MODEL_CHOICES
 from nbinlineai.kernel import KernelDispatcher
-from nbinlineai.prompt import _history, run_prompt, validate_request
+from nbinlineai.prompt import _history, _source_context, run_prompt, validate_request
 from nbinlineai.tool_schema import fastllm_tool
 
 
@@ -127,6 +127,62 @@ def test_history_only_complete_pairs():
         {"id": "o2", "cell_type": "markdown", "source": "partial", "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "p2", "status": "running"}}},
     ]
     assert [(m.role, m.text) for m in _history(cells)] == [("user", "question"), ("assistant", "answer")]
+
+
+@pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
+def test_mixed_notebook_source_is_ordered_without_ai_history_duplication(monkeypatch, backend):
+    cells = [
+        {"id": "md-1", "cell_type": "markdown", "source": "# Study notes"},
+        {"id": "code-1", "cell_type": "code", "source": "x = 7", "execution_count": 3},
+        {"id": "prompt-1", "cell_type": "markdown", "source": "Earlier AI question", "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        {"id": "answer-1", "cell_type": "markdown", "source": "Earlier AI answer", "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "prompt-1", "status": "done"}}},
+        {"id": "prompt-2", "cell_type": "markdown", "source": "Pending AI question", "metadata": {"nbinlineai": {"is_prompt_cell": True}}},
+        {"id": "answer-2", "cell_type": "markdown", "source": "Failed AI answer", "metadata": {"nbinlineai": {"role": "response", "prompt_cell_id": "prompt-2", "status": "error"}}},
+        {"id": "orphan", "cell_type": "markdown", "source": "Orphan AI answer", "metadata": {"nbinlineai": {"is_output_cell": True, "prompt_cell_id": "missing"}}},
+        {"id": "raw-1", "cell_type": "raw", "source": "RAW CELL"},
+        {"id": "md-2", "cell_type": "markdown", "source": "Interpret x as seven."},
+    ]
+    captured = {}
+
+    async def fake_complete(selected_backend, model, messages, tools):
+        captured.update(backend=selected_backend, messages=messages)
+        return Completion(model, Msg("assistant", [Text("OK")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+
+    async def run():
+        return [event async for event in run_prompt({**_body("Summarize"), "backend": backend, "preceding_cells": cells}, None, "kernel-1", None)]
+
+    events = asyncio.run(run())
+    assert captured["backend"] == backend
+    system = captured["messages"][0].text
+    assert system.index("# Study notes") < system.index("x = 7") < system.index("Interpret x as seven.")
+    assert "Markdown cell md-1" in system and "Code cell code-1" in system
+    assert "execution count 3" in system
+    for omitted in ("Earlier AI question", "Earlier AI answer", "Pending AI question", "Failed AI answer", "Orphan AI answer", "RAW CELL"):
+        assert omitted not in system
+    assert [(message.role, message.text) for message in captured["messages"][1:]] == [
+        ("user", "Earlier AI question"), ("assistant", "Earlier AI answer"), ("user", "Summarize")
+    ]
+    context = events[0]
+    assert context["code_cells"] == 1 and context["markdown_cells"] == 2
+    assert context["code_chars"] == len("x = 7")
+    assert context["markdown_chars"] == len("# Study notes") + len("Interpret x as seven.")
+    assert context["source_chars"] == context["code_chars"] + context["markdown_chars"]
+
+
+def test_combined_source_limit_and_malformed_metadata():
+    cells = [
+        {"id": "m", "cell_type": "markdown", "source": "m" * 30000, "metadata": "broken"},
+        {"id": "c", "cell_type": "code", "source": "c" * 25000, "metadata": {"nbinlineai": "broken"}},
+        {"id": "after", "cell_type": "markdown", "source": "SHOULD_NOT_APPEAR"},
+    ]
+    source, counts = _source_context(cells)
+    assert counts == {"code_cells": 1, "markdown_cells": 1, "code_chars": 20000,
+                      "markdown_chars": 30000, "source_chars": 50000, "source_truncated": True}
+    assert "SHOULD_NOT_APPEAR" not in source
+    assert source.index("Markdown cell m") < source.index("Code cell c")
+    assert len(_history(cells)) == 0
 
 
 def test_request_rejects_bad_backend_and_args(monkeypatch):

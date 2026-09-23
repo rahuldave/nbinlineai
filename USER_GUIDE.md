@@ -1,6 +1,6 @@
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.1. It explains everyday use, what is saved in your notebook, and exactly what the AI can see.
+This guide describes nbinlineai 0.1.2. It explains everyday use, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown notes became part of the source context in 0.1.2; earlier versions included code source and completed AI conversations only.
 
 ## 1. Install and set up
 
@@ -50,7 +50,7 @@ An active Python kernel is required. nbinlineai does not automatically run the c
 
 **A rerun updates the paired answer.** It clears the previous answer as the new run starts, then writes the new response into that same answer cell. It does not append another answer each time. To keep an old answer for comparison, copy its text into an ordinary Markdown cell before rerunning.
 
-Each run uses the notebook's current preceding code, available earlier AI conversations, selected model, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
+Each run uses the notebook's current preceding code and Markdown notes, available earlier AI conversations, selected model, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
 
 Click **Cancel** to stop an active response. Cancelling does not undo function calls that have already changed your notebook state. A partial answer may remain; cancelled and failed answers are not used as completed conversation history.
 
@@ -64,23 +64,31 @@ nbinlineai takes a snapshot at the moment you run a prompt. It uses notebook ord
 | --- | --- |
 | The current prompt text | Yes. |
 | Code cell source above the prompt | Yes, within size limits. This can include unexecuted or edited code. |
+| Ordinary Markdown notes above the prompt | Yes, as source text alongside code in notebook order. This includes explanations, assignment instructions, and equations written in Markdown or LaTeX. |
 | Earlier AI prompts and their completed, paired answers | Yes, when both are above the current prompt, within the history limit. |
-| Ordinary Markdown notes or raw cells above the prompt | No, currently. Paste relevant notes into your prompt if needed. |
+| Raw cells above the prompt | No, currently. |
 | Printed output, tracebacks, tables, plots, or images from code cells | No, currently. Include relevant text explicitly or refer to a prepared variable. |
 | Cell source below the prompt | No. |
 | Every variable in memory | No. Explicit `$` references retrieve selected values. |
 | Files in the project folder | No automatic file reading. |
 
+AI prompt/answer cells are also Markdown, but they enter through conversation history instead of the ordinary source context. They are not included twice. Pending, cancelled, failed, or unpaired AI exchanges are not added as ordinary Markdown notes.
+
 For example:
 
 ```text
+Markdown: lesson introduction
 Code A
 AI prompt 1
 AI answer 1
+Markdown: interpretation and next question
 Code B
-AI prompt 2   <- receives Code A, Code B, and the completed prompt 1 / answer 1 pair
-Code C        <- its source is not included
+AI prompt 2   <- receives the notes and code above, plus the completed AI exchange
+Markdown: next section   <- not included
+Code C                  <- not included
 ```
+
+Markdown is sent as text, including any link or image syntax. nbinlineai does not fetch linked pages, read linked files, or send the image pixels. Include the needed explanation directly in a Markdown cell or your prompt.
 
 **Live kernel state is a separate source of information.** A referenced variable or function can have been created by a cell below the prompt, by a cell run out of order, or by code that has since been edited or deleted. The “above the prompt” boundary applies to notebook source and conversation history; it does not restrict where live Python values originally came from.
 
@@ -169,7 +177,8 @@ The AI networking runs asynchronously in Jupyter Server and streams results back
 | Server endpoint unavailable / 404 | Try **Retry** in Configure AI. If you just installed or updated, restart the whole server; browser reload alone may leave the server component unloaded. |
 | Provider unavailable / Run disabled | Save that provider's key, or select one already configured. |
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
-| AI misses your notes or a plot | Ordinary Markdown notes and code outputs are not currently included; add relevant text to the prompt. |
+| AI misses your notes | Put the Markdown cell above the prompt, rerun the prompt after editing, and check the context size limits. Markdown source is included starting with 0.1.2. |
+| AI misses a plot or code output | These are not currently included; add a text explanation to a Markdown cell above the prompt or to the prompt itself. |
 | Old answer disappeared after rerunning | Reruns replace the paired answer. Copy text into an ordinary Markdown cell beforehand to preserve another version. |
 | Model unavailable / key rejected / quota reached | Check the selected provider and model, then the key and account's API access or quota. |
 
@@ -178,7 +187,7 @@ Current size limits are deliberately bounded:
 | Item | Limit and behavior |
 | --- | --- |
 | Preceding cells | More than 200 preceding cells rejects the request; this count includes all cell types. |
-| Code source | Up to 50,000 source characters, collected from the top downward; excess code is omitted. |
+| Code and ordinary Markdown source | A combined limit of 50,000 source characters, collected in notebook order from the top downward; excess source is omitted. AI exchanges use the separate history budget. |
 | Conversation history | Up to 16,000 characters across complete prompt/answer pairs, starting with the newest pair and stopping when the next pair does not fit. |
 | Current prompt | Up to 16,000 characters before live-value substitution. |
 | Live references | Up to 20 distinct variable/function names per prompt. |

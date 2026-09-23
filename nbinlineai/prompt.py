@@ -11,7 +11,7 @@ from .tool_schema import fastllm_tools
 
 REFERENCE = re.compile(r"([\$&])`([A-Za-z_][A-Za-z0-9_]*)`")
 MAX_CELLS = 200
-MAX_CODE_CHARS = 50000
+MAX_SOURCE_CHARS = 50000
 MAX_HISTORY_CHARS = 16000
 MAX_PROMPT_CHARS = 16000
 
@@ -49,19 +49,29 @@ def validate_request(body: dict) -> dict:
     return body
 
 
+def _ai_role(cell: dict) -> str | None:
+    metadata = cell.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+    ai = metadata.get("nbinlineai")
+    if not isinstance(ai, dict):
+        return None
+    if ai.get("isPromptCell") or ai.get("is_prompt_cell") or ai.get("role") == "prompt":
+        return "prompt"
+    if ai.get("isOutputCell") or ai.get("is_output_cell") or ai.get("role") == "response":
+        return "response"
+    return None
+
+
 def _history(cells: list[dict]) -> list[Msg]:
     prompts = {}
     pairs = []
     for cell in cells:
-        meta = cell.get("metadata") or {}
-        if not isinstance(meta, dict):
-            continue
-        ai = meta.get("nbinlineai") or {}
-        if not isinstance(ai, dict):
-            continue
-        if ai.get("isPromptCell") or ai.get("is_prompt_cell") or ai.get("role") == "prompt":
+        role = _ai_role(cell)
+        if role == "prompt":
             prompts[cell["id"]] = cell["source"]
-        elif ai.get("isOutputCell") or ai.get("is_output_cell") or ai.get("role") == "response":
+        elif role == "response":
+            ai = cell["metadata"]["nbinlineai"]
             prompt_id = ai.get("promptCellId") or ai.get("prompt_cell_id")
             if ai.get("status", "done") == "done" and prompt_id in prompts:
                 pairs.append((prompts[prompt_id], cell["source"]))
@@ -78,19 +88,31 @@ def _history(cells: list[dict]) -> list[Msg]:
     return result
 
 
-def _code(cells: list[dict]) -> str:
+def _source_context(cells: list[dict]) -> tuple[str, dict]:
     chunks = []
-    used = 0
+    counts = {"code_cells": 0, "markdown_cells": 0, "code_chars": 0, "markdown_chars": 0,
+              "source_chars": 0, "source_truncated": False}
     for cell in cells:
-        if cell["cell_type"] != "code":
+        kind = cell["cell_type"]
+        if kind not in ("code", "markdown") or _ai_role(cell) is not None:
             continue
         source = cell["source"]
-        remaining = MAX_CODE_CHARS - used
+        if not source:
+            continue
+        remaining = MAX_SOURCE_CHARS - counts["source_chars"]
         if remaining <= 0:
+            counts["source_truncated"] = True
             break
-        chunks.append(f"# Cell {cell['id']} (source; execution count {cell.get('execution_count')})\n{source[:remaining]}")
-        used += min(len(source), remaining)
-    return "\n\n".join(chunks)
+        included = source[:remaining]
+        label = f"Code cell {cell['id']} (source; execution count {cell.get('execution_count')})" if kind == "code" else f"Markdown cell {cell['id']} (source)"
+        chunks.append(f"[{label}]\n{included}")
+        counts[f"{kind}_cells"] += 1
+        counts[f"{kind}_chars"] += len(included)
+        counts["source_chars"] += len(included)
+        if len(included) < len(source):
+            counts["source_truncated"] = True
+            break
+    return "\n\n".join(chunks), counts
 
 
 async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
@@ -112,14 +134,14 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
     for name in vars_:
         prompt = prompt.replace(f"$`{name}`", info[name]["repr"])
     tools = fastllm_tools({name: info[name] for name in funcs})
+    source_text, source_counts = _source_context(body["preceding_cells"])
     context = {
-        "code_cells": sum(cell["cell_type"] == "code" for cell in body["preceding_cells"]),
-        "code_chars": len(_code(body["preceding_cells"])),
+        **source_counts,
         "variables": {name: info[name] for name in vars_},
         "tools": funcs,
     }
     yield {"type": "context", **context}
-    system = "You are a helpful notebook assistant. The code shown is notebook source, which may be unexecuted or stale. Live variables and tools come from the current Python kernel. Only call registered tools when helpful.\n\nNotebook code above this prompt:\n" + _code(body["preceding_cells"])
+    system = "You are a helpful notebook assistant. The code and Markdown shown are notebook source above this prompt. Code may be unexecuted or stale. Live variables and tools come from the current Python kernel. Only call registered tools when helpful.\n\nNotebook source above this prompt:\n" + source_text
     messages = [Msg("system", [Text(system)]), *_history(body["preceding_cells"]), Msg("user", [Text(prompt)])]
     allowed = set(funcs)
     steps = 0
