@@ -2,13 +2,29 @@
 
 Write AI prompts directly in JupyterLab notebooks. Each prompt has its own OpenAI or Anthropic model choice, and its answer appears in a paired markdown cell below it. Prompts and answers stay in the notebook when you save and reopen it.
 
-## Install in JupyterLab
+## Quick start
 
 You need Python 3.11 or newer and JupyterLab 4.
 
-1. In JupyterLab, open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and install it. **Restart the Jupyter server** after installation so the Python extension loads; refreshing the browser alone is insufficient.
-2. Open a Python notebook. Click **Configure AI** in the notebook toolbar and paste an OpenAI or Anthropic API key. You can add either provider or both. Keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set.
-3. Select a cell, click **AI Prompt** in the notebook toolbar, write your question, and press **Shift+Enter** or **Run AI**. You can choose a provider and model for each prompt. Blank model uses the provider default.
+1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
+2. **Set up a key:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key. You can configure either provider or both.
+3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, such as "Explain the code above."
+4. **Run it:** choose a provider, then press **Shift+Enter** or click **Run AI**. Leaving the model blank uses the provider default. The answer appears in a paired Markdown cell below the prompt.
+
+| To… | Do this |
+| --- | --- |
+| Ask about earlier code | Write an ordinary question. The AI sees code above the prompt and earlier AI turns. |
+| Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
+| Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
+| Revise an answer | Edit the prompt and run it again; its existing answer is updated. |
+| Stop a response | Click **Cancel**. Calls already performed cannot be undone. |
+| Keep the conversation | Save the notebook; prompts and answers are saved with it. |
+
+Ordinary code cells keep their normal execution behavior. See the runnable example below for variable and function references.
+
+## Installation and API keys
+
+Keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. No `.env` file is needed.
 
 Your school or hosted Jupyter service may manage extensions centrally. If Extension Manager is unavailable, ask the administrator to install the package in the Python environment running Jupyter Server and restart that server. For a self-managed environment using `pip`, the equivalent command is:
 
@@ -29,7 +45,7 @@ API provider usage is billed by the provider separately from JupyterLab. You can
 
 Saved keys are shared by JupyterLab environments under the same operating-system account. A Python kernel running as that account can read that account's files, including its saved keys; use a separate OS account for notebooks you do not trust.
 
-## Try it
+## Example: variables and tools
 
 In a Python notebook, run this code cell:
 
