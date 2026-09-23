@@ -15,6 +15,7 @@ import { AIDefaults, hasOverride, resolveAI, snapshotDefaults, supportedEffort }
 import { effectiveKeepAnswer, keepsCompletedAnswer } from './keepAnswer';
 import { enqueueNotebookCell } from './executionQueue';
 import { readEventStream, StreamEvent } from './sse';
+import { NotebookActionBridge } from './frontendActions';
 import '../style/index.css';
 
 type Backend = 'openai_api' | 'anthropic_api';
@@ -669,6 +670,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return false; }
   const sessionId = panel.sessionContext.session?.id;
   if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return false; }
+  const kernelId = panel.sessionContext.session?.kernel?.id;
+  if (!kernelId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return false; }
   await settingsReady;
   if (pendingCancels.delete(runKey(panel, promptId))) { status(panel, promptId, 'cancelled', 'Cancelled'); return false; }
   if (!settings) { status(panel, promptId, 'error', settingsError || 'Response style settings are unavailable. Open Configure AI and retry.'); return false; }
@@ -692,6 +695,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   setMetadata(output, { status: 'running' });
   const controller = new AbortController();
   const run: RunState = { controller, panel, output, text: '', done: false };
+  const bridge = new NotebookActionBridge(notebook, promptId, output.id);
+  let serverRunId: string | null = null;
   runs.set(runKey(panel, promptId), run);
   status(panel, promptId, 'running', 'Preparing context…');
   const selectedModel = effective.model || undefined;
@@ -715,11 +720,38 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
       throw new Error(message);
     }
     status(panel, promptId, 'running', 'Generating…');
-    await readEventStream(response, (event: StreamEvent) => {
+    await readEventStream(response, async (event: StreamEvent) => {
+      if (controller.signal.aborted) throw new DOMException('Cancelled', 'AbortError');
       if (event.type === 'text_delta') appendOutput(run, eventText(event));
       else if (event.type === 'context') {
+        if (event.run_id !== undefined) {
+          if (typeof event.run_id !== 'string' || !event.run_id || (serverRunId && serverRunId !== event.run_id)) {
+            throw new Error('The AI server changed this notebook run ID.');
+          }
+          serverRunId = event.run_id;
+        }
         const count = typeof event.cell_count === 'number' ? event.cell_count : preceding.length;
         status(panel, promptId, 'running', `Using ${count} preceding cells…`);
+      } else if (event.type === 'frontend_action') {
+        if (!serverRunId || event.run_id !== serverRunId) throw new Error('The notebook action did not match this AI run.');
+        if (typeof event.request_id !== 'string' || typeof event.name !== 'string') throw new Error('Invalid notebook action request.');
+        if (panel.isDisposed || panel.content.model !== notebook || panel.sessionContext.session?.id !== sessionId ||
+            panel.sessionContext.session?.kernel?.id !== kernelId ||
+            getCell(panel, promptId) !== prompt || getCell(panel, output.id) !== output) {
+          throw new Error('The originating notebook, prompt, answer, or kernel changed. Notebook action cancelled.');
+        }
+        const result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
+        if (!result) return;
+        status(panel, promptId, 'running', `${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`);
+        const reply = await fetch(serverUrl('nbinlineai/action-reply'), {
+          method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
+          body: JSON.stringify({ run_id: serverRunId, request_id: event.request_id,
+            session_id: sessionId, prompt_cell_id: promptId, ...result })
+        });
+        if (!reply.ok) throw new Error(`The notebook action reply was rejected (${reply.status}).`);
+        const acknowledgement = await reply.json() as { accepted?: boolean };
+        if (acknowledgement.accepted !== true) throw new Error('The notebook action reply was not acknowledged.');
+        status(panel, promptId, 'running', result.ok ? 'Notebook action completed; generating…' : `Notebook action failed: ${result.text}`);
       } else if (event.type === 'tool_start') status(panel, promptId, 'running', `Running ${String(event.name || 'tool')}…`);
       else if (event.type === 'tool_result') status(panel, promptId, 'running', `${String(event.name || 'Tool')} completed; generating…`);
       else if (event.type === 'error') throw new Error(String(event.message || 'AI request failed.'));

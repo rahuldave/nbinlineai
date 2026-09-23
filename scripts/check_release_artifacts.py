@@ -15,21 +15,29 @@ FORBIDDEN_PARTS = {
     "playwright-report", ".pytest_cache", ".ruff_cache", "__pycache__",
 }
 FORBIDDEN_FILES = {".env", "credentials.json", ".pypirc"}
+EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples"
+EXAMPLE_REQUIRED = {
+    "examples/README.md", "examples/bundled-tools.ipynb", "examples/data/ecosystem-lesson.ipynb",
+} | {f"examples/{path.relative_to(EXAMPLE_DIR).as_posix()}" for path in EXAMPLE_DIR.rglob("*.ipynb")}
 SOURCE_REQUIRED = {
     "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
+    "docs/tools.md",
     "pyproject.toml", "package.json", "yarn.lock",
-    "src/index.ts", "style/index.css", "schema/plugin.json",
-    "nbinlineai/__init__.py", "nbinlineai/handlers.py",
+    "src/index.ts", "src/frontendActions.ts", "style/index.css", "schema/plugin.json",
+    "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
+    "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
-}
+} | EXAMPLE_REQUIRED
 WHEEL_REQUIRED_SUFFIXES = {
-    "nbinlineai/__init__.py", "nbinlineai/handlers.py",
+    "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
+    "nbinlineai/frontend_bridge.py", "nbinlineai/web_tools.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
     "share/doc/nbinlineai/docs/user-guide.md",
     "share/doc/nbinlineai/docs/architecture.md",
     "share/doc/nbinlineai/docs/faq.md",
-}
+    "share/doc/nbinlineai/docs/tools.md",
+} | {f"share/doc/nbinlineai/{path}" for path in EXAMPLE_REQUIRED}
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)")
 REFERENCE_IMAGE = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")
 REFERENCE_TARGET = re.compile(r"^\s*\[([^\]]+)\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
@@ -61,22 +69,23 @@ def _docs_image_path(target: str, *, remote: bool) -> str | None:
     elif path.startswith("images/"):
         path = "docs/" + path
     else:
-        raise SystemExit(f"Guide image must use an images/ relative path: {target}")
+        raise SystemExit(f"Documentation image must use an images/ relative path: {target}")
     if not path.startswith(marker) or any(part in ("", ".", "..") for part in Path(path).parts):
         raise SystemExit(f"Invalid documentation image path: {target}")
     return path
 
 
-def _check_guide_images(markdown: str, packaged: set[str], origin: str, prefix: str = "") -> set[str]:
+def _check_doc_images(markdown: str, packaged: set[str], origin: str,
+                      prefix: str = "", minimum: int = 0) -> set[str]:
     referenced = {
         path for target in _image_targets(markdown)
         if (path := _docs_image_path(target, remote=False)) is not None
     }
-    if len(referenced) < 9:
-        raise SystemExit(f"{origin} guide references fewer than nine screenshots")
+    if len(referenced) < minimum:
+        raise SystemExit(f"{origin} references fewer than {minimum} screenshots")
     missing = {prefix + path for path in referenced} - packaged
     if missing:
-        raise SystemExit(f"{origin} missing guide images: {', '.join(sorted(missing))}")
+        raise SystemExit(f"{origin} missing documentation images: {', '.join(sorted(missing))}")
     return referenced
 
 
@@ -111,24 +120,27 @@ def _check_forbidden(names: list[str]) -> None:
         raise SystemExit("Forbidden archive entries:\n" + "\n".join(sorted(set(bad))))
 
 
-def check_sdist(path: Path) -> set[str]:
+def check_sdist(path: Path) -> dict[str, set[str]]:
     with tarfile.open(path, "r:gz") as archive:
         names = [member.name for member in archive.getmembers() if member.isfile()]
         relative = {"/".join(Path(name).parts[1:]): name for name in names}
-        guide_images = set()
+        doc_images: dict[str, set[str]] = {}
         for suffix in ("package.json", "nbinlineai/labextension/package.json"):
             if suffix in relative:
                 content = archive.extractfile(relative[suffix])
                 if content is None:
                     raise SystemExit(f"Source archive could not read {suffix}")
                 _check_server_discovery(content.read(), f"Source archive {suffix}")
-        for filename in ("docs/user-guide.md", "README.md"):
+        for filename in ("docs/user-guide.md", "docs/tools.md", "README.md"):
             content = archive.extractfile(relative[filename]) if filename in relative else None
             if content is None:
                 raise SystemExit(f"Source archive could not read {filename}")
             markdown = content.read().decode("utf-8")
-            if filename == "docs/user-guide.md":
-                guide_images = _check_guide_images(markdown, set(relative), "Source archive")
+            if filename.startswith("docs/"):
+                doc_images[filename] = _check_doc_images(
+                    markdown, set(relative), f"Source archive {filename}",
+                    minimum=9 if filename == "docs/user-guide.md" else 0,
+                )
             else:
                 _check_readme_images(markdown, set(relative))
     _check_forbidden(names)
@@ -136,21 +148,25 @@ def check_sdist(path: Path) -> set[str]:
     if missing:
         raise SystemExit(f"Source archive missing: {', '.join(sorted(missing))}")
     print(f"Source archive OK: {path.name} ({len(names)} files)")
-    return guide_images
+    return doc_images
 
 
-def check_wheel(path: Path, guide_images: set[str]) -> None:
+def check_wheel(path: Path, source_doc_images: dict[str, set[str]]) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
         if manifest is not None:
             _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")
-        guide = next((name for name in names if name.endswith("share/doc/nbinlineai/docs/user-guide.md")), None)
-        if guide is not None:
-            prefix = guide.removesuffix("docs/user-guide.md")
-            wheel_images = _check_guide_images(archive.read(guide).decode("utf-8"), set(names), "Wheel", prefix)
-            if wheel_images != guide_images:
-                raise SystemExit("Wheel and source archive USER_GUIDE image references differ")
+        for filename in ("docs/user-guide.md", "docs/tools.md"):
+            page = next((name for name in names if name.endswith("share/doc/nbinlineai/" + filename)), None)
+            if page is not None:
+                prefix = page.removesuffix(filename)
+                wheel_images = _check_doc_images(
+                    archive.read(page).decode("utf-8"), set(names), f"Wheel {filename}", prefix,
+                    minimum=9 if filename == "docs/user-guide.md" else 0,
+                )
+                if wheel_images != source_doc_images[filename]:
+                    raise SystemExit(f"Wheel and source archive {filename} image references differ")
     _check_forbidden(names)
     missing = {suffix for suffix in WHEEL_REQUIRED_SUFFIXES if not any(name.endswith(suffix) for name in names)}
     if missing:
@@ -168,8 +184,8 @@ def main() -> None:
     wheels = sorted(args.dist.glob("nbinlineai-*.whl"))
     if len(sdists) != 1 or len(wheels) != 1:
         raise SystemExit("Expected exactly one nbinlineai source archive and one wheel; clean dist/ first")
-    guide_images = check_sdist(sdists[0])
-    check_wheel(wheels[0], guide_images)
+    doc_images = check_sdist(sdists[0])
+    check_wheel(wheels[0], doc_images)
 
 
 if __name__ == "__main__":

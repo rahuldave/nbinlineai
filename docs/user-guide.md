@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.5. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Version 0.1.5 adds a notebook-wide Keep AI answers default and integrates AI prompts with JupyterLab's normal notebook execution commands.
+This guide describes nbinlineai 0.1.6. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Version 0.1.6 adds bundled tools and example notebooks; the notebook Keep default and native Run All integration were introduced in 0.1.5.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
@@ -15,6 +15,7 @@ For Run All, editing corrections, kernel loss, restarts, and cancellation questi
 - [Edit, rerun, and save](#3-edit-rerun-and-save)
 - [Context](#4-what-context-does-the-ai-receive)
 - [Variables and functions](#5-reference-live-variables-and-functions)
+- [Bundled tools and example notebooks](tools.md)
 - [Saved cells](#6-how-cells-are-stored)
 - [API key storage](#7-where-keys-are-stored)
 - [Architecture](#8-how-it-works-underneath)
@@ -280,6 +281,12 @@ References must be simple Python names, not expressions such as `df.head()` or `
 
 Only functions explicitly named with `&` in the current prompt are exposed as tools. The extension reads their signatures and docstrings, describes them to the model, checks returned arguments, and calls them in the same notebook kernel. These are real function calls and can change variables or perform other actions implemented by your function. A reference permits a call; it does not guarantee that the model will choose to make one.
 
+Putting tool references in an ordinary Markdown cell above supplies context but does **not** register tools. References in an earlier AI prompt also do not carry forward. Put the references in each AI cell that should be allowed to use them; the same rule applies to live `$` variable interpolation. The current prompt is scanned even inside quotations and fenced code blocks.
+
+From **0.1.6**, `nbinlineai.tools` includes ten tools: inspect Python objects, search/read saved notebooks, list/read live unsaved cells, consult public pages, and insert Markdown notes. Run `print(tools_markdown())` after importing the helper to get a Markdown list of all bundled tools; copy the output into the current AI cell and remove unwanted lines. Import the tool functions into the kernel too. See [Tools and example notebooks](tools.md) for the complete import-and-paste workflow and downloadable lessons.
+
+Live notebook tools stay attached to the notebook that started the request. They can explicitly read cells below your prompt; this does not change automatic context, which still looks above it. `insert_markdown` and `url_to_note` create ordinary Markdown notes after the answer by default. Save the notebook to preserve them. Rerunning a prompt can insert another note, and cancelling does not undo a note already inserted. The four tools that use the frontend require an AI request; their Python stubs cannot operate the browser directly.
+
 Use normal synchronous Python functions with named parameters, simple type annotations, and a helpful docstring. Async functions and signatures using positional-only parameters, `*args`, or `**kwargs` are not supported. Function output sent back to the model combines captured standard output and the return value's text representation.
 
 If a live value seems wrong, run its defining cell again. Reading code source does not execute it or synchronize it with the kernel.
@@ -326,7 +333,7 @@ nbinlineai extension inside Jupyter Server
     +-- streamed text/events --> paired Markdown answer in JupyterLab
 ```
 
-The TypeScript frontend creates the controls, reads the notebook model, and updates the answer cell. The Python server extension builds the model context, reads credentials, and manages provider requests and function-tool rounds. FastLLM adapts those requests to the providers. Live variable inspection and function execution happen in the notebook's existing Python kernel, which is a separate process.
+The TypeScript frontend creates the controls, reads the notebook model, and updates the answer cell. The Python server extension builds the model context, reads credentials, and manages provider requests and function-tool rounds. FastLLM adapts those requests to the providers. Live variable inspection and ordinary function execution happen in the notebook's existing Python kernel, which is a separate process. The four built-in live notebook tools instead use an authenticated request/reply interface between the server and the original notebook panel; their work does not block the Python kernel while waiting for the browser.
 
 The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. There is no extra AI daemon, nested notebook event loop, or Codex process required for this API-based version. There is also no new notebook cell type or cell magic: AI behavior is attached to Markdown cells through their metadata.
 

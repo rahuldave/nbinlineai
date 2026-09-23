@@ -1,5 +1,7 @@
 """Bounded notebook snapshot and explicit provider/tool loop."""
 
+import asyncio
+import json
 import re
 
 from aidialog.msg_parts import Msg, Refusal, Text, mk_tool_res_msg
@@ -8,6 +10,7 @@ from fasttransport.errors import APIError
 from . import providers
 from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
 from .tool_schema import fastllm_tools
+from .web_tools import MAX_WEB_TOTAL_SECONDS, fetch_url_markdown
 
 REFERENCE = re.compile(r"([\$&])`([A-Za-z_][A-Za-z0-9_]*)`")
 MAX_CELLS = 200
@@ -161,7 +164,27 @@ def _source_context(cells: list[dict]) -> tuple[str, dict]:
     return "\n\n".join(chunks), counts
 
 
-async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
+def _special_arguments(arguments):
+    """Decode a model tool-call object without accepting arbitrary payloads."""
+    if isinstance(arguments, str):
+        if len(arguments) > 16_000:
+            raise ValueError("Tool arguments are too large")
+        try:
+            arguments = json.loads(arguments)
+        except ValueError as exc:
+            raise ValueError("Tool arguments are invalid JSON") from exc
+    if not isinstance(arguments, dict):
+        raise TypeError("Tool arguments must be an object")
+    try:
+        size = len(json.dumps(arguments))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Tool arguments must be JSON values") from exc
+    if size > 16_000:
+        raise ValueError("Tool arguments are too large")
+    return arguments
+
+
+async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None):
     mode = _prompt_mode(body)
     prompt = body["prompt"]
     vars_ = list(dict.fromkeys(name for kind, name in REFERENCE.findall(prompt) if kind == "$"))
@@ -181,6 +204,8 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
     for name in vars_:
         prompt = prompt.replace(f"$`{name}`", info[name]["repr"])
     tools = fastllm_tools({name: info[name] for name in funcs})
+    special_tools = {name: info[name]["frontend_special"] for name in funcs
+                     if "frontend_special" in info[name]}
     source_text, source_counts = _source_context(body["preceding_cells"])
     context = {
         **source_counts,
@@ -263,8 +288,38 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
                 raise ValueError("Model returned a tool call without an ID")
             yield {"type": "tool_start", "id": call.id, "name": call.name, "arguments": call.arguments}
             try:
-                result = await dispatcher.call(body["session_id"], kernel_id, kernel, allowed, call.name, call.arguments)
-            except (ValueError, TimeoutError) as exc:
+                if call.name in special_tools:
+                    if bridge is None or run is None:
+                        raise ValueError("Notebook front-end action is unavailable")
+                    action = special_tools[call.name]
+                    arguments = call.arguments
+                    if action == "url_to_note":
+                        arguments = _special_arguments(arguments)
+                        if set(arguments) - {"url", "after_cell_id"}:
+                            raise ValueError("Unexpected url_to_note argument")
+                        url = arguments.get("url")
+                        if not isinstance(url, str) or not url or len(url) > 2_000:
+                            raise ValueError("url must be nonempty text of at most 2000 characters")
+                        try:
+                            content = await asyncio.wait_for(
+                                asyncio.to_thread(fetch_url_markdown, url),
+                                timeout=MAX_WEB_TOTAL_SECONDS,
+                            )
+                        except TimeoutError as exc:
+                            raise TimeoutError("Page fetch timed out") from exc
+                        arguments = {"content": content,
+                                     "after_cell_id": arguments.get("after_cell_id", "")}
+                        action = "insert_markdown"
+                    current_id, current_kernel = await dispatcher.resolve(body["session_id"])
+                    if current_id != kernel_id or current_kernel is not kernel:
+                        raise ValueError("Notebook session changed kernels during the prompt")
+                    event, pending = bridge.prepare(run, action, arguments)
+                    yield event
+                    result = await bridge.wait(run, pending)
+                else:
+                    result = await dispatcher.call(body["session_id"], kernel_id, kernel, allowed,
+                                                   call.name, call.arguments)
+            except (ValueError, TypeError, TimeoutError) as exc:
                 result = f"Error: {exc}"
             results.append(result)
             yield {"type": "tool_result", "id": call.id, "name": call.name, "text": result}

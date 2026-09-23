@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe **nbinlineai 0.1.5**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe **nbinlineai 0.1.6**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -49,7 +49,7 @@ Plain Markdown, including answer cells, renders normally. Rendering an answer do
 
 ### What happens after an AI error or cancellation during Run All?
 
-The remaining cells in that execution batch are skipped. Resolve the problem and start another run when ready. A failed or cancelled answer is retryable even if Keep answer is on.
+The remaining cells in that execution batch are skipped. Resolve the problem and start another run when ready. After pressing Cancel, wait for **Cancelled** and for the Cancel button to become disabled before retrying; **Cancelling…** means the earlier request is still finishing. Another Run All issued during that time can join the pending cancelled work and stop too. A failed or cancelled answer is retryable even if Keep answer is on.
 
 Cancellation is not an undo operation. A function call already sent to the kernel may still take effect, and completed side effects remain.
 
@@ -149,6 +149,54 @@ Keys are not stored in the notebook. See [key storage](user-guide.md#7-where-key
 ### I updated the extension. Is refreshing the page enough?
 
 Restart the **whole Jupyter server**, then refresh the browser. Restarting only the notebook kernel does not reload the server extension. Install the package in the environment that runs JupyterLab, not solely in a separate kernel environment.
+
+## Tools and examples
+
+### Can I put all my tool references in an ordinary Markdown cell?
+
+That cell supplies context, but does not register callable tools. The `&` references must appear in the **current AI prompt**. References in past AI prompts also do not carry forward. Import the functions into the kernel first, and use `print(tools_markdown())` from `nbinlineai.tools` to generate a list you can paste and shorten. See [Tools and examples](tools.md).
+
+The same scope rule applies to `$` references: ordinary Markdown and previous AI cells do not cause fresh variable lookups. References inside quotations or fenced code in the current AI prompt are still recognized.
+
+### Why can't the file tools see my latest edit?
+
+`list_notebooks`, `find_notebook_cells`, and `read_notebook_cell` inspect **saved `.ipynb` files**. Save your edits first, and check the path relative to the kernel's current working directory. To read the open notebook including unsaved changes, offer `list_cells` and `read_cell` instead. Automatic context also uses the current frontend source, but only above the prompt.
+
+### Does listing all tools give the AI access to every function in the package?
+
+No. `tools_markdown()` lists ten bundled tools from an explicit registry; it does not list helpers or automatically expose the Python namespace. You choose which references to paste into each prompt. The model can call only functions registered for that request. Ordinary functions run with the Python kernel's permissions; the four live notebook tools have a separate, limited browser interface.
+
+### Can the AI read cells below my question now?
+
+Only when you explicitly provide a tool that can do so. `list_cells` and `read_cell` inspect the current notebook, including below the question. Saved-file tools can also read other cells or notebooks from disk. These results enter the current tool conversation; automatic context still stops above the prompt. Whole-notebook and nearby-cell context selectors are not implemented.
+
+### Does a tool insert a real note, or just text in the AI answer?
+
+`insert_markdown` and `url_to_note` insert a separate, ordinary Markdown cell. The default position is after the AI answer, or you can ask for a particular cell ID. You can edit, move, or delete the note normally. Save the notebook to persist it. A note above a later AI prompt becomes ordinary source context.
+
+`read_url` only returns page text to the current model conversation. Use `url_to_note` to keep an excerpt in its own cell. Tool results are not stored as a separate transcript in notebook metadata.
+
+### Will rerunning or cancelling create or remove notes?
+
+A deliberate rerun can insert a new note; it does not replace or remove notes from previous runs. Keep answer skips the completed request and therefore skips its tools. Cancel stops waiting for further work but does not undo an insertion already performed. If a connection fails just after insertion, check the notebook before retrying: the note may exist even if its acknowledgement was lost.
+
+Repeated delivery of the same action within one live request is deduplicated. A new AI run is a new request and can intentionally repeat the action.
+
+### What happens if I switch notebooks while a tool runs?
+
+The action stays bound to the original notebook, session, and prompt; switching tabs does not redirect it. Closed notebooks, deleted target cells, and changed sessions fail clearly. The extension does not fall back to whichever cell happens to be selected.
+
+### Why can't I call `insert_markdown(...)` directly in Python?
+
+The kernel does not own the browser's document model. `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. The other six bundled tools work directly in Python as well as through AI tool references.
+
+### Can these tools edit or execute existing cells?
+
+The built-in frontend interface can list cells, read their source, and insert Markdown. It does not replace or delete existing cells, execute code, save files, or control another notebook. Your own Python tools can still perform whatever actions you implement; offering an `&` reference permits those real function calls.
+
+### The extension works, but importing the tools fails. Why?
+
+Your Jupyter server and notebook kernel may use different Python environments. Install nbinlineai in the kernel's environment as well, then rerun the import cell. After a kernel restart, previous imports are gone even though their code and old answers remain visible.
 
 ### Does Learning mode guarantee the AI will never reveal a solution?
 

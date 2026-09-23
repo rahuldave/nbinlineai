@@ -45,6 +45,18 @@ try:
                         _nb_item['default'] = repr(_nb_p.default)[:100]
                     _nb_params[_nb_p.name] = _nb_item
                 _nb_out[_nb_name] = {{'docstring': (_nb_inspect.getdoc(_nb_obj) or '')[:1000], 'parameters': _nb_params}}
+                # Compare objects, never identifier strings: imported aliases
+                # work, while a user function with the same name stays ordinary.
+                import importlib as _nb_importlib
+                try:
+                    _nb_builtin = _nb_importlib.import_module('nbinlineai.tools')
+                    _nb_specials = getattr(_nb_builtin, 'SPECIAL_TOOL_FUNCTIONS', {{}})
+                except ImportError:
+                    _nb_specials = {{}}
+                for _nb_canonical, _nb_registered in _nb_specials.items():
+                    if _nb_obj is _nb_registered:
+                        _nb_out[_nb_name]['frontend_special'] = _nb_canonical
+                        break
             else:
                 _nb_out[_nb_name] = {{'type': type(_nb_obj).__name__, 'repr': repr(_nb_obj)[:2000]}}
     elif {operation!r} == 'call':

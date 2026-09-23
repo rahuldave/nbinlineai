@@ -27,11 +27,18 @@ uv run jupyter lab
 | Guide | What you will find |
 | --- | --- |
 | [User guide](user-guide.md) | Illustrated setup, notebook defaults, styles, thinking effort, editing and rerunning, context, variables, tools, and troubleshooting. |
+| [Tools and examples](tools.md) | Import bundled notebook tools, generate editable tool references, and try the teaching notebooks. |
 | [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## In version 0.1.5
+## In version 0.1.6
+
+- Import ten tools for Python inspection, saved-notebook searches, live cell reads, public documentation, and editable Markdown notes.
+- Generate a tool list with `tools_markdown()`, paste it into an AI prompt, and remove unwanted references.
+- Try the included notebooks on live values, callable tools, live notebook actions, web notes, and Socratic learning conversations.
+
+## Notebook conversations
 
 - Set provider, model, style, and effort once per notebook, with optional cell overrides.
 - Edit the built-in **Compact**, **Full**, and **Learning** instructions in Configure AI.

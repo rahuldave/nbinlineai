@@ -14,6 +14,7 @@ from tornado.web import HTTPError, authenticated
 
 from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, provider_status
 from .credentials import CredentialStore
+from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
 from .kernel import KernelDispatcher
 from .prompt import PROMPT_MODE_INSTRUCTIONS, run_prompt, validate_request
 
@@ -62,8 +63,9 @@ class StatusHandler(APIHandler):
 
 
 class PromptHandler(APIHandler):
-    def initialize(self, dispatcher):
+    def initialize(self, dispatcher, bridge=None):
         self.dispatcher = dispatcher
+        self.bridge = bridge if bridge is not None else FrontendBridge()
         self._run_task = None
 
     @authenticated
@@ -73,6 +75,7 @@ class PromptHandler(APIHandler):
         try:
             body = validate_request(self.get_json_body())
             kernel_id, kernel = await self.dispatcher.resolve(body["session_id"])
+            run = self.bridge.start(body["session_id"], body["prompt_cell_id"], kernel_id, kernel)
         except (ValueError, TypeError) as exc:
             raise HTTPError(400, str(exc)) from exc
         self.set_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -80,7 +83,9 @@ class PromptHandler(APIHandler):
         self.set_header("X-Accel-Buffering", "no")
         self._run_task = asyncio.current_task()
         try:
-            async for event in run_prompt(body, self.dispatcher, kernel_id, kernel):
+            async for event in run_prompt(body, self.dispatcher, kernel_id, kernel, self.bridge, run):
+                if event.get("type") == "context":
+                    event = {**event, "run_id": run.run_id}
                 self.write("data: " + json.dumps(event, ensure_ascii=False) + "\n\n")
                 await self.flush()
         except (asyncio.CancelledError, StreamClosedError):
@@ -95,12 +100,33 @@ class PromptHandler(APIHandler):
             self.write("data: " + json.dumps({"type": "error", "message": message}) + "\n\n")
             await self.flush()
         finally:
+            self.bridge.close(run)
             self._run_task = None
 
     def on_connection_close(self):
         if self._run_task and not self._run_task.done():
             self._run_task.cancel()
         super().on_connection_close()
+
+
+class ActionReplyHandler(APIHandler):
+    def initialize(self, dispatcher, bridge):
+        self.dispatcher = dispatcher
+        self.bridge = bridge
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self):
+        _require_single_user_server(self)
+        try:
+            await self.bridge.reply(self.get_json_body(), self.dispatcher)
+        except BridgeNotFound as exc:
+            raise HTTPError(404, str(exc)) from exc
+        except BridgeConflict as exc:
+            raise HTTPError(409, str(exc)) from exc
+        except (ValueError, TypeError) as exc:
+            raise HTTPError(400, str(exc)) from exc
+        self.finish({"accepted": True})
 
 
 class KeySettingsHandler(APIHandler):
@@ -139,9 +165,13 @@ class KeySettingsItemHandler(APIHandler):
 def setup_handlers(web_app):
     base_url = web_app.settings["base_url"]
     dispatcher = KernelDispatcher(web_app.settings["session_manager"], web_app.settings["kernel_manager"])
+    bridge = FrontendBridge()
     web_app.add_handlers(r".*$", [
         (url_path_join(base_url, "nbinlineai", "status"), StatusHandler),
-        (url_path_join(base_url, "nbinlineai", "prompt"), PromptHandler, {"dispatcher": dispatcher}),
+        (url_path_join(base_url, "nbinlineai", "prompt"), PromptHandler,
+         {"dispatcher": dispatcher, "bridge": bridge}),
+        (url_path_join(base_url, "nbinlineai", "action-reply"), ActionReplyHandler,
+         {"dispatcher": dispatcher, "bridge": bridge}),
         (url_path_join(base_url, "nbinlineai", "settings", "keys"), KeySettingsHandler),
         (url_path_join(base_url, "nbinlineai", "settings", "keys", r"([^/]+)"), KeySettingsItemHandler),
     ])

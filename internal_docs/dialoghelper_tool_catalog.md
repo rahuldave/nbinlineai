@@ -1,6 +1,6 @@
 # dialoghelper capabilities: what fits nbinlineai
 
-**Status: scope proposal, not a release announcement.** Reviewed 2026-09-22 against dialoghelper commit [`118fff2cfba024381a693d20a5612aedec54cf5b`](https://github.com/AnswerDotAI/dialoghelper/tree/118fff2cfba024381a693d20a5612aedec54cf5b). The four initial tools and example notebooks exist as a tested local draft. Version 0.1.5 remains the published release; publication of the next drop is held for the user's scope decision.
+**Research record, reviewed 2026-09-22** against dialoghelper commit [`118fff2cfba024381a693d20a5612aedec54cf5b`](https://github.com/AnswerDotAI/dialoghelper/tree/118fff2cfba024381a693d20a5612aedec54cf5b). The recommendations below record the options considered before implementation. The user subsequently approved the frontend interface, the tools it enables, and examples. See [the 0.1.6 implementation design](bundled_tools.md) for the selected ten-tool scope and protocol; publication verification is tracked separately in [releasing](releasing.md).
 
 ## How to read this assessment
 
@@ -105,4 +105,4 @@ The six tools let the model discover live names, consult other notebook material
 
 The four initial tools, reference formatter, three new teaching notebooks, fixture, docs, and package inclusion rules are drafted. Fifteen focused Python tool/example/reference checks and one isolated real JupyterLab browser check passed; 26 existing frontend unit checks and a production frontend build also passed. The broad release gate and publication have not run for this draft. No API charges were incurred by these checks; the provider was simulated while functions ran in real Python kernels. The user's port 8888 server was not used.
 
-Nothing beyond the first four tools and built-in formatter has been implemented. The expanded six-tool bundle above is a recommendation awaiting selection, not a claim about the installed 0.1.5 package.
+That was the draft state at the time of this comparison. The later approved implementation adds Python inspection and web reading, plus the frontend interface for live cell reads and note insertion. See [bundled tools and interface](bundled_tools.md) for the current design rather than treating the earlier scope recommendation as a release inventory.

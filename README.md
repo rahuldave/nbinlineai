@@ -129,9 +129,28 @@ Insert an AI Prompt cell below it and ask:
 What is $`score`? Call &`add_bonus` with value 3, then explain the result.
 ```
 
-The source distribution also includes `examples/quickstart.ipynb` with these cells.
+The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/examples) teach live variables, tools, and step-by-step learning conversations. Copies are included in the package under `share/doc/nbinlineai/examples/`.
 
 `$` followed by a backtick-quoted Python name uses its **live value from the running kernel**. This can differ from what the notebook source currently says. To let the model call a function you defined in the kernel, name it with `&`, for example ``Call &`add_bonus` with value 3``. Only functions named in that prompt are made available as tools. This release supports ordinary synchronous Python functions with named parameters and simple annotations. Function calls can change notebook state; cancelling a prompt cannot undo an earlier call.
+
+### Bundled tools
+
+Run this code cell to import the included tools and print their references:
+
+```python
+from nbinlineai.tools import (
+    search_kernel_names, list_notebooks,
+    find_notebook_cells, read_notebook_cell,
+    inspect_python, read_url, list_cells, read_cell,
+    insert_markdown, url_to_note, tools_markdown,
+)
+
+print(tools_markdown())
+```
+
+Paste the printed Markdown into the **AI cell you are running**, add your question, and delete any unwanted tool lines. Ordinary Markdown above the prompt is context only; it does not register tools or expand live variables. `tools_markdown()` is a convenience helper, not one of the listed tools.
+
+The ten tools inspect live Python objects, search saved notebooks, read unsaved cells in the current notebook, consult public web pages, and insert editable Markdown notes. New notes are saved with your notebook; Keep answer prevents a completed prompt from repeating its tool actions. See [Tools and examples](https://rahuldave.com/nbinlineai/tools.html) for each function, custom aliases, live versus saved data, and the runnable lessons.
 
 The model sees bounded code and ordinary Markdown source from cells **above** the prompt and earlier AI turns. Your explanations, assignment instructions, equations, and other Markdown notes are included as text. It does not see later cells. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 

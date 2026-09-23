@@ -24,7 +24,7 @@ export class SSEParser {
   }
 }
 
-export async function readEventStream(response: Response, onEvent: (event: StreamEvent) => void): Promise<void> {
+export async function readEventStream(response: Response, onEvent: (event: StreamEvent) => void | Promise<void>): Promise<void> {
   if (!response.body) throw new Error('The server returned no response stream.');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
@@ -33,9 +33,9 @@ export async function readEventStream(response: Response, onEvent: (event: Strea
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      for (const event of parser.push(decoder.decode(value, { stream: true }))) onEvent(event);
+      for (const event of parser.push(decoder.decode(value, { stream: true }))) await onEvent(event);
     }
-    for (const event of parser.push(decoder.decode() + '\n\n')) onEvent(event);
+    for (const event of parser.push(decoder.decode() + '\n\n')) await onEvent(event);
   } catch (error) {
     await reader.cancel().catch(() => undefined);
     throw error;

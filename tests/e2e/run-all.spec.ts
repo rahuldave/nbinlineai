@@ -182,7 +182,8 @@ test('native Run All cancellation stops later cells and does not poison the next
   const cancel = prompts(page).first().locator('[data-nbinlineai-cancel]');
   await expect(cancel).toBeEnabled();
   await cancel.click();
-  await expect(prompts(page).first().locator('.nbinlineai-status')).toContainText(/cancel|stopp?ed/i);
+  await expect(prompts(page).first().locator('.nbinlineai-status')).toHaveText('Cancelled');
+  await expect(cancel).toBeDisabled();
   await expect(notebook(page).locator('.jp-CodeCell').nth(1).locator('.jp-OutputArea')).not.toContainText('CANCELLED_LATER_CODE_RAN');
   await prompts(page).first().dblclick();
   await prompts(page).first().locator('.cm-content').fill('E2E_BASIC recovered');

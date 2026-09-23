@@ -34,8 +34,8 @@ uv run --no-sync jlpm test:e2e
 | Layer | What it checks |
 | --- | --- |
 | Python | Authentication, credential handling, bounded context, tool schemas and execution, provider payloads, style instructions, effort, and cancellation. |
-| Frontend unit tests | Choice resolution, defaults and overrides, Keep answer, and code-copy behavior. |
-| Browser tests | A real JupyterLab interface and Python kernel: prompt execution, settings, saving/reopening, tools, context, styles, and rerun protection. |
+| Frontend unit tests | Choice resolution, defaults and overrides, Keep answer, code-copy behavior, live model actions, and asynchronous event ordering. |
+| Browser tests | A real JupyterLab interface and Python kernel: prompt execution, settings, saving/reopening, tools, live-cell actions, context, styles, and rerun protection. |
 
 The default browser suite substitutes a deterministic provider, so it does not incur API charges. It starts its own JupyterLab on `127.0.0.1:8897`, uses temporary notebooks/configuration/fake keys, refuses port 8888, and disables automatic port retries. Set `NBINLINEAI_E2E_PORT` to use another free port. Install Chromium if requested:
 
@@ -69,6 +69,6 @@ The site source is the repository's `docs/` folder. GitHub Pages publishes `main
 - The README uses absolute GitHub image URLs so its images also render on PyPI. Keep it to at most two screenshots.
 - Use the isolated demonstration setup for screenshots. Do not capture personal notebooks, API keys, or login tokens.
 
-The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
+The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Example notebooks and their data fixture are installed under `share/doc/nbinlineai/examples/`; keep their relative layout intact. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
 
 See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.

@@ -50,6 +50,88 @@ async def fake_complete(
             model=model,
             message=Msg("assistant", [Text("Example:\n\n```python\nvalue = 2 + 2\nprint(value)\n```")]),
         )
+    if "Add a short study note about live notebook context" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="docs-live-note", name="insert_markdown",
+                arguments={"content": "### Live notebook note\n\nThis editable note was added after the AI answer. Save the notebook when it is ready."},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "I added an editable Markdown note below this answer. You can revise it before saving."
+        )]))
+    if "Add the public study page as a notebook note" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="docs-web-note", name="url_to_note",
+                arguments={"url": "https://example.org/study-lesson"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "I added a source-attributed study note below this answer. Review the source before using it."
+        )]))
+    if "E2E_BRIDGE_READ" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-live-read", name="read_cell",
+                arguments={"cell_id": "live-later", "start_line": 1, "end_line": 2},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"Live notebook read: {results[-1].text}"
+        )]))
+    if "E2E_BRIDGE_INSERT" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            if "E2E_BRIDGE_DELAY" in current_user:
+                await asyncio.sleep(3)
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-live-insert", name="insert_markdown",
+                arguments={"content": "E2E_INSERTED_NOTE in the originating notebook"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"Notebook action result: {results[-1].text}"
+        )]))
+    if "E2E_BRIDGE_MISSING" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-live-missing", name="read_cell",
+                arguments={"cell_id": "missing-cell"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"Notebook action result: {results[-1].text}"
+        )]))
+    if "E2E_WEB_NOTE" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-web-note", name="url_to_note",
+                arguments={"url": "https://example.org/study-lesson"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"Web note result: {results[-1].text}"
+        )]))
+    if "&`search_kernel_names`" in current_user and "study_roster_marker" in current_user:
+        results = [
+            part for message in messages
+            for part in getattr(message, "content", [])
+            if isinstance(part, ToolResult)
+        ]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-bundled-search", name="search_kernel_names",
+                arguments={"query": "study_roster_marker"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"The built-in found this live Python name: {results[-1].text}"
+        )]))
     if "What does this average tell us?" in latest:
         return Completion(
             model=model,
@@ -132,6 +214,14 @@ def main() -> None:
 
         if not live:
             providers.complete = fake_complete
+            # Keep browser coverage deterministic and offline; production URL
+            # validation and fetching are exercised in dedicated Python tests.
+            import importlib
+
+            prompt_module = importlib.import_module("nbinlineai.prompt")
+            prompt_module.fetch_url_markdown = lambda url: (
+                f"Source: {url}\n\n### Study lesson\n\nCompare each claim with its supporting evidence before drawing a conclusion."
+            )
         from jupyterlab.labapp import main as lab_main
 
         sys.argv = [

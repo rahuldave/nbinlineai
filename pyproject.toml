@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.5"
+version = "0.1.6"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -60,6 +60,7 @@ packages = ["nbinlineai"]
 "install.json" = "share/jupyter/labextensions/nbinlineai/install.json"
 "jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
 "docs" = "share/doc/nbinlineai/docs"
+"examples" = "share/doc/nbinlineai/examples"
 
 [tool.hatch.build.hooks.jupyter-builder]
 dependencies = ["hatch-jupyter-builder>=0.9"]
@@ -80,3 +81,7 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py310"
 line-length = 100
+
+[tool.ruff.lint.per-file-ignores]
+# AI Markdown references consume these imports outside ordinary Python cells.
+"examples/*.ipynb" = ["F401"]

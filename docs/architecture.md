@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in nbinlineai 0.1.5. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in nbinlineai 0.1.6. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -17,12 +17,14 @@ Jupyter Server + nbinlineai Python extension
     |-- Jupyter kernel messages -----> notebook's Python kernel
     |
     +-- streamed events -------------> paired Markdown answer
+    +-- frontend_action -------------> original notebook model
+    <--- authenticated action-reply -- browser acknowledgement
 ```
 
 | Component | Responsibilities |
 | --- | --- |
-| JupyterLab frontend | Add prompt controls, read the notebook model, resolve settings, intercept AI execution, and update the answer cell. |
-| Python server extension | Authenticate requests, validate inputs, construct context, read credentials, call the provider, and coordinate tool rounds. |
+| JupyterLab frontend | Add prompt controls, read the notebook model, resolve settings, intercept AI execution, update the answer cell, and perform bounded live-cell actions. |
+| Python server extension | Authenticate requests, validate inputs, construct context, read credentials, call the provider, coordinate tool rounds, and correlate browser action replies. |
 | Notebook kernel | Retrieve explicitly referenced live values, inspect function signatures, and execute allowed functions. |
 | FastLLM | Adapt a common message/tool representation to provider APIs and stream their responses. |
 
@@ -43,7 +45,7 @@ Editing a completed answer changes the source that later requests use as history
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Explicit variable references are read from the kernel and substituted into the current prompt. Explicit function references become the tool allowlist for this request.
 5. The server assembles bounded notebook source, completed earlier conversations, the current question, and the selected style instructions.
-6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates and runs it in the same kernel, appends its result, and continues the model conversation.
+6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result and continues the model conversation.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
 The server disables automatic provider retries: silently repeating a request that can call functions could repeat a side effect. A user-initiated rerun is a new request.
@@ -142,6 +144,36 @@ When a tool call returns, the server checks the function name against the curren
 
 The tool result combines captured standard output with the return value's representation, up to 4,000 characters. Ordinary synchronous functions with named parameters are supported. Positional-only arguments, `*args`, `**kwargs`, and async functions are not supported in this version. Functions run with the notebook kernel's permissions and can change state or perform whatever actions their implementations allow.
 
+### Bundled tools
+
+`nbinlineai.tools` supplies ten functions. Six use the ordinary kernel dispatch path: search names, inspect Python documentation/signatures/source, list saved notebooks, search/read saved cells, and read a public URL. Four describe live notebook operations: `list_cells`, `read_cell`, `insert_markdown`, and `url_to_note`. The server does not automatically register them. The separate `tools_markdown()` helper returns references from an explicit registry, optionally with custom callable aliases, for the user to paste into a current AI prompt. A preceding Markdown list or printed code output does not change the run's allowlist.
+
+The saved-file tools accept an explicit `.ipynb` path relative to kernel cwd (or an absolute path). They read disk source, with size/result limits; they have no access to the frontend's unsaved document model. A tool can deliberately read below the prompt or another saved notebook when asked. That result becomes part of the current tool conversation, while automatic source/history context keeps its preceding-cell boundary. File tools run with kernel filesystem permissions, not a Jupyter Contents API sandbox. See [Tools and examples](tools.md).
+
+### Frontend request/reply interface
+
+The kernel describes all registered callables, including the four frontend stubs. During inspection, the bridge identifies a special tool by **callable identity** against an explicit registry, not its Python variable name. An imported alias therefore works; a user-defined function with the same name follows normal kernel dispatch. Directly calling a frontend stub in Python raises an explanatory error.
+
+The server creates an unpredictable `run_id` bound to the original session, kernel, and prompt cell. Each action gets a fresh `request_id`. A `frontend_action` SSE event carries those IDs, an allowlisted action name, and bounded arguments. The browser acts on the `NotebookPanel` captured when the prompt started, then sends an authenticated `POST nbinlineai/action-reply` containing the IDs, session/prompt binding, and either a bounded result or an error. The server checks the pending action and current kernel binding before accepting one reply.
+
+The browser supports only these operations:
+
+| Action | Frontend model operation |
+| --- | --- |
+| `list_cells` | Traverse the ordered live cell model and return IDs, types, roles, and short source previews. |
+| `read_cell` | Find an exact cell ID and read a bounded, numbered source range. |
+| `insert_markdown` | Insert one ordinary Markdown cell in a shared-model transaction. |
+
+`url_to_note` is a server-side composition: fetch a bounded public page as Markdown, then request `insert_markdown`. Its network work runs outside the server's event loop. The provider receives insertion success only after the browser acknowledges the new cell ID. This acknowledges a change to the **live model**, not a save to disk.
+
+Actions never use the currently focused tab or cell. The browser validates the original panel, document model, session, prompt, and answer before acting. Stable cell IDs allow reading unsaved cells above or below the prompt, including offscreen cells. A missing target or changed binding fails instead of falling back to the active cell.
+
+By default insertion follows the paired answer; repeated default insertions in that run retain their request order. An explicit `after_cell_id` chooses another existing cell. Notes do not carry AI prompt/output metadata, so later prompts treat them as ordinary Markdown. Insertion does not autofocus, execute, replace/delete source, or explicitly save the document.
+
+SSE callbacks run sequentially and await reply delivery. The browser deduplicates a request ID within its run, rejecting reuse with changed arguments; the server accepts a reply only once. Timeout, cancellation, disconnect, and completion expire pending action IDs. A disconnected client cannot resume that run. An insertion already applied remains even if its acknowledgement or the rest of the answer is lost; a new prompt run can insert again. There is no rollback or cross-run deduplication.
+
+The interface does not provide general browser execution, arbitrary Jupyter command dispatch, cross-notebook edits, or a Python-to-browser blocking RPC. Future context selectors can use the existing frontend snapshot builder independently of this bridge; see the repository's `internal_docs/cell_kernel_model_and_context_selection.md` for feasibility notes.
+
 ## Settings and credentials
 
 | Data | Stored where |
@@ -172,6 +204,8 @@ Saved API keys take precedence over server environment keys. On macOS/Linux, the
 
 Provider networking and HTTP streaming use the existing asynchronous Jupyter Server loop. Kernel work travels through Jupyter's normal kernel channels to a separate kernel process. The extension does not call `asyncio.run()` inside the notebook or patch the notebook event loop. No separate AI daemon, Codex CLI, or Codex app server is required for the API mode.
 
+Frontend actions wait on an asynchronous server future while JupyterLab performs the model operation and posts its reply. They do not send a Python execute request that waits for the browser, so the kernel is free during that wait. Ordinary synchronous tools, including `read_url`, occupy the kernel while running; the server-side fetch for `url_to_note` uses a worker thread with bounded network work.
+
 A per-kernel lock serializes the extension's own inspection and tool calls. It does not freeze normal notebook activity for the duration of a model response. Users should avoid changing the relevant kernel state while a tool-using prompt is running.
 
 Closing or cancelling a request cancels the server task and cleans up provider/kernel channels. If an extension operation is actively executing in the kernel, cancellation or timeout can interrupt it. Cancellation cannot undo side effects that already occurred.
@@ -186,6 +220,8 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | --- | --- |
 | `src/index.ts` | JupyterLab plugin, notebook controls, settings dialog, request lifecycle. |
 | `src/context.ts` | Cell-model traversal and the boundary before the target prompt ID. |
+| `src/frontendActions.ts` | Bounded live notebook operations, insertion order, and action deduplication. |
+| `src/sse.ts` | Sequential parsing and awaiting of streamed event callbacks. |
 | `src/defaults.ts`, `src/keepAnswer.ts` | Setting inheritance and rerun protection. |
 | `src/executionQueue.ts` | Ordered per-notebook execution, batch failure handling, and recovery. |
 | `src/codeCopy.ts` | Clipboard controls on rendered code blocks. |
@@ -194,7 +230,10 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `nbinlineai/prompt.py` | Validation, context, style instructions, provider/tool loop. |
 | `nbinlineai/providers.py` | FastLLM API adapter. |
 | `nbinlineai/kernel.py` | Session-bound kernel inspection and execution. |
+| `nbinlineai/frontend_bridge.py` | Bound run/action registry, argument/reply validation, and expiring asynchronous waiters. |
 | `nbinlineai/tool_schema.py` | Signature-to-tool-schema translation. |
+| `nbinlineai/tools.py` | Opt-in tools, frontend callable registry, and Markdown reference helper. |
+| `nbinlineai/web_tools.py` | Bounded public-page retrieval and text/Markdown conversion. |
 | `nbinlineai/config.py`, `nbinlineai/credentials.py` | Model capabilities, configuration, and key storage. |
 
-Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/prompt`, `GET/POST nbinlineai/settings/keys`, and `DELETE nbinlineai/settings/keys/{backend}`. These use Jupyter authentication and kernel-execution authorization.
+Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/prompt`, `POST nbinlineai/action-reply`, `GET/POST nbinlineai/settings/keys`, and `DELETE nbinlineai/settings/keys/{backend}`. These use Jupyter authentication and kernel-execution authorization.

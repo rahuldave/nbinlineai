@@ -63,3 +63,17 @@ test('callback failure cancels network stream', async () => {
   await assert.rejects(readEventStream(response, () => { throw new Error('stop'); }), /stop/);
   assert.equal(cancelled, true);
 });
+
+test('stream waits for a notebook action reply before reading later events', async () => {
+  const response = new Response('data: {"type":"frontend_action"}\n\ndata: {"type":"done"}\n\n');
+  const seen: string[] = [];
+  await readEventStream(response, async event => {
+    if (event.type === 'frontend_action') {
+      await new Promise<void>(resolve => setTimeout(resolve, 5));
+      seen.push('reply accepted');
+    } else {
+      seen.push(event.type);
+    }
+  });
+  assert.deepEqual(seen, ['reply accepted', 'done']);
+});
