@@ -7,7 +7,7 @@ import { ServerConnection } from '@jupyterlab/services';
 import { addIcon, copyIcon } from '@jupyterlab/ui-components';
 import { Widget } from '@lumino/widgets';
 import { notebookCells, snapshotTransportError } from './context';
-import { NotebookContextControls, PreviewRequest, notebookContextMode } from './contextControls';
+import { NotebookContextControls, PreviewRequest, ensureCellControls, notebookContextMode } from './contextControls';
 import { copyCodeText } from './codeCopy';
 import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selectedModelChoice, promptHttpErrorMessage, serverUnavailableMessage } from './modelChoice';
 import { configured, defaultProvider } from './providerChoice';
@@ -1012,7 +1012,7 @@ function createNotebookContextRow(panel: NotebookPanel): { widget: Widget; obser
   row.className = 'nbinlineai-context-row';
   const context = contextControls.get(panel)!;
   const title = document.createElement('span'); title.textContent = 'Context'; title.className = 'nbinlineai-context-title';
-  row.append(title, context.modeSelect, context.caption, context.refreshButton, context.details);
+  row.append(title, context.modeSelect, context.details);
   widget.node.append(row);
   const observer = new ResizeObserver(() => {
     if (widget.isDisposed || panel.isDisposed) return;
@@ -1150,9 +1150,12 @@ function decorate(panel: NotebookPanel): void {
       if (!widget.rendered && !(panel.content.activeCell === widget && panel.content.mode === 'edit')) widget.rendered = true;
       decorateCodeCopy(widget);
     }
-    if (!meta.isPromptCell) { widget.node.querySelector(':scope > .nbinlineai-controls')?.remove(); continue; }
-    let controls = widget.node.querySelector(':scope > .nbinlineai-controls') as HTMLElement | null;
-    if (!controls) { controls = makeControls(panel, cell.id); widget.node.appendChild(controls); }
+    const cellControls = ensureCellControls(widget.node);
+    if (!meta.isPromptCell) { cellControls.querySelector(':scope > .nbinlineai-controls')?.remove(); continue; }
+    let controls = (cellControls.querySelector(':scope > .nbinlineai-controls') ||
+      widget.node.querySelector(':scope > .nbinlineai-controls')) as HTMLElement | null;
+    if (!controls) controls = makeControls(panel, cell.id);
+    if (controls.parentElement !== cellControls) cellControls.appendChild(controls);
     const effective = resolvedFor(panel, cell);
     const selectedProvider = controls.querySelector('[data-nbinlineai-provider]') as HTMLSelectElement;
     selectedProvider.value = effective.backend;
@@ -1290,6 +1293,14 @@ const plugin: JupyterFrontEndPlugin<void> = {
         panel.contentHeader.addWidget(contextRow.widget);
         panel.contentHeader.fit();
         decorate(panel);
+        let notebookWidth = panel.content.node.getBoundingClientRect().width;
+        const cellWidthObserver = new ResizeObserver(entries => {
+          const width = entries[0]?.contentRect.width || 0;
+          if (!width || Math.abs(width - notebookWidth) < 1) return;
+          notebookWidth = width;
+          window.requestAnimationFrame(() => { if (!panel.isDisposed) decorate(panel); });
+        });
+        cellWidthObserver.observe(panel.content.node);
         const onMetadataChanged = () => decorate(panel);
         const onCellsChanged = () => { context.invalidate(); window.requestAnimationFrame(() => decorate(panel)); };
         const onContentChanged = () => { context.invalidate(); };
@@ -1331,6 +1342,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         panel.disposed.connect(() => {
           context.dispose();
           contextRow.observer.disconnect();
+          cellWidthObserver.disconnect();
           observer.disconnect();
           panel.content.modelChanged.disconnect(bindModel);
           if (boundModel) {

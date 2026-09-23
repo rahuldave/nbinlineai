@@ -61,7 +61,35 @@ function parsePreview(value: unknown): ContextPreview {
   for (const name of ['selected_cell_ids', 'included_cell_ids', 'omitted_cell_ids', 'partial_cell_ids']) {
     if (!validIds(raw[name])) throw new Error('Invalid context preview cell IDs.');
   }
+  if (raw.tools !== undefined && (!Array.isArray(raw.tools) || !raw.tools.every(name => typeof name === 'string'))) {
+    throw new Error('Invalid context preview tools.');
+  }
   return raw as unknown as ContextPreview;
+}
+
+/** Presentation only: keep per-cell controls above this cell's own input area. */
+export function ensureCellControls(node: HTMLElement): HTMLElement {
+  let host = node.querySelector(':scope > [data-nbinlineai-cell-controls]') as HTMLElement | null;
+  if (!host) {
+    host = document.createElement('div');
+    host.dataset.nbinlineaiCellControls = '';
+    const line = document.createElement('div');
+    line.dataset.nbinlineaiCellContextLine = '';
+    host.append(line);
+  }
+  const input = node.querySelector(':scope > .jp-Cell-inputWrapper');
+  const header = node.querySelector(':scope > .jp-Cell-header');
+  if (input && host.nextElementSibling !== input) node.insertBefore(host, input);
+  else if (!host.parentElement) node.insertBefore(host, header?.nextSibling || node.firstChild);
+  const editor = input?.querySelector('.jp-InputArea-editor');
+  if (editor && host.isConnected) {
+    const editorRect = editor.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    if (editorRect.width > 0 && hostRect.width > 0) {
+      host.style.setProperty('--nbinlineai-editor-inset', `${Math.max(0, Math.round(editorRect.left - hostRect.left))}px`);
+    }
+  }
+  return host;
 }
 
 export class NotebookContextControls {
@@ -70,6 +98,9 @@ export class NotebookContextControls {
   private generation = 0;
   private previewFingerprint = '';
   private pending = false;
+  private checkedAt: number | null = null;
+  private lastCheckClock = 0;
+  private checkFailed = false;
   private notice = '';
   private holdTarget = false;
   private holdTimer: number | null = null;
@@ -102,20 +133,24 @@ export class NotebookContextControls {
     this.modeSelect.addEventListener('change', () => this.changeMode(contextMode(this.modeSelect.value)));
     this.caption = document.createElement('span'); this.caption.dataset.nbinlineaiContextTarget = '';
     this.refreshButton = document.createElement('button'); this.refreshButton.type = 'button';
-    this.refreshButton.dataset.nbinlineaiContextRefresh = ''; this.refreshButton.textContent = 'Refresh preview';
+    this.refreshButton.dataset.nbinlineaiContextRefresh = ''; this.refreshButton.textContent = 'Check context';
+    this.refreshButton.title = 'Update the estimate after Python values or functions change. This does not ask the AI or change the notebook; running an AI question checks context again.';
+    this.refreshButton.setAttribute('aria-description', this.refreshButton.title);
     this.refreshButton.addEventListener('click', () => { void this.refresh(); });
     this.status = document.createElement('span'); this.status.dataset.nbinlineaiContextStatus = '';
     this.status.setAttribute('role', 'status');
+    this.status.setAttribute('aria-live', 'polite');
+    this.status.setAttribute('aria-atomic', 'true');
     this.details = document.createElement('details'); this.details.dataset.nbinlineaiContextDetails = '';
     const summary = document.createElement('summary');
-    const summaryLabel = document.createElement('span'); summaryLabel.textContent = 'Context details';
-    summary.append(summaryLabel, this.status);
+    const summaryLabel = document.createElement('span'); summaryLabel.textContent = 'Details';
+    summary.append(summaryLabel);
     this.report = document.createElement('div'); this.report.dataset.nbinlineaiContextReport = '';
     const help = document.createElement('p');
-    help.textContent = 'Default uses nearby earlier notebook text that fits the character budget. Other modes choose candidate cells; selected text may still be omitted or partial.';
+    help.textContent = 'Context is the notebook text sent with an AI question. Choose a mode or check cells to select useful text. Even Full notebook leaves out this question’s own answer, and selected text may be shortened to fit the character budget.';
     const toolsHelp = document.createElement('p');
-    toolsHelp.textContent = 'Context checkboxes choose notebook text. Tools default to on; each Tools checkbox separately saves whether declarations in that Markdown or AI question cell are available. Enabled declarations in this question and earlier cells remain available even when their text is unchecked. A tool declared in multiple enabled cells stays available until every declaration is turned off. Declarations below this question are inactive here. Tool choices persist across Context modes.';
-    this.details.append(summary, this.report, help, toolsHelp);
+    toolsHelp.textContent = 'The question and available tools also use space. Tools named above this question stay available even when their cell’s text is unchecked; use each Tools checkbox to change that. The estimate may change after Python values or functions change; Check context updates it without asking the AI. Running a question always checks context again.';
+    this.details.append(summary, this.caption, this.status, help, toolsHelp, this.refreshButton, this.report);
     this.panel.content.node.addEventListener('pointerdown', this.onControlPointer, true);
     this.panel.content.node.addEventListener('focusin', this.onControlFocus, true);
   }
@@ -182,7 +217,9 @@ export class NotebookContextControls {
     this.preview = null;
     this.previewFingerprint = '';
     this.pending = false;
-    this.notice = this.targetId ? 'Preview needs refresh.' : '';
+    this.checkedAt = null;
+    this.checkFailed = false;
+    this.notice = this.targetId ? 'Context estimate needs updating.' : '';
     this.redraw();
   }
   private scheduleRefresh(): void {
@@ -204,7 +241,7 @@ export class NotebookContextControls {
       return;
     }
     if (mode === 'custom' && current === 'default' && !hasCustomChoices(this.panel) && !this.currentPreview()) {
-      this.notice = 'Refresh the Default preview before creating Custom choices.';
+      this.notice = 'Check the Default context before creating Custom choices.';
       this.modeSelect.value = current;
       this.redraw();
       return;
@@ -256,13 +293,15 @@ export class NotebookContextControls {
     const cells = this.snapshot();
     const sessionId = this.panel.sessionContext.session?.id;
     if (!cells || !this.targetId || !sessionId) {
-      this.notice = !this.targetId ? 'Select an AI question to preview context.' : 'Start a kernel to preview context.';
+      this.checkedAt = null; this.checkFailed = !!this.targetId;
+      this.notice = !this.targetId ? '' : 'Start a kernel to check context.';
       this.redraw(); return;
     }
     const transportError = snapshotTransportError(cells);
-    if (transportError) { this.notice = transportError; this.redraw(); return; }
+    if (transportError) { this.checkedAt = null; this.checkFailed = true; this.notice = transportError; this.redraw(); return; }
     if (this.panel.sessionContext.session?.kernel?.status !== 'idle') {
-      this.notice = 'Kernel is busy. Refresh when it is idle.';
+      this.checkedAt = null; this.checkFailed = true;
+      this.notice = 'Kernel is busy. Check context when it is idle.';
       this.redraw(); return;
     }
     const prompt = cells.find(cell => cell.id === this.targetId)?.source.trim() || '';
@@ -272,19 +311,28 @@ export class NotebookContextControls {
     this.requestController = controller;
     const fingerprint = this.fingerprint(cells);
     const model = this.panel.content.model;
-    this.pending = true; this.notice = 'Estimating context…'; this.redraw();
+    this.pending = true; this.checkFailed = false; this.checkedAt = null; this.notice = 'Checking context…'; this.redraw();
     try {
       const result = parsePreview(await this.previewRequest({ snapshot_version: 1, notebook_cells: cells,
         context_mode: notebookContextMode(this.panel), prompt_cell_id: this.targetId, prompt,
         session_id: sessionId, preview_generation: generation }, controller.signal));
-      if (!this.alive || generation !== this.generation || this.panel.content.model !== model || this.fingerprint(this.snapshot() || []) !== fingerprint ||
-          result.snapshot_generation !== undefined && result.snapshot_generation !== generation) return;
+      if (!this.alive || generation !== this.generation) return;
+      if (this.panel.content.model !== model || this.fingerprint(this.snapshot() || []) !== fingerprint ||
+          result.snapshot_generation !== undefined && result.snapshot_generation !== generation) {
+        this.checkFailed = true;
+        this.notice = 'Notebook changed during the check. Check context again.';
+        return;
+      }
       this.preview = result;
       this.previewFingerprint = fingerprint;
+      this.lastCheckClock = Math.max(Date.now(), this.lastCheckClock + 1);
+      this.checkedAt = this.lastCheckClock;
       this.notice = `First-round estimate: ${result.selected_cell_ids.length} selected · ${result.included_cell_ids.length} included · ${result.omitted_cell_ids.length} omitted · ${result.partial_cell_ids.length} partial. Tools available: ${result.tools?.join(', ') || 'none'}.`;
     } catch (error) {
       if (this.alive && generation === this.generation) {
         this.preview = null;
+        this.checkedAt = null;
+        this.checkFailed = true;
         this.notice = error instanceof Error ? error.message : 'Context preview unavailable.';
       }
     } finally {
@@ -305,30 +353,56 @@ export class NotebookContextControls {
     };
     this.modeSelect.title = descriptions[notebookContextMode(this.panel)];
     this.modeSelect.setAttribute('aria-description', this.modeSelect.title);
-    this.caption.textContent = index < 0 ? 'Select an AI question' : `Context for AI question ${index + 1}`;
+    let hasQuestion = false;
+    if (index < 0) {
+      const cells = this.panel.content.model?.cells;
+      if (cells) for (let i = 0; i < cells.length; i++) {
+        if (aiCell(cells.get(i)).isPromptCell === true) { hasQuestion = true; break; }
+      }
+    }
+    this.caption.textContent = index < 0
+      ? hasQuestion ? 'Click an AI question to check its context.' : 'Add an AI question to check its context.'
+      : `Context for AI question ${index + 1}`;
     this.refreshButton.disabled = index < 0 || this.pending;
-    this.status.textContent = this.pending ? 'Estimating…' : this.viewPreview
-      ? `${this.viewPreview.included_cell_ids.length} included · ${this.viewPreview.tools?.length || 0} tools`
-      : index < 0 ? 'Select question' : this.notice.includes('busy') ? 'Kernel busy'
-      : this.notice.includes('limit') || this.notice.includes('10,000 cells') ? 'Snapshot too large'
-      : this.notice.includes('unavailable') || this.notice.includes('failed') ? 'Preview unavailable' : 'Refresh preview';
-    this.status.title = this.notice || 'First-round character estimate; open Context details for explanation.';
-    this.report.textContent = this.notice || (index < 0 ? 'Select an AI question to preview context.' : 'Refresh preview for a first-round estimate.');
+    this.refreshButton.textContent = this.pending ? 'Checking…' : 'Check context';
+    if (index >= 0 && !this.pending && !this.checkFailed && this.viewPreview && this.checkedAt !== null) {
+      const date = new Date(this.checkedAt);
+      const timeText = `${date.toTimeString().slice(0, 8)}.${String(date.getMilliseconds()).padStart(3, '0')}`;
+      const prefix = `Context checked: ${this.viewPreview.included_cell_ids.length} ${this.viewPreview.included_cell_ids.length === 1 ? 'cell' : 'cells'}, ${this.viewPreview.tools?.length || 0} ${(this.viewPreview.tools?.length || 0) === 1 ? 'tool' : 'tools'} · Last checked `;
+      if (this.status.textContent !== `${prefix}${timeText}`) {
+        const time = document.createElement('time'); time.dataset.nbinlineaiContextCheckedAt = '';
+        time.dateTime = date.toISOString(); time.textContent = timeText;
+        this.status.replaceChildren(document.createTextNode(prefix), time);
+      }
+    } else {
+      const status = index < 0 ? '' : this.pending ? 'Checking…' : this.checkFailed
+        ? this.notice.includes('busy') ? 'Kernel busy' : 'Context check failed'
+        : 'Not checked';
+      if (this.status.textContent !== status) this.status.textContent = status;
+    }
+    this.status.title = this.notice || (index < 0 ? '' : 'First-round context estimate; open Details for explanation.');
+    this.report.textContent = index < 0 ? '' : this.notice || 'Check context for a first-round estimate.';
   }
   decorateCell(cell: ICellModel, node: HTMLElement): void {
-    this.decorateTools(cell, node);
-    let label = node.querySelector(':scope > [data-nbinlineai-context-control]') as HTMLLabelElement | null;
+    const host = ensureCellControls(node);
+    const line = host.querySelector('[data-nbinlineai-cell-context-line]') as HTMLElement;
+    this.decorateTools(cell, node, line);
+    let label = (line.querySelector(':scope > [data-nbinlineai-context-control]') ||
+      node.querySelector(':scope > [data-nbinlineai-context-control]')) as HTMLLabelElement | null;
     if (!label) {
       label = document.createElement('label'); label.dataset.nbinlineaiContextControl = '';
       label.className = 'nbinlineai-context-control';
       const input = document.createElement('input'); input.type = 'checkbox'; input.dataset.nbinlineaiContextInclude = '';
       input.setAttribute('aria-label', 'Include in AI context');
       input.addEventListener('change', () => this.changeCell(cell.id, input.checked));
-      const text = document.createElement('span'); text.textContent = 'Context';
+      const text = document.createElement('span'); text.dataset.nbinlineaiContextText = ''; text.textContent = 'Context';
       const budget = document.createElement('span'); budget.dataset.nbinlineaiContextBudget = '';
-      label.append(input, text, budget); node.append(label);
+      label.append(input, text, budget);
     }
+    if (label.parentElement !== line) line.prepend(label);
     const input = label.querySelector('input')!;
+    const text = (label.querySelector('[data-nbinlineai-context-text]') || label.querySelector('span')) as HTMLElement;
+    text.dataset.nbinlineaiContextText = '';
     const budget = label.querySelector('[data-nbinlineai-context-budget]') as HTMLElement;
     const cells = this.viewCells;
     const targetId = this.targetId;
@@ -351,30 +425,37 @@ export class NotebookContextControls {
       'default-requires-earlier-complete-pair': 'Needs earlier pair'
     };
     reason = reasons[reason] || reason;
+    const isCurrentQuestion = !!targetId && cell.id === targetId;
     const previewPending = mode === 'default' && !this.viewPreview;
     input.disabled = !!reason || previewPending;
+    input.hidden = isCurrentQuestion;
+    label.classList.toggle('nbinlineai-current-question', isCurrentQuestion);
+    if (isCurrentQuestion) label.setAttribute('aria-label', 'Current question, always included');
+    else label.removeAttribute('aria-label');
+    text.textContent = isCurrentQuestion ? 'Current question · always included' : 'Context';
     input.indeterminate = false;
     const reported = this.viewPreview;
-    input.checked = !reason && this.viewSelected.has(cell.id);
+    input.checked = isCurrentQuestion || (!reason && this.viewSelected.has(cell.id));
     if (mode === 'default' && reported?.partial_cell_ids.includes(cell.id) && !reason) {
       input.checked = false; input.indeterminate = true;
     }
     const omitted = reported?.omitted_cell_ids.includes(cell.id);
     const partial = reported?.partial_cell_ids.includes(cell.id);
     const retained = reported?.partial_cells?.find(item => item.id === cell.id)?.retained;
-    budget.textContent = reason || (partial ? 'partial' : omitted && input.checked ? 'omitted by budget' : '');
-    input.title = reason === 'Needs earlier pair' ? 'Default uses completed earlier AI question/answer pairs. Choose an explicit Context mode to include this AI cell as labeled source.' : reason || (previewPending ? 'Refresh preview to see which cells fit the Default context.' : partial
+    budget.textContent = !targetId || isCurrentQuestion ? '' : reason || (partial ? 'partial' : omitted && input.checked ? 'omitted by budget' : '');
+    input.title = reason === 'Needs earlier pair' ? 'Default uses completed earlier AI question/answer pairs. Choose an explicit Context mode to include this AI cell as labeled source.' : reason || (previewPending ? 'Check context to see which cells fit the Default context.' : partial
       ? retained === 'suffix' ? 'Only the ending of this cell fits the current estimate.' : retained === 'prefix' ? 'Only the beginning of this cell fits the current estimate.' : 'Only part of this cell fits the current estimate.'
       : omitted && input.checked ? 'Selected, but omitted by the current character budget.' : 'Select notebook source for AI context.');
-    label.title = input.title;
+    label.title = isCurrentQuestion ? 'This question is always sent with its own AI request.' : input.title;
   }
-  private decorateTools(cell: ICellModel, node: HTMLElement): void {
+  private decorateTools(cell: ICellModel, node: HTMLElement, line: HTMLElement): void {
     const snapshot = this.viewById.get(cell.id) || {
       id: cell.id, cell_type: cell.type, source: cell.sharedModel.getSource(),
       metadata: cell.toJSON().metadata as Record<string, unknown>
     };
     const names = toolDeclarationNames(snapshot);
-    let label = node.querySelector(':scope > [data-nbinlineai-tools-control]') as HTMLLabelElement | null;
+    let label = (line.querySelector(':scope > [data-nbinlineai-tools-control]') ||
+      node.querySelector(':scope > [data-nbinlineai-tools-control]')) as HTMLLabelElement | null;
     if (!names.length) { label?.remove(); return; }
     if (!label) {
       label = document.createElement('label'); label.dataset.nbinlineaiToolsControl = '';
@@ -390,8 +471,9 @@ export class NotebookContextControls {
       });
       const text = document.createElement('span'); text.dataset.nbinlineaiToolsNames = '';
       const state = document.createElement('span'); state.dataset.nbinlineaiToolsState = '';
-      label.append(input, text, state, description); node.append(label);
+      label.append(input, text, state, description);
     }
+    if (label.parentElement !== line) line.append(label);
     const input = label.querySelector('input')!;
     input.checked = aiCell(cell).toolsInclude !== false;
     const below = this.viewTargetIndex >= 0 && (this.viewPositions.get(cell.id) ?? -1) > this.viewTargetIndex;
