@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe the **current source build**. Context controls are newer than published 0.1.7. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.8**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 

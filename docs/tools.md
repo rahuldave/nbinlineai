@@ -170,7 +170,7 @@ These notebooks contain prompts, setup code, and instructions, with no API keys 
 
 | Notebook | Try it |
 | --- | --- |
-| [Context selection](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb) | Compare context modes, restore Custom choices, and control declaration cells separately with Tools (current source build). |
+| [Context selection](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb) | Compare context modes, restore Custom choices, and control declaration cells separately with Tools (0.1.8). |
 | [Quick start](https://github.com/rahuldave/nbinlineai/blob/main/examples/quickstart.ipynb) | One live variable, one custom function, and your first AI call. |
 | [Live variables and tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-variables-and-tools.ipynb) | Compare a live value with a function call; inspect a real change to Python state. |
 | [Socratic learning dialogue](https://github.com/rahuldave/nbinlineai/blob/main/examples/socratic-learning-dialog.ipynb) | Answer the tutor in successive AI cells, edit an answer, and explore Keep overrides. |

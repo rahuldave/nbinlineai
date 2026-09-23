@@ -4,7 +4,7 @@ Copy this `examples/` directory into a JupyterLab project, keeping `data/` besid
 
 | Notebook | What to try |
 | --- | --- |
-| `context-selection.ipynb` | Compare seven Context modes, save Custom text choices, and switch declaration cells on/off with separate Tools controls (current source build). |
+| `context-selection.ipynb` | Compare seven Context modes, save Custom text choices, and switch declaration cells on/off with separate Tools controls (0.1.8). |
 | `quickstart.ipynb` | A short first prompt with a live variable and one custom function. |
 | `live-variables-and-tools.ipynb` | Read a live value, offer selected custom functions, and observe a tool changing Python state. |
 | `socratic-learning-dialog.ipynb` | Work through a Learning-style exchange one turn at a time; edit an answer and see how later turns use the correction. |

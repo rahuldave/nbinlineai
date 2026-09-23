@@ -4,7 +4,7 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes the current source build, including selectable notebook context. These controls are newer than the published 0.1.7 package. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
+This guide describes version 0.1.8, including selectable notebook context. It explains everyday use, notebook defaults, response styles, saved data, and what the AI can see.
 
 For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 

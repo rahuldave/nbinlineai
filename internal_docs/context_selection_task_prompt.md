@@ -1,10 +1,10 @@
 # Task prompt: selectable notebook context
 
-Original task prompt, retained as design history. The feature is now implemented in source; the brief records the user's later addition of independent per-cell Tools controls and Current question only mode. Use the current handoff for implementation status.
+Original task prompt, retained as design history from after 0.1.7 and before the 0.1.8 implementation. The feature is implemented for 0.1.8; the brief records the user's later addition of independent per-cell Tools controls and Current question only mode. Use the current handoff for implementation status. The imperative text below describes the task as it stood then.
 
 ---
 
-Implement notebook context selection for **nbinlineai**, starting from the current checkout. Read `AGENTS.md`, `internal_docs/README.md`, `internal_docs/developer_handoff.md`, `internal_docs/context_selection_next_feature.md`, and `internal_docs/context_selection_frontend_feasibility.md` first. Also read the current cell/kernel/context and bundled-tools protocol notes. Version 0.1.7 is already published; these selection controls are not implemented yet.
+Implement notebook context selection for **nbinlineai**, starting from the then-current checkout. Read `AGENTS.md`, `internal_docs/README.md`, `internal_docs/developer_handoff.md`, `internal_docs/context_selection_next_feature.md`, and `internal_docs/context_selection_frontend_feasibility.md` first. Also read the cell/kernel/context and bundled-tools protocol notes. At the time this prompt was written, version 0.1.7 was already published and these selection controls were not yet implemented.
 
 Be the orchestrator and use **gpt-6-sol** subagents for bounded coding work with explicit ownership. Use uv and our isolated JupyterLab test harness; never touch the user's server on **8888** or expose real credentials.
 

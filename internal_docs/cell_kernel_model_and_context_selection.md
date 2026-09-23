@@ -1,6 +1,6 @@
 # Notebook cells, kernel state, and context selection
 
-Current source implementation, **2026-09-23**, after published **0.1.7**. The [feature brief](context_selection_next_feature.md) records the design contract; selectable context is now implemented in this checkout. No new package has been published as part of this work.
+Version **0.1.8** implementation, **2026-09-23**. The [feature brief](context_selection_next_feature.md) records the original design contract; selectable context is implemented in this release. The verification below was performed on the pre-bump source checkout; it is not evidence of a completed PyPI upload.
 
 ## Two sources of truth
 

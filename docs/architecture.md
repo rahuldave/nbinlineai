@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in the current source build, including context selection added after published 0.1.7. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in version 0.1.8, including context selection. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 

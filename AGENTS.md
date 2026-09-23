@@ -4,7 +4,7 @@
 
 Read [the internal documentation index](internal_docs/README.md), then [the current handoff](internal_docs/developer_handoff.md). They distinguish shipped behavior from historical research and future proposals. Do not infer current behavior from an older release's design note.
 
-For context selection, read [the next-feature brief](internal_docs/context_selection_next_feature.md), [the frontend feasibility assessment](internal_docs/context_selection_frontend_feasibility.md), and [the cell/kernel model](internal_docs/cell_kernel_model_and_context_selection.md). The ready-to-use task prompt is [here](internal_docs/context_selection_task_prompt.md). These context controls are implemented in the current source build after published 0.1.7; the brief records the original design contract.
+For context selection, read [the original feature brief](internal_docs/context_selection_next_feature.md), [the frontend feasibility assessment](internal_docs/context_selection_frontend_feasibility.md), and [the cell/kernel model](internal_docs/cell_kernel_model_and_context_selection.md). The historical task prompt is [here](internal_docs/context_selection_task_prompt.md). These context controls are part of version 0.1.8; the brief records the original design contract.
 
 For tools or browser operations, read [the implemented tool and protocol contract](internal_docs/bundled_tools.md). Upstream research is in [the dialoghelper catalog](internal_docs/dialoghelper_tool_catalog.md), [the ipylab assessment](internal_docs/ipylab_frontend_bridge_assessment.md), and [the ai-jup analysis](internal_docs/ai_jup_research_and_design.md).
 

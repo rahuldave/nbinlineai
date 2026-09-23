@@ -1,6 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.7**, source commit `e8cdacf32539109ff5f019b2e6cacd71c8025068`, tag `v0.1.7`. The release verification record was committed as `44466b0`. See [releasing](releasing.md) for hashes and verification. The current source build adds [context selection](context_selection_next_feature.md) after that release; it has not been published. See the implementation and verification section below.
+Reviewed **2026-09-23**. Last confirmed PyPI upload: **0.1.7**, source commit `e8cdacf32539109ff5f019b2e6cacd71c8025068`, tag `v0.1.7`. The release verification record was committed as `44466b0`. Version **0.1.8** adds [context selection](context_selection_next_feature.md); its packaging and publication are pending. See [releasing](releasing.md) for hashes and verification, and the 0.1.8 implementation and source-verification section below.
 
 ## Product and environment
 
@@ -19,7 +19,7 @@ Keep is on by default, inherits from notebook defaults, and skips completed prot
 
 0.1.7 discovers `&` tool declarations in the current question plus **all earlier ordinary Markdown and AI questions**, independently of prose trimming. Tools are resolved from the live kernel per run; code/raw/answers/outputs and later cells do not declare tools. Only `$` in the current question resolves variables. The combined distinct reference cap is 20.
 
-The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each provider round without repeating tools. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Current source also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
+The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each provider round without repeating tools. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Version 0.1.8 also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
 
 ## Source map
 
@@ -93,7 +93,7 @@ GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing 
 
 Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, broad edit/delete/execute tools, durable action replay, other-notebook live operations, and ChatGPT subscription login. See the research index; do not interpret historical “proposed” sections as existing APIs.
 
-## Context selection in current source (after 0.1.7)
+## Context selection in version 0.1.8
 
 Seven Context modes and cell inclusion controls are implemented. The target question stays in transient panel state; execution snapshots its own stable prompt ID at its queued turn. Custom mode persists the notebook policy and per-cell text choices in shared metadata without overwriting unrelated keys. Default checks come from the shared backend preview; explicit-mode checks represent candidates with separate partial/omitted feedback.
 
@@ -101,7 +101,7 @@ New requests send versioned full ordered snapshots; legacy preceding-only reques
 
 Following the user's implementation-time refinement, declaring ordinary Markdown/AI question cells have separate saved Tools toggles (`toolsInclude`, default true). The seventh Context mode, Current question only, excludes optional source while retaining these choices. Duplicate enabled declarations still offer a tool. Below declarations never register merely through text selection.
 
-The illustrated user guide, FAQ, architecture and `examples/context-selection.ipynb` document the behavior. No version bump, PyPI publication or deployment is part of this task. The public docs explicitly identify these controls as newer than published 0.1.7.
+The illustrated user guide, FAQ, architecture and `examples/context-selection.ipynb` document the 0.1.8 behavior. Packaging and publication are tracked separately in [releasing](releasing.md).
 
 Verification on 2026-09-23:
 
@@ -110,4 +110,4 @@ Verification on 2026-09-23:
 - The capture helper refreshed eleven guide screenshots, including new `context-selection.png` and `context-details.png`; tool browser tests refreshed their own illustrations. The compact controls, expanded explanations and example were visually reviewed. Local documentation/image links resolve.
 - `uv build --out-dir dist/context-selection-check`, strict Twine, archive checks and a credential-pattern scan passed. The source archive has 126 files and the wheel 62. A disposable uv environment with JupyterLab 4.6.4 installed the checked wheel, found both extensions enabled/OK, imported all seven modes, and contained the new example and illustrations.
 
-All owned test/capture servers were stopped. Port 8888 was untouched, and no paid provider call was made. These are source-build validation artifacts at the unchanged 0.1.7 version, not a new published release; bump the version before any future publication.
+All owned test/capture servers were stopped. Port 8888 was untouched, and no paid provider call was made. These results are the original **pre-bump source verification**, run while version metadata still read 0.1.7. The 0.1.8 release packaging and publication are separate gates; this test record does not itself confirm a PyPI upload.

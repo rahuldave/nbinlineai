@@ -1,6 +1,6 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-23**, for the context-selection implementation after published **0.1.7**. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-23**, for the **0.1.8** context-selection release. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
 ## A new task's reading order
 
@@ -16,7 +16,7 @@ Last reviewed: **2026-09-23**, for the context-selection implementation after pu
 - [Frontend feasibility and upstream evidence](context_selection_frontend_feasibility.md)
 - [Copyable task prompt](context_selection_task_prompt.md)
 
-The brief and task prompt preserve the original design contract. Context selection is now implemented in source; the handoff records verification. The latest published package remains 0.1.7.
+The brief and task prompt preserve the original design contract. Context selection is implemented for 0.1.8; the handoff records verification. The last confirmed PyPI upload is 0.1.7 while 0.1.8 packaging and publication are pending.
 
 ## Research and historical decisions
 

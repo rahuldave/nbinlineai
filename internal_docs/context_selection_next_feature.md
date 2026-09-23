@@ -1,6 +1,6 @@
 # Next feature: notebook context selection
 
-**Design contract, 2026-09-23. Implemented in the current source build after published 0.1.7.** The user requested this feature for a new task. The modes and per-cell controls are requested; the detailed semantics below are engineering recommendations for that task, not behavior already shipped or separately approved by the user.
+**Original design contract, 2026-09-23, for the feature released as 0.1.8.** The user requested the modes and per-cell controls; the detailed semantics below were engineering recommendations for that task. This is a historical brief, so consult the [developer handoff](developer_handoff.md) and [user guide](../docs/user-guide.md) for implemented behavior.
 
 ## User refinement during implementation
 
