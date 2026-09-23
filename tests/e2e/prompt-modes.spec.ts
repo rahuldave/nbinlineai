@@ -53,6 +53,23 @@ async function setMode(page: Page, mode: 'compact' | 'full' | 'learning', screen
   await expect(dialog).toBeHidden();
 }
 
+async function resetBundledInstructions(page: Page) {
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  const details = dialog.locator('[data-nbinlineai-template-details]');
+  await details.locator(':scope > summary').click();
+  for (const mode of ['compact', 'full', 'learning']) {
+    const row = details.locator(`[data-nbinlineai-template-mode="${mode}"]`);
+    if (await row.getAttribute('open') === null) await row.locator(':scope > summary').click();
+    const reset = row.locator(`[data-nbinlineai-instruction-reset="${mode}"]`);
+    if (await reset.isEnabled()) {
+      await reset.click();
+      await expect(row.locator('.nbinlineai-template-state')).toContainText('Using server default for future runs');
+    }
+  }
+  await page.getByRole('button', { name: 'Done' }).click();
+}
+
 async function addPromptAfter(page: Page, cellIndex: number, source: string) {
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
   await notebook.locator('.jp-Cell').nth(cellIndex).click();
@@ -77,6 +94,7 @@ async function runAndCaptureMode(page: Page, prompt: Locator, mode: string) {
 
 test('saved response style controls requests, server instructions, and learning history', async ({ page, request }) => {
   await openNotebook(page, request);
+  await resetBundledInstructions(page);
   await setMode(page, 'full', true);
   const prompt = await addPromptAfter(page, 0, 'E2E_STYLE explain value');
   const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell').first();

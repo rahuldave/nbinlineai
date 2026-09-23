@@ -6,6 +6,7 @@ export interface AIDefaults {
   model?: string;
   promptMode?: PromptMode;
   reasoningEffort?: string;
+  keepAnswers?: boolean;
 }
 export interface AIOverrides extends AIDefaults {}
 export interface ResolvedAI {
@@ -48,6 +49,7 @@ export function snapshotDefaults(existing: AIDefaults, effective: ResolvedAI): A
     backend: existing.backend || effective.backend,
     model: existing.model || effective.model,
     promptMode: existing.promptMode || effective.promptMode,
-    reasoningEffort: existing.reasoningEffort || effective.reasoningEffort || 'default'
+    reasoningEffort: existing.reasoningEffort || effective.reasoningEffort || 'default',
+    keepAnswers: existing.keepAnswers ?? true
   };
 }

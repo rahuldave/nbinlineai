@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in nbinlineai 0.1.4. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API-based implementation in nbinlineai 0.1.5. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Three parts, plus the provider
 
@@ -26,7 +26,7 @@ Jupyter Server + nbinlineai Python extension
 | Notebook kernel | Retrieve explicitly referenced live values, inspect function signatures, and execute allowed functions. |
 | FastLLM | Adapt a common message/tool representation to provider APIs and stream their responses. |
 
-The frontend is a prebuilt JupyterLab 4 extension bundled in the Python package. Students do not need Node.js. The same package registers a Jupyter Server extension; this is why installation and upgrades require a **whole-server restart**.
+The frontend is a prebuilt JupyterLab 4.2+ extension bundled in the Python package. Students do not need Node.js. The same package registers a Jupyter Server extension; this is why installation and upgrades require a **whole-server restart**.
 
 ## An AI cell is a Markdown cell
 
@@ -34,9 +34,11 @@ There is no new notebook cell type or cell magic. A prompt is a standard Markdow
 
 This keeps the notebook readable without the extension. The stored link lets a rerun replace the paired answer. Copy buttons are frontend decoration and do not alter the saved Markdown. The notebook does not contain a separate structured transcript of tool calls.
 
+Editing a completed answer changes the source that later requests use as history. Keep answer prevents regenerating that answer; it does not exclude it from context. The extension does not maintain a dependency graph, automatically invalidate answers below an edit, or mark them stale.
+
 ## One prompt request
 
-1. The frontend checks **Keep answer**. A completed, nonempty paired answer is protected unless the user has turned this off; protected Shift+Enter advances without an API request.
+1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no API request.
 2. It resolves cell overrides over notebook defaults over user preferences. It snapshots the current prompt, cells above it, the notebook session ID, and the effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Explicit variable references are read from the kernel and substituted into the current prompt. Explicit function references become the tool allowlist for this request.
@@ -48,11 +50,59 @@ The server disables automatic provider retries: silently repeating a request tha
 
 ## Context and live state
 
+### What the frontend knows
+
+JupyterLab owns the notebook document model: an ordered list of cells, each with an ID, type, source text, and metadata. The extension reads this model, including unsaved edits. It does not scrape the rendered page; cells scrolled out of view or not currently rendered are still in the model.
+
+For an individual Run command, the active notebook and selected cell identify the target. During Run All, JupyterLab hands the executor each target cell. The extension captures that **prompt cell's ID**. A later selection change does not make a different cell the target of the request.
+
+`precedingCells(model, promptCellId)` in `src/context.ts` walks the ordered model from the start and stops when it reaches that ID. Everything visited is above the prompt; the remaining cells are below it. The boundary comes from document position, not screen coordinates, scroll position, a cell's execution count, or the kernel's history.
+
+```text
+Frontend document model                 Kernel process
+  cell A: Markdown notes                  user_ns["scores"]
+  cell B: Python source                   user_ns["add_bonus"]
+  cell C: AI prompt  <-- target ID         other live Python objects
+  cell D: paired answer
+  cell E: later code
+
+Request source context: cells A and B
+Explicit live references: selected names from the kernel namespace
+```
+
+The browser sends a snapshot of the preceding cells with their IDs, types, current source, metadata, and code execution counts, along with the prompt text and notebook session ID. The server then enforces the cell-count and source/history limits. Code execution counts are descriptive; they do not decide inclusion. A range execution snapshots each AI prompt when it reaches its turn, so earlier updated answers can enter later requests.
+
+### What the kernel knows
+
+The kernel holds live Python variables, imported modules, functions, and execution state. It is not the source of truth for the notebook's Markdown, unexecuted source, cell order, or selected cell. Its executed-code history cannot reconstruct the current notebook: cells may be edited, moved, deleted, or never executed.
+
+The server uses the frontend's session ID to find the session's Python kernel. A `$` reference asks that kernel for a named object's bounded representation. An `&` reference asks for the named callable's signature/docstring and permits subsequent calls. This uses Jupyter execution messages; it does not require the kernel to know which cells are visually above the prompt.
+
+| Information | Source of truth |
+| --- | --- |
+| Current target prompt | The cell ID supplied by the frontend command or executor. |
+| Above/below and notebook order | The frontend's notebook cell list. |
+| Unsaved code/Markdown edits | Current frontend shared-model source. |
+| Saved answers and their pairing | Markdown source and cell metadata in the notebook model. |
+| Actual Python value or callable | The running kernel namespace. |
+| Which kernel belongs to the notebook | Jupyter Server's session/kernel managers. |
+| Context limits and source/history separation | The server's prompt builder. |
+
+These sources can disagree without either being broken. Editing `score = 10` to `score = 20` changes the source context immediately, but the live value remains 10 until that code executes. Moving its cell below a prompt removes its source from that prompt's default context; it does not remove `score` from the kernel.
+
+### What the server includes
+
 The browser sends cells **above the prompt in notebook order**. The server includes code and ordinary Markdown source in one bounded source context. Earlier completed AI prompt/answer pairs become conversational messages, rather than being duplicated as ordinary Markdown.
 
 The source snapshot excludes later cells, code outputs, raw-cell content, image pixels, and automatic file contents. Linked pages are not fetched. The [user guide](user-guide.md#9-troubleshooting-and-limits) lists all size and round limits.
 
 Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads `get_ipython().user_ns` in the running kernel, not a value inferred from the displayed source. A variable reference sends a bounded `repr` string; arbitrary objects are not serialized to the provider.
+
+### Future context selection
+
+Per-cell inclusion switches, whole-notebook context, and a window around the prompt are **not implemented**. The frontend model makes those selections feasible, but the request contract and backend filtering currently assume preceding cells. Expanding the source selection would not expand the kernel's scope: live references already use the whole current namespace.
+
+Before implementing selection modes, we need to define what a window counts, how moved cells affect the selection, how size limits are reported, and how later AI exchanges are treated. In particular, the current prompt's old paired answer must not accidentally become context for its own rerun, and future exchanges must not be presented as earlier conversation. Detailed feasibility notes are maintained in the repository's `internal_docs/cell_kernel_model_and_context_selection.md`.
 
 ## Turning Python functions into tools
 
@@ -97,12 +147,22 @@ The tool result combines captured standard output with the return value's repres
 | Data | Stored where |
 | --- | --- |
 | Prompt and answer text | Cell `source` in the `.ipynb`. |
-| Notebook provider, model, style, effort | Notebook `metadata.nbinlineai.defaults`. |
+| Notebook provider, model, style, effort, Keep AI answers | Notebook `metadata.nbinlineai.defaults`. |
 | Cell overrides and Keep answer | Prompt-cell `metadata.nbinlineai`. |
 | Initial user preferences and custom style wording | JupyterLab user settings. |
 | API keys saved through Configure AI | Private per-user configuration file on the machine running Jupyter Server. |
 
 Effective notebook defaults are captured on first AI use, once a provider is configured. Merely opening an ordinary notebook does not create AI settings. Later cells inherit notebook defaults; legacy explicit cell choices remain overrides until reset.
+
+For Keep answer, a missing cell value means inheritance; an explicit `true` or `false` remains an override even if the notebook default changes. Existing explicit choices from 0.1.4 are preserved. Resetting model/style overrides does not reset the Keep answer choice.
+
+## Native notebook execution
+
+Version 0.1.5 supplies a JupyterLab `INotebookCellExecutor` provider. It recognizes AI prompt Markdown cells and delegates ordinary cells to JupyterLab's exported executor. This connects AI prompts to native Run All, range execution, and keyboard execution without replacing command IDs or maintaining a separate Shift+Enter interception path.
+
+JupyterLab schedules multiple cell-executor calls concurrently. nbinlineai queues them per notebook so that code, AI responses, and function calls finish in order. A failed or cancelled cell stops later queued work in the same batch; a later batch can run after the previous one drains. Different notebooks have independent queues.
+
+Each AI request snapshots context when its turn executes, so it sees completed or edited earlier answers and the kernel state created by earlier work. Kept answers skip provider calls and do not replay earlier tool side effects. Headless notebook execution does not load this browser plugin and treats these cells as Markdown.
 
 The server publishes the bundled style instructions and known model effort capabilities. The frontend sends any chosen custom style wording with a request; the server validates its size and keeps notebook-context instructions separate. FastLLM maps effort to OpenAI `reasoning.effort` or Anthropic `output_config.effort` with adaptive thinking where supported. Unknown models use their provider's default rather than an inferred effort schema.
 
@@ -125,7 +185,9 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | Path | Purpose |
 | --- | --- |
 | `src/index.ts` | JupyterLab plugin, notebook controls, settings dialog, request lifecycle. |
+| `src/context.ts` | Cell-model traversal and the boundary before the target prompt ID. |
 | `src/defaults.ts`, `src/keepAnswer.ts` | Setting inheritance and rerun protection. |
+| `src/executionQueue.ts` | Ordered per-notebook execution, batch failure handling, and recovery. |
 | `src/codeCopy.ts` | Clipboard controls on rendered code blocks. |
 | `schema/plugin.json` | JupyterLab user-settings schema. |
 | `nbinlineai/handlers.py` | Authenticated HTTP endpoints and server-sent events. |

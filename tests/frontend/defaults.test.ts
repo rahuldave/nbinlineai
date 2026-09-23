@@ -34,10 +34,11 @@ test('inherited notebook effort falls back for a cell model that cannot use it',
 test('first AI use snapshots effective book defaults and preserves header choices', () => {
   const effective = resolveAI({}, { backend: 'anthropic_api', promptMode: 'learning' }, user, availability);
   assert.deepEqual(snapshotDefaults({ backend: 'anthropic_api', promptMode: 'learning' }, { ...effective, model: 'claude-sonnet-5' }), {
-    backend: 'anthropic_api', model: 'claude-sonnet-5', promptMode: 'learning', reasoningEffort: 'default'
+    backend: 'anthropic_api', model: 'claude-sonnet-5', promptMode: 'learning', reasoningEffort: 'default', keepAnswers: true
   });
   assert.equal(snapshotDefaults({}, { ...effective, model: 'claude-haiku-4-5' }).reasoningEffort, 'default');
   assert.equal(snapshotDefaults({ reasoningEffort: 'high' }, { ...effective, model: 'claude-sonnet-5' }).reasoningEffort, 'high');
+  assert.equal(snapshotDefaults({ keepAnswers: false }, { ...effective, model: 'claude-sonnet-5' }).keepAnswers, false);
 });
 
 test('explicit Model default cancels an inherited notebook effort', () => {

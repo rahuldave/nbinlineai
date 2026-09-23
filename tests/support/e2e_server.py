@@ -27,6 +27,10 @@ async def fake_complete(
     latest = "".join(
         part.text for part in getattr(messages[-1], "content", []) if isinstance(part, Text)
     )
+    current_user = next((
+        "".join(part.text for part in getattr(message, "content", []) if isinstance(part, Text))
+        for message in reversed(messages) if getattr(message, "role", None) == "user"
+    ), "")
     transcript = "\n".join(
         str(getattr(part, "text", ""))
         for message in messages
@@ -39,6 +43,8 @@ async def fake_complete(
         await asyncio.sleep(30)
     if "E2E_LEARNING_FIRST" in latest:
         return Completion(model=model, message=Msg("assistant", [Text("E2E_FIRST_TUTOR_REPLY")]))
+    if "E2E_EDIT_FIRST" in latest:
+        return Completion(model=model, message=Msg("assistant", [Text("ORIGINAL_HISTORY_ANSWER")]))
     if "E2E_CODE_BLOCK" in latest:
         return Completion(
             model=model,
@@ -76,7 +82,7 @@ async def fake_complete(
                 message=Msg("assistant", [ToolUse(id="docs-call-1", name=tools[0]["name"], arguments={"value": 4})]),
             )
         return Completion(model=model, message=Msg("assistant", [Text("The updated score is 14. The notebook's Python function made that change in the live kernel.")]))
-    if "E2E_TOOL" in transcript:
+    if "E2E_TOOL" in current_user:
         results = [
             part for message in messages
             for part in getattr(message, "content", [])

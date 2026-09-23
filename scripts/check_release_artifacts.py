@@ -16,7 +16,7 @@ FORBIDDEN_PARTS = {
 }
 FORBIDDEN_FILES = {".env", "credentials.json", ".pypirc"}
 SOURCE_REQUIRED = {
-    "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md",
+    "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
     "pyproject.toml", "package.json", "yarn.lock",
     "src/index.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py",
@@ -28,6 +28,7 @@ WHEEL_REQUIRED_SUFFIXES = {
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
     "share/doc/nbinlineai/docs/user-guide.md",
     "share/doc/nbinlineai/docs/architecture.md",
+    "share/doc/nbinlineai/docs/faq.md",
 }
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)")
 REFERENCE_IMAGE = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")

@@ -4,7 +4,9 @@ title: User guide
 
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.4. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown context arrived in 0.1.2; response styles and code-copy buttons arrived in 0.1.3. Notebook defaults, cell overrides, editable style instructions, effort controls, and Keep answer arrived in 0.1.4.
+This guide describes nbinlineai 0.1.5. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Version 0.1.5 adds a notebook-wide Keep AI answers default and integrates AI prompts with JupyterLab's normal notebook execution commands.
+
+For Run All, editing corrections, kernel loss, restarts, and cancellation questions, see the [FAQ](faq.md).
 
 ## Contents
 
@@ -20,7 +22,7 @@ This guide describes nbinlineai 0.1.4. It explains everyday use, notebook defaul
 
 ## 1. Install and set up
 
-You need JupyterLab 4, Python 3.11 or newer, and an OpenAI or Anthropic **API key**.
+You need JupyterLab 4.2 or newer, Python 3.11 or newer, and an OpenAI or Anthropic **API key**.
 
 1. Open JupyterLab's **Extension Manager**, search for **nbinlineai**, and install it.
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
@@ -53,7 +55,7 @@ The answer streams into a separate Markdown cell, normally created immediately b
 
 ![A notebook with its AI defaults above a prompt and answer](images/overview.png)
 
-An active Python kernel is required. nbinlineai does not automatically run the code above your prompt; run the definitions yourself before referring to live values or functions.
+An active Python kernel is required. Running an individual AI prompt does not automatically run the code above it; run the definitions first before referring to live values or functions. **Run All Cells** executes earlier code before reaching the AI prompt.
 
 ### Provider and model choices
 
@@ -140,23 +142,76 @@ The same button is available for short snippets in Learning mode. It is interfac
 
 ## 3. Edit, rerun, and save
 
+### Edit questions and answers
+
 **Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click it to enter the editor. If it already has a completed answer, turn off **Keep answer**. Then press **Shift+Enter** or **Run AI** to run the revised prompt.
 
-**Keep answer prevents repeat requests.** It is on by default and saved with the prompt. With a completed, nonempty answer, Shift+Enter skips the provider request and advances to the next cell; Run AI is disabled until you turn the toggle off. This lets you work through a saved notebook without repeatedly paying for its existing answers. Turn it back on after rerunning to protect the new answer. An unanswered prompt can still run, and failed, cancelled, empty, or deleted answers can be retried. Editing the prompt does not automatically remove this protection. Changing model/style overrides or returning to notebook defaults does not change it either.
+**Answers are editable too.** Double-click a completed AI answer and correct its Markdown, code, or explanation. Render it and save normally. Later AI prompts read the edited text when they run. They do not retrieve an older version from a hidden chat history.
+
+**Keep answer does not hide a correction from later prompts.** It preserves that prompt's existing answer. A later prompt can still read the corrected answer above it, but a later *completed answer* will remain unchanged if its own Keep answer setting prevents a rerun.
+
+There is no automatic dependency tracking or stale-answer warning. Changing a question, answer, code cell, note, model, or style does not automatically regenerate later answers.
+
+### Choose a notebook default
+
+The notebook's **AI defaults** row includes **Keep AI answers**, on by default:
+
+| Notebook choice | When an AI prompt is executed |
+| --- | --- |
+| **On** | Keep its completed, nonempty answer without a provider request. A prompt without a completed answer can still run. |
+| **Off** | Request a fresh answer, using the current context and settings. Useful while developing a notebook. |
+
+Each prompt's **Keep answer** checkbox shows its effective choice. New prompts inherit the notebook default. Changing the cell checkbox creates an explicit override: keep a particular answer while the notebook default is off, or rerun one prompt while the notebook default is on. Click **Use notebook setting**, shown when the cell has an explicit Keep override, to make it inherit again.
+
+Notebook defaults and explicit cell choices survive saving and reopening. Explicit choices made in version 0.1.4 are preserved. The reset for provider/model/style/effort is separate from the Keep answer reset.
+
+With a protected completed answer, Shift+Enter advances without a provider request, and Run AI is disabled. An unanswered prompt can still run; failed, cancelled, empty, or deleted answers can be retried. **Keep AI answers is not a switch that disables all AI requests.** Editing a protected prompt does not remove its protection.
 
 ![Keep answer protects a completed response from another provider request](images/keep-answer.png)
+
+### Correct a mistake and continue
+
+For a notebook under active development:
+
+1. Turn the notebook's **Keep AI answers** off so unpinned prompts regenerate when executed.
+2. Edit the incorrect answer directly, or revise its prompt and rerun it.
+3. Turn **Keep answer** on for that specific prompt once you are happy with the answer. This pins your correction even while the notebook default remains off.
+4. Rerun the affected cells below in order. Unpinned AI prompts will use the corrected answer as history. Check for explicit Keep answer overrides on later prompts that you also want refreshed.
+
+You can instead add an ordinary Markdown cell explaining a correction. Later AI prompts receive that note as context when it is above them.
 
 **A rerun updates the paired answer.** It clears the previous answer as the new run starts, then writes the new response into that same answer cell. It does not append another answer each time. To keep an old answer for comparison, copy its text into an ordinary Markdown cell before rerunning.
 
 Each run uses the notebook's current preceding code and Markdown notes, available earlier AI conversations, selected model, current response style, and current kernel state. It is a new API request and can produce a different result. Editing an earlier cell does not automatically rerun later AI cells. If you change an earlier AI prompt, rerun it before continuing below so its saved answer matches its revised question.
 
+### Run a whole notebook or a range
+
+Starting with **0.1.5**, JupyterLab's normal execution commands recognize AI prompts. Code and AI work complete in notebook order: an AI answer and its tool calls finish before the next selected cell runs. Each AI prompt uses its effective notebook/cell Keep answer choice.
+
+| Action in JupyterLab | Behavior with nbinlineai |
+| --- | --- |
+| Shift+Enter, Ctrl+Enter, or the usual Run command | Executes selected cells; an AI prompt runs or keeps its answer according to its setting. |
+| **Run All Cells** | Executes the notebook from top to bottom, including eligible AI prompts. |
+| Run cells above or below | Applies the same behavior to that selected range. Earlier cells outside the range are not re-executed. |
+| Restart kernel and run all | Recreates Python state, then follows the same AI rules. Kept answers are preserved, so any function calls from their original runs are **not repeated**. |
+| Clear code outputs | Clears code-cell outputs, not AI Markdown answers or their Keep settings. |
+| Execute a saved notebook without this JupyterLab extension, including headless execution | AI prompts and answers remain Markdown; the frontend AI execution hook is not active. |
+
+**Version difference:** in 0.1.4 and earlier, native Run All only rendered AI cells as Markdown. AI requests required the extension's Run AI button or its AI-specific Shift+Enter handler.
+
+With the notebook default off, Run All can make a provider request for every eligible AI prompt and repeat any function calls it chooses. Keep answer on individual prompts protects the responses you want to preserve. A kept answer does not restore Python variables or replay its past tool side effects after a kernel restart; recreate required state with normal code cells, or deliberately rerun the relevant AI prompt.
+
+An AI error or cancellation stops the remaining cells in that execution batch. Correct the problem and start another run when ready. Do not edit, move, or delete cells during a batch if you want a reproducible sequence.
+
 Click **Cancel** to stop an active response. Cancelling does not undo function calls that have already changed your notebook state. A partial answer may remain; cancelled and failed answers are not used as completed conversation history.
+
+Editing the text of a failed or cancelled answer does not turn it into a completed exchange. To provide that corrected text as context, copy it into an ordinary Markdown cell above the next prompt, or rerun the original prompt successfully.
 
 Save the notebook normally to keep the prompt and answer text. Reopening it restores the cells and their saved choices. Python variables and functions are kernel state: after restarting the kernel, rerun the code that defines them.
 
 ## 4. What context does the AI receive?
 
-nbinlineai takes a snapshot at the moment you run a prompt. It uses notebook order, not execution order.
+nbinlineai takes a snapshot when a prompt reaches its turn to execute. During Run All, this happens separately for each AI prompt, so earlier updated answers are available to later prompts. Source selection uses notebook order, not execution order.
 
 | Information | Included? |
 | --- | --- |
@@ -235,12 +290,12 @@ Both kinds of AI cell are **standard Markdown cells inside the `.ipynb` file**:
 
 | Cell | Saved text | nbinlineai metadata |
 | --- | --- | --- |
-| Prompt | Your editable question in the cell's `source` | `isPromptCell`, Keep answer preference, and any provider/model/style/effort overrides |
+| Prompt | Your editable question in the cell's `source` | `isPromptCell`, optional Keep answer override, and any provider/model/style/effort overrides |
 | Answer | The generated Markdown in the cell's `source` | `isOutputCell`, `promptCellId`, and run status |
 
 The fields live under `metadata.nbinlineai`. The answer's `promptCellId` links it to the prompt's notebook cell ID. This lets a rerun find and update its existing answer. If you delete the answer cell, the next run creates one again.
 
-Notebook-level choices live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. API keys live in a private server-side credential file; custom style instructions live in JupyterLab user settings. Neither is stored in the notebook.
+Notebook-level choices, including Keep AI answers, live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. An absent cell Keep answer choice inherits the notebook default. API keys live in a private server-side credential file; custom style instructions live in JupyterLab user settings. Neither is stored in the notebook.
 
 An AI answer is **not** an entry in a code cell's `outputs` array. Consequently, Jupyter's normal code-output clearing does not remove its Markdown text. Delete the answer cell to remove it; delete the prompt separately if you want to remove the whole exchange.
 
@@ -290,6 +345,10 @@ For the request lifecycle, tool schemas, module map, and event-loop details, see
 | AI asks questions when you want a direct answer | Choose Compact or Full in the notebook defaults or the cell's Override controls, then run it again. |
 | One cell ignores changed notebook defaults | Check its Override controls. Return it to notebook defaults if its saved choices are no longer needed. |
 | A completed AI prompt will not run again | Turn off Keep answer on that prompt. Protected prompts are skipped by Shift+Enter. |
+| Later answers still contain a mistake you corrected above | Rerun the affected prompts with Keep answer off. Editing earlier text does not update existing later answers automatically. |
+| A prompt ignores the notebook's Keep AI answers toggle | Reset that cell's explicit Keep answer choice to inherit the notebook default. |
+| Run All does not run AI prompts | Confirm version 0.1.5 or newer, restart the server after upgrading, and check Keep answer. Headless notebook execution does not activate the extension's frontend hook. |
+| A variable is missing after restarting and running all | A kept AI answer did not repeat its old function calls. Recreate the variable in a code cell or deliberately rerun the AI prompt that created it. |
 | A tutor conversation keeps starting over | Put your reply in a new AI Prompt below the tutor's answer. Rerunning the original prompt replaces that exchange. |
 | Code will not copy | If the browser blocks clipboard access, select the code text and copy it manually. |
 | Old answer disappeared after rerunning | Reruns replace the paired answer. Copy text into an ordinary Markdown cell beforehand to preserve another version. |

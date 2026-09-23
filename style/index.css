@@ -57,3 +57,7 @@
 .nbinlineai-template-row:not([open]) { border-top: 0; }
 .nbinlineai-keep-answer { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; color: var(--jp-ui-font-color2); cursor: pointer; }
 .nbinlineai-controls .nbinlineai-keep-answer input { width: auto; margin: 0 2px 0 0; padding: 0; accent-color: var(--jp-brand-color1); }
+.nbinlineai-notebook-keep-answers { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer; }
+.nbinlineai-notebook-keep-answers input { width: auto; min-height: 0; margin: 0; accent-color: var(--jp-brand-color1); }
+.nbinlineai-controls .nbinlineai-keep-inherit { font-size: 0.9em; }
+.nbinlineai-controls .nbinlineai-keep-inherit[hidden] { display: none; }

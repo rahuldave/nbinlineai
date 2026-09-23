@@ -1123,7 +1123,7 @@ wheels = [
 
 [[package]]
 name = "nbinlineai"
-version = "0.1.4"
+version = "0.1.5"
 source = { editable = "." }
 dependencies = [
     { name = "filelock" },
@@ -1143,7 +1143,7 @@ dev = [
 requires-dist = [
     { name = "filelock", specifier = ">=3.32,<4" },
     { name = "jupyter-server", specifier = ">=2,<3" },
-    { name = "jupyterlab", specifier = ">=4,<5" },
+    { name = "jupyterlab", specifier = ">=4.2,<5" },
     { name = "python-dotenv", specifier = ">=1,<2" },
     { name = "python-fastllm", specifier = "==0.0.63" },
 ]

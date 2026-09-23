@@ -71,7 +71,8 @@ async function capture(page, filename, locators) {
   }
   const viewport = page.viewportSize();
   let x = Math.max(0, Math.min(...boxes.map(box => box.x)) - 20);
-  let y = Math.max(0, Math.min(...boxes.map(box => box.y)) - (['overview.png', 'cell-overrides.png'].includes(filename) ? 50 : 20));
+  const topPadding = ['overview.png', 'cell-overrides.png'].includes(filename) ? 50 : filename === 'keep-answer.png' ? 0 : 20;
+  let y = Math.max(0, Math.min(...boxes.map(box => box.y)) - topPadding);
   let right = Math.min(viewport.width, Math.max(...boxes.map(box => box.x + box.width)) + 20);
   let bottom = Math.min(viewport.height, Math.max(...boxes.map(box => box.y + box.height)) + 8);
   if (right - x < 600) right = Math.min(viewport.width, x + 600);
@@ -114,7 +115,7 @@ try {
   let prompt = await insert(page, 1, 'What does this average tell us?');
   let answer = await run(page, prompt);
   await capture(page, 'overview.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), panel.locator('.jp-Notebook .jp-Cell').first(), prompt, answer]);
-  await capture(page, 'keep-answer.png', [prompt, answer]);
+  await capture(page, 'keep-answer.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt, answer]);
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   let dialog = page.locator('[data-nbinlineai-keys-dialog]');
   await expect(dialog.locator('[data-nbinlineai-key-status="openai_api"]')).toContainText('Saved');
@@ -139,6 +140,9 @@ try {
   await prompt.locator('[data-nbinlineai-model-select]').selectOption('claude-sonnet-5');
   await prompt.locator('[data-nbinlineai-prompt-mode]').selectOption('full');
   await prompt.locator('[data-nbinlineai-effort]').selectOption('high');
+  await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
+  await prompt.locator('[data-nbinlineai-keep-answer]').check();
+  await expect(prompt.locator('[data-nbinlineai-keep-inherit]')).toBeVisible();
   await capture(page, 'cell-overrides.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt]);
 
   // Two short Socratic turns, both visible in a single notebook.

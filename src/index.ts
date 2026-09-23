@@ -1,7 +1,7 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
 import { Dialog, ICommandPalette, ToolbarButton, showDialog } from '@jupyterlab/apputils';
 import { ICellModel, MarkdownCell } from '@jupyterlab/cells';
-import { INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
+import { INotebookCellExecutor, INotebookModel, INotebookTracker, NotebookActions, NotebookPanel, runCell as runStandardCell } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { addIcon, copyIcon } from '@jupyterlab/ui-components';
@@ -12,7 +12,8 @@ import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selected
 import { configured, defaultProvider } from './providerChoice';
 import { promptMode as normalizePromptMode, promptModeLabel, PromptMode } from './promptMode';
 import { AIDefaults, hasOverride, resolveAI, snapshotDefaults, supportedEffort } from './defaults';
-import { keepsCompletedAnswer } from './keepAnswer';
+import { effectiveKeepAnswer, keepsCompletedAnswer } from './keepAnswer';
+import { enqueueNotebookCell } from './executionQueue';
 import { readEventStream, StreamEvent } from './sse';
 import '../style/index.css';
 
@@ -39,6 +40,9 @@ const commandCancel = 'nbinlineai:cancel-prompt-cell';
 const commandConfigure = 'nbinlineai:configure-providers';
 const backends: Backend[] = ['openai_api', 'anthropic_api'];
 const runs = new Map<string, RunState>();
+const pendingPromptRuns = new Map<string, Promise<boolean>>();
+const pendingCancels = new Set<string>();
+const panelsByModel = new WeakMap<INotebookModel, NotebookPanel>();
 const statuses = new Map<string, { state: string; text: string }>();
 const pendingSnapshots = new Set<NotebookPanel>();
 const serverSettings = ServerConnection.makeSettings();
@@ -190,7 +194,7 @@ function findOutput(panel: NotebookPanel, promptId: string): ICellModel | null {
 }
 function protectedAnswer(panel: NotebookPanel, prompt: ICellModel): boolean {
   const output = findOutput(panel, prompt.id);
-  return keepsCompletedAnswer(metadata(prompt).keepAnswer, output && {
+  return keepsCompletedAnswer(effectiveKeepAnswer(metadata(prompt).keepAnswer, notebookDefaults(panel).keepAnswers), output && {
     status: metadata(output).status,
     source: output.sharedModel.getSource()
   });
@@ -212,9 +216,10 @@ function ensureOutput(panel: NotebookPanel, promptId: string): ICellModel {
 }
 function status(panel: NotebookPanel, id: string, state: string, message: string): void {
   if (panel.isDisposed) return;
-  statuses.set(runKey(panel, id), { state, text: message });
+  const key = runKey(panel, id);
+  statuses.set(key, { state, text: message });
   const output = findOutput(panel, id);
-  if (output && ['running', 'done', 'error', 'cancelled'].includes(state)) setMetadata(output, { status: state });
+  if (output && runs.get(key)?.output === output && ['running', 'done', 'error', 'cancelled'].includes(state)) setMetadata(output, { status: state });
   decorate(panel);
 }
 function decorateCodeCopy(widget: MarkdownCell): void {
@@ -654,31 +659,35 @@ async function showConfigureProviders(tracker: INotebookTracker): Promise<void> 
 function eventText(event: StreamEvent): string {
   return typeof event.text === 'string' ? event.text : '';
 }
-async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> {
-  if (runs.has(runKey(panel, promptId))) return;
+async function executePrompt(panel: NotebookPanel, promptId: string): Promise<boolean> {
+  if (runs.has(runKey(panel, promptId))) return false;
   const prompt = getCell(panel, promptId);
   const notebook = panel.content.model;
-  if (!prompt || !isPrompt(prompt) || !notebook) return;
-  if (protectedAnswer(panel, prompt)) return;
+  if (!prompt || !isPrompt(prompt) || !notebook) return false;
+  if (protectedAnswer(panel, prompt)) return true;
   const promptText = prompt.sharedModel.getSource().trim();
-  if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return; }
+  if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return false; }
   const sessionId = panel.sessionContext.session?.id;
-  if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return; }
+  if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return false; }
   await settingsReady;
-  if (!settings) { status(panel, promptId, 'error', settingsError || 'Response style settings are unavailable. Open Configure AI and retry.'); return; }
+  if (pendingCancels.delete(runKey(panel, promptId))) { status(panel, promptId, 'cancelled', 'Cancelled'); return false; }
+  if (!settings) { status(panel, promptId, 'error', settingsError || 'Response style settings are unavailable. Open Configure AI and retry.'); return false; }
   if (!serverStatus || serverStatusError || serverStatus?.providers?.[resolvedFor(panel, prompt).backend]?.configured === false) {
     try { await fetchStatus(); }
-    catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not reach the AI server.'); return; }
+    catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not reach the AI server.'); return false; }
   }
+  if (pendingCancels.delete(runKey(panel, promptId))) { status(panel, promptId, 'cancelled', 'Cancelled'); return false; }
   maybeSnapshotNotebookDefaults(panel);
   const effective = resolvedFor(panel, prompt);
   const { backend, promptMode: mode } = effective;
   const available = configured(serverStatus?.providers || null, backend);
-  if (available === false) { status(panel, promptId, 'error', 'API key required. Choose Configure AI or another provider.'); return; }
+  if (available === false) { status(panel, promptId, 'error', 'API key required. Choose Configure AI or another provider.'); return false; }
   let preceding: ReturnType<typeof precedingCells>;
   try { preceding = precedingCells(notebook, promptId); }
-  catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return; }
-  const output = ensureOutput(panel, promptId);
+  catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return false; }
+  let output: ICellModel;
+  try { output = ensureOutput(panel, promptId); }
+  catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not create an AI answer cell.'); return false; }
   output.sharedModel.setSource('');
   setMetadata(output, { status: 'running' });
   const controller = new AbortController();
@@ -719,6 +728,7 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
     if (!run.done) throw new Error('The response ended before completion.');
     refreshOutput(panel, output);
     status(panel, promptId, 'done', 'Done');
+    return true;
   } catch (error) {
     if (controller.signal.aborted) {
       status(panel, promptId, 'cancelled', 'Cancelled');
@@ -732,14 +742,48 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
         refreshOutput(panel, output);
       }
     }
+    return false;
   } finally {
     runs.delete(runKey(panel, promptId));
     decorate(panel);
   }
 }
+function runPrompt(panel: NotebookPanel, promptId: string): Promise<boolean> {
+  const key = runKey(panel, promptId);
+  const existing = pendingPromptRuns.get(key);
+  if (existing) return existing;
+  const notebook = panel.content.model;
+  const prompt = getCell(panel, promptId);
+  if (!notebook || !prompt || !isPrompt(prompt) || panel.isDisposed) return Promise.resolve(false);
+  let entered = false;
+  const task = enqueueNotebookCell(notebook, async () => {
+    entered = true;
+    if (pendingCancels.delete(key) || panel.isDisposed) {
+      status(panel, promptId, 'cancelled', 'Cancelled');
+      return false;
+    }
+    return executePrompt(panel, promptId);
+  });
+  pendingPromptRuns.set(key, task);
+  if (!protectedAnswer(panel, prompt)) status(panel, promptId, 'queued', 'Waiting to run…');
+  else decorate(panel);
+  void task.then(success => {
+    if (pendingPromptRuns.get(key) === task) pendingPromptRuns.delete(key);
+    pendingCancels.delete(key);
+    if (!entered && !success) status(panel, promptId, 'cancelled', 'Skipped because an earlier cell failed or was cancelled.');
+    else decorate(panel);
+  }, () => {
+    if (pendingPromptRuns.get(key) === task) pendingPromptRuns.delete(key);
+    pendingCancels.delete(key);
+    decorate(panel);
+  });
+  return task;
+}
 function cancelPrompt(panel: NotebookPanel, promptId: string): void {
-  runs.get(runKey(panel, promptId))?.controller.abort();
-  status(panel, promptId, 'cancelled', 'Cancelling…');
+  const key = runKey(panel, promptId);
+  const running = runs.get(key);
+  if (running) { running.controller.abort(); status(panel, promptId, 'cancelled', 'Cancelling…'); }
+  else if (pendingPromptRuns.has(key)) { pendingCancels.add(key); status(panel, promptId, 'cancelled', 'Cancelled'); }
 }
 function insertPrompt(panel: NotebookPanel): void {
   const notebook = panel.content;
@@ -855,6 +899,8 @@ function syncNotebookDefaultsRow(panel: NotebookPanel): void {
   const effort = row.querySelector('[data-nbinlineai-notebook-effort]') as HTMLSelectElement;
   syncEffortSelect(effort, effective.backend, effective.model, defaults.reasoningEffort || '');
   if (configured(serverStatus?.providers || null, effective.backend) === false) effort.disabled = true;
+  const keep = row.querySelector('[data-nbinlineai-notebook-keep-answers]') as HTMLInputElement;
+  keep.checked = defaults.keepAnswers !== false;
 }
 
 function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
@@ -870,7 +916,10 @@ function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
   const style = document.createElement('select'); style.dataset.nbinlineaiNotebookPromptMode = ''; style.setAttribute('aria-label', 'Notebook response style default');
   for (const [value, label] of [['', 'Style: User default'], ['compact', 'Compact'], ['full', 'Full'], ['learning', 'Learning']]) { const option = document.createElement('option'); option.value = value; option.textContent = label; style.appendChild(option); }
   const effort = document.createElement('select'); effort.dataset.nbinlineaiNotebookEffort = ''; effort.setAttribute('aria-label', 'Notebook reasoning effort default');
-  row.append(title, provider, model, custom, style, effort);
+  const keepLabel = document.createElement('label'); keepLabel.className = 'nbinlineai-notebook-keep-answers';
+  const keep = document.createElement('input'); keep.type = 'checkbox'; keep.dataset.nbinlineaiNotebookKeepAnswers = ''; keep.setAttribute('aria-label', 'Keep completed AI answers in this notebook');
+  keepLabel.append(keep, document.createTextNode('Keep AI answers'));
+  row.append(title, provider, model, custom, style, effort, keepLabel);
   provider.addEventListener('change', () => { setNotebookDefaults(panel, { backend: provider.value as Backend || undefined, model: undefined, reasoningEffort: undefined }); model.dataset.customActive = 'false'; });
   model.addEventListener('change', () => {
     if (model.value === CUSTOM_MODEL) { model.dataset.customActive = 'true'; custom.hidden = false; custom.focus(); }
@@ -879,6 +928,7 @@ function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
   custom.addEventListener('input', () => setNotebookDefaults(panel, { model: custom.value.trim() || undefined, reasoningEffort: undefined }));
   style.addEventListener('change', () => setNotebookDefaults(panel, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }));
   effort.addEventListener('change', () => setNotebookDefaults(panel, { reasoningEffort: effort.value || undefined }));
+  keep.addEventListener('change', () => setNotebookDefaults(panel, { keepAnswers: keep.checked }));
   syncNotebookDefaultsRow(panel);
   return widget;
 }
@@ -917,6 +967,20 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   keepText.textContent = 'Keep answer';
   keep.title = 'Protect a completed answer from reruns. Uncheck to replace it.';
   keepLabel.append(keep, keepText);
+  const keepInherit = document.createElement('button');
+  keepInherit.type = 'button';
+  keepInherit.dataset.nbinlineaiKeepInherit = '';
+  keepInherit.className = 'nbinlineai-keep-inherit';
+  keepInherit.textContent = 'Use notebook setting';
+  keepInherit.title = 'Remove this cell’s Keep answer override';
+  keepInherit.addEventListener('click', () => {
+    const cell = getCell(panel, id);
+    if (!cell) return;
+    const value = { ...metadata(cell) };
+    delete value.keepAnswer;
+    cell.setMetadata(metadataKey, value);
+    decorate(panel);
+  });
   keep.addEventListener('change', () => {
     const cell = getCell(panel, id);
     if (cell) setMetadata(cell, { keepAnswer: keep.checked });
@@ -969,7 +1033,7 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   style.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }); decorate(panel); });
   effort.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { reasoningEffort: effort.value || undefined }); decorate(panel); });
   editor.append(provider, modelSelect, modelInput, style, effort, inherit);
-  controls.append(run, cancel, keepLabel, toggle, summary, label, editor);
+  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, editor);
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -1021,11 +1085,14 @@ function decorate(panel: NotebookPanel): void {
     summary.textContent = hasOverride(meta) ? `Override: ${parts.join(' · ')}` : '';
     const toggle = controls.querySelector('[data-nbinlineai-override]') as HTMLButtonElement;
     toggle.textContent = hasOverride(meta) ? 'Override (active)' : 'Override';
-    const running = runs.has(runKey(panel, cell.id));
+    const running = pendingPromptRuns.has(runKey(panel, cell.id));
     const runButton = controls.querySelector('[data-nbinlineai-run]') as HTMLButtonElement;
     const cancelButton = controls.querySelector('[data-nbinlineai-cancel]') as HTMLButtonElement;
     const keep = controls.querySelector('[data-nbinlineai-keep-answer]') as HTMLInputElement;
-    keep.checked = meta.keepAnswer !== false;
+    keep.checked = effectiveKeepAnswer(meta.keepAnswer, notebookDefaults(panel).keepAnswers);
+    keep.title = meta.keepAnswer === undefined ? 'Inherited from notebook. Change to override this cell.' : 'This cell overrides the notebook Keep answers setting.';
+    const keepInherit = controls.querySelector('[data-nbinlineai-keep-inherit]') as HTMLButtonElement;
+    keepInherit.hidden = meta.keepAnswer === undefined;
     const protectedCompleted = protectedAnswer(panel, cell);
     runButton.disabled = running || selectedAvailability === false || protectedCompleted;
     runButton.title = protectedCompleted ? 'Completed answer kept. Uncheck Keep answer to run again.' : 'Run AI prompt (Shift+Enter)';
@@ -1044,9 +1111,37 @@ function decorate(panel: NotebookPanel): void {
     label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice || (protectedCompleted ? 'Answer kept' : '') || current?.text || (serverStatus ? '' : 'Checking AI providers…');
   }
 }
+const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
+  id: 'nbinlineai:cell-executor',
+  autoStart: true,
+  provides: INotebookCellExecutor,
+  activate: () => ({
+    runCell: options => {
+      if (isPrompt(options.cell.model)) {
+        const panel = panelsByModel.get(options.notebook);
+        if (!panel || panel.isDisposed) {
+          options.onCellExecuted({ cell: options.cell, success: false });
+          return Promise.resolve(false);
+        }
+        options.onCellExecutionScheduled({ cell: options.cell });
+        const key = runKey(panel, options.cell.model.id);
+        const pending = pendingPromptRuns.get(key);
+        // A second native run joins the same request inside its own failure
+        // boundary, so its later cells still stop if that request fails.
+        const result = pending ? enqueueNotebookCell(options.notebook, () => pending) : runPrompt(panel, options.cell.model.id);
+        return result.then(success => {
+          options.onCellExecuted({ cell: options.cell, success });
+          return success;
+        });
+      }
+      return enqueueNotebookCell(options.notebook, () => runStandardCell(options));
+    }
+  })
+};
+
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker], optional: [ICommandPalette, ISettingRegistry],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+  id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
+  activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
     notebookTracker = tracker;
     settingRegistry = registry;
     if (registry) settingsReady = registry.load(plugin.id).then(bindResponseSettings).catch(error => {
@@ -1064,13 +1159,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
       const panel = tracker.currentWidget; const id = panel?.content.activeCell?.model.id;
       if (panel && id) return runPrompt(panel, id);
     } });
-    app.commands.addCommand(commandCancel, { label: 'Cancel AI Prompt Cell', isEnabled: () => !!tracker.currentWidget?.content.activeCell && runs.has(runKey(tracker.currentWidget, tracker.currentWidget.content.activeCell.model.id)), execute: () => {
+    app.commands.addCommand(commandCancel, { label: 'Cancel AI Prompt Cell', isEnabled: () => !!tracker.currentWidget?.content.activeCell && pendingPromptRuns.has(runKey(tracker.currentWidget, tracker.currentWidget.content.activeCell.model.id)), execute: () => {
       const panel = tracker.currentWidget; const id = panel?.content.activeCell?.model.id;
       if (panel && id) cancelPrompt(panel, id);
     } });
     app.commands.addCommand(commandConfigure, { label: 'Configure AI Providers', execute: () => configureProviders(tracker) });
     for (const command of [commandInsert, commandRun, commandCancel, commandConfigure]) palette?.addItem({ command, category: 'AI' });
     const setup = (panel: NotebookPanel) => {
+      const model = panel.content.model;
+      if (model) panelsByModel.set(model, panel);
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
         const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Add or remove API keys', onClick: () => { void configureProviders(tracker); } });
@@ -1084,14 +1181,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         panel.content.model?.metadataChanged.connect(() => decorate(panel));
         panel.content.activeCellChanged.connect(() => decorate(panel));
         panel.content.model?.cells.changed.connect(() => { window.requestAnimationFrame(() => decorate(panel)); });
-        panel.content.node.addEventListener('keydown', event => {
-          if (event.key !== 'Enter' || !event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return;
-          const cell = panel.content.activeCell;
-          if (!cell || !isPrompt(cell.model)) return;
-          event.preventDefault(); event.stopImmediatePropagation();
-          if (protectedAnswer(panel, cell.model)) { NotebookActions.selectBelow(panel.content); return; }
-          void runPrompt(panel, cell.model.id);
-        }, true);
         const observer = new MutationObserver(records => {
           if (records.some(record => Array.from(record.addedNodes).some(node =>
             node instanceof Element && (node.matches('.jp-Cell, pre, pre > code') || !!node.querySelector('.jp-Cell, pre > code'))
@@ -1100,7 +1189,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
         observer.observe(panel.content.node, { childList: true, subtree: true });
         panel.disposed.connect(() => {
           observer.disconnect();
+          if (model) panelsByModel.delete(model);
           pendingSnapshots.delete(panel);
+          for (const key of pendingPromptRuns.keys()) if (key.startsWith(`${panel.id}:`)) pendingCancels.add(key);
           for (const [key, run] of runs) if (key.startsWith(`${panel.id}:`)) { run.controller.abort(); runs.delete(key); }
           for (const key of statuses.keys()) if (key.startsWith(`${panel.id}:`)) statuses.delete(key);
         });
@@ -1110,4 +1201,4 @@ const plugin: JupyterFrontEndPlugin<void> = {
     tracker.forEach(setup);
   }
 };
-export default plugin;
+export default [executorPlugin, plugin];

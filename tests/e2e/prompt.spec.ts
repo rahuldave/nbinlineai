@@ -133,6 +133,35 @@ test('server context includes ordinary Markdown above the prompt in notebook ord
   expect(rendered.indexOf('MD_ABOVE_DETERMINISTIC')).toBeLessThan(rendered.indexOf('CODE_AFTER_MARKDOWN'));
 });
 
+test('a later AI prompt sees the edited saved answer, not the original response', async ({ page, request }) => {
+  const name = await openNotebook(page, request, [code('topic = "history"')]);
+  const first = await insertPrompt(page, 0, 'E2E_EDIT_FIRST explain the topic');
+  await first.locator('[data-nbinlineai-run]').click();
+  await expect(first.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  const firstAnswer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').first();
+  await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('ORIGINAL_HISTORY_ANSWER');
+
+  await firstAnswer.dblclick();
+  await expect(firstAnswer.locator('.cm-content')).toBeVisible();
+  await firstAnswer.locator('.cm-content').fill('CORRECTED_HISTORY_ANSWER');
+  await page.keyboard.press('Shift+Enter');
+  await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('CORRECTED_HISTORY_ANSWER');
+
+  const second = await insertPrompt(page, 2, 'E2E_BASIC summarize the corrected answer');
+  await second.locator('[data-nbinlineai-run]').click();
+  await expect(second.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  const secondAnswer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').last();
+  await expect(secondAnswer).toContainText('CORRECTED_HISTORY_ANSWER');
+  await expect(secondAnswer).not.toContainText('ORIGINAL_HISTORY_ANSWER');
+  await page.keyboard.press('Meta+s');
+  await expect(page.getByText('Saving completed')).toBeVisible();
+  const saved = await request.get(`/api/contents/${name}?content=1`);
+  const content = (await saved.json()).content;
+  const answers = content.cells.filter((cell: any) => cell.metadata?.nbinlineai?.promptCellId);
+  expect(answers.map((cell: any) => cell.source)).toContain('CORRECTED_HISTORY_ANSWER');
+  expect(JSON.stringify(content)).not.toContain('ORIGINAL_HISTORY_ANSWER');
+});
+
 test('provider selection is sent with the prompt and ordinary code still runs', async ({ page, request }) => {
   await openNotebook(page, request, [code('print("ordinary code works")')]);
   await page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell').first().click();

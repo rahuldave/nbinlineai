@@ -4,11 +4,11 @@ Write AI prompts directly in JupyterLab notebooks. Choose an OpenAI or Anthropic
 
 ## User manual
 
-The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. It is included in the source archive and installed under `share/doc/nbinlineai/docs/user-guide.md` in the Python environment. The [documentation site](https://rahuldave.github.io/nbinlineai/) also includes architecture and contributor guides. The quick start below is self-contained.
+The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. It is included in the source archive and installed under `share/doc/nbinlineai/docs/user-guide.md` in the Python environment. The [FAQ](https://rahuldave.github.io/nbinlineai/faq.html) covers Run All, cell toggles, corrections, kernel loss, and other edge cases. The [documentation site](https://rahuldave.github.io/nbinlineai/) also includes architecture and contributor guides. The quick start below is self-contained.
 
 ## Quick start
 
-You need Python 3.11 or newer and JupyterLab 4.
+You need Python 3.11 or newer and JupyterLab 4.2 or newer.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
 2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key.
@@ -23,8 +23,11 @@ You need Python 3.11 or newer and JupyterLab 4.
 | Ask about earlier code or notes | Write an ordinary question. The AI sees code and ordinary Markdown above the prompt, plus earlier AI turns. |
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
-| Revise an answer | Edit the prompt, turn off **Keep answer**, and run it again; its existing answer is updated. |
-| Work through a saved notebook | Leave **Keep answer** on. Shift+Enter skips completed AI answers without another API call. |
+| Correct an answer yourself | Double-click its Markdown and edit it. Later AI prompts read the corrected text when they run. |
+| Ask for a revised answer | Edit the prompt, turn off **Keep answer**, and run it again; its existing answer is replaced. |
+| Work through a saved notebook | Leave the notebook's **Keep AI answers** on. Completed answers are preserved without another API call. |
+| Develop a notebook with fresh answers | Turn notebook **Keep AI answers** off. Pin any answer you are happy with using that cell's **Keep answer**. |
+| Run the whole notebook | Use JupyterLab's **Run All Cells**. Code and eligible AI prompts finish in order; each prompt respects its Keep answer choice. |
 | Learn through questions | Choose **Learning** in the notebook defaults. Answer each tutor question in a new AI Prompt cell below its response. |
 | Use suggested code | Click the copy icon on a code block in an AI answer, then paste into a code cell. |
 | Stop a response | Click **Cancel**. Calls already performed cannot be undone. |
@@ -32,7 +35,9 @@ You need Python 3.11 or newer and JupyterLab 4.
 
 Ordinary code cells keep their normal execution behavior. See the runnable example below for variable and function references.
 
-**Keep answer** is on by default. A new prompt can run once; after it has a completed answer, turn this off to request another response. Shift+Enter advances past a protected prompt, and Run AI respects the same protection. Failed, cancelled, empty, or deleted answers can be retried.
+**Keep AI answers** is on by default for the notebook. Cells inherit it unless you explicitly change their **Keep answer** checkbox; the cell's reset control restores inheritance. A new prompt can still run once, and failed, cancelled, empty, or deleted answers can be retried. Keep protects completed answers; it does not disable all provider requests.
+
+Editing an earlier answer changes the history available to later prompts, but does not regenerate their existing answers. Rerun affected prompts with Keep answer off. Pin a manually corrected answer to preserve it when running the notebook again. See the [rerun and Run All edge cases](https://rahuldave.github.io/nbinlineai/user-guide.html#3-edit-rerun-and-save), including kernel restarts and tool side effects. Native Run All support starts in 0.1.5; earlier releases rendered AI Markdown without calling the provider.
 
 ## Choose a response style
 
@@ -55,7 +60,7 @@ In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown
 ## Cells and context at a glance
 
 - **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
-- **Editing and rerunning:** edit a prompt, turn off Keep answer, and run it again to replace its paired answer. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically.
+- **Editing and rerunning:** edit questions or answers directly. Rerunning a prompt replaces its paired answer, including manual edits. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically when earlier content changes.
 - **Context:** code and ordinary Markdown source above the prompt are included in notebook order within size limits. Completed earlier AI prompt/answer pairs are included separately as conversation history, without duplicating their text in the source context. Raw cells and code outputs are omitted; image data is not sent.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
@@ -134,7 +139,7 @@ This release supports text prompts and Python kernels. It does not send notebook
 
 ## Develop from source
 
-This section is for contributors. Installing the published package does not require Node.js or a source checkout. Development requires Python 3.11+, Node.js 22.12+ (or 20.19+), `uv`, and JupyterLab 4.
+This section is for contributors. Installing the published package does not require Node.js or a source checkout. Development requires Python 3.11+, Node.js 22.12+ (or 20.19+), `uv`, and JupyterLab 4.2 or newer.
 
 ```bash
 uv sync --python 3.12 --group dev --no-install-project

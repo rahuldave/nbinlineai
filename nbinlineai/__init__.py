@@ -2,7 +2,7 @@
 
 from .handlers import setup_handlers
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 def _jupyter_labextension_paths():

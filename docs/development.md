@@ -4,7 +4,7 @@ title: Development
 
 # Development
 
-Students can install the prebuilt package without this setup. Contributors need Python 3.11+, Node.js 22.12+ (or 20.19+), uv, and JupyterLab 4.
+Students can install the prebuilt package without this setup. Contributors need Python 3.11+, Node.js 22.12+ (or 20.19+), uv, and JupyterLab 4.2 or newer.
 
 ## Set up from source
 

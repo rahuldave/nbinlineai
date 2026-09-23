@@ -27,14 +27,16 @@ uv run jupyter lab
 | Guide | What you will find |
 | --- | --- |
 | [User guide](user-guide.md) | Illustrated setup, notebook defaults, styles, thinking effort, editing and rerunning, context, variables, tools, and troubleshooting. |
+| [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## In version 0.1.4
+## In version 0.1.5
 
 - Set provider, model, style, and effort once per notebook, with optional cell overrides.
 - Edit the built-in **Compact**, **Full**, and **Learning** instructions in Configure AI.
-- Leave **Keep answer** on to step through completed AI prompts without another request. Turn it off to rerun a prompt.
+- Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
+- Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
 
 This version supports OpenAI and Anthropic API keys. API usage is billed by the provider; ChatGPT subscription sign-in is not included.
 

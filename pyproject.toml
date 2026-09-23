@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.26", "hatch-jupyter-builder>=0.9", "jupyterlab>=4,<5"]
+requires = ["hatchling>=1.26", "hatch-jupyter-builder>=0.9", "jupyterlab>=4.2,<5"]
 build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.4"
+version = "0.1.5"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,7 +24,7 @@ classifiers = [
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
-  "jupyterlab>=4,<5",
+  "jupyterlab>=4.2,<5",
   "jupyter_server>=2,<3",
   "python-fastllm==0.0.63",
   "python-dotenv>=1,<2",
