@@ -228,6 +228,8 @@ nbinlineai takes a snapshot when a prompt reaches its turn to execute. During Ru
 
 AI prompt/answer cells are also Markdown, but they enter through conversation history instead of the ordinary source context. They are not included twice. Pending, cancelled, failed, or unpaired AI exchanges are not added as ordinary Markdown notes.
 
+**Large notebooks:** ordinary code and Markdown are collected from the **top downward** until 50,000 source characters are reached; nearer cells can therefore be omitted. AI history separately keeps recent complete exchanges within 16,000 characters. More than 200 preceding cells rejects the request. These character limits do not guarantee that the complete request fits the model's token limit, and the cell-count status is not a complete inclusion report. See [how context is chosen](faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large) and [what happens on model context overflow](faq.md#what-happens-if-the-request-exceeds-the-models-context-window).
+
 For example:
 
 ```text

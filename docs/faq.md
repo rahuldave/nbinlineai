@@ -90,6 +90,35 @@ No. It receives bounded code and ordinary Markdown **above the current prompt**,
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See the [context table and limits](user-guide.md#4-what-context-does-the-ai-receive).
 
+### How does nbinlineai choose context when the notebook is large?
+
+Version 0.1.6 uses separate character limits, with different selection rules:
+
+| Material | Selection rule |
+| --- | --- |
+| Ordinary code and Markdown above the question | Start at the **top of the notebook**, include up to 50,000 source characters, and stop. The last included cell can be cut partway through. Later source is omitted. |
+| Completed earlier AI exchanges | Work backward from the most recent complete prompt/answer pair, keeping whole pairs within 16,000 characters. Stop at the first pair that does not fit, then send the retained pairs in their original order. |
+| Current question | Accept up to 16,000 characters before inserting live variable values. |
+| Number of preceding cells | Reject requests with more than 200 cells above the question, counting all cell types. This is a validation limit, not a rule that chooses 200 cells. |
+
+There is no relevance search or automatic summary. Ordinary source currently favors **earlier** cells; only AI history favors recent exchanges. If the newest AI exchange alone exceeds its history budget, no earlier AI history is included. These limits do not modify or delete notebook cells.
+
+The brief “Using … preceding cells” status counts the submitted cells; it does **not** guarantee that all their text reached the model. There is currently no detailed inclusion preview or visible truncation warning.
+
+### What happens if the request exceeds the model's context window?
+
+The character limits above do **not** guarantee that a request fits the selected model. nbinlineai does not yet count the complete request in model tokens or budget against that model's context window. Instructions, cell labels, inserted variable values, tool descriptions, and tool conversations add more input. Tool calls and results accumulate during a run without another context-selection pass.
+
+If the provider rejects an oversized request, the run fails. In 0.1.6, this normally appears as **“Model request failed”**; context-overflow errors do not yet have their own helpful message. nbinlineai does not automatically summarize, shrink, or retry the request. An error also stops the remaining cells in the current Run All batch.
+
+Partial answer text may remain, but the failed exchange is excluded from later AI history. Tool actions already completed remain in effect, so inspect any changes before rerunning. A failure on a later tool round can happen even though the first request fitted.
+
+To reduce the request, use a shorter notebook containing the needed setup and notes, shorten long source cells and questions, offer fewer tools, or pass a small summary variable instead of a large value. A model with a larger context window may help with provider overflow; it does not change nbinlineai's own character and cell limits. There are no per-cell context exclusion controls yet.
+
+### Is a long answer hitting an output limit the same problem?
+
+No. A request can fit but the generated answer can reach its output allowance. nbinlineai reports **“Model response exceeded the output limit”** when the provider signals that condition, and marks the answer failed. It does not automatically continue the answer. Ask a narrower question or request a shorter response. See the [architecture's context and output limits](architecture.md#selection-budgets-and-provider-overflow).
+
 ## Kernel, browser, and server changes
 
 ### What happens if the kernel is lost or restarted?

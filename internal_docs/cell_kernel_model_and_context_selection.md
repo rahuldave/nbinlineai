@@ -1,6 +1,6 @@
 # Notebook cells, kernel state, and context selection
 
-This note records the current data flow and the decisions needed before adding context-selection controls. It describes the implementation as it stands; the future modes below are design options, not implemented behavior.
+This note records the current data flow and the decisions needed before adding context-selection controls. Current behavior was checked against **0.1.6** on 2026-09-23; the future modes below are design options, not implemented behavior.
 
 ## Two models of the notebook
 
@@ -58,6 +58,30 @@ Current validation accepts at most **200 `preceding_cells`**, counting all sent 
 Only explicit references in the **current prompt** trigger live introspection: `$` followed by a backtick-quoted Python identifier inserts a bounded `repr` (2,000 characters per value); `&` followed by a backtick-quoted identifier registers a callable as a model tool. There can be at most 20 distinct referenced names combined. These names are looked up in the current Python kernel, not reconstructed by executing notebook source. A tool invocation is bound to the same session/kernel and allowlist, accepts a small JSON object, and returns at most 4,000 characters of captured stdout plus result representation. Supported tool functions are synchronous and callable with keyword arguments. No cell outputs or images are implicitly inspected. See [`nbinlineai/prompt.py`](../nbinlineai/prompt.py), [`nbinlineai/kernel.py`](../nbinlineai/kernel.py), and [`nbinlineai/tool_schema.py`](../nbinlineai/tool_schema.py).
 
 ## Questions for future context controls
+
+### Model capacity and overflow: current gaps
+
+The source/history limits above are not a combined context-window budget. `_history` stops at the first whole pair that does not fit, even if an older pair would fit; an oversized newest pair leaves history empty. `_source_context` can cut a code or Markdown cell mid-source. Neither path summarizes omitted material.
+
+The actual provider input also includes system/style instructions, cell labels, expanded current-prompt variables, and tool schemas. Prompt length is checked before interpolation, so repeated variable references can expand beyond the original 16,000-character bound. Every tool round appends the assistant message (including calls) and result messages. That growing list is submitted again without token counting or another source/history selection pass. A 4,000-character limit per ordinary tool result and a finite round count do not establish a safe combined token budget.
+
+`providers.complete` passes `max_tokens` of 16,384 normally, 32,768 for effective `high` effort, or 65,536 for `xhigh`/`max`, and `retries=0`. It does not subtract this output ceiling from a known model context capacity. nbinlineai uses FastLLM's low-level `acomplete`, not its higher-level chat orchestration. The installed FastLLM code can classify provider overflow as `ContextWindowExceededError`, an `APIError` subclass; nbinlineai currently handles it through the generic API error path. Do not infer automatic compaction from capabilities elsewhere in FastLLM.
+
+`handlers._safe_provider_error` has specific messages for 401/403, 404, and 429; other API failures, including usual context-overflow errors, become “Model request failed”. A local validation failure instead returns HTTP 400, which the frontend also presents generically. On either failure the frontend marks the answer `error`; partial text can remain, completed tools are not rolled back, and the execution batch stops. `finish_reason == "length"` is a distinct output-limit failure. There is no shrink-and-retry or continuation path. Sources: [`nbinlineai/providers.py`](../nbinlineai/providers.py), [`nbinlineai/handlers.py`](../nbinlineai/handlers.py), [`src/modelChoice.ts`](../src/modelChoice.ts), and [`src/index.ts`](../src/index.ts).
+
+Observability is incomplete: the source builder emits counts and `source_truncated`; the frontend only shows the submitted preceding-cell count. There is no selected/omitted history report, token usage display, or persistent per-run inclusion record. The public [FAQ](../docs/faq.md#how-does-nbinlineai-choose-context-when-the-notebook-is-large) and [architecture](../docs/architecture.md#selection-budgets-and-provider-overflow) document these limitations.
+
+### Proposed budgeting and inherited tools — not implemented
+
+Tool discovery and text selection need separate inputs. For the discussed inheritance behavior, scan all ordinary Markdown and AI question cells above the target for tool declarations **before** any context selection, source truncation, or transport cell cap. Combine and deduplicate those names with the current question's declarations, then inspect the functions in the live kernel. The recommendation is to exclude AI answer cells from discovery. This is a proposed replacement for today's current-question-only tool scope; it does not change `$` lookup scope.
+
+A declaration cell omitted from model prose would therefore not remove the tool. Its schema would still be sent through the tools field and consume request capacity. Discovery over a large notebook requires revising the current 200-cell transport/validation contract; scanning after today's validation cannot deliver this behavior.
+
+A future budgeting pass should account for the current question after interpolation, system/style text, schemas, provider message overhead, and output/reasoning allowance before selecting optional notebook context. Choosing recent source first would be a deliberate change from today's oldest-first source policy. Preserve complete AI pairs and valid tool-call/result groups, report any omitted or partial cells, and recheck the budget before every provider call as tool results accumulate. If required material alone does not fit, give an actionable error rather than silently removing offered tools. Custom models need an explicit capacity/estimation policy; character counts must not be presented as exact token counts.
+
+An overflow recovery policy must also distinguish reissuing a model request from reexecuting tools: successful side effects must never be replayed automatically during compaction. Keep any future summarization and its costs visible. These are design requirements to resolve, not features in the released package.
+
+### Selection modes
 
 The proposed controls are: per-cell include/ignore toggles, whole notebook, ten cells either side of the prompt, and all preceding cells. They need one coherent definition of *selection* before source and history budgets. The current `preceding_cells` contract and system instruction explicitly mean “above”; sending later cells under that field/instruction would mislabel them. There is no selection implementation here.
 

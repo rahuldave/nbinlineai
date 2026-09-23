@@ -100,6 +100,26 @@ The source snapshot excludes later cells, code outputs, raw-cell content, image 
 
 Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads `get_ipython().user_ns` in the running kernel, not a value inferred from the displayed source. A variable reference sends a bounded `repr` string; arbitrary objects are not serialized to the provider.
 
+### Selection budgets and provider overflow
+
+The current algorithm in `nbinlineai/prompt.py` is deterministic and uses **characters**, not model tokens:
+
+1. `validate_request` rejects more than 200 preceding cells, a current prompt longer than 16,000 characters, or a custom style instruction longer than 8,000 characters. Cell-count validation happens before filtering out raw cells or incomplete AI exchanges.
+2. `_source_context` visits ordinary code and Markdown from the top downward. It includes up to 50,000 source characters in total, slicing the boundary cell if necessary and omitting the rest. Cell labels and message formatting are additional text outside this count.
+3. `_history` forms completed prompt/answer pairs, then selects a suffix by visiting the pairs in reverse notebook order. It stops at the first pair that would exceed the separate 16,000-character history budget; it does not skip that pair to find smaller older ones or cut a pair in half. Selected pairs are sent in chronological order.
+4. `run_prompt` substitutes live values in the current question and constructs the messages: system instructions plus ordinary source, retained user/assistant pairs, then the current question. The question's 16,000-character validation occurs **before** substitution. Each variable representation is bounded to 2,000 characters, but repeated references can repeat that text.
+5. Function signatures and descriptions go in the request's separate tools field. Each tool round appends the model's tool-call message and its results to the conversation and submits the growing conversation again. Source/history selection is not repeated during these rounds.
+
+For example, 40,000 characters in an early Markdown cell followed by 20,000 characters in a code cell includes the note and the first 10,000 characters of code. Source nearer the question can be omitted. Separately, a newest AI exchange larger than 16,000 characters means no AI history is retained.
+
+These are bounds on individual parts, **not a model-aware context budget**. The extension does not estimate the complete input tokens, compare them with a model's capacity, or reserve context space for output and reasoning. Tool schemas, wrapper text, substituted values, and accumulated tool traffic also matter. Tool step and result limits bound some growth but cannot guarantee that every provider request fits.
+
+`nbinlineai/providers.py` sets an output ceiling of 16,384 tokens, 32,768 for effective `high` effort, or 65,536 for `xhigh`/`max`. This is a generation allowance, not the notebook context limit or an implemented reservation of room in it. Provider rules determine how input, output, and reasoning allowances interact.
+
+If a provider rejects the input, the error reaches `PromptHandler`. Its current error sanitization maps context overflow to the generic **“Model request failed”**. There is no automatic shrinking, summarization, continuation, or retry. A provider finish reason of `length` instead produces **“Model response exceeded the output limit”**. Both mark the answer failed; streamed partial text can remain, completed tool effects remain, and the failed exchange is not used as later history.
+
+The server emits source counts and `source_truncated` in its context event, but the current frontend does not display a truncation warning. Its “Using … preceding cells” status falls back to the submitted cell count. History omissions and a full token budget are not reported. See the [FAQ](faq.md#what-happens-if-the-request-exceeds-the-models-context-window) for user recovery steps.
+
 ### Future context selection
 
 Per-cell inclusion switches, whole-notebook context, and a window around the prompt are **not implemented**. The frontend model makes those selections feasible, but the request contract and backend filtering currently assume preceding cells. Expanding the source selection would not expand the kernel's scope: live references already use the whole current namespace.
