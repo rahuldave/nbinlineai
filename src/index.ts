@@ -1037,6 +1037,13 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const controls = document.createElement('div');
   controls.className = 'nbinlineai-controls';
   controls.dataset.nbinlineaiPromptId = id;
+  // Keep a button click on this cell's toolbar intact when a different
+  // Markdown cell is in edit mode. JupyterLab switches cells on mousedown;
+  // rendering that earlier cell can move this button before mouseup.
+  // JupyterLab skips notebook mousedown handling for prevented toolbar clicks.
+  controls.addEventListener('mousedown', event => {
+    if (event.button === 0 && event.target instanceof Element && event.target.closest('button')) event.preventDefault();
+  });
   const run = document.createElement('button');
   run.dataset.nbinlineaiRun = '';
   run.textContent = 'Run AI';
