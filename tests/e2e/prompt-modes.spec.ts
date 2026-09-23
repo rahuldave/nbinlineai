@@ -45,7 +45,7 @@ async function setMode(page: Page, mode: 'compact' | 'full' | 'learning', screen
   await expect(select).toBeVisible();
   await select.selectOption(mode);
   await expect(dialog.locator('.nbinlineai-style-notice')).toContainText(
-    `${mode.charAt(0).toUpperCase()}${mode.slice(1)} will apply to your next AI run and reruns.`
+    `${mode.charAt(0).toUpperCase()}${mode.slice(1)} is now your user default`
   );
   await expect(select).toBeEnabled();
   if (screenshot) await page.screenshot({ path: 'test-results/nbinlineai-013-configure-style.png', fullPage: true });
@@ -64,28 +64,34 @@ async function addPromptAfter(page: Page, cellIndex: number, source: string) {
 }
 
 async function runAndCaptureMode(page: Page, prompt: Locator, mode: string) {
+  const run = prompt.locator('button[data-nbinlineai-run]');
+  if (await run.isDisabled()) {
+    await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
+    await expect(run).toBeEnabled();
+  }
   const posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
-  await prompt.locator('button[data-nbinlineai-run]').click();
+  await run.click();
   expect((await posted).postDataJSON().prompt_mode).toBe(mode);
-  await expect(prompt.locator('.nbinlineai-status')).toContainText('Done');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
 }
 
 test('saved response style controls requests, server instructions, and learning history', async ({ page, request }) => {
   await openNotebook(page, request);
+  await setMode(page, 'full', true);
   const prompt = await addPromptAfter(page, 0, 'E2E_STYLE explain value');
   const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell').first();
 
-  await setMode(page, 'full', true);
   await runAndCaptureMode(page, prompt, 'full');
   await expect(answer).toContainText('Response style for this run (full)');
   await expect(answer).toContainText('detailed, well-structured');
-  await expect(prompt.locator('[data-nbinlineai-current-mode]')).toContainText(/full/i);
+  await expect(page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]')).toHaveValue('full');
 
-  await setMode(page, 'compact');
+  await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]').selectOption('compact');
   await runAndCaptureMode(page, prompt, 'compact');
   await expect(answer).toContainText('Response style for this run (compact)');
   await expect(answer).toContainText('very succinctly');
 
+  await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]').selectOption('learning');
   await setMode(page, 'learning');
   await page.keyboard.press('Meta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
@@ -154,6 +160,7 @@ test('fenced code copy works in compact and full modes without changing notebook
   await page.reload();
   await expect(copy).toHaveCount(1);
   await setMode(page, 'full');
+  await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]').selectOption('full');
   await runAndCaptureMode(page, prompt, 'full');
   await expect(copy).toHaveCount(1);
   await pre.hover();
@@ -185,6 +192,7 @@ test('uncertain style save keeps the last confirmed mode until Retry reconciles 
   await openNotebook(page, request);
   await setMode(page, 'compact');
   const prompt = await addPromptAfter(page, 0, 'E2E_STYLE confirm response style');
+  await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]').selectOption('');
   let putSeen = false;
   await page.route('**/api/settings/**', async route => {
     if (!route.request().url().includes('nbinlineai')) return route.continue();

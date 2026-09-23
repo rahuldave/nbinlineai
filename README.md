@@ -1,36 +1,42 @@
 # nbinlineai
 
-Write AI prompts directly in JupyterLab notebooks. Each prompt has its own OpenAI or Anthropic model choice, and its answer appears in a paired markdown cell below it. Prompts and answers stay in the notebook when you save and reopen it.
+Write AI prompts directly in JupyterLab notebooks. Choose an OpenAI or Anthropic model once for the notebook, and override it in individual prompts when needed. Each answer appears in a paired Markdown cell below its prompt. Prompts, answers, and notebook defaults stay in the notebook when you save and reopen it.
 
 ## User manual
 
-The full Markdown manual is `USER_GUIDE.md` in the source checkout and source archive. It covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. Starting with 0.1.2, packages also install it under `share/doc/nbinlineai/USER_GUIDE.md` in the Python environment. The quick start below is self-contained.
+The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. It is included in the source archive and installed under `share/doc/nbinlineai/docs/user-guide.md` in the Python environment. The [documentation site](https://rahuldave.github.io/nbinlineai/) also includes architecture and contributor guides. The quick start below is self-contained.
 
 ## Quick start
 
 You need Python 3.11 or newer and JupyterLab 4.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
-2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key. Choose **Compact**, **Full**, or **Learning** as your response style; Compact is the default.
+2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key.
 3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, such as "Explain the code above."
-4. **Run it:** choose a provider and model, then press **Shift+Enter** or click **Run AI**. **Default** uses the configured default model shown in the picker. The answer appears in a paired Markdown cell below the prompt.
+4. **Set notebook defaults:** use the **AI defaults** row at the top of the notebook to choose provider, model, response style, and thinking effort. Compact and Model default effort are the starting choices.
+5. **Run it:** press **Shift+Enter** or click **Run AI**. The answer appears in a paired Markdown cell below the prompt. Use the cell's **Override** control only when it needs different settings.
+
+![Notebook AI defaults and a prompt with its answer](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/overview.png)
 
 | To… | Do this |
 | --- | --- |
 | Ask about earlier code or notes | Write an ordinary question. The AI sees code and ordinary Markdown above the prompt, plus earlier AI turns. |
 | Read a live Python value | Include a reference such as ``$`score` ``. Run the cell defining the variable first. |
 | Let the AI call a Python function | Include a reference such as ``&`add_bonus` ``. Run its definition first; only explicitly named functions are exposed. |
-| Revise an answer | Edit the prompt and run it again; its existing answer is updated. |
-| Learn through questions | Choose **Learning** in Configure AI. Answer each tutor question in a new AI Prompt cell below its response. |
+| Revise an answer | Edit the prompt, turn off **Keep answer**, and run it again; its existing answer is updated. |
+| Work through a saved notebook | Leave **Keep answer** on. Shift+Enter skips completed AI answers without another API call. |
+| Learn through questions | Choose **Learning** in the notebook defaults. Answer each tutor question in a new AI Prompt cell below its response. |
 | Use suggested code | Click the copy icon on a code block in an AI answer, then paste into a code cell. |
 | Stop a response | Click **Cancel**. Calls already performed cannot be undone. |
 | Keep the conversation | Save the notebook; prompts and answers are saved with it. |
 
 Ordinary code cells keep their normal execution behavior. See the runnable example below for variable and function references.
 
+**Keep answer** is on by default. A new prompt can run once; after it has a completed answer, turn this off to request another response. Shift+Enter advances past a protected prompt, and Run AI respects the same protection. Failed, cancelled, empty, or deleted answers can be retried.
+
 ## Choose a response style
 
-Open **Configure AI → Response style**:
+Choose a style in the notebook's **AI defaults** row:
 
 | Style | How the AI responds |
 | --- | --- |
@@ -38,25 +44,27 @@ Open **Configure AI → Response style**:
 | **Full** | Detailed explanations and code when useful. |
 | **Learning** | A Socratic tutor: focused questions, hints, and feedback on your attempts. It is instructed to avoid complete solutions and use at most 3 lines of code per response, only when needed as a hint. It may suggest documentation to read. |
 
-The choice is saved in your JupyterLab user settings and applies to subsequent runs, including reruns. The current style is shown beside each AI prompt. A run already in progress keeps the style it started with.
+Notebook defaults are saved with the `.ipynb`. Cells inherit them unless you choose an **Override**; returning a cell to notebook defaults clears its overrides. Reruns use the current effective settings. A run already in progress keeps the choices it started with.
 
-In **Learning**, start with a question such as “Help me understand why this loop skips an item.” When the tutor asks a question, insert another AI Prompt cell **below its answer**, write your reply, and run it. Earlier exchanges provide the conversation history. Repeat as you work through the problem; rerunning the original prompt replaces its answer instead of adding a conversation turn.
+In **Configure AI**, expand the style instructions to edit Compact, Full, or Learning. Each editor starts with our bundled instructions. **Save** stores your custom wording in JupyterLab user settings; **Reset** restores the bundled instructions. Your custom wording applies when that style is selected. It is separate from the notebook's saved style choice.
+
+In **Learning**, start with a question such as “Help me understand why this loop skips an item.” When the tutor asks a question, insert another AI Prompt cell **below its answer**, write your reply, and run it. Earlier exchanges provide the conversation history. Repeat as you work through the problem. To replace an earlier exchange, turn off Keep answer and rerun that prompt.
 
 In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown blocks. Code blocks in AI answers have a **Copy code** button: click it, create or select an ordinary code cell, and paste. Copying does not execute code. If the browser blocks clipboard access, select and copy the code manually. These styles guide the model; Learning is not an enforced assessment restriction.
 
 ## Cells and context at a glance
 
 - **Storage:** AI prompts and their paired answers are separate standard Markdown cells, identified by `metadata.nbinlineai`. Both texts are saved in the `.ipynb`; an answer is not a code-cell output.
-- **Editing and rerunning:** edit a prompt and run it again to replace its paired answer. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically.
+- **Editing and rerunning:** edit a prompt, turn off Keep answer, and run it again to replace its paired answer. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically.
 - **Context:** code and ordinary Markdown source above the prompt are included in notebook order within size limits. Completed earlier AI prompt/answer pairs are included separately as conversation history, without duplicating their text in the source context. Raw cells and code outputs are omitted; image data is not sent.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
 - **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
 
 ## Choose a model
 
-Each AI cell has a **Model** dropdown. Choose a listed model, use **Default**, or choose **Custom model…** and enter another model ID supported by that provider. Your choice is saved with the cell; changing providers clears the previous provider's model choice.
+The notebook's **AI defaults** row has a model dropdown. Choose a listed model, use **Default**, or choose **Custom model…** and enter another model ID supported by that provider. Most notebooks can use one model throughout. Individual AI cells expose their own choices under **Override**. Changing providers clears the previous provider's model choice.
 
-Providers without a configured API key are marked unavailable. If you have only an Anthropic key, new AI cells select Anthropic automatically (and likewise for OpenAI). Existing cells keep their saved provider and model; if that provider's key is missing, add it through **Configure AI** or switch to a configured provider before running the cell.
+Providers without a configured API key are marked unavailable. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). Saved notebook choices and explicit cell overrides are preserved; if that provider's key is missing, add it through **Configure AI** or select an available provider. Cells created by older versions keep their saved provider/model choices until you return them to notebook defaults.
 
 | Provider | Bundled default | Other listed choices |
 | --- | --- | --- |
@@ -65,9 +73,17 @@ Providers without a configured API key are marked unavailable. If you have only 
 
 These are bundled suggestions, not a live list of your account's model access. The IDs were checked against the [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for version 0.1.1. Existing cells keep any explicitly selected model; select **Default** to use the current default. A provider default set in JupyterLab's nbinlineai settings takes precedence over the bundled default.
 
+### Thinking effort
+
+The effort selector starts at **Model default** and offers the levels supported by the selected model. For example, GPT-6 Sol supports None, Low, Medium, High, Extra high, and Max; Claude Sonnet 5 supports Low through Max. Effort affects the model's reasoning and can increase latency and token usage. It is independent of style: **Compact + High** can produce a carefully reasoned short answer. See the [OpenAI model documentation](https://developers.openai.com/api/docs/models/gpt-6-sol) and [Claude effort documentation](https://platform.claude.com/docs/en/build-with-claude/effort).
+
+Unknown custom model IDs and models without this effort control use Model default. nbinlineai does not guess unsupported API parameters. A cell can override effort through the same **Override** control.
+
 ## Installation and API keys
 
 Keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. No `.env` file is needed.
+
+![Configure AI with provider key setup and expandable style instructions](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
 
 Your school or hosted Jupyter service may manage extensions centrally. If Extension Manager is unavailable, ask the administrator to install the package in the Python environment running Jupyter Server and restart that server. For a self-managed environment using `pip`, the equivalent command is:
 

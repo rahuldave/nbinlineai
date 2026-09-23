@@ -45,6 +45,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await notebook.locator('.jp-CodeCell').last().click();
   await page.getByRole('button', { name: 'AI Prompt' }).click();
   const prompt = notebook.locator('.jp-Cell.nbinlineai-prompt-cell').last();
+  await prompt.locator('[data-nbinlineai-override]').click();
   const provider = prompt.locator('select[data-nbinlineai-provider]');
   const model = prompt.locator('select[data-nbinlineai-model-select]');
   const run = prompt.locator('button[data-nbinlineai-run]');
@@ -52,7 +53,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await expect(provider.locator('option[value="openai_api"]')).toBeDisabled();
   await expect(provider.locator('option[value="openai_api"]')).toContainText('API key required');
   await expect(model.locator('option')).toContainText([
-    'Default', 'claude-sonnet-5', 'claude-haiku-4-5-20251001', 'claude-opus-5-5', 'claude-fable-5-1', 'Custom model'
+    'Notebook default model (claude-sonnet-5)', 'claude-sonnet-5', 'claude-haiku-4-5-20251001', 'claude-opus-5-5', 'claude-fable-5-1', 'Custom model…'
   ]);
   await expect(run).toBeEnabled();
   await model.selectOption('claude-haiku-4-5-20251001');
@@ -82,7 +83,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await expect(run).toBeEnabled();
   await prompt.locator('.cm-content').fill('E2E_BASIC completed before key removal');
   await run.click();
-  await expect(prompt.locator('.nbinlineai-status')).toContainText('Done');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   await anthropicRow.locator('[data-nbinlineai-key-remove]').click();

@@ -36,3 +36,24 @@
 .nbinlineai-response-cell pre.nbinlineai-code-block { padding-top: 2rem; }
 .nbinlineai-keys-dialog [data-nbinlineai-style-retry] { margin: 4px 0 10px; padding: 4px 10px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
 .nbinlineai-keys-dialog [data-nbinlineai-style-retry][hidden] { display: none; }
+.nbinlineai-notebook-defaults { box-sizing: border-box; display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-height: 40px; padding: 5px 10px; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--jp-border-color2); background: var(--jp-layout-color2); color: var(--jp-ui-font-color1); font: var(--jp-ui-font-size1) var(--jp-ui-font-family); }
+.nbinlineai-defaults-title { font-weight: 600; margin-right: 4px; white-space: nowrap; }
+.nbinlineai-notebook-defaults select, .nbinlineai-notebook-defaults input { flex: 0 0 auto; max-width: 220px; min-height: 24px; padding: 2px 6px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; }
+.nbinlineai-notebook-defaults input { width: 130px; }
+.nbinlineai-notebook-defaults [hidden] { display: none; }
+.nbinlineai-override-summary { color: var(--jp-ui-font-color2); white-space: nowrap; }
+.nbinlineai-override-editor { display: flex; flex-basis: 100%; align-items: center; flex-wrap: wrap; gap: 5px; padding: 4px 0 0; border-top: 1px solid var(--jp-border-color2); }
+.nbinlineai-override-editor[hidden] { display: none; }
+.nbinlineai-template-row { padding: 8px 0; border-top: 1px solid var(--jp-border-color2); }
+.nbinlineai-template-row label { display: block; font-weight: 600; }
+.nbinlineai-template-row textarea { display: block; box-sizing: border-box; width: 100%; margin: 5px 0; padding: 7px; resize: vertical; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; font: var(--jp-code-font-size) var(--jp-code-font-family); }
+.nbinlineai-template-row button { margin-right: 5px; padding: 4px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
+.nbinlineai-template-row button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-template-state { display: block; min-height: 1.3em; color: var(--jp-ui-font-color2); }
+.nbinlineai-template-details { margin: 10px 0; padding: 6px 8px; border: 1px solid var(--jp-border-color2); border-radius: 3px; }
+.nbinlineai-template-details > summary, .nbinlineai-template-row > summary { cursor: pointer; font-weight: 600; }
+.nbinlineai-template-details > p { margin: 6px 0 10px; }
+.nbinlineai-template-row { margin: 4px 0; padding: 4px 0; }
+.nbinlineai-template-row:not([open]) { border-top: 0; }
+.nbinlineai-keep-answer { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; color: var(--jp-ui-font-color2); cursor: pointer; }
+.nbinlineai-controls .nbinlineai-keep-answer input { width: auto; margin: 0 2px 0 0; padding: 0; accent-color: var(--jp-brand-color1); }

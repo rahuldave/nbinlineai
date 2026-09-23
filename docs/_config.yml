@@ -1,0 +1,16 @@
+title: nbinlineai
+description: AI prompts in JupyterLab notebooks
+url: https://rahuldave.github.io
+baseurl: /nbinlineai
+theme: jekyll-theme-cayman
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: page

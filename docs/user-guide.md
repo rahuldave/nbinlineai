@@ -1,6 +1,22 @@
+---
+title: User guide
+---
+
 # nbinlineai user manual
 
-This guide describes nbinlineai 0.1.3. It explains everyday use, response styles, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown context arrived in 0.1.2; response styles and code-copy buttons arrived in 0.1.3.
+This guide describes nbinlineai 0.1.4. It explains everyday use, notebook defaults, response styles, what is saved in your notebook, and exactly what the AI can see. Ordinary Markdown context arrived in 0.1.2; response styles and code-copy buttons arrived in 0.1.3. Notebook defaults, cell overrides, editable style instructions, effort controls, and Keep answer arrived in 0.1.4.
+
+## Contents
+
+- [Install and set up](#1-install-and-set-up)
+- [Create and run an AI cell](#2-create-and-run-an-ai-cell)
+- [Edit, rerun, and save](#3-edit-rerun-and-save)
+- [Context](#4-what-context-does-the-ai-receive)
+- [Variables and functions](#5-reference-live-variables-and-functions)
+- [Saved cells](#6-how-cells-are-stored)
+- [API key storage](#7-where-keys-are-stored)
+- [Architecture](#8-how-it-works-underneath)
+- [Troubleshooting and limits](#9-troubleshooting-and-limits)
 
 ## 1. Install and set up
 
@@ -10,7 +26,9 @@ You need JupyterLab 4, Python 3.11 or newer, and an OpenAI or Anthropic **API ke
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
 3. Open a Python notebook. Click **Configure AI** at the far right of the notebook toolbar, beside the kernel name.
 4. Paste your key into its provider's password field and click **Save**. The provider should show **Saved on this computer**.
-5. Under **Response style**, choose **Compact**, **Full**, or **Learning**. Compact is the default.
+5. Use the notebook's **AI defaults** row to choose provider, model, style, and effort. Compact is the starting style; Model default lets the provider choose thinking effort.
+
+![Configure AI: add provider keys and open the style-instruction editors](images/configure-ai.png)
 
 For a project managed by uv, install and launch with:
 
@@ -28,26 +46,31 @@ API usage is billed by your provider. ChatGPT subscription sign-in is not suppor
 1. Select the cell after which you want to ask a question.
 2. Click **+ AI Prompt** in the notebook toolbar.
 3. Write your prompt, for example: `Explain the code above and suggest a simpler approach.`
-4. Choose a provider and model.
+4. Check the **AI defaults** row at the top of the notebook. The cell inherits these settings unless you use its **Override** control.
 5. Press **Shift+Enter** or click **Run AI**.
 
-The answer streams into a separate Markdown cell, normally created immediately below the prompt. Ordinary code cells keep their usual execution behavior.
+The answer streams into a separate Markdown cell, normally created immediately below the prompt. **Keep answer** starts on: the first run is allowed, and a completed answer is then protected from accidental repeat requests. Ordinary code cells keep their usual execution behavior.
+
+![A notebook with its AI defaults above a prompt and answer](images/overview.png)
 
 An active Python kernel is required. nbinlineai does not automatically run the code above your prompt; run the definitions yourself before referring to live values or functions.
 
 ### Provider and model choices
 
 - A provider without a configured key is marked **API key required** and cannot be selected.
-- If only one provider is configured, a new prompt uses that provider automatically.
+- If only one provider is configured, a notebook without saved AI defaults starts with that provider automatically.
 - Choose a listed model, **Default**, or **Custom model…** to enter another model ID.
 - Bundled defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A default you set in JupyterLab's nbinlineai settings takes precedence.
 - Listed models are suggestions, not a live account-access check. Your API account must have access to the chosen model.
-- Choosing a model or running a prompt saves its effective provider in the cell. An existing saved provider/model is not silently replaced when you add or remove a key.
-- Changing providers clears that cell's previous model choice. Existing cells whose provider loses its key show setup guidance and cannot run until you add the key or select an available provider.
+- Notebook defaults are stored in notebook metadata. Inherited cells use those choices without saving separate copies in every prompt.
+- **Override** exposes choices for an individual cell. Returning to notebook defaults removes those overrides. Cells from earlier versions retain their saved provider/model choices until you do this.
+- A saved provider/model is not silently replaced when you add or remove a key. Changing providers clears the previous provider's model choice. A missing provider key produces setup guidance until you add the key or select an available provider.
+
+![Expanded cell overrides, including model, style, effort, and return to notebook defaults](images/cell-overrides.png)
 
 ### Response styles
 
-Open **Configure AI → Response style** to choose how the model should answer:
+Use the notebook's **AI defaults** row to choose how the model should answer, or use **Override** for an individual prompt:
 
 | Style | What to expect |
 | --- | --- |
@@ -55,13 +78,39 @@ Open **Configure AI → Response style** to choose how the model should answer:
 | **Full** | Detailed explanations, reasoning, examples, and code when helpful. Code is placed in fenced Markdown blocks. |
 | **Learning** | A Socratic tutor that asks focused questions, responds to your attempts, and helps you work out the solution. It is instructed not to provide complete solutions or substantial code; code hints are limited to 3 lines in total per response. It may suggest documentation. |
 
-The style is saved in your JupyterLab user settings. It applies to every subsequent AI run, including reruns of existing prompts. The current style is shown beside each AI prompt. Changing it does not rewrite saved answers or alter a response already in progress. It is separate from each cell's saved provider and model choice.
+The notebook's style choice is saved in its `.ipynb` metadata. A cell uses this choice unless it has an explicit override. Reruns use the current effective choices; changing defaults does not rewrite saved answers or alter a response already in progress. JupyterLab user preferences provide initial defaults for notebooks without saved choices.
+
+### Edit the style instructions
+
+Open **Configure AI** and expand the style-instruction editors. Compact, Full, and Learning start with our bundled instructions. Edit a style's text and click **Save** to use your own wording. **Reset** removes that override and restores the current bundled instructions. Empty instructions are rejected; use Reset instead. Each custom instruction can contain at most 8,000 characters.
+
+Custom instruction text is stored in JupyterLab user settings, outside the notebook. Sharing an `.ipynb` shares its style choice, but not your personal rewritten instructions. A recipient uses their own instructions for that style. Notebook context and tool-handling instructions remain managed by the extension.
+
+![Editing a style's instructions with Save and Reset controls](images/style-instructions.png)
+
+If a save cannot be confirmed, nbinlineai keeps using the last confirmed instructions and offers a settings Retry to check what was saved.
+
+### Thinking effort
+
+Choose effort beside the model in the notebook defaults. **Model default** omits the override and lets the provider choose. Other available levels depend on the model; the picker only offers known supported choices. Individual cells can override effort when needed.
+
+| Model | Supported effort choices | Provider default |
+| --- | --- | --- |
+| GPT-6 Sol / Luna | None, Low, Medium, High, Extra high, Max | Medium |
+| GPT-6 Astra | Low, Medium, High, Extra high, Max | Provider-selected |
+| Claude Sonnet 5 / Fable 5.1 | Low, Medium, High, Extra high, Max | High |
+| Claude Opus 5.5 | Low, Medium, High, Extra high, Max | Medium |
+| Claude Haiku 4.5 / unknown custom model IDs | Model default only in this version | Provider-selected |
+
+Effort controls how much work the model puts into the answer. Higher settings can use more tokens and take longer. **Style controls how the answer is presented**: you can use Compact with high effort, or Learning with low effort. nbinlineai displays the answer rather than internal thinking content.
+
+The mappings use OpenAI's `reasoning.effort` and Anthropic's `output_config.effort` with adaptive thinking where supported. Claude Haiku's older manual thinking budget is a different control and is not exposed here. See [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning) and [Claude effort](https://platform.claude.com/docs/en/build-with-claude/effort).
 
 These are instructions to the language model, not output filters. Learning mode guides tutoring behavior; it is not a technical guarantee that the model can never reveal a solution.
 
 ### A Learning conversation
 
-1. Choose **Learning** in Configure AI.
+1. Choose **Learning** in the notebook's AI defaults.
 2. Insert an AI Prompt below the code or notes you are studying. Ask, for example: `Help me understand this loop. Ask me questions so I can figure it out.`
 3. Read the tutor's question.
 4. Select the tutor's answer cell and click **+ AI Prompt** to create a new prompt below it.
@@ -77,7 +126,9 @@ You:   I think the next item moves into the current index.
 Tutor: What index does the loop visit next, and which item might that miss?
 ```
 
-Each “You” line is a new AI Prompt cell, and each tutor reply is its paired answer. Edit and rerun an old prompt when you want to replace that exchange; create a new prompt when you want to continue the conversation.
+Each “You” line is a new AI Prompt cell, and each tutor reply is its paired answer. Turn off Keep answer, edit, and rerun an old prompt when you want to replace that exchange; create a new prompt when you want to continue the conversation.
+
+![An illustrative Learning conversation continued through successive AI cells](images/learning-dialog.png)
 
 ### Copy code from an answer
 
@@ -85,9 +136,15 @@ Code blocks in rendered AI answers have a **Copy code** button. Click it, select
 
 The same button is available for short snippets in Learning mode. It is interface decoration: it is not stored in the notebook's Markdown or sent as AI context. If clipboard access fails, the interface tells you; select the code and copy it manually instead.
 
+![The Copy button on a fenced code block in an AI answer](images/copy-code.png)
+
 ## 3. Edit, rerun, and save
 
-**Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click it to enter the editor. Press **Shift+Enter** or **Run AI** to run the revised prompt.
+**Prompts are editable.** Select the prompt cell and edit its text. If it is displayed as rendered Markdown, double-click it to enter the editor. If it already has a completed answer, turn off **Keep answer**. Then press **Shift+Enter** or **Run AI** to run the revised prompt.
+
+**Keep answer prevents repeat requests.** It is on by default and saved with the prompt. With a completed, nonempty answer, Shift+Enter skips the provider request and advances to the next cell; Run AI is disabled until you turn the toggle off. This lets you work through a saved notebook without repeatedly paying for its existing answers. Turn it back on after rerunning to protect the new answer. An unanswered prompt can still run, and failed, cancelled, empty, or deleted answers can be retried. Editing the prompt does not automatically remove this protection. Changing model/style overrides or returning to notebook defaults does not change it either.
+
+![Keep answer protects a completed response from another provider request](images/keep-answer.png)
 
 **A rerun updates the paired answer.** It clears the previous answer as the new run starts, then writes the new response into that same answer cell. It does not append another answer each time. To keep an old answer for comparison, copy its text into an ordinary Markdown cell before rerunning.
 
@@ -131,6 +188,8 @@ Code C                  <- not included
 
 Markdown is sent as text, including any link or image syntax. nbinlineai does not fetch linked pages, read linked files, or send the image pixels. Include the needed explanation directly in a Markdown cell or your prompt.
 
+![Notebook notes and code above an AI question, with a later section below the answer](images/context.png)
+
 **Live kernel state is a separate source of information.** A referenced variable or function can have been created by a cell below the prompt, by a cell run out of order, or by code that has since been edited or deleted. The “above the prompt” boundary applies to notebook source and conversation history; it does not restrict where live Python values originally came from.
 
 There is no separate persistent chat history: earlier conversation is reconstructed from the notebook cells on each run. Keep prompts and their answers together. Moving cells changes the context available on the next run.
@@ -158,6 +217,10 @@ What is $`score`? Call &`add_bonus` with value 3, then explain the result.
 | ``$`score` `` | Read the live value of `score` from the notebook's Python kernel and include its text representation in this request. |
 | ``&`add_bonus` `` | Make `add_bonus` available as a function tool for this request. |
 
+The screenshot below shows a variant that changes the live variable: its function adds 4 to a score of 10, then a normal Python cell confirms that `score` is now 14.
+
+![A live variable reference and a function tool that updates the score in the kernel](images/variables-tools.png)
+
 References must be simple Python names, not expressions such as `df.head()` or `obj.attribute`. Assign an expression to a named variable first if you want to reference its result.
 
 Only functions explicitly named with `&` in the current prompt are exposed as tools. The extension reads their signatures and docstrings, describes them to the model, checks returned arguments, and calls them in the same notebook kernel. These are real function calls and can change variables or perform other actions implemented by your function. A reference permits a call; it does not guarantee that the model will choose to make one.
@@ -172,10 +235,12 @@ Both kinds of AI cell are **standard Markdown cells inside the `.ipynb` file**:
 
 | Cell | Saved text | nbinlineai metadata |
 | --- | --- | --- |
-| Prompt | Your editable question in the cell's `source` | `isPromptCell`, and provider/model choices when set |
+| Prompt | Your editable question in the cell's `source` | `isPromptCell`, Keep answer preference, and any provider/model/style/effort overrides |
 | Answer | The generated Markdown in the cell's `source` | `isOutputCell`, `promptCellId`, and run status |
 
 The fields live under `metadata.nbinlineai`. The answer's `promptCellId` links it to the prompt's notebook cell ID. This lets a rerun find and update its existing answer. If you delete the answer cell, the next run creates one again.
+
+Notebook-level choices live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. API keys live in a private server-side credential file; custom style instructions live in JupyterLab user settings. Neither is stored in the notebook.
 
 An AI answer is **not** an entry in a code cell's `outputs` array. Consequently, Jupyter's normal code-output clearing does not remove its Markdown text. Delete the answer cell to remove it; delete the prompt separately if you want to remove the whole exchange.
 
@@ -210,6 +275,8 @@ The TypeScript frontend creates the controls, reads the notebook model, and upda
 
 The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. There is no extra AI daemon, nested notebook event loop, or Codex process required for this API-based version. There is also no new notebook cell type or cell magic: AI behavior is attached to Markdown cells through their metadata.
 
+For the request lifecycle, tool schemas, module map, and event-loop details, see [Architecture](architecture.md).
+
 ## 9. Troubleshooting and limits
 
 | Symptom | What to do |
@@ -220,7 +287,9 @@ The AI networking runs asynchronously in Jupyter Server and streams results back
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
 | AI misses your notes | Put the Markdown cell above the prompt, rerun the prompt after editing, and check the context size limits. Markdown source is included starting with 0.1.2. |
 | AI misses a plot or code output | These are not currently included; add a text explanation to a Markdown cell above the prompt or to the prompt itself. |
-| AI asks questions when you want a direct answer | Choose Compact or Full in Configure AI and run the prompt again. |
+| AI asks questions when you want a direct answer | Choose Compact or Full in the notebook defaults or the cell's Override controls, then run it again. |
+| One cell ignores changed notebook defaults | Check its Override controls. Return it to notebook defaults if its saved choices are no longer needed. |
+| A completed AI prompt will not run again | Turn off Keep answer on that prompt. Protected prompts are skipped by Shift+Enter. |
 | A tutor conversation keeps starting over | Put your reply in a new AI Prompt below the tutor's answer. Rerunning the original prompt replaces that exchange. |
 | Code will not copy | If the browser blocks clipboard access, select the code text and copy it manually. |
 | Old answer disappeared after rerunning | Reruns replace the paired answer. Copy text into an ordinary Markdown cell beforehand to preserve another version. |

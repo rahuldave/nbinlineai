@@ -41,13 +41,41 @@
     "promptMode": {
       "type": "string",
       "title": "Response style",
-      "description": "Applies to every next AI run, including reruns. Compact is succinct, Full gives detailed explanations and code, and Learning guides with questions and at most three lines of code without full solutions.",
+      "description": "User fallback for notebooks and cells without a style override. Compact is succinct, Full gives detailed explanations and code, and Learning guides with questions and at most three lines of code without full solutions.",
       "enum": [
         "compact",
         "full",
         "learning"
       ],
       "default": "compact"
+    },
+    "promptInstructions": {
+      "type": "object",
+      "title": "Custom response instructions",
+      "description": "Optional per-style instructions; blank uses the server default. Maximum 8000 characters per style.",
+      "properties": {
+        "compact": {
+          "type": "string",
+          "maxLength": 8000,
+          "default": ""
+        },
+        "full": {
+          "type": "string",
+          "maxLength": 8000,
+          "default": ""
+        },
+        "learning": {
+          "type": "string",
+          "maxLength": 8000,
+          "default": ""
+        }
+      },
+      "additionalProperties": false,
+      "default": {
+        "compact": "",
+        "full": "",
+        "learning": ""
+      }
     }
   },
   "additionalProperties": false

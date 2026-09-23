@@ -60,7 +60,7 @@ async function insertPrompt(page: Page, afterCell: number, prompt: string) {
 
 async function runPrompt(page: Page) {
   await page.keyboard.press('Shift+Enter');
-  await expect(page.locator('.nbinlineai-status').last()).toContainText(/done|complete|ready/i);
+  await expect(page.locator('.nbinlineai-status').last()).toContainText(/done|complete|ready|answer kept/i);
 }
 
 test('prompt executes in the notebook, streams a reply, and reuses its saved pair', async ({ page, request }) => {
@@ -74,6 +74,8 @@ test('prompt executes in the notebook, streams a reply, and reuses its saved pai
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('E2E provider=openai_api');
   await page.screenshot({ path: 'test-results/nbinlineai-mvp.png', fullPage: true });
 
+  await expect(prompt.locator('button[data-nbinlineai-run]')).toBeDisabled();
+  await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
   await prompt.locator('button[data-nbinlineai-run]').click();
   await expect(answer).toHaveCount(1);
   await expect(answer).toContainText('E2E provider=openai_api');
@@ -111,7 +113,7 @@ test('context stops at prompt and live variable comes from the running kernel', 
   await expect(answer).not.toContainText('BELOW_MARKER');
   await expect(answer).toContainText('x = 999');
   await expect(answer).toContainText('E2E_CONTEXT inspect 7');
-  await expect(prompt.locator('.nbinlineai-status')).toContainText(/done|complete|ready/i);
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/done|complete|ready|answer kept/i);
 });
 
 test('server context includes ordinary Markdown above the prompt in notebook order', async ({ page, request }) => {
@@ -122,7 +124,7 @@ test('server context includes ordinary Markdown above the prompt in notebook ord
   ]);
   const prompt = await insertPrompt(page, 1, 'E2E_BASIC use the notebook context');
   await prompt.locator('button[data-nbinlineai-run]').click();
-  await expect(prompt.locator('.nbinlineai-status')).toContainText('Done');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('MD_ABOVE_DETERMINISTIC');
   await expect(answer).toContainText('CODE_AFTER_MARKDOWN');
@@ -137,6 +139,7 @@ test('provider selection is sent with the prompt and ordinary code still runs', 
   await page.keyboard.press('Shift+Enter');
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell').first()).toContainText('ordinary code works');
   const prompt = await insertPrompt(page, 0, 'E2E_PROVIDER');
+  await prompt.locator('[data-nbinlineai-override]').click();
   await prompt.locator('select[data-nbinlineai-provider]').selectOption('anthropic_api');
   await prompt.locator('button[data-nbinlineai-run]').click();
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell')).toContainText('E2E provider=anthropic_api');
@@ -156,7 +159,7 @@ test('registered function tool changes the live Python kernel', async ({ page, r
   const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
   await expect(answer).toContainText('E2E provider=openai_api');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('E2E provider=openai_api');
-  await expect(prompt.locator('.nbinlineai-status')).toContainText('Done');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const inspection = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').nth(1);
   await inspection.click();
   await page.keyboard.press('Shift+Enter');

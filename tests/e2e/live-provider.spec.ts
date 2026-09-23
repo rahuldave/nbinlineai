@@ -41,11 +41,12 @@ for (const provider of ['openai_api', 'anthropic_api'] as const) {
     await page.getByRole('button', { name: 'AI Prompt' }).click();
     const prompt = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-prompt-cell').last();
     await prompt.locator('.cm-content').fill('The live value is $`smoke_value`. Call &`increment` exactly once with value=1, then answer with the returned numeral only.');
+    await prompt.locator('[data-nbinlineai-override]').click();
     await prompt.locator('select[data-nbinlineai-provider]').selectOption(provider);
     await prompt.locator('button[data-nbinlineai-run]').click();
     const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
     await expect(answer).toContainText('7', { timeout: 90_000 });
-    await expect(prompt.locator('.nbinlineai-status')).toContainText(/done|complete|ready/i);
+    await expect(prompt.locator('.nbinlineai-status')).toContainText(/done|complete|ready|answer kept/i);
     const inspection = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').nth(1);
     await inspection.click();
     await page.keyboard.press('Shift+Enter');

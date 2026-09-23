@@ -1,6 +1,6 @@
 # Releasing nbinlineai to PyPI
 
-The first public release is `0.1.0`. The PyPI package is named `nbinlineai`. No public repository URL is set until a repository exists. The package README is written for students installing from JupyterLab or into their own `uv` project; developer and release details remain here.
+The first public release is `0.1.0`. The PyPI package is named `nbinlineai`, and its public repository is [rahuldave/nbinlineai](https://github.com/rahuldave/nbinlineai). The package README is written for students installing from JupyterLab or into their own `uv` project; developer and release details remain here.
 
 ## Before building
 
@@ -70,3 +70,9 @@ Version `0.1.3` is synchronized in Python, JavaScript, and `uv.lock`. It adds Co
 Before packaging, 50 backend tests and Ruff passed. Fourteen frontend unit tests and the production build passed. The isolated browser run passed 13 of 14 tests; the remaining test needed to enter edit mode after JupyterLab rendered a Markdown cell on reload, and its focused rerun passed. All 14 distinct browser checks therefore passed, and a focused copy-code rerun also passed. No paid provider calls were made. The port 8897 test server was stopped; the user's port 8888 server was not used.
 
 Version `0.1.3` was published from source commit `855d4e9` and tagged `v0.1.3`. The published wheel SHA256 is `9c93ff7476b2976b128da688871fa2258bf322916f45b6049c0291328fc9bc45`; the source archive SHA256 is `c966f01b41a2b01adb6a6d73da3e2ab15723cb2e8c935cfb0c51340aa66542bb`. Both matched the checked local artifacts and public PyPI metadata. Strict Twine metadata validation, archive content checks, and credential content scans passed. The updated user guide is included in both archives. Root reviewed screenshots of Configure AI and the copy control; code remained readable beneath the control.
+
+## Version 0.1.4 preparation
+
+Version `0.1.4` is synchronized in Python, JavaScript, and `uv.lock`. Notebook-wide defaults are saved in notebook metadata; a prompt cell inherits them unless its Override controls specify provider, model, style, or effort. The first AI insert snapshots effective defaults while an ordinary notebook open leaves AI metadata untouched. Keep answer defaults on and blocks completed-answer reruns until unchecked. Configure AI permits editing and resetting bundled style instructions, and a failed settings confirmation keeps the previous confirmed instructions until Retry. The model catalog exposes supported reasoning effort choices; an explicit cell Model default omits the request effort even when the notebook specifies High.
+
+Before packaging, 60 backend tests and Ruff passed, 21 frontend unit tests passed, and the production frontend build passed. The full isolated browser run passed 18 of 21 tests. Three checks still used old UI labels or expected the Override panel to remain open after reload; their corrected focused reruns all passed, so 21 distinct browser checks are green. A focused geometry assertion also passed after fixing the clipped notebook defaults header. Nine illustrative documentation screenshots were captured under `docs/images/` against the isolated server and deterministic fake provider; no real key or paid provider call was used. The port 8897 server was stopped, and the user's port 8888 server was not touched. Archive checks and publication remain for the maintainer.

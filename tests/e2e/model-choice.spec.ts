@@ -39,12 +39,13 @@ test('model picker sends defaults, listed choices, and a persisted custom ID', a
   await page.getByRole('button', { name: 'AI Prompt' }).click();
   const prompt = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-prompt-cell');
   await prompt.locator('.cm-content').fill('E2E_BASIC model selection');
+  await prompt.locator('[data-nbinlineai-override]').click();
   const provider = prompt.locator('select[data-nbinlineai-provider]');
   const select = prompt.locator('select[data-nbinlineai-model-select]');
   const custom = prompt.locator('input[data-nbinlineai-model]');
   const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
   await expect(select).toHaveValue('__nbinlineai_default__');
-  await expect(select.locator('option')).toContainText(['Default', 'gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'Custom model']);
+  await expect(select.locator('option')).toContainText(['Notebook default model (gpt-6-sol)', 'gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'Custom model…']);
   await expect(custom).toBeHidden();
   await page.screenshot({ path: 'test-results/nbinlineai-model-picker.png', fullPage: true });
 
@@ -52,6 +53,7 @@ test('model picker sends defaults, listed choices, and a persisted custom ID', a
   await prompt.locator('button[data-nbinlineai-run]').click();
   expect([undefined, 'gpt-6-sol']).toContain((await sent).postDataJSON().model);
   await expect(answer).toContainText('model=gpt-6-sol');
+  await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
 
   await select.selectOption('gpt-6-luna');
   sent = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
@@ -77,12 +79,13 @@ test('model picker sends defaults, listed choices, and a persisted custom ID', a
   await page.reload();
   await expect(select).toHaveValue('__nbinlineai_custom__');
   await expect(custom).toHaveValue('student-custom-model');
+  await prompt.locator('[data-nbinlineai-override]').click();
 
   await provider.selectOption('anthropic_api');
   await expect(select).toHaveValue('__nbinlineai_default__');
   await expect(custom).toBeHidden();
   await expect(select.locator('option')).toContainText([
-    'Default', 'claude-sonnet-5', 'claude-haiku-4-5-20251001', 'claude-opus-5-5', 'claude-fable-5-1', 'Custom model'
+    'Provider default model', 'claude-sonnet-5', 'claude-haiku-4-5-20251001', 'claude-opus-5-5', 'claude-fable-5-1', 'Custom model…'
   ]);
   await select.selectOption('claude-haiku-4-5-20251001');
   sent = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');

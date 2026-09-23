@@ -16,7 +16,13 @@ from pathlib import Path
 from aidialog.msg_parts import Completion, Msg, Text, ToolResult, ToolUse
 
 
-async def fake_complete(backend: str, model: str, messages: list, tools: list) -> Completion:
+async def fake_complete(
+    backend: str,
+    model: str,
+    messages: list,
+    tools: list,
+    reasoning_effort: str | None = None,
+) -> Completion:
     """Echo supplied context, with controlled tool, error, and cancel branches."""
     latest = "".join(
         part.text for part in getattr(messages[-1], "content", []) if isinstance(part, Text)
@@ -38,6 +44,38 @@ async def fake_complete(backend: str, model: str, messages: list, tools: list) -
             model=model,
             message=Msg("assistant", [Text("Example:\n\n```python\nvalue = 2 + 2\nprint(value)\n```")]),
         )
+    if "What does this average tell us?" in latest:
+        return Completion(
+            model=model,
+            message=Msg("assistant", [Text("The average score is 8. It summarizes the three scores with one number, while the individual values still show how much they vary.")]),
+        )
+    if "Show a short Python example for checking the average." in latest:
+        return Completion(
+            model=model,
+            message=Msg("assistant", [Text("You can verify it with:\n\n```python\nscores = [6, 8, 10]\nprint(sum(scores) / len(scores))\n```")]),
+        )
+    if "How should I begin checking the average?" in latest:
+        return Completion(
+            model=model,
+            message=Msg("assistant", [Text("What two pieces do you need to calculate a mean? Try finding the total first, then count how many scores you have.")]),
+        )
+    if "I found the total. What comes next?" in latest:
+        return Completion(
+            model=model,
+            message=Msg("assistant", [Text("Nice start. How many scores are in your list, and what happens when you divide the total by that count?")]),
+        )
+    if "Use add_bonus to update the score" in transcript:
+        results = [
+            part for message in messages
+            for part in getattr(message, "content", [])
+            if isinstance(part, ToolResult)
+        ]
+        if not results:
+            return Completion(
+                model=model,
+                message=Msg("assistant", [ToolUse(id="docs-call-1", name=tools[0]["name"], arguments={"value": 4})]),
+            )
+        return Completion(model=model, message=Msg("assistant", [Text("The updated score is 14. The notebook's Python function made that change in the live kernel.")]))
     if "E2E_TOOL" in transcript:
         results = [
             part for message in messages
@@ -51,7 +89,7 @@ async def fake_complete(backend: str, model: str, messages: list, tools: list) -
                 message=Msg("assistant", [ToolUse(id="e2e-call-1", name=tool_name,
                                                   arguments={"value": 4})]),
             )
-    text = f"E2E provider={backend} model={model}\n\n{transcript[-4000:]}"
+    text = f"E2E provider={backend} model={model} effort={reasoning_effort or 'default'}\n\n{transcript[-4000:]}"
     return Completion(model=model, message=Msg("assistant", [Text(text)]))
 
 
@@ -70,7 +108,7 @@ def main() -> None:
         (kernelspec / "kernel.json").write_text(json.dumps({
             "argv": [sys.executable, "-m", "ipykernel_launcher",
                      "-f", "{connection_file}"],
-            "display_name": "Python 3 (nbinlineai E2E)",
+            "display_name": "Python 3 (ipykernel)" if os.environ.get("NBINLINEAI_DOCS_CAPTURE") == "1" else "Python 3 (nbinlineai E2E)",
             "language": "python",
         }))
         os.environ["JUPYTER_CONFIG_DIR"] = str(base / "config")

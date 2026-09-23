@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import tarfile
 import zipfile
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 FORBIDDEN_PARTS = {
     ".git", ".venv", "node_modules", "internal_docs", "test-results",
@@ -14,7 +16,8 @@ FORBIDDEN_PARTS = {
 }
 FORBIDDEN_FILES = {".env", "credentials.json", ".pypirc"}
 SOURCE_REQUIRED = {
-    "LICENSE", "README.md", "USER_GUIDE.md", "pyproject.toml", "package.json", "yarn.lock",
+    "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md",
+    "pyproject.toml", "package.json", "yarn.lock",
     "src/index.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
@@ -23,8 +26,69 @@ WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/__init__.py", "nbinlineai/handlers.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
-    "share/doc/nbinlineai/USER_GUIDE.md",
+    "share/doc/nbinlineai/docs/user-guide.md",
+    "share/doc/nbinlineai/docs/architecture.md",
 }
+MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)")
+REFERENCE_IMAGE = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")
+REFERENCE_TARGET = re.compile(r"^\s*\[([^\]]+)\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
+HTML_IMAGE = re.compile(r"<img\b[^>]*\bsrc\s*=\s*(?:\"([^\"]+)\"|'([^']+)'|([^\s>]+))", re.IGNORECASE)
+
+
+def _image_targets(markdown: str) -> list[str]:
+    """Find Markdown and HTML image URLs, including Markdown reference links."""
+    targets = [match.group(1) for match in MARKDOWN_IMAGE.finditer(markdown)]
+    targets += [next(value for value in match.groups() if value) for match in HTML_IMAGE.finditer(markdown)]
+    references = {name.casefold(): target for name, target in REFERENCE_TARGET.findall(markdown)}
+    for match in REFERENCE_IMAGE.finditer(markdown):
+        label = (match.group(2) or match.group(1)).casefold()
+        if label in references:
+            targets.append(references[label])
+    return [target.removeprefix("<").removesuffix(">") for target in targets]
+
+
+def _docs_image_path(target: str, *, remote: bool) -> str | None:
+    url = urlsplit(target)
+    if bool(url.scheme) != remote:
+        return None
+    path = unquote(url.path).removeprefix("./").removeprefix("/")
+    marker = "docs/images/"
+    if remote:
+        if url.scheme != "https" or marker not in path:
+            return None
+        path = path[path.index(marker):]
+    elif path.startswith("images/"):
+        path = "docs/" + path
+    else:
+        raise SystemExit(f"Guide image must use an images/ relative path: {target}")
+    if not path.startswith(marker) or any(part in ("", ".", "..") for part in Path(path).parts):
+        raise SystemExit(f"Invalid documentation image path: {target}")
+    return path
+
+
+def _check_guide_images(markdown: str, packaged: set[str], origin: str, prefix: str = "") -> set[str]:
+    referenced = {
+        path for target in _image_targets(markdown)
+        if (path := _docs_image_path(target, remote=False)) is not None
+    }
+    if len(referenced) < 9:
+        raise SystemExit(f"{origin} guide references fewer than nine screenshots")
+    missing = {prefix + path for path in referenced} - packaged
+    if missing:
+        raise SystemExit(f"{origin} missing guide images: {', '.join(sorted(missing))}")
+    return referenced
+
+
+def _check_readme_images(markdown: str, source_files: set[str]) -> None:
+    targets = _image_targets(markdown)
+    if len(targets) > 2:
+        raise SystemExit("README has more than two screenshots")
+    for target in targets:
+        path = _docs_image_path(target, remote=True)
+        if path is None:
+            raise SystemExit(f"README image must use an HTTPS docs/images URL: {target}")
+        if path not in source_files:
+            raise SystemExit(f"README remote image has no packaged source: {path}")
 
 
 def _check_server_discovery(raw: bytes, origin: str) -> None:
@@ -46,30 +110,46 @@ def _check_forbidden(names: list[str]) -> None:
         raise SystemExit("Forbidden archive entries:\n" + "\n".join(sorted(set(bad))))
 
 
-def check_sdist(path: Path) -> None:
+def check_sdist(path: Path) -> set[str]:
     with tarfile.open(path, "r:gz") as archive:
         names = [member.name for member in archive.getmembers() if member.isfile()]
+        relative = {"/".join(Path(name).parts[1:]): name for name in names}
+        guide_images = set()
         for suffix in ("package.json", "nbinlineai/labextension/package.json"):
-            matches = [name for name in names if "/".join(Path(name).parts[1:]) == suffix]
-            if len(matches) == 1:
-                content = archive.extractfile(matches[0])
+            if suffix in relative:
+                content = archive.extractfile(relative[suffix])
                 if content is None:
                     raise SystemExit(f"Source archive could not read {suffix}")
                 _check_server_discovery(content.read(), f"Source archive {suffix}")
+        for filename in ("docs/user-guide.md", "README.md"):
+            content = archive.extractfile(relative[filename]) if filename in relative else None
+            if content is None:
+                raise SystemExit(f"Source archive could not read {filename}")
+            markdown = content.read().decode("utf-8")
+            if filename == "docs/user-guide.md":
+                guide_images = _check_guide_images(markdown, set(relative), "Source archive")
+            else:
+                _check_readme_images(markdown, set(relative))
     _check_forbidden(names)
-    relative = {"/".join(Path(name).parts[1:]) for name in names}
-    missing = SOURCE_REQUIRED - relative
+    missing = SOURCE_REQUIRED - relative.keys()
     if missing:
         raise SystemExit(f"Source archive missing: {', '.join(sorted(missing))}")
     print(f"Source archive OK: {path.name} ({len(names)} files)")
+    return guide_images
 
 
-def check_wheel(path: Path) -> None:
+def check_wheel(path: Path, guide_images: set[str]) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
         if manifest is not None:
             _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")
+        guide = next((name for name in names if name.endswith("share/doc/nbinlineai/docs/user-guide.md")), None)
+        if guide is not None:
+            prefix = guide.removesuffix("docs/user-guide.md")
+            wheel_images = _check_guide_images(archive.read(guide).decode("utf-8"), set(names), "Wheel", prefix)
+            if wheel_images != guide_images:
+                raise SystemExit("Wheel and source archive USER_GUIDE image references differ")
     _check_forbidden(names)
     missing = {suffix for suffix in WHEEL_REQUIRED_SUFFIXES if not any(name.endswith(suffix) for name in names)}
     if missing:
@@ -87,8 +167,8 @@ def main() -> None:
     wheels = sorted(args.dist.glob("nbinlineai-*.whl"))
     if len(sdists) != 1 or len(wheels) != 1:
         raise SystemExit("Expected exactly one nbinlineai source archive and one wheel; clean dist/ first")
-    check_sdist(sdists[0])
-    check_wheel(wheels[0])
+    guide_images = check_sdist(sdists[0])
+    check_wheel(wheels[0], guide_images)
 
 
 if __name__ == "__main__":
