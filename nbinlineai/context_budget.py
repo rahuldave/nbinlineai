@@ -159,11 +159,15 @@ def build_context(
     current_prompt: str,  # Current question after live variable expansion.
     executed_messages: list[Msg],  # Completed assistant/tool groups to preserve.
     selection_report: dict[str, Any] | None = None,
+    focus: Any = None,  # Bounded frozen-snapshot landmarks, when available.
 ) -> BuiltContext:  # Messages and per-round accounting.
     """Fit schemas and fixed messages first, then nearest units without gaps."""
     tool_schema_chars = json_chars(tools)
     current = Msg("user", [Text(current_prompt)])
-    empty_system = Msg("system", [Text(system_prefix + system_suffix)])
+    focus_before = focus.render(set(), set(), units, []) if focus else ""
+    focus_prefix = (system_prefix + "\n\nNotebook cell landmarks:\n" + focus_before
+                    + "\n\nNotebook source:\n") if focus else system_prefix
+    empty_system = Msg("system", [Text(focus_prefix + system_suffix)])
     fixed = tool_schema_chars + messages_chars([empty_system, current, *executed_messages])
     if fixed > MAX_CONTEXT_CHARS:
         raise ContextWindowExceededError(
@@ -205,7 +209,15 @@ def build_context(
     selected_sources.sort(key=lambda item: item[0])
     selected_pairs.sort(key=lambda item: item.anchor)
     source_text = "\n\n".join(item[2] for item in selected_sources)
-    system = Msg("system", [Text(system_prefix + source_text + system_suffix)])
+    included_ids = {item[1]["id"] for item in selected_sources}
+    included_ids.update(cell["id"] for pair in selected_pairs
+                        for cell in (pair.prompt, pair.answer) if cell)
+    partial_ids = {item[1]["id"] for item in selected_sources if item[4]}
+    focus_after = focus.render(included_ids, partial_ids, units, selected_pairs) if focus else ""
+    assert len(focus_after) == len(focus_before), "Landmark status must not change budget cost"
+    final_prefix = (system_prefix + "\n\nNotebook cell landmarks:\n" + focus_after
+                    + "\n\nNotebook source:\n") if focus else system_prefix
+    system = Msg("system", [Text(final_prefix + source_text + system_suffix)])
     history = []
     for pair in selected_pairs:
         assert pair.prompt is not None and pair.answer is not None

@@ -20,6 +20,7 @@ from nbinlineai.frontend_bridge import (
 from nbinlineai.handlers import ActionReplyHandler
 from nbinlineai.kernel import KernelDispatcher
 from nbinlineai.prompt import run_prompt
+from nbinlineai.tool_schema import fastllm_tool
 
 
 class _Dispatcher:
@@ -106,19 +107,25 @@ def test_action_timeout_and_cancel_cleanup(monkeypatch: pytest.MonkeyPatch):
     asyncio.run(exercise())
 
 
-def test_insert_ack_is_standardized_and_args_bounded():
+@pytest.mark.parametrize("name,cell_type", [("insert_markdown", "Markdown"),
+                                            ("insert_code", "unexecuted code")])
+def test_insert_ack_is_standardized_and_args_bounded(name, cell_type):
     async def exercise():
         dispatcher = _Dispatcher()
         bridge = FrontendBridge()
         run = bridge.start("session-1", "prompt-1", dispatcher.kernel_id, dispatcher.kernel)
-        event, pending = bridge.prepare(run, "insert_markdown", {"content": "# Note"})
+        event, pending = bridge.prepare(run, name, {"content": "# Note"})
+        assert event["name"] == name
+        assert event["arguments"] == {"content": "# Note", "after_cell_id": ""}
         with pytest.raises(ValueError, match="Unexpected"):
             await bridge.reply(_reply(run, event, cell_id="new-1"), dispatcher)
         clean = _reply(run, event)
         clean.pop("text")
         clean["cell_id"] = "new-1"
         await bridge.reply(clean, dispatcher)
-        assert "not saved to disk" in await bridge.wait(run, pending)
+        result = await bridge.wait(run, pending)
+        assert f"Inserted {cell_type} cell new-1" in result
+        assert "not saved to disk" in result
         bridge.close(run)
 
     asyncio.run(exercise())
@@ -126,10 +133,14 @@ def test_insert_ack_is_standardized_and_args_bounded():
         normalize_action("list_cells", {"start": -1})
     with pytest.raises(ValueError, match="80 lines"):
         normalize_action("read_cell", {"cell_id": "c", "start_line": 1, "end_line": 81})
-    with pytest.raises(ValueError, match="content"):
-        normalize_action("insert_markdown", {"content": "x" * 8_001})
-    with pytest.raises(ValueError, match="Unexpected"):
-        normalize_action("insert_markdown", {"content": "hi", "execute": True})
+    for action in ("insert_markdown", "insert_code"):
+        for invalid in ("", "  ", "x" * 8_001):
+            with pytest.raises(ValueError, match="content"):
+                normalize_action(action, {"content": invalid})
+        with pytest.raises(ValueError, match="Unexpected"):
+            normalize_action(action, {"content": "hi", "execute": True})
+        with pytest.raises(ValueError, match="after_cell_id"):
+            normalize_action(action, {"content": "hi", "after_cell_id": "x" * 201})
 
 
 def test_aliased_special_tool_never_calls_kernel(monkeypatch: pytest.MonkeyPatch):
@@ -163,6 +174,60 @@ def test_aliased_special_tool_never_calls_kernel(monkeypatch: pytest.MonkeyPatch
         assert [event["type"] for event in events] == [
             "context", "tool_start", "frontend_action", "tool_result", "context", "text_delta", "done"
         ]
+        assert dispatcher.calls == []
+        bridge.close(run)
+
+    asyncio.run(exercise())
+
+
+def test_aliased_insert_code_waits_for_browser_ack(monkeypatch: pytest.MonkeyPatch):
+    async def exercise():
+        dispatcher = _Dispatcher()
+        bridge = FrontendBridge()
+        run = bridge.start("session-1", "prompt-1", dispatcher.kernel_id, dispatcher.kernel)
+
+        async def inspect(kernel_id, kernel, variables, functions):
+            assert functions == ["code_alias"]
+            return {"code_alias": {
+                "docstring": "Insert an unexecuted code cell below the AI answer, or after a chosen cell.",
+                "parameters": {
+                    "content": {"type": "str"},
+                    "after_cell_id": {"type": "str", "default": "''"},
+                },
+                "frontend_special": "insert_code",
+            }}
+
+        dispatcher.inspect = inspect
+        completions = 0
+
+        async def fake_complete(backend, model, messages, tools):
+            nonlocal completions
+            completions += 1
+            if completions == 1:
+                assert tools[0]["name"] == "code_alias"
+                assert tools[0]["description"].startswith("Insert an unexecuted code cell")
+                assert tools[0]["parameters"]["required"] == ["content"]
+                return Completion(model, Msg("assistant", [ToolUse(
+                    id="call-1", name="code_alias", arguments={"content": "result = 7"},
+                )]))
+            assert "Inserted unexecuted code cell code-new" in messages[-1].content[0].text
+            return Completion(model, Msg("assistant", [Text("Code inserted for you to review.")]))
+
+        monkeypatch.setattr(providers, "complete", fake_complete)
+        body = {"prompt": "Use &`code_alias`", "session_id": "session-1",
+                "prompt_cell_id": "prompt-1", "preceding_cells": [], "backend": "openai_api",
+                "model": "test-model", "max_tool_steps": 2}
+        actions = []
+        async for event in run_prompt(body, dispatcher, run.kernel_id, run.kernel, bridge, run):
+            if event["type"] == "frontend_action":
+                actions.append(event)
+                assert event["name"] == "insert_code"
+                assert event["arguments"] == {"content": "result = 7", "after_cell_id": ""}
+                reply = _reply(run, event)
+                reply.pop("text")
+                reply["cell_id"] = "code-new"
+                await bridge.reply(reply, dispatcher)
+        assert len(actions) == 1
         assert dispatcher.calls == []
         bridge.close(run)
 
@@ -386,7 +451,10 @@ def test_real_kernel_identity_recognizes_alias_not_same_name():
                 await client.wait_for_ready(timeout=15)
                 message_id = client.execute(
                     "from nbinlineai.tools import list_cells as alias\n"
+                    "from nbinlineai.tools import insert_code as code_alias\n"
                     "def list_cells(start: int = 0, limit: int = 20):\n"
+                    "    return 'ordinary user function'\n"
+                    "def insert_code(content: str, after_cell_id: str = ''):\n"
                     "    return 'ordinary user function'\n"
                 )
                 while True:
@@ -412,9 +480,13 @@ def test_real_kernel_identity_recognizes_alias_not_same_name():
                     return kernel
 
             dispatcher = KernelDispatcher(Sessions(), Kernels())
-            info = await dispatcher.inspect("kernel-1", kernel, [], ["alias", "list_cells"])
+            info = await dispatcher.inspect("kernel-1", kernel, [],
+                                            ["alias", "list_cells", "code_alias", "insert_code"])
             assert info["alias"]["frontend_special"] == "list_cells"
             assert "frontend_special" not in info["list_cells"]
+            assert info["code_alias"]["frontend_special"] == "insert_code"
+            assert "frontend_special" not in info["insert_code"]
+            assert fastllm_tool("code_alias", info["code_alias"])["parameters"]["required"] == ["content"]
             client = kernel.client()
             client.start_channels()
             try:

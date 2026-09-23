@@ -145,6 +145,17 @@ async def fake_complete(
         return Completion(model=model, message=Msg("assistant", [Text(
             f"Notebook action result: {results[-1].text}"
         )]))
+    if "E2E_BRIDGE_CODE" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="e2e-live-code", name="insert_code",
+                arguments={"content": "new_code_ran = True\nprint('NEW_CODE_EXECUTED')"},
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            f"An editable code cell was inserted without running it. {results[-1].text}"
+        )]))
     if "E2E_BRIDGE_MISSING" in current_user:
         results = [part for message in messages for part in getattr(message, "content", [])
                    if isinstance(part, ToolResult)]

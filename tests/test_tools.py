@@ -19,15 +19,18 @@ def _notebook(
 
 
 def test_registry_and_markdown_are_explicit() -> None:  # No accidental model tools.
-    """Advertise ten approved callables and omit the formatting helper."""
+    """Advertise eleven approved callables and omit the formatting helper."""
     assert list(tools.TOOL_FUNCTIONS) == [
         "search_kernel_names", "list_notebooks", "find_notebook_cells", "read_notebook_cell",
-        "inspect_python", "read_url", "list_cells", "read_cell", "insert_markdown", "url_to_note",
+        "inspect_python", "read_url", "list_cells", "read_cell", "insert_markdown",
+        "insert_code", "url_to_note",
     ]
     assert all(tools.TOOL_FUNCTIONS[name] is getattr(tools, name) for name in tools.TOOL_FUNCTIONS)
-    assert list(tools.SPECIAL_TOOL_FUNCTIONS) == ["list_cells", "read_cell", "insert_markdown", "url_to_note"]
+    assert list(tools.SPECIAL_TOOL_FUNCTIONS) == [
+        "list_cells", "read_cell", "insert_markdown", "insert_code", "url_to_note"]
     markdown = tools.tools_markdown()
-    assert markdown.count("&`") == 10
+    assert markdown.count("&`") == 11
+    assert "&`insert_code` — Insert an unexecuted code cell below the AI answer" in markdown
     assert "tools_markdown" not in markdown
     assert tools.tools_markdown(["read_notebook_cell"]).count("&`") == 1
     assert tools.tools_markdown([]) == "No built-in tools selected."
@@ -63,6 +66,7 @@ def test_special_tool_stubs_require_an_ai_prompt() -> None:
         ("list_cells", ()),
         ("read_cell", ("cell-1",)),
         ("insert_markdown", ("A note",)),
+        ("insert_code", ("result = 1",)),
         ("url_to_note", ("https://docs.python.org/3/",)),
     ):
         with pytest.raises(RuntimeError, match="AI Prompt cell"):

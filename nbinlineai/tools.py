@@ -349,6 +349,14 @@ def insert_markdown(
     return _requires_ai_prompt("insert_markdown")
 
 
+def insert_code(
+    content: str,  # Python source to insert as a new unexecuted code cell.
+    after_cell_id: str = "",  # Optional live cell ID to insert after.
+) -> str:  # Confirmation only after the browser inserts the cell.
+    """Insert an unexecuted code cell below the AI answer, or after a chosen cell."""
+    return _requires_ai_prompt("insert_code")
+
+
 def url_to_note(
     url: str,  # Public HTTP(S) page to summarize as source-attributed Markdown.
     after_cell_id: str = "",  # Optional live cell ID to insert after.
@@ -361,6 +369,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "list_cells": list_cells,
     "read_cell": read_cell,
     "insert_markdown": insert_markdown,
+    "insert_code": insert_code,
     "url_to_note": url_to_note,
 })
 

@@ -82,3 +82,29 @@ test('listing paginates and long reads show an explicit truncation notice', () =
   assert.equal(read.length, 4000);
   assert.match(read, /\[truncated; narrow the line range\]$/);
 });
+
+test('mixed note and code insertions share stable order and code stays unexecuted', () => {
+  const notebook = fakeNotebook([
+    { id: 'prompt', type: 'markdown', source: 'Ask', ai: { isPromptCell: true } },
+    { id: 'answer', type: 'markdown', source: 'Reply', ai: { isOutputCell: true, promptCellId: 'prompt' } },
+    { id: 'next', type: 'code', source: 'print("already present")' }
+  ]);
+  const bridge = new NotebookActionBridge(notebook as any, 'prompt', 'answer');
+  const code = { request_id: 'code-1', name: 'insert_code', arguments: { content: 'print("suggested")' } };
+  assert.deepEqual(bridge.perform(code), { ok: true, cell_id: 'new-1' });
+  assert.equal(bridge.perform(code), null);
+  assert.deepEqual(bridge.perform({ request_id: 'note-2', name: 'insert_markdown', arguments: { content: 'Explanation' } }),
+    { ok: true, cell_id: 'new-2' });
+  assert.deepEqual(bridge.perform({ request_id: 'code-3', name: 'insert_code', arguments: {
+    content: 'result = 42', after_cell_id: 'prompt'
+  } }), { ok: true, cell_id: 'new-3' });
+  assert.deepEqual(notebook.raw.map(cell => [cell.id, cell.type]), [
+    ['prompt', 'markdown'], ['new-3', 'code'], ['answer', 'markdown'],
+    ['new-1', 'code'], ['new-2', 'markdown'], ['next', 'code']
+  ]);
+  assert.deepEqual(notebook.raw.find(cell => cell.id === 'new-1')?.ai, undefined);
+  assert.equal(bridge.perform({ request_id: 'bad-execute', name: 'insert_code', arguments: {
+    content: 'print("do not run")', execute: true
+  } })?.ok, false);
+  assert.equal(notebook.raw.length, 6);
+});

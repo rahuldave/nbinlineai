@@ -1092,6 +1092,36 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const label = document.createElement('span');
   label.className = 'nbinlineai-status';
   label.setAttribute('role', 'status');
+  const starters = document.createElement('div');
+  starters.className = 'nbinlineai-starters';
+  starters.dataset.nbinlineaiStarters = '';
+  const starterChoices = [
+    ['explain-cell', 'Explain cell above', 'Explain the cell immediately above this question. Use earlier context where helpful.'],
+    ['explain-code', 'Explain code above', 'Explain the nearest code cell above this question. Use earlier context where helpful.'],
+    ['explain-section', 'Explain section above', 'Explain the section above this question. Use earlier context where helpful.'],
+    ['write-code', 'Write code…', 'Write code to ']
+  ] as const;
+  for (const [name, text, source] of starterChoices) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.nbinlineaiStarter = name;
+    button.textContent = text;
+    button.title = 'Insert editable text into this AI question';
+    button.addEventListener('click', () => {
+      const cell = getCell(panel, id);
+      if (!cell || !isPrompt(cell) || cell.sharedModel.getSource().trim()) return;
+      const notebook = panel.content;
+      const index = notebook.widgets.findIndex(widget => widget.model.id === id);
+      if (index < 0) return;
+      notebook.activeCellIndex = index;
+      notebook.mode = 'edit';
+      cell.sharedModel.setSource(source);
+      const editor = notebook.activeCell?.editor;
+      editor?.setCursorPosition({ line: 0, column: source.length });
+      editor?.focus();
+    });
+    starters.append(button);
+  }
   const editor = document.createElement('div');
   editor.className = 'nbinlineai-override-editor';
   editor.dataset.nbinlineaiOverrideEditor = '';
@@ -1133,7 +1163,7 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   style.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }); decorate(panel); });
   effort.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { reasoningEffort: effort.value || undefined }); decorate(panel); });
   editor.append(provider, modelSelect, modelInput, style, effort, inherit);
-  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, editor);
+  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, starters, editor);
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -1209,6 +1239,8 @@ function decorate(panel: NotebookPanel): void {
     runButton.title = protectedCompleted ? 'Completed answer kept. Uncheck Keep answer to run again.' : 'Run AI prompt (Shift+Enter)';
     cancelButton.disabled = !running;
     const label = controls.querySelector('.nbinlineai-status') as HTMLElement;
+    const starters = controls.querySelector('[data-nbinlineai-starters]') as HTMLElement;
+    starters.hidden = !!cell.sharedModel.getSource().trim();
     const key = runKey(panel, cell.id);
     let current = statuses.get(key);
     if (selectedAvailability === true && current?.state === 'error' && current.text.startsWith('API key required.')) {

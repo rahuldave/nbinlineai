@@ -11,6 +11,7 @@ from . import providers
 from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
 from .context_budget import ai_role, build_context
 from .context_selection import CONTEXT_MODES, select_context
+from .prompt_focus import locate_focus
 from .tool_schema import fastllm_tools
 from .web_tools import MAX_WEB_TOTAL_SECONDS, fetch_url_markdown
 
@@ -36,7 +37,8 @@ PROMPT_MODE_INSTRUCTIONS = {
         "prompt-and-answer history to adapt to what they have already tried and understood. Give hints "
         "and feedback, but do not provide a complete solution or substantial code. Only when needed "
         "as a hint, include at most 3 lines of example code in the entire response, in one fenced "
-        "Markdown block with a language tag. Do not split a complete solution across multiple "
+        "Markdown block with a language tag. Apply the same limit to code inserted through tools; "
+        "do not insert a complete solution. Do not split a complete solution across multiple "
         "snippets. You may suggest relevant documentation to consult, but do not claim "
         "to have opened or read linked documentation unless its contents were actually provided."
     ),
@@ -244,27 +246,38 @@ async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, pre
         "You are a helpful notebook assistant. The labeled code, Markdown and AI cells are notebook "
         "source relative to this question. Code may be unexecuted or stale. AI cells labeled as "
         "source are not prior chat turns. Live variables and tools come from the current Python kernel. "
-        "Only call registered tools when helpful.\n\nNotebook source:\n"
+        "Only call registered tools when helpful. The latest question defines the task; selected "
+        "notebook material is background, not a request to summarize it all. For 'cell above', focus "
+        "on the immediate physical predecessor; for 'code above', the nearest preceding code cell; "
+        "for 'text above', the nearest preceding ordinary Markdown cell; for 'section above', the "
+        "nearest preceding ordinary Markdown heading through the cell before this question. "
+        "Explicit wording takes priority. Reuse relevant existing names and setup when writing "
+        "new code. If a referenced target is excluded, omitted or partial, do not silently switch "
+        "to a different cell or invent missing source; ask the user to include what is needed. "
+        "If the request has no reasonable target, ask one brief clarifying question. Apply the "
+        "selected response style to tool-created content as well as answer text."
     )
     system_suffix = (
         "\n\n"
         "Response style for this run (" + mode + "): "
         + body.get("prompt_instructions", PROMPT_MODE_INSTRUCTIONS[mode])
     )
-    return cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info
+    focus = locate_focus(cells, body["prompt_cell_id"],
+                         legacy=body.get("_legacy_snapshot", "notebook_cells" not in body))
+    return cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info, focus
 
 
 async def preview_context(body: dict, dispatcher, kernel_id: str, kernel) -> dict:
     prepared = await prepare_context(body, dispatcher, kernel_id, kernel, preview=True)
-    cells, units, tools, prefix, suffix, prompt, report, vars_, funcs, info = prepared
-    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report)
+    cells, units, tools, prefix, suffix, prompt, report, vars_, funcs, info, focus = prepared
+    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report, focus)
     return {"type": "context", **built.counts,
             "variables": {name: info[name] for name in vars_}, "tools": funcs}
 
 
 async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None):
     prepared = await prepare_context(body, dispatcher, kernel_id, kernel)
-    cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info = prepared
+    cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info, focus = prepared
     special_tools = {name: info[name]["frontend_special"] for name in funcs
                      if "frontend_special" in info[name]}
     executed_messages: list[Msg] = []
@@ -272,7 +285,7 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     steps = 0
     while True:
         built = build_context(cells, units, tools, system_prefix,
-                              system_suffix, prompt, executed_messages, selection_report)
+                              system_suffix, prompt, executed_messages, selection_report, focus)
         messages = built.messages
         yield {"type": "context", **built.counts,
                "variables": {name: info[name] for name in vars_}, "tools": funcs}

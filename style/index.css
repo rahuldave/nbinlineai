@@ -1,5 +1,20 @@
-.jp-Cell.nbinlineai-prompt-cell { border-left: 3px solid var(--jp-brand-color1); }
-.jp-Cell.nbinlineai-output-cell, .jp-Cell.nbinlineai-response-cell { border-left: 3px solid var(--jp-success-color1); }
+.jp-Notebook .jp-Cell.nbinlineai-prompt-cell {
+  --nbinlineai-cell-tint: color-mix(in srgb, var(--jp-brand-color1) 8%, var(--jp-layout-color0));
+  border-left: 3px solid var(--jp-brand-color1);
+  background-color: var(--nbinlineai-cell-tint);
+}
+.jp-Notebook .jp-Cell.nbinlineai-response-cell {
+  --nbinlineai-cell-tint: color-mix(in srgb, var(--jp-success-color1) 8%, var(--jp-layout-color0));
+  border-left: 3px solid var(--jp-success-color1);
+  background-color: var(--nbinlineai-cell-tint);
+}
+/* JupyterLab makes an active selected cell transparent; keep its AI identity visible. */
+.jp-Notebook.jp-mod-commandMode .jp-Cell.nbinlineai-prompt-cell.jp-mod-active.jp-mod-selected:not(.jp-mod-multiSelected),
+.jp-Notebook.jp-mod-commandMode .jp-Cell.nbinlineai-response-cell.jp-mod-active.jp-mod-selected:not(.jp-mod-multiSelected) {
+  background-color: var(--nbinlineai-cell-tint);
+}
+/* The cell surface carries the tint. JupyterLab's editor widget keeps its
+   native background, including while a rendered answer switches into edit mode. */
 .jp-Cell > [data-nbinlineai-cell-controls] { box-sizing: border-box; width: 100%; padding-inline-start: var(--nbinlineai-editor-inset, calc(var(--jp-cell-collapser-width) + var(--jp-cell-prompt-width) + 2 * var(--jp-code-padding))); padding-inline-end: 4px; margin: 0 0 3px; color: var(--jp-ui-font-color1); font: var(--jp-ui-font-size1) var(--jp-ui-font-family); }
 .jp-Cell > [data-nbinlineai-cell-controls] > [data-nbinlineai-cell-context-line] { display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; min-height: 24px; overflow-x: auto; white-space: nowrap; }
 .nbinlineai-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; padding: 3px 0; background: transparent; font: var(--jp-ui-font-size1) var(--jp-ui-font-family); }
@@ -7,10 +22,13 @@
 .nbinlineai-controls input { width: 145px; }
 .nbinlineai-controls button { cursor: pointer; }
 .nbinlineai-controls button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-starters { display: flex; flex: 0 0 100%; flex-wrap: wrap; align-items: center; gap: 5px; padding: 2px 0 0; }
+.nbinlineai-starters[hidden] { display: none; }
+.nbinlineai-starters button { font-size: .92em; color: var(--jp-ui-font-color2); }
+.nbinlineai-starters button:hover, .nbinlineai-starters button:focus-visible { color: var(--jp-ui-font-color1); }
 .nbinlineai-status { color: var(--jp-ui-font-color2); min-width: 100px; }
 .nbinlineai-status[data-state="error"] { color: var(--jp-error-color1); }
 .nbinlineai-status[data-state="running"] { color: var(--jp-brand-color1); }
-.nbinlineai-output-cell .jp-MarkdownCell { background: var(--jp-layout-color1); }
 .nbinlineai-keys-dialog { min-width: min(440px, 75vw); max-width: 560px; color: var(--jp-ui-font-color1); }
 .nbinlineai-keys-dialog p { margin: 0 0 12px; line-height: 1.45; }
 .nbinlineai-key-provider { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; padding: 10px 0; border-top: 1px solid var(--jp-border-color2); }

@@ -106,9 +106,9 @@ def normalize_action(
             "start_line": start,
             "end_line": end,
         }
-    if name == "insert_markdown":
+    if name in ("insert_markdown", "insert_code"):
         if set(arguments) - {"content", "after_cell_id"}:
-            raise ValueError("Unexpected insert_markdown argument")
+            raise ValueError(f"Unexpected {name} argument")
         return {
             "content": _text(arguments.get("content"), "content", MAX_INSERT_CHARS),
             "after_cell_id": _text(arguments.get("after_cell_id", ""), "after_cell_id", 200,
@@ -194,10 +194,11 @@ class FrontendBridge:
         if not isinstance(body.get("ok"), bool):
             raise TypeError("Action reply ok must be a boolean")
         allowed = {"run_id", "request_id", "session_id", "prompt_cell_id", "ok"}
-        if body["ok"] and pending.name == "insert_markdown":
+        if body["ok"] and pending.name in ("insert_markdown", "insert_code"):
             allowed.add("cell_id")
             cell_id = _text(body.get("cell_id"), "cell_id", 200)
-            result = f"Inserted Markdown cell {cell_id} in the live notebook model (not saved to disk)."
+            cell_type = "Markdown" if pending.name == "insert_markdown" else "unexecuted code"
+            result = f"Inserted {cell_type} cell {cell_id} in the live notebook model (not saved to disk)."
         else:
             allowed.add("text")
             result = _text(body.get("text"), "text",

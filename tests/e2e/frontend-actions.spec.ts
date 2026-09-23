@@ -203,3 +203,37 @@ test('cancelling before a delayed action leaves the notebook unchanged', async (
   await expect(notebook.locator('.jp-Cell')).toHaveCount(3);
   await expect(notebook).not.toContainText('E2E_INSERTED_NOTE');
 });
+
+test('insert_code adds one unexecuted ordinary cell after the AI answer during Run All', async ({ page, request }) => {
+  const name = await openNotebook(page, request, [
+    code('setup', 'from nbinlineai.tools import insert_code'),
+    prompt('ask', 'E2E_BRIDGE_CODE use &`insert_code` to suggest a code cell'),
+    code('later', 'print("EXISTING_LATER_CODE_RAN")')
+  ]);
+  const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  let requests = 0;
+  page.on('request', item => {
+    if (item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST') requests++;
+  });
+  await page.locator('.lm-MenuBar-item').filter({ hasText: /^Run$/ }).click();
+  await page.getByRole('menuitem', { name: 'Run All Cells', exact: true }).click();
+  await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-OutputArea')).toContainText('EXISTING_LATER_CODE_RAN');
+  await expect(notebook.locator('.nbinlineai-response-cell')).toContainText('without running it');
+  const inserted = notebook.locator('.jp-CodeCell').filter({ hasText: 'new_code_ran = True' });
+  await expect(inserted).toHaveCount(1);
+  await expect(inserted.locator('.jp-OutputArea-output')).toHaveCount(0);
+  expect(requests).toBe(1);
+  const order = await notebook.locator('.jp-Cell').evaluateAll(cells => cells.map(cell => cell.textContent || ''));
+  expect(order.findIndex(text => text.includes('new_code_ran = True'))).toBe(order.findIndex(text => text.includes('without running it')) + 1);
+  await page.keyboard.press('Meta+s');
+  await expect.poll(async () => {
+    const saved = await request.get(`/api/contents/${name}?content=1`);
+    if (!saved.ok()) return false;
+    const body = await saved.json();
+    const cell = body.content.cells.find((item: any) => String(item.source).includes('new_code_ran = True'));
+    return cell?.cell_type === 'code' && cell.execution_count === null &&
+      cell.outputs?.length === 0 && !cell.metadata?.nbinlineai;
+  }).toBeTruthy();
+  await page.reload();
+  await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').filter({ hasText: 'new_code_ran = True' })).toHaveCount(1);
+});

@@ -70,7 +70,8 @@ export class NotebookActionBridge {
       switch (action.name) {
         case 'list_cells': return { ok: true, text: this.listCells(args) };
         case 'read_cell': return { ok: true, text: this.readCell(args) };
-        case 'insert_markdown': return { ok: true, cell_id: this.insertMarkdown(args) };
+        case 'insert_markdown': return { ok: true, cell_id: this.insertCell(args, 'markdown') };
+        case 'insert_code': return { ok: true, cell_id: this.insertCell(args, 'code') };
         default: throw new Error('Unknown notebook action.');
       }
     } catch (error) {
@@ -124,9 +125,16 @@ export class NotebookActionBridge {
     return sourceLines(this.model.cells.get(index).sharedModel.getSource(), start, end);
   }
 
-  private insertMarkdown(args: Record<string, unknown>): string {
+  private insertCell(args: Record<string, unknown>, type: 'markdown' | 'code'): string {
+    // A frontend action may only insert source. It cannot smuggle an execution
+    // request or notebook mutation options through this deliberately small API.
+    if (Object.keys(args).some(key => key !== 'content' && key !== 'after_cell_id')) {
+      throw new Error('Unsupported insertion argument.');
+    }
     const content = args.content;
-    if (typeof content !== 'string' || !content.trim() || content.length > 8000) throw new Error('Markdown content must contain 1–8000 characters.');
+    if (typeof content !== 'string' || !content.trim() || content.length > 8000) {
+      throw new Error(`${type === 'code' ? 'Code' : 'Markdown'} content must contain 1–8000 characters.`);
+    }
     const requestedAnchor = args.after_cell_id === undefined || args.after_cell_id === '' ? this.outputCellId : args.after_cell_id;
     if (typeof requestedAnchor !== 'string' || !requestedAnchor || requestedAnchor.length > 200) throw new Error('Invalid anchor cell ID.');
     if (this.cellIndex(this.promptCellId) < 0 || this.cellIndex(this.outputCellId) < 0) {
@@ -139,7 +147,7 @@ export class NotebookActionBridge {
     const index = this.cellIndex(tail || anchor);
     if (index < 0) throw new Error('Insertion anchor was removed.');
     this.model.sharedModel.transact(() => {
-      this.model.sharedModel.insertCell(index + 1, { cell_type: 'markdown', source: content, metadata: {} });
+      this.model.sharedModel.insertCell(index + 1, { cell_type: type, source: content, metadata: {} });
     });
     const inserted = this.model.cells.get(index + 1);
     if (!inserted?.id) throw new Error('Could not confirm the inserted cell.');
