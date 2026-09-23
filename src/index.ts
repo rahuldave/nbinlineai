@@ -1,10 +1,11 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
-import { ICommandPalette, ToolbarButton } from '@jupyterlab/apputils';
+import { Dialog, ICommandPalette, ToolbarButton, showDialog } from '@jupyterlab/apputils';
 import { ICellModel, MarkdownCell } from '@jupyterlab/cells';
 import { INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { ServerConnection } from '@jupyterlab/services';
 import { addIcon } from '@jupyterlab/ui-components';
+import { Widget } from '@lumino/widgets';
 import { precedingCells } from './context';
 import { readEventStream, StreamEvent } from './sse';
 import '../style/index.css';
@@ -18,13 +19,15 @@ interface CellMetadata {
   model?: string;
   status?: string;
 }
-interface ProviderStatus { configured: boolean; default_model: string; models: string[] }
+interface ProviderStatus { configured: boolean; source?: 'saved' | 'environment' | null; default_model: string; models: string[] }
+interface KeyStatus { providers: Record<Backend, { configured: boolean; source: 'saved' | 'environment' | null }> }
 interface Status { providers: Record<Backend, ProviderStatus>; default_models: Record<Backend, string> }
 interface RunState { controller: AbortController; panel: NotebookPanel; output: ICellModel; text: string; done: boolean }
 const metadataKey = 'nbinlineai';
 const commandInsert = 'nbinlineai:insert-prompt-cell';
 const commandRun = 'nbinlineai:run-prompt-cell';
 const commandCancel = 'nbinlineai:cancel-prompt-cell';
+const commandConfigure = 'nbinlineai:configure-providers';
 const backends: Backend[] = ['openai_api', 'anthropic_api'];
 const runs = new Map<string, RunState>();
 const statuses = new Map<string, { state: string; text: string }>();
@@ -32,6 +35,8 @@ const serverSettings = ServerConnection.makeSettings();
 const runKey = (panel: NotebookPanel, cellId: string): string => `${panel.id}:${cellId}`;
 let settings: ISettingRegistry.ISettings | null = null;
 let serverStatus: Status | null = null;
+let configureDialog: Promise<void> | null = null;
+let notebookTracker: INotebookTracker | null = null;
 
 function metadata(cell: ICellModel): CellMetadata {
   return (cell.getMetadata(metadataKey) as CellMetadata | undefined) || {};
@@ -119,6 +124,128 @@ async function fetchStatus(): Promise<void> {
   if (!response.ok) throw new Error(`Server status ${response.status}`);
   serverStatus = await response.json() as Status;
 }
+
+async function fetchKeyStatus(): Promise<KeyStatus> {
+  const response = await fetch(serverUrl('nbinlineai/settings/keys'), { credentials: 'same-origin', headers: authHeaders() });
+  if (!response.ok) throw new Error(`Could not load provider settings (${response.status}).`);
+  return response.json() as Promise<KeyStatus>;
+}
+
+async function changeKey(backend: Backend, method: 'POST' | 'DELETE', key?: string): Promise<KeyStatus> {
+  const path = method === 'POST' ? 'nbinlineai/settings/keys' : `nbinlineai/settings/keys/${backend}`;
+  const response = await fetch(serverUrl(path), {
+    method, credentials: 'same-origin', headers: authHeaders(),
+    body: method === 'POST' ? JSON.stringify({ backend, key }) : undefined
+  });
+  if (!response.ok) {
+    let message = `Could not ${method === 'POST' ? 'save' : 'remove'} the key (${response.status}).`;
+    try {
+      const result = await response.json() as { error?: string; message?: string };
+      if (typeof result.message === 'string') message = result.message;
+      else if (typeof result.error === 'string') message = result.error;
+    } catch { /* Keep the safe status message. */ }
+    throw new Error(message);
+  }
+  return response.json() as Promise<KeyStatus>;
+}
+
+function configureProviders(tracker: INotebookTracker): Promise<void> {
+  if (configureDialog) return configureDialog;
+  configureDialog = showConfigureProviders(tracker).finally(() => { configureDialog = null; });
+  return configureDialog;
+}
+
+async function showConfigureProviders(tracker: INotebookTracker): Promise<void> {
+  const body = new Widget();
+  body.node.className = 'nbinlineai-keys-dialog';
+  body.node.dataset.nbinlineaiKeysDialog = '';
+  const intro = document.createElement('p');
+  intro.textContent = 'Add your own API key for each provider you want to use. Saved keys stay on the computer running JupyterLab, outside notebooks, and are reused across your local Jupyter environments. Removing a saved key removes it for those environments too.';
+  body.node.appendChild(intro);
+  const notice = document.createElement('div');
+  notice.className = 'nbinlineai-key-notice';
+  notice.setAttribute('role', 'status');
+  body.node.appendChild(notice);
+  const rows = new Map<Backend, { input: HTMLInputElement; save: HTMLButtonElement; remove: HTMLButtonElement; status: HTMLElement }>();
+  let keyStatus: KeyStatus | null = null;
+  const pending = new Set<Backend>();
+  const updateRows = () => {
+    for (const backend of backends) {
+      const row = rows.get(backend)!;
+      const current = keyStatus?.providers?.[backend];
+      row.status.textContent = !current ? 'Checking…' : current.source === 'saved' ? 'Saved on this computer' : current.source === 'environment' ? 'Configured by server administrator' : 'Not configured';
+      row.remove.disabled = pending.has(backend) || !current || current.source !== 'saved';
+      row.save.disabled = pending.has(backend) || !row.input.value.trim();
+    }
+  };
+  for (const backend of backends) {
+    const name = backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API';
+    const section = document.createElement('section');
+    section.className = 'nbinlineai-key-provider';
+    section.dataset.nbinlineaiKeyProvider = backend;
+    const title = document.createElement('strong');
+    title.textContent = name;
+    const current = document.createElement('span');
+    current.className = 'nbinlineai-key-status';
+    current.dataset.nbinlineaiKeyStatus = backend;
+    const input = document.createElement('input');
+    input.type = 'password';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = 'Paste API key';
+    input.setAttribute('aria-label', `${name} API key`);
+    input.dataset.nbinlineaiKeyInput = backend;
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.textContent = 'Save';
+    save.dataset.nbinlineaiKeySave = backend;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = 'Remove';
+    remove.title = 'Remove your saved key from this computer';
+    remove.dataset.nbinlineaiKeyRemove = backend;
+    rows.set(backend, { input, save, remove, status: current });
+    input.addEventListener('input', updateRows);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); save.click(); }
+    });
+    save.addEventListener('click', () => {
+      const key = input.value.trim();
+      if (!key || pending.has(backend)) return;
+      input.value = '';
+      pending.add(backend); updateRows(); notice.textContent = `Saving ${name} key…`;
+      void changeKey(backend, 'POST', key).then(async result => {
+        keyStatus = result;
+        await fetchStatus();
+        tracker.forEach(decorate);
+        notice.textContent = `${name} key saved on this computer.`;
+      }).catch(error => { notice.textContent = error instanceof Error ? error.message : 'Could not save key.'; }).finally(() => { pending.delete(backend); updateRows(); });
+    });
+    remove.addEventListener('click', () => {
+      if (pending.has(backend)) return;
+      pending.add(backend); updateRows(); notice.textContent = `Removing ${name} key…`;
+      void changeKey(backend, 'DELETE').then(async result => {
+        keyStatus = result;
+        await fetchStatus();
+        tracker.forEach(decorate);
+        notice.textContent = `${name} saved key removed.`;
+      }).catch(error => { notice.textContent = error instanceof Error ? error.message : 'Could not remove key.'; }).finally(() => { pending.delete(backend); updateRows(); });
+    });
+    section.append(title, current, input, save, remove);
+    body.node.appendChild(section);
+  }
+  updateRows();
+  void Promise.all([fetchKeyStatus(), fetchStatus()]).then(([result]) => {
+    keyStatus = result; updateRows(); tracker.forEach(decorate);
+  }).catch(error => {
+    notice.textContent = error instanceof Error ? error.message : 'Could not load provider settings.';
+  });
+  try {
+    await showDialog({ title: 'Configure AI Providers', body, buttons: [Dialog.okButton({ label: 'Done' })] });
+  } finally {
+    for (const row of rows.values()) row.input.value = '';
+  }
+}
 function eventText(event: StreamEvent): string {
   return typeof event.text === 'string' ? event.text : '';
 }
@@ -132,8 +259,11 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
   const sessionId = panel.sessionContext.session?.id;
   if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return; }
   const backend = metadata(prompt).backend || defaultBackend();
+  if (serverStatus?.providers?.[backend]?.configured === false) {
+    try { await fetchStatus(); } catch { /* The prompt request will surface a server error if unavailable. */ }
+  }
   const configured = serverStatus?.providers?.[backend]?.configured;
-  if (configured === false) { status(panel, promptId, 'error', `${backend === 'openai_api' ? 'OpenAI' : 'Anthropic'} API key is not configured on the server.`); return; }
+  if (configured === false) { status(panel, promptId, 'error', `${backend === 'openai_api' ? 'OpenAI' : 'Anthropic'} API key is missing. Choose Configure AI to add it.`); return; }
   let preceding: ReturnType<typeof precedingCells>;
   try { preceding = precedingCells(notebook, promptId); }
   catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return; }
@@ -249,10 +379,14 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   cancel.dataset.nbinlineaiCancel = '';
   cancel.textContent = 'Cancel';
   cancel.addEventListener('click', () => cancelPrompt(panel, id));
+  const configure = document.createElement('button');
+  configure.dataset.nbinlineaiConfigure = '';
+  configure.textContent = 'Configure AI';
+  configure.addEventListener('click', () => { if (notebookTracker) void configureProviders(notebookTracker); });
   const label = document.createElement('span');
   label.className = 'nbinlineai-status';
   label.setAttribute('role', 'status');
-  controls.append(provider, modelInput, run, cancel, label);
+  controls.append(provider, modelInput, run, cancel, configure, label);
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -287,6 +421,7 @@ function decorate(panel: NotebookPanel): void {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    notebookTracker = tracker;
     if (registry) void registry.load(plugin.id).then(value => {
       settings = value;
       settings.changed.connect(() => tracker.forEach(decorate));
@@ -302,10 +437,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
       const panel = tracker.currentWidget; const id = panel?.content.activeCell?.model.id;
       if (panel && id) cancelPrompt(panel, id);
     } });
-    for (const command of [commandInsert, commandRun, commandCancel]) palette?.addItem({ command, category: 'AI' });
+    app.commands.addCommand(commandConfigure, { label: 'Configure AI Providers', execute: () => configureProviders(tracker) });
+    for (const command of [commandInsert, commandRun, commandCancel, commandConfigure]) palette?.addItem({ command, category: 'AI' });
     const setup = (panel: NotebookPanel) => {
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
+        const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Add or remove API keys', onClick: () => { void configureProviders(tracker); } });
+        panel.toolbar.addItem('nbinlineai-configure', configureButton);
         const insertButton = new ToolbarButton({ icon: addIcon, label: 'AI Prompt', tooltip: 'Insert AI Prompt Cell', onClick: () => insertPrompt(panel) });
         if (!panel.toolbar.insertAfter('cellType', 'nbinlineai-insert', insertButton)) {
           panel.toolbar.addItem('nbinlineai-insert', insertButton);

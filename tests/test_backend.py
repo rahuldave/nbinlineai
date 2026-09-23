@@ -12,6 +12,11 @@ from nbinlineai.prompt import _history, run_prompt, validate_request
 from nbinlineai.tool_schema import fastllm_tool
 
 
+@pytest.fixture(autouse=True)
+def isolated_key_store(monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+
+
 def _body(prompt="What is $`x`? Use &`add`."):
     return {
         "prompt": prompt,
@@ -139,7 +144,7 @@ def test_request_rejects_bad_backend_and_args(monkeypatch):
     ("anthropic_api", "anthropic", "ANTHROPIC_API_KEY"),
 ])
 def test_provider_passes_notebook_context_as_system(monkeypatch, backend, vendor, key):
-    monkeypatch.setattr(providers, "load_server_env", lambda: None)
+    monkeypatch.setattr("nbinlineai.config.load_server_env", lambda: None)
     monkeypatch.setenv(key, "test-only")
     received = {}
 

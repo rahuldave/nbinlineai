@@ -1473,7 +1473,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@lumino/widgets@npm:^1.37.2 || ^2.8.0, @lumino/widgets@npm:^2.8.0, @lumino/widgets@npm:^2.9.0":
+"@lumino/widgets@npm:^1.37.2 || ^2.8.0, @lumino/widgets@npm:^2.0.0, @lumino/widgets@npm:^2.8.0, @lumino/widgets@npm:^2.9.0":
   version: 2.9.0
   resolution: "@lumino/widgets@npm:2.9.0"
   dependencies:
@@ -3534,6 +3534,7 @@ __metadata:
     "@jupyterlab/services": ^7.0.0
     "@jupyterlab/settingregistry": ^4.0.0
     "@jupyterlab/ui-components": ^4.0.0
+    "@lumino/widgets": ^2.0.0
     "@playwright/test": ^1.63.0
     tsx: ^4.23.15
     typescript: ~5.0.0

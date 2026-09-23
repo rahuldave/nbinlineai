@@ -3,6 +3,7 @@
 import re
 
 from aidialog.msg_parts import Msg, Refusal, Text, mk_tool_res_msg
+from fasttransport.errors import APIError
 
 from . import providers
 from .config import DEFAULT_MODELS, KEY_NAMES, provider_status
@@ -123,16 +124,26 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
     allowed = set(funcs)
     steps = 0
     while True:
-        response = await providers.complete(body["backend"], body["model"], messages, tools)
+        try:
+            response = await providers.complete(body["backend"], body["model"], messages, tools)
+        except (APIError, KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as exc:
+            raise RuntimeError("Model request failed") from exc
         streamed_text = ""
         if hasattr(response, "__aiter__"):
             completion = None
-            async for item in response:
-                if hasattr(item, "message") and hasattr(item, "tool_calls"):
-                    completion = item
-                elif isinstance(item, Text) and item.text:
-                    streamed_text += item.text
-                    yield {"type": "text_delta", "text": item.text}
+            try:
+                async for item in response:
+                    if hasattr(item, "message") and hasattr(item, "tool_calls"):
+                        completion = item
+                    elif isinstance(item, Text) and item.text:
+                        streamed_text += item.text
+                        yield {"type": "text_delta", "text": item.text}
+            except (APIError, KeyboardInterrupt, SystemExit):
+                raise
+            except Exception as exc:
+                raise RuntimeError("Model request failed") from exc
             if completion is None:
                 raise RuntimeError("Model stream ended without completion")
         else:

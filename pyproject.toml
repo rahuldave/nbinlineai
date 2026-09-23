@@ -5,24 +5,30 @@ build-backend = "hatchling.build"
 [project]
 name = "nbinlineai"
 version = "0.1.0"
-description = "AI prompt cells for JupyterLab"
+description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "GPL-3.0-only"
+keywords = ["jupyterlab", "notebooks", "education", "ai", "openai", "anthropic"]
 classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Education",
   "Framework :: Jupyter",
   "Framework :: Jupyter :: JupyterLab",
   "Framework :: Jupyter :: JupyterLab :: 4",
   "Framework :: Jupyter :: JupyterLab :: Extensions",
   "Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 dependencies = [
   "jupyterlab>=4,<5",
   "jupyter_server>=2,<3",
-  "python-fastllm>=0.0.63,<0.1",
+  "python-fastllm==0.0.63",
   "python-dotenv>=1,<2",
+  "filelock>=3.32,<4",
 ]
 
 [dependency-groups]
@@ -30,7 +36,16 @@ dev = ["pytest>=8", "ruff>=0.8"]
 
 [tool.hatch.build.targets.sdist]
 artifacts = ["nbinlineai/labextension"]
-exclude = [".venv", "node_modules", "lib", "dist", ".env", ".env.*"]
+only-include = [
+  "LICENSE", "README.md", "pyproject.toml", "uv.lock", "package.json", "yarn.lock",
+  ".yarnrc.yml", "tsconfig.json", "install.json", "nbinlineai", "jupyter-config",
+  "src", "style", "schema", "tests", "examples", "playwright.config.ts",
+]
+exclude = [
+  ".venv", "node_modules", "lib", "dist", ".env", ".env.*", "internal_docs",
+  "test-results", "playwright-report", ".pytest_cache", ".ruff_cache", ".git",
+  "*.egg-info", "**/__pycache__", "**/*.pyc", ".DS_Store",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["nbinlineai"]

@@ -25,7 +25,7 @@ for (const provider of ['openai_api', 'anthropic_api'] as const) {
       data: { type: 'notebook', format: 'json', content: notebook }
     });
     expect(created.ok(), await created.text()).toBeTruthy();
-    await page.goto(`/lab/tree/${name}`);
+    await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
     const code = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').first();
     await expect(code).toBeVisible();
     await expect.poll(async () => {

@@ -53,7 +53,7 @@ def main() -> None:
         raise SystemExit("E2E port must be between 1 and 65535")
     with tempfile.TemporaryDirectory(prefix="nbinlineai-e2e-") as tmp:
         base = Path(tmp)
-        for name in ("root", "config", "runtime", "data"):
+        for name in ("root", "config", "runtime", "data", "xdg"):
             (base / name).mkdir()
         kernelspec = base / "data" / "kernels" / "python3"
         kernelspec.mkdir(parents=True)
@@ -66,11 +66,13 @@ def main() -> None:
         os.environ["JUPYTER_CONFIG_DIR"] = str(base / "config")
         os.environ["JUPYTER_RUNTIME_DIR"] = str(base / "runtime")
         os.environ["JUPYTER_DATA_DIR"] = str(base / "data")
+        os.environ["XDG_CONFIG_HOME"] = str(base / "xdg")
         live = os.environ.get("NBINLINEAI_E2E_LIVE") == "1"
         if not live:
-            # Fake values only make both provider selectors available in status.
-            os.environ["OPENAI_API_KEY"] = "e2e-no-network"
-            os.environ["ANTHROPIC_API_KEY"] = "e2e-no-network"
+            # Blank overrides prevent the test server from reading a developer's
+            # real .env. Browser tests configure isolated fake keys through the UI.
+            os.environ["OPENAI_API_KEY"] = ""
+            os.environ["ANTHROPIC_API_KEY"] = ""
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from nbinlineai import providers
 

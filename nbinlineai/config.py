@@ -5,6 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .credentials import CredentialStore
+
 DEFAULT_MODELS = {
     "openai_api": "gpt-5.4-mini",
     "anthropic_api": "claude-haiku-4-5-20251001",
@@ -26,11 +28,36 @@ def load_server_env() -> None:
 
 def provider_status() -> dict:
     load_server_env()
-    return {
-        backend: {
-            "configured": bool(os.getenv(key_name)),
+    store = CredentialStore()
+    result = {}
+    for backend, key_name in KEY_NAMES.items():
+        source = "saved" if store.get(backend) else "environment" if os.getenv(key_name) else None
+        result[backend] = {
+            "configured": source is not None,
+            "source": source,
             "default_model": DEFAULT_MODELS[backend],
             "models": MODEL_CHOICES[backend],
         }
-        for backend, key_name in KEY_NAMES.items()
+    return result
+
+
+def key_settings_status() -> dict:
+    return {
+        "providers": {
+            backend: {"configured": status["configured"], "source": status["source"]}
+            for backend, status in provider_status().items()
+        }
     }
+
+
+def resolve_api_key(backend: str) -> str:
+    if backend not in KEY_NAMES:
+        raise ValueError("Unsupported API backend")
+    saved = CredentialStore().get(backend)
+    if saved:
+        return saved
+    load_server_env()
+    key = os.getenv(KEY_NAMES[backend])
+    if not key:
+        raise ValueError("Selected API provider is not configured")
+    return key

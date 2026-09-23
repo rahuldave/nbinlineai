@@ -1,5 +1,18 @@
 import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
 
+test.beforeEach(async ({ request }) => {
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  expect(xsrf).toBeTruthy();
+  for (const backend of ['openai_api', 'anthropic_api']) {
+    const response = await request.post('/nbinlineai/settings/keys', {
+      headers: { 'X-XSRFToken': xsrf! },
+      data: { backend, key: `e2e-no-network-${backend}` }
+    });
+    expect(response.ok(), await response.text()).toBeTruthy();
+  }
+});
+
 type Cell = { id: string; cell_type: 'code' | 'markdown'; source: string; metadata?: object; outputs?: object[]; execution_count?: null };
 
 function code(source: string): Cell {
@@ -22,7 +35,7 @@ async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[
     data: { type: 'notebook', format: 'json', content: notebook }
   });
   expect(response.ok(), await response.text()).toBeTruthy();
-  await page.goto(`/lab/tree/${name}`);
+  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell')).toHaveCount(cells.length);
   return name;
 }

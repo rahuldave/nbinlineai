@@ -9,3 +9,12 @@
 .nbinlineai-status[data-state="error"] { color: var(--jp-error-color1); }
 .nbinlineai-status[data-state="running"] { color: var(--jp-brand-color1); }
 .nbinlineai-output-cell .jp-MarkdownCell { background: var(--jp-layout-color1); }
+.nbinlineai-keys-dialog { min-width: min(440px, 75vw); max-width: 560px; color: var(--jp-ui-font-color1); }
+.nbinlineai-keys-dialog p { margin: 0 0 12px; line-height: 1.45; }
+.nbinlineai-key-provider { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; padding: 10px 0; border-top: 1px solid var(--jp-border-color2); }
+.nbinlineai-key-provider strong { grid-column: 1 / 2; }
+.nbinlineai-key-status { grid-column: 2 / 4; color: var(--jp-ui-font-color2); font-size: var(--jp-ui-font-size1); text-align: right; }
+.nbinlineai-key-provider input { grid-column: 1 / 2; min-width: 0; padding: 5px 7px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; }
+.nbinlineai-key-provider button { padding: 5px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
+.nbinlineai-key-provider button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-key-notice { min-height: 1.3em; color: var(--jp-ui-font-color2); }

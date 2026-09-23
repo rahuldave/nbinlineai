@@ -1,23 +1,66 @@
 # nbinlineai
 
-AI prompt cells for JupyterLab 4 notebooks. A prompt cell is a markdown cell with durable `nbinlineai` metadata. Run it with **Shift+Enter** or **Run AI**; the answer appears in a paired markdown cell directly below it. Re-running the prompt updates that answer cell.
+Write AI prompts directly in JupyterLab notebooks. Each prompt has its own OpenAI or Anthropic model choice, and its answer appears in a paired markdown cell below it. Prompts and answers stay in the notebook when you save and reopen it.
 
-## What the MVP does
+## Install in JupyterLab
 
-- Sends source from code cells **above the prompt** and earlier AI prompt/answer turns as context. Code below the prompt is excluded. Notebook source can be unexecuted or different from the live kernel state.
-- Substitutes `` $`name` `` references using a bounded text representation from the current Python kernel namespace. For example, ``What is $`total`?`` sends the live value of `total`.
-- Registers a callable Python function named with `` &`name` `` as a model tool. The model can call it in the current notebook kernel; the answer includes the tool result. This MVP supports ordinary named synchronous functions with simple parameter annotations. Cancellation stops the request but may not undo a tool's earlier side effect.
-- Lets each prompt choose OpenAI API or Anthropic API and an optional model. Blank model uses the configured provider default, then the server default. A running prompt can be cancelled.
-- Keeps provider and model choices, prompt/answer pairing, and conversation content in notebook cell metadata and source so they survive saving and reopening.
+You need Python 3.11 or newer and JupyterLab 4.
 
-This version supports text prompts and Python kernels. ChatGPT subscription sign-in and multimodal notebook outputs are planned separately; see [the design notes](internal_docs/fastllm_and_chatgpt_subscription.md).
+1. In JupyterLab, open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and install it. **Restart the Jupyter server** after installation so the Python extension loads; refreshing the browser alone is insufficient.
+2. Open a Python notebook. Click **Configure AI** in the notebook toolbar and paste an OpenAI or Anthropic API key. You can add either provider or both. Keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set.
+3. Select a cell, click **AI Prompt** in the notebook toolbar, write your question, and press **Shift+Enter** or **Run AI**. You can choose a provider and model for each prompt. Blank model uses the provider default.
 
-## Install and configure
-
-Requirements: Python 3.11+, Node.js 22.12+ (or 20.19+), `uv`, and a JupyterLab 4 environment.
+Your school or hosted Jupyter service may manage extensions centrally. If Extension Manager is unavailable, ask the administrator to install the package in the Python environment running Jupyter Server and restart that server. For a self-managed environment using `pip`, the equivalent command is:
 
 ```bash
-uv sync --python 3.12 --group dev
+python -m pip install nbinlineai
+```
+
+If you launch JupyterLab from a project managed by `uv`, add the extension as a project dependency so future `uv sync` runs keep it installed:
+
+```bash
+uv add jupyterlab nbinlineai
+uv run jupyter lab
+```
+
+Some `uv` environments omit `pip`, which the JupyterLab Extension Manager may need for its Install button. In that case, use `uv add` as above, or add `pip` to the environment before using the panel.
+
+API provider usage is billed by the provider separately from JupyterLab. You can replace or remove a saved key through **Configure AI**. A server administrator can also provide `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` in the Jupyter server environment; a key you save in the UI takes precedence for that provider.
+
+Saved keys are shared by JupyterLab environments under the same operating-system account. A Python kernel running as that account can read that account's files, including its saved keys; use a separate OS account for notebooks you do not trust.
+
+## Try it
+
+In a Python notebook, run this code cell:
+
+```python
+score = 7
+
+def add_bonus(value: int) -> int:
+    """Return the score plus a bonus."""
+    return score + value
+```
+
+Insert an AI Prompt cell below it and ask:
+
+```text
+What is $`score`? Call &`add_bonus` with value 3, then explain the result.
+```
+
+The source distribution also includes `examples/quickstart.ipynb` with these cells.
+
+`$` followed by a backtick-quoted Python name uses its **live value from the running kernel**. This can differ from what the notebook source currently says. To let the model call a function you defined in the kernel, name it with `&`, for example ``Call &`add_bonus` with value 3``. Only functions named in that prompt are made available as tools. This release supports ordinary synchronous Python functions with named parameters and simple annotations. Function calls can change notebook state; cancelling a prompt cannot undo an earlier call.
+
+The model sees bounded code source from cells **above** the prompt and earlier AI turns. It does not see later cells. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
+
+This release supports text prompts and Python kernels. It does not send notebook images or rich outputs as model context, and it does not offer ChatGPT subscription sign-in.
+
+## Develop from source
+
+This section is for contributors. Installing the published package does not require Node.js or a source checkout. Development requires Python 3.11+, Node.js 22.12+ (or 20.19+), `uv`, and JupyterLab 4.
+
+```bash
+uv sync --python 3.12 --group dev --no-install-project
 uv run --no-sync jlpm install
 uv run --no-sync jlpm build:prod
 uv sync --python 3.12 --group dev
@@ -25,13 +68,9 @@ uv run --no-sync jupyter-builder develop . --overwrite
 uv run jupyter lab
 ```
 
-Set `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in the Jupyter server's environment. For local development, put them in a project-root `.env` file; the server reads it without returning credentials to the browser. The model defaults are `gpt-5.4-mini` for OpenAI and `claude-haiku-4-5-20251001` for Anthropic. A provider without a configured key is unavailable when a prompt runs.
+The backend reads provider keys saved by **Configure AI**. For a developer-only environment, it can also read `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` from the server environment or a project-root `.env` file. Never put keys in a notebook.
 
-Open a Python notebook, select the cell whose context should precede the prompt, and click **AI Prompt** in the notebook toolbar. The same action is available as **Insert AI Prompt Cell** in the command palette. Write a prompt, choose a provider, and run it. Ordinary code cells continue to use the notebook's normal execution shortcuts.
-
-## Development and tests
-
-The Python suite covers request validation, bounded context, live namespace lookup, and tool dispatch. The browser suite uses a separate JupyterLab server and a **real Python kernel**, with a deterministic model replacement loaded only by the test server process. It creates temporary notebooks and never uses API keys or the user's JupyterLab session.
+Run tests and packaging checks:
 
 ```bash
 uv run --no-sync pytest
@@ -39,27 +78,19 @@ uv run --no-sync jlpm test:unit
 uv run --no-sync jlpm build:prod
 uv run --no-sync jupyter-builder develop . --overwrite
 uv run --no-sync jlpm test:e2e
+uv build
 ```
 
-Browser tests use `127.0.0.1:8897` by default, refuse port 8888, and disable port retries. Choose another free port with `NBINLINEAI_E2E_PORT=8899 uv run --no-sync jlpm test:e2e`. The test runner starts and stops its own server and stores notebooks in temporary storage. Install Chromium once if Playwright requests it: `uv run --no-sync jlpm playwright install chromium`.
+The browser suite starts its own JupyterLab on `127.0.0.1:8897`, uses a real Python kernel from the project environment, and replaces only the model provider with a deterministic test implementation. It refuses port 8888, disables port retries, and keeps notebooks, Jupyter settings, and saved fake keys in temporary directories. Use `NBINLINEAI_E2E_PORT=8899` to select another free port. Install Chromium once if Playwright asks: `uv run --no-sync jlpm playwright install chromium`.
 
-To make one small **live** request to each configured provider, using the project `.env` and the same isolated JupyterLab and real Python kernel:
+An optional live smoke sends one small prompt to each configured API provider and verifies variable lookup plus a function call:
 
 ```bash
 NBINLINEAI_E2E_LIVE=1 uv run --no-sync jlpm test:e2e
 ```
 
-The live smoke tests skip providers without a configured key. Each sends one prompt that includes a live variable and asks the model to call a function, then checks the kernel mutation. A tool round can make multiple API calls within that prompt. Unlike the deterministic suite, these requests incur provider usage.
-
-To build distributions and check extension discovery:
-
-```bash
-uv run --no-sync jlpm build:prod
-uv build
-uv run jupyter labextension list
-uv run jupyter server extension list
-```
+A tool round can make multiple provider API calls within one prompt. These live requests incur provider usage.
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0-only. The full license text is included in the package.

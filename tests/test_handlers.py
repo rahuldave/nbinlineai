@@ -2,13 +2,21 @@
 
 import asyncio
 import json
+import os
+import tempfile
 from unittest.mock import patch
 
 from aidialog.msg_parts import Completion, Msg, Text
+from fasttransport.errors import APIError
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 
-from nbinlineai.handlers import PromptHandler, StatusHandler
+from nbinlineai.handlers import (
+    KeySettingsHandler,
+    KeySettingsItemHandler,
+    PromptHandler,
+    StatusHandler,
+)
 
 
 class _Authorizer:
@@ -36,19 +44,42 @@ class _Status(StatusHandler):
         self._current_user = "test-user" if self.request.headers.get("Authorization") == "Bearer test" else None
 
 
+class _Keys(KeySettingsHandler):
+    async def prepare(self):
+        self._current_user = "test-user" if self.request.headers.get("Authorization") == "Bearer test" else None
+
+
+class _KeyItem(KeySettingsItemHandler):
+    async def prepare(self):
+        self._current_user = "test-user" if self.request.headers.get("Authorization") == "Bearer test" else None
+
+
 class HandlerTests(AsyncHTTPTestCase):
     def get_app(self):
+        self._key_home = tempfile.TemporaryDirectory()
+        self._old_xdg = os.environ.get("XDG_CONFIG_HOME")
+        os.environ["XDG_CONFIG_HOME"] = self._key_home.name
         self.authorizer = _Authorizer()
         return Application(
             [
                 (r"/nbinlineai/prompt", _Prompt, {"dispatcher": _Dispatcher()}),
                 (r"/nbinlineai/status", _Status),
+                (r"/nbinlineai/settings/keys", _Keys),
+                (r"/nbinlineai/settings/keys/([^/]+)", _KeyItem),
             ],
             authorizer=self.authorizer,
             login_url="/login",
             base_url="/",
             allow_origin="*",
         )
+
+    def tearDown(self):
+        super().tearDown()
+        if self._old_xdg is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = self._old_xdg
+        self._key_home.cleanup()
 
     def _post(self, body, auth=True):
         headers = {"Content-Type": "application/json"}
@@ -126,3 +157,51 @@ class HandlerTests(AsyncHTTPTestCase):
         assert response.code == 200
         assert b'"type": "context"' in response.body
         assert b'"type": "error"' not in response.body
+
+    def test_key_settings_auth_permissions_and_never_echo_key(self):
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        body = json.dumps({"backend": "openai_api", "key": "test-saved-secret-key"})
+        denied = self.fetch("/nbinlineai/settings/keys", method="POST", body=body,
+                            headers={"Content-Type": "application/json"}, follow_redirects=False)
+        assert denied.code != 200
+        self.authorizer.allow = False
+        denied = self.fetch("/nbinlineai/settings/keys", method="POST", body=body, headers=headers)
+        assert denied.code == 403
+        self.authorizer.allow = True
+        saved = self.fetch("/nbinlineai/settings/keys", method="POST", body=body, headers=headers)
+        assert saved.code == 200
+        assert b"test-saved-secret-key" not in saved.body
+        assert json.loads(saved.body)["providers"]["openai_api"]["source"] == "saved"
+        read = self.fetch("/nbinlineai/settings/keys", headers=headers)
+        assert b"test-saved-secret-key" not in read.body
+        deleted = self.fetch("/nbinlineai/settings/keys/openai_api", method="DELETE", headers=headers)
+        assert deleted.code == 200
+        assert json.loads(deleted.body)["providers"]["openai_api"]["source"] != "saved"
+
+    def test_custom_shared_identity_provider_rejected(self):
+        self._app.settings["identity_provider"] = object()
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        body = json.dumps({"backend": "openai_api", "key": "test-saved-secret-key"})
+        response = self.fetch("/nbinlineai/settings/keys", method="POST", body=body, headers=headers)
+        assert response.code == 403
+
+    def test_invalid_key_backend_and_provider_errors_are_sanitized(self):
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        bad = self.fetch("/nbinlineai/settings/keys", method="POST",
+                         body=json.dumps({"backend": None, "key": "test-saved-secret-key"}), headers=headers)
+        assert bad.code == 400
+        assert b"test-saved-secret-key" not in bad.body
+        body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
+                "backend": "openai_api"}
+        for code, expected in ((401, "API key rejected"), (429, "rate limit"), (404, "model is unavailable")):
+            async def fail(*_args, status_code=code):
+                raise APIError("test-saved-secret-key", status_code=status_code,
+                               raw={"secret": "test-saved-secret-key"})
+
+            with patch("nbinlineai.prompt.provider_status", return_value={"openai_api": {"configured": True}}), patch(
+                "nbinlineai.providers.complete", fail
+            ):
+                response = self._post(body)
+            assert response.code == 200
+            assert expected.encode() in response.body
+            assert b"test-saved-secret-key" not in response.body

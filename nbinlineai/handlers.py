@@ -2,21 +2,46 @@
 
 import asyncio
 import json
+import os
 
+from fasttransport.errors import APIError
 from jupyter_server.auth.decorator import authorized
+from jupyter_server.auth.identity import IdentityProvider, PasswordIdentityProvider
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from tornado.iostream import StreamClosedError
 from tornado.web import HTTPError, authenticated
 
-from .config import DEFAULT_MODELS, provider_status
+from .config import DEFAULT_MODELS, key_settings_status, provider_status
+from .credentials import CredentialStore
 from .kernel import KernelDispatcher
 from .prompt import run_prompt, validate_request
 
 
+def _require_single_user_server(handler):
+    """Shared custom identity servers cannot safely share one OS-user key file."""
+    provider = handler.settings.get("identity_provider")
+    if provider is not None and type(provider) not in (IdentityProvider, PasswordIdentityProvider) and not os.getenv(
+        "JUPYTERHUB_USER"
+    ):
+        raise HTTPError(403, "API keys require a single-user Jupyter server")
+
+
+def _safe_provider_error(exc: APIError) -> str:
+    if exc.status_code in (401, 403):
+        return "API key rejected; check Configure AI"
+    if exc.status_code == 429:
+        return "Provider rate limit or quota reached"
+    if exc.status_code == 404:
+        return "Selected model is unavailable; choose another model"
+    return "Model request failed"
+
+
 class StatusHandler(APIHandler):
     @authenticated
+    @authorized(action="execute", resource="kernels")
     def get(self):
+        _require_single_user_server(self)
         self.finish({
             "extension": "nbinlineai",
             "status": "ready",
@@ -33,6 +58,7 @@ class PromptHandler(APIHandler):
     @authenticated
     @authorized(action="execute", resource="kernels")
     async def post(self):
+        _require_single_user_server(self)
         try:
             body = validate_request(self.get_json_body())
             kernel_id, kernel = await self.dispatcher.resolve(body["session_id"])
@@ -50,6 +76,9 @@ class PromptHandler(APIHandler):
             # A disconnected client cancelled this request. Kernel/provider cleanup
             # already ran as cancellation propagated through the prompt iterator.
             return
+        except APIError as exc:
+            self.write("data: " + json.dumps({"type": "error", "message": _safe_provider_error(exc)}) + "\n\n")
+            await self.flush()
         except Exception as exc:  # noqa: BLE001 - provider and kernel failures must end the SSE run
             message = str(exc) if isinstance(exc, (ValueError, TimeoutError)) else "Model or kernel request failed"
             self.write("data: " + json.dumps({"type": "error", "message": message}) + "\n\n")
@@ -63,10 +92,45 @@ class PromptHandler(APIHandler):
         super().on_connection_close()
 
 
+class KeySettingsHandler(APIHandler):
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    def get(self):
+        _require_single_user_server(self)
+        self.finish(key_settings_status())
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self):
+        _require_single_user_server(self)
+        body = self.get_json_body()
+        if not isinstance(body, dict):
+            raise HTTPError(400, "Request body must be a JSON object")
+        try:
+            await asyncio.to_thread(CredentialStore().save, body.get("backend"), body.get("key"))
+        except ValueError as exc:
+            raise HTTPError(400, str(exc)) from exc
+        self.finish(key_settings_status())
+
+
+class KeySettingsItemHandler(APIHandler):
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def delete(self, backend):
+        _require_single_user_server(self)
+        try:
+            await asyncio.to_thread(CredentialStore().delete, backend)
+        except ValueError as exc:
+            raise HTTPError(400, str(exc)) from exc
+        self.finish(key_settings_status())
+
+
 def setup_handlers(web_app):
     base_url = web_app.settings["base_url"]
     dispatcher = KernelDispatcher(web_app.settings["session_manager"], web_app.settings["kernel_manager"])
     web_app.add_handlers(r".*$", [
         (url_path_join(base_url, "nbinlineai", "status"), StatusHandler),
         (url_path_join(base_url, "nbinlineai", "prompt"), PromptHandler, {"dispatcher": dispatcher}),
+        (url_path_join(base_url, "nbinlineai", "settings", "keys"), KeySettingsHandler),
+        (url_path_join(base_url, "nbinlineai", "settings", "keys", r"([^/]+)"), KeySettingsItemHandler),
     ])
