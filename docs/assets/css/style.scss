@@ -1,0 +1,65 @@
+---
+---
+@import "{{ site.theme }}";
+
+/* Let screenshots and technical tables breathe within Minimal's white layout. */
+@media screen and (min-width: 961px) {
+  .wrapper {
+    width: calc(100% - 48px);
+    max-width: 1180px;
+  }
+
+  header,
+  footer {
+    width: 220px;
+  }
+
+  section {
+    width: calc(100% - 270px);
+  }
+}
+
+.nb-docs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: center;
+  margin: 0 0 28px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.nb-docs-nav a {
+  display: inline-block;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.nb-docs-nav a[aria-current="page"] {
+  color: #24292f;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+section img {
+  max-width: 100%;
+  height: auto;
+}
+
+section pre,
+section table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+section table {
+  display: block;
+}
+
+@media screen and (max-width: 960px) {
+  .wrapper {
+    max-width: 900px;
+    padding: 0 18px;
+  }
+}

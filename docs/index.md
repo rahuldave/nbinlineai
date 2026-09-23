@@ -1,5 +1,5 @@
 ---
-title: Documentation
+title: nbinlineai
 ---
 
 # AI conversations inside your notebook

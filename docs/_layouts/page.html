@@ -1,13 +1,13 @@
 ---
 layout: default
 ---
-<nav aria-label="Site navigation">
-  <a href="{{ '/' | relative_url }}">Home</a> ·
-  <a href="{{ '/user-guide.html' | relative_url }}">User guide</a> ·
-  <a href="{{ '/tools.html' | relative_url }}">Tools &amp; examples</a> ·
-  <a href="{{ '/faq.html' | relative_url }}">FAQ</a> ·
-  <a href="{{ '/architecture.html' | relative_url }}">Architecture</a> ·
-  <a href="{{ '/development.html' | relative_url }}">Development</a>
+<nav class="nb-docs-nav" aria-label="Documentation navigation">
+  <a href="{{ '/' | relative_url }}"{% if page.url == '/' or page.url == '/index.html' %} aria-current="page"{% endif %}>Home</a>
+  <a href="{{ '/user-guide.html' | relative_url }}"{% if page.url == '/user-guide.html' %} aria-current="page"{% endif %}>User guide</a>
+  <a href="{{ '/tools.html' | relative_url }}"{% if page.url == '/tools.html' %} aria-current="page"{% endif %}>Tools &amp; examples</a>
+  <a href="{{ '/faq.html' | relative_url }}"{% if page.url == '/faq.html' %} aria-current="page"{% endif %}>FAQ</a>
+  <a href="{{ '/architecture.html' | relative_url }}"{% if page.url == '/architecture.html' %} aria-current="page"{% endif %}>Architecture</a>
+  <a href="{{ '/development.html' | relative_url }}"{% if page.url == '/development.html' %} aria-current="page"{% endif %}>Development</a>
 </nav>
 
 {{ content }}

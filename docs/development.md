@@ -61,7 +61,7 @@ Use an output directory containing exactly one version's wheel and source archiv
 
 ## Maintain the documentation
 
-The site source is the repository's `docs/` folder. GitHub Pages publishes `main:/docs` using Jekyll and the Cayman theme. No separate documentation release command is needed: push a documentation change to `main`, then check the **Pages build and deployment** run on GitHub.
+The site source is the repository's `docs/` folder. GitHub Pages publishes `main:/docs` using Jekyll and the Minimal theme, with a white documentation layout and small local style overrides. No separate documentation release command is needed: push a documentation change to `main`, then check the **Pages build and deployment** run on GitHub.
 
 - Write pages in Markdown with a title in YAML front matter.
 - Keep links to other pages relative, such as `user-guide.md`; Jekyll's relative-links plugin adapts them for the website.
