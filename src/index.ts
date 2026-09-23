@@ -710,7 +710,7 @@ function decorate(panel: NotebookPanel): void {
     runButton.disabled = running || selectedAvailability === false;
     cancelButton.disabled = !running;
     const modeLabel = controls.querySelector('[data-nbinlineai-current-mode]') as HTMLElement;
-    modeLabel.textContent = settingsError || `${promptModeLabel(currentPromptMode())} responses${settingsWarning ? ' · settings unconfirmed' : ''}`;
+    modeLabel.textContent = settingsError || `${promptModeLabel(currentPromptMode())}${settingsWarning ? ' · settings unconfirmed' : ''}`;
     const label = controls.querySelector('.nbinlineai-status') as HTMLElement;
     const key = runKey(panel, cell.id);
     let current = statuses.get(key);
