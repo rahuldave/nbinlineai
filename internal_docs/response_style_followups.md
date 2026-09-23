@@ -2,9 +2,9 @@
 
 ## Current status
 
-Version 0.1.3 is published. It has a global response style in Configure AI, built-in Compact / Full / Learning instructions, and code-copy buttons. The shorter cell labels (just Compact, Full, or Learning) are committed after the release and are not yet published.
+Version 0.1.4 is published on PyPI and tagged `v0.1.4` from source commit `33b124b`. It implements the prompt controls below, with an illustrated guide and public architecture documentation at https://rahuldave.com/nbinlineai/. The public repository is https://github.com/rahuldave/nbinlineai and keeps GPLv3, matching ai-jup.
 
-The user approved these changes for the next prompt-focused drop, before examples and importable tools. During discussion they chose notebook defaults at the top of the notebook, with individual cell overrides as an exception. Version 0.1.4 is implementing this design. The public repository is https://github.com/rahuldave/nbinlineai and keeps GPLv3, matching ai-jup.
+Examples and importable package tools are deferred to the next drop. Tool candidates must be presented to the user for agreement before implementation.
 
 ## Notebook defaults and cell overrides
 
