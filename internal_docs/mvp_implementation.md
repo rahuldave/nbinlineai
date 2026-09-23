@@ -27,6 +27,12 @@ The server now includes ordinary Markdown above an AI prompt together with code 
 
 The 0.1.2 frontend production build passes. Two focused browser tests passed against an isolated JupyterLab on port 8897 with a real Python kernel and deterministic fake provider: the existing prompt/answer rerun and saved-pair smoke, plus a new Markdown test. The fake provider echoed the server-assembled message, proving that earlier Markdown appeared before later code and that Markdown below the prompt was absent from the answer. No live provider request was made.
 
+## Version 0.1.3 verification before release
+
+Configure AI now saves a response style: Compact, Full, or Learning. Each run and rerun sends the current style to the server. The server appends style-specific instructions after notebook context; Learning retains earlier AI turns so a later prompt can continue the tutor conversation. Rendered fenced code answers have a Copy code button; the button and its feedback stay outside the notebook's saved Markdown source. An uncertain settings save retains the last confirmed style until Retry loads the authoritative setting.
+
+The backend suite passed 50 tests and Ruff. The frontend unit suite passed 14 tests and the production build passed. In the isolated browser suite, 13 of 14 tests passed on the first run. The remaining test timed out while trying to edit a Markdown cell that JupyterLab had rendered after reload; after the test entered edit mode, its focused rerun passed. Thus all 14 distinct deterministic browser checks passed. The copy-code test also passed a focused rerun. These checks covered saved style and request mode, mode-specific server instructions, earlier tutor history, exact clipboard text and failure feedback, rerun/reload button behavior, settings-save recovery, and unchanged key settings. No paid provider calls were made. The isolated server on port 8897 was stopped; port 8888 was untouched.
+
 ## Current scope
 
 The MVP handles text prompts and bounded text tool results in Python notebooks. It does not send rich outputs or images as context and does not implement ChatGPT subscription sign-in. The subscription architecture remains in [the FastLLM and ChatGPT design](fastllm_and_chatgpt_subscription.md).
