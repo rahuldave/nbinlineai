@@ -6,7 +6,7 @@ from aidialog.msg_parts import Msg, Refusal, Text, mk_tool_res_msg
 from fasttransport.errors import APIError
 
 from . import providers
-from .config import DEFAULT_MODELS, KEY_NAMES, provider_status
+from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
 from .tool_schema import fastllm_tools
 
 REFERENCE = re.compile(r"([\$&])`([A-Za-z_][A-Za-z0-9_]*)`")
@@ -14,6 +14,7 @@ MAX_CELLS = 200
 MAX_SOURCE_CHARS = 50000
 MAX_HISTORY_CHARS = 16000
 MAX_PROMPT_CHARS = 16000
+MAX_PROMPT_INSTRUCTIONS_CHARS = 8000
 PROMPT_MODE_INSTRUCTIONS = {
     "compact": (
         "Answer the current question directly and very succinctly. Give only the explanation needed "
@@ -54,6 +55,11 @@ def validate_request(body: dict) -> dict:
     if len(body["prompt"]) > MAX_PROMPT_CHARS:
         raise ValueError("Prompt is too large")
     body["prompt_mode"] = _prompt_mode(body)
+    if "prompt_instructions" in body:
+        instructions = body["prompt_instructions"]
+        if (not isinstance(instructions, str) or not instructions.strip()
+                or len(instructions) > MAX_PROMPT_INSTRUCTIONS_CHARS):
+            raise ValueError("prompt_instructions must be nonempty text of at most 8000 characters")
     if body.get("backend") not in KEY_NAMES:
         raise ValueError("Unsupported API backend")
     if not provider_status()[body["backend"]]["configured"]:
@@ -62,6 +68,16 @@ def validate_request(body: dict) -> dict:
     if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
         raise ValueError("Invalid model name")
     body["model"] = model
+    effort = body.get("reasoning_effort", "default")
+    if not isinstance(effort, str):
+        raise TypeError("reasoning_effort must be 'default' or a supported effort for the selected model")
+    if effort == "default":
+        body["reasoning_effort"] = None
+    else:
+        choices = MODEL_CAPABILITIES[body["backend"]].get(model, {}).get("efforts", [])
+        if effort not in choices:
+            raise ValueError("reasoning_effort is unavailable for the selected model")
+        body["reasoning_effort"] = effort
     steps = body.get("max_tool_steps", 5)
     if isinstance(steps, bool) or not isinstance(steps, int) or not 0 <= steps <= 10:
         raise ValueError("max_tool_steps must be between 0 and 10")
@@ -177,14 +193,21 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel):
         "this prompt. Code may be unexecuted or stale. Live variables and tools come from the current "
         "Python kernel. Only call registered tools when helpful.\n\n"
         "Notebook source above this prompt:\n" + source_text + "\n\n"
-        "Response style for this run (" + mode + "): " + PROMPT_MODE_INSTRUCTIONS[mode]
+        "Response style for this run (" + mode + "): "
+        + body.get("prompt_instructions", PROMPT_MODE_INSTRUCTIONS[mode])
     )
     messages = [Msg("system", [Text(system)]), *_history(body["preceding_cells"]), Msg("user", [Text(prompt)])]
     allowed = set(funcs)
     steps = 0
     while True:
         try:
-            response = await providers.complete(body["backend"], body["model"], messages, tools)
+            if body.get("reasoning_effort") not in (None, "default"):
+                response = await providers.complete(
+                    body["backend"], body["model"], messages, tools,
+                    reasoning_effort=body["reasoning_effort"],
+                )
+            else:
+                response = await providers.complete(body["backend"], body["model"], messages, tools)
         except (APIError, KeyboardInterrupt, SystemExit):
             raise
         except Exception as exc:

@@ -7,7 +7,7 @@ from aidialog.msg_parts import Completion, Msg, Refusal, Text, Thinking, ToolUse
 from jupyter_client import AsyncKernelManager
 
 from nbinlineai import providers
-from nbinlineai.config import DEFAULT_MODELS, MODEL_CHOICES
+from nbinlineai.config import DEFAULT_MODELS, MODEL_CAPABILITIES, MODEL_CHOICES
 from nbinlineai.kernel import KernelDispatcher
 from nbinlineai.prompt import (
     PROMPT_MODE_INSTRUCTIONS,
@@ -210,6 +210,75 @@ def test_prompt_mode_request_default_and_invalid_values(monkeypatch):
             validate_request({**_body("Hello"), "prompt_mode": invalid})
 
 
+def test_custom_instructions_and_effort_validation(monkeypatch):
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {
+        "openai_api": {"configured": True}, "anthropic_api": {"configured": True}
+    })
+    base = {**_body("Hello"), "model": "gpt-6-sol"}
+    assert validate_request(base.copy())["reasoning_effort"] is None
+    assert validate_request({**base, "reasoning_effort": "default"})["reasoning_effort"] is None
+    assert validate_request({**base, "reasoning_effort": "max", "prompt_instructions": "Explain carefully"})[
+        "reasoning_effort"] == "max"
+    for invalid in (None, "", " \n ", 2, "x" * 8001):
+        with pytest.raises(ValueError, match="prompt_instructions must be nonempty"):
+            validate_request({**base, "prompt_instructions": invalid})
+    for request in (
+        {**base, "reasoning_effort": "minimal"},
+        {**base, "model": "gpt-6-astra", "reasoning_effort": "none"},
+        {**base, "model": "custom-model", "reasoning_effort": "low"},
+        {**base, "backend": "anthropic_api", "model": "claude-haiku-4-5-20251001", "reasoning_effort": "high"},
+    ):
+        with pytest.raises(ValueError, match="reasoning_effort"):
+            validate_request(request)
+    assert validate_request({**base, "model": "custom-model", "reasoning_effort": "default"})[
+        "reasoning_effort"] is None
+
+
+@pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
+def test_custom_style_reaches_provider_with_history_and_tool_roundtrip(monkeypatch, backend):
+    captured = []
+
+    async def fake_complete(selected_backend, model, messages, tools, *, reasoning_effort):
+        captured.append((selected_backend, messages[:], tools, reasoning_effort))
+        if len(captured) == 1:
+            return Completion(model, Msg("assistant", [ToolUse(id="call-1", name="add", arguments={"n": 1})]))
+        return Completion(model, Msg("assistant", [Text("Answer")]))
+
+    class Dispatcher:
+        async def inspect(self, *_args):
+            return {"add": {"parameters": {"n": {"type": "int"}}}}
+
+        async def call(self, *_args):
+            return "2"
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    cells = [
+        {"id": "md", "cell_type": "markdown", "source": "# Notebook context"},
+        {"id": "old-p", "cell_type": "markdown", "source": "Earlier question", "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        {"id": "old-a", "cell_type": "markdown", "source": "Earlier answer", "metadata": {"nbinlineai": {
+            "isOutputCell": True, "promptCellId": "old-p", "status": "done"}}},
+    ]
+    body = {**_body("Use &`add`"), "backend": backend, "model": DEFAULT_MODELS[backend],
+            "prompt_mode": "learning", "prompt_instructions": "Ask for one calculation first.",
+            "reasoning_effort": "low", "preceding_cells": cells}
+
+    async def run():
+        return [event async for event in run_prompt(body, Dispatcher(), "kernel-1", None)]
+
+    events = asyncio.run(run())
+    assert [event["type"] for event in events] == ["context", "tool_start", "tool_result", "text_delta", "done"]
+    assert len(captured) == 2
+    for selected_backend, messages, tools, effort in captured:
+        assert selected_backend == backend and effort == "low" and tools
+        system = messages[0].text
+        assert "Ask for one calculation first." in system
+        assert "Socratic tutor" not in system
+        assert "Notebook context" in system and "Only call registered tools" in system
+        assert [(m.role, m.text) for m in messages[1:3]] == [
+            ("user", "Earlier question"), ("assistant", "Earlier answer")]
+    assert captured[1][1][-1].role == "tool"
+
+
 @pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
 @pytest.mark.parametrize("mode,phrase", [
     ("compact", "very succinctly"),
@@ -355,6 +424,70 @@ def test_provider_passes_notebook_context_as_system(monkeypatch, backend, vendor
     assert received["retries"] == 0
 
 
+@pytest.mark.parametrize("backend,model,effort,budget", [
+    ("openai_api", "gpt-6-sol", "none", 16384),
+    ("openai_api", "gpt-6-astra", "max", 65536),
+    ("anthropic_api", "claude-sonnet-5", "high", 32768),
+    ("anthropic_api", "claude-opus-5-5", "xhigh", 65536),
+])
+def test_provider_sends_effort_and_sufficient_output_budget(monkeypatch, backend, model, effort, budget):
+    monkeypatch.setattr(providers, "resolve_api_key", lambda _backend: "test-only")
+    received = {}
+
+    async def fake_acomplete(_messages, _model, **kwargs):
+        received.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(providers, "acomplete", fake_acomplete)
+    asyncio.run(providers.complete(backend, model, [Msg("user", [Text("Hello")])], [],
+                                   reasoning_effort=effort))
+    assert received["reasoning_effort"] == effort
+    assert received["max_tokens"] == budget
+    assert received["retries"] == 0
+
+
+def test_provider_default_omits_effort_but_uses_documented_model_budget(monkeypatch):
+    monkeypatch.setattr(providers, "resolve_api_key", lambda _backend: "test-only")
+    received = {}
+
+    async def fake_acomplete(_messages, _model, **kwargs):
+        received.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(providers, "acomplete", fake_acomplete)
+    asyncio.run(providers.complete("anthropic_api", "claude-sonnet-5", [Msg("user", [Text("Hello")])], []))
+    assert "reasoning_effort" not in received
+    assert received["max_tokens"] == 32768
+
+
+def test_fastllm_serializes_native_effort_with_tools_and_system():
+    import fastllm.anthropic
+    import fastllm.openai_responses  # noqa: F401 - registers adapter
+    from fastllm.types import api_registry
+
+    messages = [Msg("user", [Text("Use the tool")])]
+    tool = {"name": "add", "description": "Add one", "parameters": {"type": "object", "properties": {}}}
+    for backend, api, model, effort in (
+        ("openai_api", "openai", "gpt-6-sol", "none"),
+        ("openai_api", "openai", "gpt-6-astra", "xhigh"),
+        ("anthropic_api", "anthropic", "claude-sonnet-5", "medium"),
+        ("anthropic_api", "anthropic", "claude-opus-5-5", "max"),
+    ):
+        assert effort in MODEL_CAPABILITIES[backend][model]["efforts"]
+        payload = api_registry[api].mk_payload(messages, model, system="Notebook context",
+                                               max_tokens=32768, tools=[tool], reasoning_effort=effort)
+        if api == "openai":
+            assert payload["reasoning"] == {"effort": effort}
+            assert payload["instructions"] == "Notebook context"
+            assert payload["max_output_tokens"] == 32768
+        else:
+            assert payload["thinking"] == {"type": "adaptive"}
+            assert payload["output_config"] == {"effort": effort}
+            assert payload["system"] == "Notebook context"
+            assert payload["max_tokens"] == 32768
+        assert payload["tools"]
+
+
 @pytest.mark.parametrize("completion,message", [
     (Completion("test-model", Msg("assistant", [])), "empty response"),
     (Completion("test-model", Msg("assistant", [Refusal("No thanks")])), "No thanks"),
@@ -425,6 +558,7 @@ def test_model_cannot_execute_unregistered_or_excess_tool(monkeypatch, call_name
 def test_streaming_parts_and_final_completion(monkeypatch):
     async def fake_complete(*_args):
         async def chunks():
+            yield Thinking("private reasoning")
             yield Text("Hello")
             yield Text(" world")
             yield Completion("test-model", Msg("assistant", [Text("Hello world")]))

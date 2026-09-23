@@ -12,10 +12,10 @@ from jupyter_server.utils import url_path_join
 from tornado.iostream import StreamClosedError
 from tornado.web import HTTPError, authenticated
 
-from .config import DEFAULT_MODELS, key_settings_status, provider_status
+from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, provider_status
 from .credentials import CredentialStore
 from .kernel import KernelDispatcher
-from .prompt import run_prompt, validate_request
+from .prompt import PROMPT_MODE_INSTRUCTIONS, run_prompt, validate_request
 
 
 def _require_single_user_server(handler):
@@ -56,6 +56,8 @@ class StatusHandler(APIHandler):
             "version": _running_version(),
             "providers": provider_status(),
             "default_models": DEFAULT_MODELS,
+            "prompt_mode_instructions": PROMPT_MODE_INSTRUCTIONS,
+            "model_capabilities": MODEL_CAPABILITIES,
         })
 
 

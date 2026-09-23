@@ -110,11 +110,25 @@ class HandlerTests(AsyncHTTPTestCase):
         assert response.code == 400
         assert b"prompt_mode must be one of: compact, full, learning" in response.body
 
+    def test_custom_instructions_and_effort_invalid_without_echoing_input(self):
+        body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
+                "backend": "openai_api", "model": "gpt-6-sol"}
+        secret = "private-test-value"
+        response = self._post({**body, "prompt_instructions": secret * 500})
+        assert response.code == 400
+        assert secret.encode() not in response.body
+        response = self._post({**body, "reasoning_effort": "unavailable"})
+        assert response.code == 400
+        assert b"reasoning_effort" in response.body
+
     def test_status_does_not_expose_secret(self):
         response = self.fetch("/nbinlineai/status", headers={"Authorization": "Bearer test"})
         assert response.code == 200
         status = json.loads(response.body)
         assert status["extension"] == "nbinlineai"
+        assert set(status["prompt_mode_instructions"]) == {"compact", "full", "learning"}
+        assert status["model_capabilities"]["openai_api"]["gpt-6-sol"]["default_effort"] == "medium"
+        assert status["model_capabilities"]["anthropic_api"]["claude-haiku-4-5-20251001"]["efforts"] == []
         assert "api_key" not in response.body.decode().lower()
 
     def test_missing_provider_key_rejected_before_stream(self):

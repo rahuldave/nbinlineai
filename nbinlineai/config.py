@@ -20,6 +20,23 @@ MODEL_CHOICES = {
         "claude-fable-5-1",
     ],
 }
+_OPENAI_EFFORTS = ["none", "low", "medium", "high", "xhigh", "max"]
+_CLAUDE_EFFORTS = ["low", "medium", "high", "xhigh", "max"]
+MODEL_CAPABILITIES = {
+    "openai_api": {
+        "gpt-6-sol": {"efforts": _OPENAI_EFFORTS, "default_effort": "medium"},
+        "gpt-6-luna": {"efforts": _OPENAI_EFFORTS, "default_effort": "medium"},
+        # The published Astra documentation lists the choices but does not specify
+        # the API default. Omission lets the provider choose it.
+        "gpt-6-astra": {"efforts": _OPENAI_EFFORTS[1:], "default_effort": None},
+    },
+    "anthropic_api": {
+        "claude-sonnet-5": {"efforts": _CLAUDE_EFFORTS, "default_effort": "high"},
+        "claude-haiku-4-5-20251001": {"efforts": [], "default_effort": None},
+        "claude-opus-5-5": {"efforts": _CLAUDE_EFFORTS, "default_effort": "medium"},
+        "claude-fable-5-1": {"efforts": _CLAUDE_EFFORTS, "default_effort": "high"},
+    },
+}
 KEY_NAMES = {"openai_api": "OPENAI_API_KEY", "anthropic_api": "ANTHROPIC_API_KEY"}
 
 
