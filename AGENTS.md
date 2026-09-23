@@ -31,6 +31,8 @@ For tools or browser operations, read [the implemented tool and protocol contrac
 
 ## Verification and release
 
+For a requested release or new drop, completion includes a version bump, checked distribution artifacts, PyPI publication, a pushed Git tag/source, and publication verification. A source commit alone is not a release. If a task intentionally stops at implementation, state clearly that PyPI is unchanged and record the remaining release work in the handoff.
+
 Use meaningful tests at the changed boundaries: Python, frontend unit tests, then a real isolated JupyterLab with a real kernel and deterministic provider. After frontend changes, rebuild and relink before browser tests. Never build package assets concurrently with browser tests.
 
 See [the handoff](internal_docs/developer_handoff.md) for commands and known test pitfalls; see [the release checklist](internal_docs/releasing.md) for packaging, clean-install checks, versions, artifacts, and publication records. Do not hand-edit generated `lib/` or prebuilt labextension files. Update public docs/examples when semantics change, and keep these handoff notes current.

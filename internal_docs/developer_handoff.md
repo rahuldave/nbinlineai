@@ -1,6 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Last confirmed PyPI upload: **0.1.7**, source commit `e8cdacf32539109ff5f019b2e6cacd71c8025068`, tag `v0.1.7`. The release verification record was committed as `44466b0`. Version **0.1.8** adds [context selection](context_selection_next_feature.md); its packaging and publication are pending. See [releasing](releasing.md) for hashes and verification, and the 0.1.8 implementation and source-verification section below.
+Reviewed **2026-09-23**. Latest published package: **0.1.8**, source commit `9f1aa11b813bf7a343cf5b9c2214e8dab0950c2b`, tag `v0.1.8`. This release adds [context selection](context_selection_next_feature.md); the final wheel/source checks, clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for hashes and verification, and the 0.1.8 implementation and source-verification section below.
 
 ## Product and environment
 
