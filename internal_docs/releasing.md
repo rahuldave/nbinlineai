@@ -33,10 +33,16 @@ For a fresh-install check, install the built wheel in a disposable Python enviro
 
 ## Publish
 
-Publishing is done by a maintainer with PyPI credentials configured outside the repository. Do not put credentials in shell history, source files, notebook metadata, or release logs. Check that `https://pypi.org/project/nbinlineai/0.1.0/` is still available immediately before the initial upload; PyPI will not allow replacing an uploaded version.
+Publishing is done by a maintainer with PyPI credentials configured outside the repository. Do not put credentials in shell history, source files, notebook metadata, or release logs. Before each upload, check that the version does not already exist on PyPI; PyPI will not allow replacing an uploaded version.
 
 ```bash
 uv publish dist/*
 ```
 
 After upload, verify the PyPI project page, README rendering, package files, and a fresh `pip install nbinlineai` in an isolated environment. Confirm JupyterLab discovers both extension entry points. For later changes, increment the version before building; PyPI releases are immutable.
+
+## Version 0.1.0 verification
+
+Version `0.1.0` was published from source commit `89e63b3` and tagged `v0.1.0`. The published wheel SHA256 is `622a131bc8fbcfee4c7cbb9e2393c712123c9ae9120c932392b42d558042cfa7`; the source archive SHA256 is `375a95c36b528be3c17f8e4470bf7cc4befdfb0244514f4dcd04d7385a1de595`. Both hashes matched the public PyPI JSON metadata and the locally checked artifacts.
+
+A clean JupyterLab 4.6.4 environment discovered `nbinlineai` through its PyPI Extension Manager search. Clicking **Install** in that panel installed version `0.1.0` into the clean environment. After restarting only that isolated JupyterLab server, the `nbinlineai` server extension loaded, `/nbinlineai/status` and `/nbinlineai/settings/keys` returned HTTP 200, and a new notebook displayed **AI Prompt** and **Configure AI** in its toolbar. No provider key was entered and no paid provider request was made for this install check. The temporary server was stopped after verification.
