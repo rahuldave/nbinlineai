@@ -1,6 +1,6 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-23**, for published version **0.1.9**. Context selection shipped in 0.1.8; the clearer controls, placement and feedback shipped in 0.1.9. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-23**, for published version **0.1.10**. Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. The new Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
 ## A new task's reading order
 
@@ -22,7 +22,7 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 | Document | Status and purpose |
 | --- | --- |
-| [Prompt intent and cell landmarks](prompt_intent_design.md) | Design implemented for 0.1.10: distinguish the cell or task being asked about from wider context, with shared instructions and editable prompt starters. Publication status is in the release record. |
+| [Prompt intent and cell landmarks](prompt_intent_design.md) | Shipped in 0.1.10: distinguish the cell or task being asked about from wider context, with shared instructions and editable prompt starters. |
 | [Jupyter AI coexistence](jupyter_ai_compatibility.md) | Pinned official Jupyter AI/ACP research, isolated co-install evidence, execution-command differences, and separate authentication boundaries. |
 | [Codex ACP example run](codex_acp_example_run.md) | Successful authenticated Codex trial through Jupyter AI: read, repair and execute explicit code cells while preserving the inline questions. Includes versions, isolation and limits. |
 | [dialoghelper catalog](dialoghelper_tool_catalog.md) | Pinned upstream capability survey: portable tools, tools needing browser integration, Solveit-specific facilities, and current implementation mapping. |

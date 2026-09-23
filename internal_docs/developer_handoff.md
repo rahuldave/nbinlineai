@@ -1,6 +1,6 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.9**, source commit `c080d07b933b39799e67ef5721252967f38f5250`, tag `v0.1.9`. This release improves context controls, feedback and cell placement following 0.1.8's [context selection](context_selection_next_feature.md). Final wheel/source checks, a clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for publication and test evidence, and the implementation sections below.
+Reviewed **2026-09-23**. Latest published package: **0.1.10**, source commit `03967c8233d3aff269c4272a014d05ab2001a711`, tag `v0.1.10`. This release adds Light/Dark AI-cell backgrounds, editable starters, focus guidance/landmarks and unexecuted code insertion, plus combined Jupyter AI examples. Final wheel/source checks, a clean installation and public PyPI hashes have been verified. See [releasing](releasing.md) for publication and test evidence, and the implementation sections below.
 
 ## Product and environment
 
