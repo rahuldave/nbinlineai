@@ -8,12 +8,17 @@ from dotenv import load_dotenv
 from .credentials import CredentialStore
 
 DEFAULT_MODELS = {
-    "openai_api": "gpt-5.4-mini",
-    "anthropic_api": "claude-haiku-4-5-20251001",
+    "openai_api": "gpt-6-sol",
+    "anthropic_api": "claude-sonnet-5",
 }
 MODEL_CHOICES = {
-    "openai_api": ["gpt-5.4-mini", "gpt-5.4"],
-    "anthropic_api": ["claude-haiku-4-5-20251001", "claude-sonnet-4-5"],
+    "openai_api": ["gpt-6-sol", "gpt-6-luna", "gpt-6-astra"],
+    "anthropic_api": [
+        "claude-sonnet-5",
+        "claude-haiku-4-5-20251001",
+        "claude-opus-5-5",
+        "claude-fable-5-1",
+    ],
 }
 KEY_NAMES = {"openai_api": "OPENAI_API_KEY", "anthropic_api": "ANTHROPIC_API_KEY"}
 

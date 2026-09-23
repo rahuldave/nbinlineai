@@ -13,6 +13,14 @@ The server resolves the notebook session to its Python kernel. It presents bound
 
 The user's existing JupyterLab on port 8888 was not used. The test runner refuses that port, disables port retries, and uses temporary notebook, Jupyter config, XDG key storage, runtime, data, and kernelspec directories.
 
+## Version 0.1.1 verification before release
+
+- Python backend suite: 38 passing tests; frontend unit suite: 11 passing tests; production frontend build passes.
+- Deterministic browser suite: 10/10 passing against a separate JupyterLab on port 8897. The new cases verify the model picker against both providers' model lists, default and custom model selection, custom ID persistence after reopening, and model IDs sent with requests. They verify that a sole Anthropic key makes new prompts select Anthropic, while unavailable providers cannot be run; an explicit Anthropic model remains pinned if an OpenAI key is later added. Removing a key after a completed run replaces stale Done with key guidance. They also verify that a temporary settings 404 disables key saving until Retry succeeds, that a successful key POST remains reported as saved and enables Run even if a later status GET returns 404, and that an HTML prompt 404 is replaced with readable guidance rather than notebook HTML.
+- Direct provider API smoke: the new defaults `gpt-6-sol` and `claude-sonnet-5` each completed a two-call function-tool cycle. These calls did not involve the Jupyter browser suite. No further live provider calls were made during 0.1.1 browser verification.
+
+The 0.1.0 Extension Manager install was discoverable and installed correctly, but its package metadata did not declare the companion server extension for JupyterLab's installation guidance. Version 0.1.1 adds that discovery metadata and checks it in both release archives. This confirms a missing restart hint in the installation path; it does not establish the exact cause of the user's earlier intermittent key-save 404.
+
 ## Current scope
 
 The MVP handles text prompts and bounded text tool results in Python notebooks. It does not send rich outputs or images as context and does not implement ChatGPT subscription sign-in. The subscription architecture remains in [the FastLLM and ChatGPT design](fastllm_and_chatgpt_subscription.md).

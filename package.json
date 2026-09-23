@@ -1,6 +1,6 @@
 {
   "name": "nbinlineai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI prompt cells for JupyterLab",
   "license": "GPL-3.0-only",
   "main": "lib/index.js",
@@ -42,6 +42,16 @@
     "extension": true,
     "outputDir": "nbinlineai/labextension",
     "schemaDir": "schema",
+    "discovery": {
+      "server": {
+        "base": {
+          "name": "nbinlineai"
+        },
+        "managers": [
+          "pip"
+        ]
+      }
+    },
     "sharedPackages": {
       "@jupyterlab/application": {
         "bundled": false,

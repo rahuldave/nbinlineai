@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import tarfile
 import zipfile
 from pathlib import Path
@@ -25,6 +26,13 @@ WHEEL_REQUIRED_SUFFIXES = {
 }
 
 
+def _check_server_discovery(raw: bytes, origin: str) -> None:
+    package = json.loads(raw)
+    server = package.get("jupyterlab", {}).get("discovery", {}).get("server", {})
+    if server.get("base", {}).get("name") != "nbinlineai" or "pip" not in server.get("managers", []):
+        raise SystemExit(f"{origin} missing JupyterLab pip server discovery metadata")
+
+
 def _check_forbidden(names: list[str]) -> None:
     bad = []
     for name in names:
@@ -40,6 +48,13 @@ def _check_forbidden(names: list[str]) -> None:
 def check_sdist(path: Path) -> None:
     with tarfile.open(path, "r:gz") as archive:
         names = [member.name for member in archive.getmembers() if member.isfile()]
+        for suffix in ("package.json", "nbinlineai/labextension/package.json"):
+            matches = [name for name in names if "/".join(Path(name).parts[1:]) == suffix]
+            if len(matches) == 1:
+                content = archive.extractfile(matches[0])
+                if content is None:
+                    raise SystemExit(f"Source archive could not read {suffix}")
+                _check_server_discovery(content.read(), f"Source archive {suffix}")
     _check_forbidden(names)
     relative = {"/".join(Path(name).parts[1:]) for name in names}
     missing = SOURCE_REQUIRED - relative
@@ -51,6 +66,9 @@ def check_sdist(path: Path) -> None:
 def check_wheel(path: Path) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
+        manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
+        if manifest is not None:
+            _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")
     _check_forbidden(names)
     missing = {suffix for suffix in WHEEL_REQUIRED_SUFFIXES if not any(name.endswith(suffix) for name in names)}
     if missing:

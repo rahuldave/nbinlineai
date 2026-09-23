@@ -37,6 +37,14 @@ def _safe_provider_error(exc: APIError) -> str:
     return "Model request failed"
 
 
+def _running_version() -> str:
+    # Imported at request time because __init__ defines __version__ after it
+    # imports this module. This reflects the server process, not a newer wheel.
+    from . import __version__
+
+    return __version__
+
+
 class StatusHandler(APIHandler):
     @authenticated
     @authorized(action="execute", resource="kernels")
@@ -45,6 +53,7 @@ class StatusHandler(APIHandler):
         self.finish({
             "extension": "nbinlineai",
             "status": "ready",
+            "version": _running_version(),
             "providers": provider_status(),
             "default_models": DEFAULT_MODELS,
         })

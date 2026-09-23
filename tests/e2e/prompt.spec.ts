@@ -37,6 +37,11 @@ async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[
   expect(response.ok(), await response.text()).toBeTruthy();
   await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell')).toHaveCount(cells.length);
+  await expect.poll(async () => {
+    const sessions = await request.get('/api/sessions');
+    if (!sessions.ok()) return false;
+    return (await sessions.json()).some((session: any) => session.path === name && session.kernel?.id);
+  }).toBeTruthy();
   return name;
 }
 
@@ -150,4 +155,29 @@ test('provider error and cancellation surface without duplicating answer cells',
   await expect(prompt.locator('button[data-nbinlineai-cancel]')).toBeEnabled();
   await prompt.locator('button[data-nbinlineai-cancel]').click();
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/cancel|stopp?ed/i);
+});
+
+test('prompt endpoint 404 shows guidance without saving the HTML error page', async ({ page, request }) => {
+  const name = await openNotebook(page, request, [code('value = 5')]);
+  const prompt = await insertPrompt(page, 0, 'Explain value');
+  await page.route('**/nbinlineai/prompt', async route => {
+    await route.fulfill({
+      status: 404,
+      contentType: 'text/html',
+      body: '<!doctype html><html><body>E2E_RAW_HTML_SHOULD_NOT_APPEAR</body></html>'
+    });
+  });
+  await prompt.locator('button[data-nbinlineai-run]').click();
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/server|restart|unavailable/i);
+  await expect(page.locator('body')).not.toContainText('E2E_RAW_HTML_SHOULD_NOT_APPEAR');
+  await page.screenshot({ path: 'test-results/nbinlineai-safe-404.png', fullPage: true });
+  await page.keyboard.press('Meta+s');
+  await expect.poll(async () => {
+    const response = await request.get(`/api/contents/${name}?content=1`);
+    if (!response.ok()) return false;
+    const notebook = await response.json();
+    return notebook.content.cells.some((cell: any) => cell.metadata?.nbinlineai?.isPromptCell);
+  }).toBeTruthy();
+  const saved = await request.get(`/api/contents/${name}?content=1`);
+  expect(await saved.text()).not.toContain('E2E_RAW_HTML_SHOULD_NOT_APPEAR');
 });

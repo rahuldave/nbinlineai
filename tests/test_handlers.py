@@ -11,11 +11,13 @@ from fasttransport.errors import APIError
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 
+from nbinlineai import __version__
 from nbinlineai.handlers import (
     KeySettingsHandler,
     KeySettingsItemHandler,
     PromptHandler,
     StatusHandler,
+    setup_handlers,
 )
 
 
@@ -205,3 +207,41 @@ class HandlerTests(AsyncHTTPTestCase):
             assert response.code == 200
             assert expected.encode() in response.body
             assert b"test-saved-secret-key" not in response.body
+
+
+class NonRootRoutesTests(AsyncHTTPTestCase):
+    def get_app(self):
+        self._key_home = tempfile.TemporaryDirectory()
+        self._old_xdg = os.environ.get("XDG_CONFIG_HOME")
+        os.environ["XDG_CONFIG_HOME"] = self._key_home.name
+        app = Application([], authorizer=_Authorizer(), login_url="/login", base_url="/user/student/",
+                          allow_origin="*", session_manager=object(), kernel_manager=object())
+        with patch("nbinlineai.handlers.StatusHandler", _Status), patch(
+            "nbinlineai.handlers.PromptHandler", _Prompt
+        ), patch("nbinlineai.handlers.KeySettingsHandler", _Keys), patch(
+            "nbinlineai.handlers.KeySettingsItemHandler", _KeyItem
+        ):
+            setup_handlers(app)
+        return app
+
+    def tearDown(self):
+        super().tearDown()
+        if self._old_xdg is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = self._old_xdg
+        self._key_home.cleanup()
+
+    def test_key_settings_route_with_nested_base_url(self):
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        status = self.fetch("/user/student/nbinlineai/status", headers=headers)
+        assert status.code == 200
+        data = json.loads(status.body)
+        assert data["providers"]["openai_api"]["default_model"] == "gpt-6-sol"
+        assert data["providers"]["anthropic_api"]["models"][0] == "claude-sonnet-5"
+        assert data["version"] == __version__
+        saved = self.fetch("/user/student/nbinlineai/settings/keys", method="POST", headers=headers,
+                           body=json.dumps({"backend": "anthropic_api", "key": "test-anthropic-key"}))
+        assert saved.code == 200
+        assert json.loads(saved.body)["providers"]["anthropic_api"]["source"] == "saved"
+        assert self.fetch("/nbinlineai/settings/keys", headers=headers).code == 404

@@ -7,6 +7,8 @@ import { ServerConnection } from '@jupyterlab/services';
 import { addIcon } from '@jupyterlab/ui-components';
 import { Widget } from '@lumino/widgets';
 import { precedingCells } from './context';
+import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selectedModelChoice, promptHttpErrorMessage, serverUnavailableMessage } from './modelChoice';
+import { cellProvider, configured } from './providerChoice';
 import { readEventStream, StreamEvent } from './sse';
 import '../style/index.css';
 
@@ -35,8 +37,10 @@ const serverSettings = ServerConnection.makeSettings();
 const runKey = (panel: NotebookPanel, cellId: string): string => `${panel.id}:${cellId}`;
 let settings: ISettingRegistry.ISettings | null = null;
 let serverStatus: Status | null = null;
+let serverStatusError: string | null = null;
 let configureDialog: Promise<void> | null = null;
 let notebookTracker: INotebookTracker | null = null;
+class EndpointUnavailableError extends Error {}
 
 function metadata(cell: ICellModel): CellMetadata {
   return (cell.getMetadata(metadataKey) as CellMetadata | undefined) || {};
@@ -47,7 +51,7 @@ function isPrompt(cell: ICellModel | null | undefined): boolean {
 function setMetadata(cell: ICellModel, patch: CellMetadata): void {
   cell.setMetadata(metadataKey, { ...metadata(cell), ...patch });
 }
-function defaultBackend(): Backend {
+function preferredBackend(): Backend {
   const selected = settings?.get('defaultBackend').composite;
   return selected === 'anthropic_api' ? 'anthropic_api' : 'openai_api';
 }
@@ -120,13 +124,21 @@ function authHeaders(): Headers {
   return headers;
 }
 async function fetchStatus(): Promise<void> {
-  const response = await fetch(serverUrl('nbinlineai/status'), { credentials: 'same-origin', headers: authHeaders() });
-  if (!response.ok) throw new Error(`Server status ${response.status}`);
-  serverStatus = await response.json() as Status;
+  try {
+    const response = await fetch(serverUrl('nbinlineai/status'), { credentials: 'same-origin', headers: authHeaders() });
+    if (response.status === 404) throw new EndpointUnavailableError(serverUnavailableMessage('prompt'));
+    if (!response.ok) throw new Error(`AI server status ${response.status}`);
+    serverStatus = await response.json() as Status;
+    serverStatusError = null;
+  } catch (error) {
+    serverStatusError = error instanceof Error ? error.message : 'Could not reach the AI server.';
+    throw error;
+  }
 }
 
 async function fetchKeyStatus(): Promise<KeyStatus> {
   const response = await fetch(serverUrl('nbinlineai/settings/keys'), { credentials: 'same-origin', headers: authHeaders() });
+  if (response.status === 404) throw new EndpointUnavailableError(serverUnavailableMessage('settings'));
   if (!response.ok) throw new Error(`Could not load provider settings (${response.status}).`);
   return response.json() as Promise<KeyStatus>;
 }
@@ -138,6 +150,7 @@ async function changeKey(backend: Backend, method: 'POST' | 'DELETE', key?: stri
     body: method === 'POST' ? JSON.stringify({ backend, key }) : undefined
   });
   if (!response.ok) {
+    if (response.status === 404) throw new EndpointUnavailableError(serverUnavailableMessage('settings'));
     let message = `Could not ${method === 'POST' ? 'save' : 'remove'} the key (${response.status}).`;
     try {
       const result = await response.json() as { error?: string; message?: string };
@@ -147,6 +160,15 @@ async function changeKey(backend: Backend, method: 'POST' | 'DELETE', key?: stri
     throw new Error(message);
   }
   return response.json() as Promise<KeyStatus>;
+}
+
+function mergeKeyStatus(result: KeyStatus): void {
+  if (!serverStatus) return;
+  for (const backend of backends) {
+    const key = result.providers?.[backend];
+    const provider = serverStatus.providers?.[backend];
+    if (key && provider) serverStatus.providers[backend] = { ...provider, configured: key.configured, source: key.source };
+  }
 }
 
 function configureProviders(tracker: INotebookTracker): Promise<void> {
@@ -169,13 +191,21 @@ async function showConfigureProviders(tracker: INotebookTracker): Promise<void> 
   const rows = new Map<Backend, { input: HTMLInputElement; save: HTMLButtonElement; remove: HTMLButtonElement; status: HTMLElement }>();
   let keyStatus: KeyStatus | null = null;
   const pending = new Set<Backend>();
+  let keysAvailable = false;
+  let keyLoadFailed = false;
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.textContent = 'Retry';
+  retry.dataset.nbinlineaiKeyRetry = '';
+  retry.hidden = true;
+  body.node.appendChild(retry);
   const updateRows = () => {
     for (const backend of backends) {
       const row = rows.get(backend)!;
       const current = keyStatus?.providers?.[backend];
-      row.status.textContent = !current ? 'Checking…' : current.source === 'saved' ? 'Saved on this computer' : current.source === 'environment' ? 'Configured by server administrator' : 'Not configured';
-      row.remove.disabled = pending.has(backend) || !current || current.source !== 'saved';
-      row.save.disabled = pending.has(backend) || !row.input.value.trim();
+      row.status.textContent = keyLoadFailed ? 'Settings unavailable' : !current ? 'Checking…' : current.source === 'saved' ? 'Saved on this computer' : current.source === 'environment' ? 'Configured by server administrator' : 'Not configured';
+      row.remove.disabled = !keysAvailable || pending.has(backend) || !current || current.source !== 'saved';
+      row.save.disabled = !keysAvailable || pending.has(backend) || !row.input.value.trim();
     }
   };
   for (const backend of backends) {
@@ -211,35 +241,76 @@ async function showConfigureProviders(tracker: INotebookTracker): Promise<void> 
     });
     save.addEventListener('click', () => {
       const key = input.value.trim();
-      if (!key || pending.has(backend)) return;
+      if (!key || !keysAvailable || pending.has(backend)) return;
       input.value = '';
       pending.add(backend); updateRows(); notice.textContent = `Saving ${name} key…`;
       void changeKey(backend, 'POST', key).then(async result => {
         keyStatus = result;
-        await fetchStatus();
+        mergeKeyStatus(result);
         tracker.forEach(decorate);
-        notice.textContent = `${name} key saved on this computer.`;
-      }).catch(error => { notice.textContent = error instanceof Error ? error.message : 'Could not save key.'; }).finally(() => { pending.delete(backend); updateRows(); });
+        let refreshed = true;
+        try { await fetchStatus(); } catch { refreshed = false; retry.hidden = false; }
+        tracker.forEach(decorate);
+        notice.textContent = refreshed
+          ? `${name} key saved on this computer.`
+          : `${name} key saved on this computer. Provider status could not refresh; choose Retry.`;
+      }).catch(error => {
+        if (error instanceof EndpointUnavailableError) { keysAvailable = false; keyLoadFailed = true; retry.hidden = false; }
+        notice.textContent = error instanceof Error ? error.message : 'Could not save key.';
+      }).finally(() => { pending.delete(backend); updateRows(); });
     });
     remove.addEventListener('click', () => {
-      if (pending.has(backend)) return;
+      if (!keysAvailable || pending.has(backend)) return;
       pending.add(backend); updateRows(); notice.textContent = `Removing ${name} key…`;
       void changeKey(backend, 'DELETE').then(async result => {
         keyStatus = result;
-        await fetchStatus();
+        mergeKeyStatus(result);
         tracker.forEach(decorate);
-        notice.textContent = `${name} saved key removed.`;
-      }).catch(error => { notice.textContent = error instanceof Error ? error.message : 'Could not remove key.'; }).finally(() => { pending.delete(backend); updateRows(); });
+        let refreshed = true;
+        try { await fetchStatus(); } catch { refreshed = false; retry.hidden = false; }
+        tracker.forEach(decorate);
+        notice.textContent = refreshed
+          ? `${name} saved key removed.`
+          : `${name} saved key removed. Provider status could not refresh; choose Retry.`;
+      }).catch(error => {
+        if (error instanceof EndpointUnavailableError) { keysAvailable = false; keyLoadFailed = true; retry.hidden = false; }
+        notice.textContent = error instanceof Error ? error.message : 'Could not remove key.';
+      }).finally(() => { pending.delete(backend); updateRows(); });
     });
     section.append(title, current, input, save, remove);
     body.node.appendChild(section);
   }
+  const loadKeys = async () => {
+    retry.disabled = true;
+    notice.textContent = 'Checking provider settings…';
+    try {
+      keyStatus = await fetchKeyStatus();
+      mergeKeyStatus(keyStatus);
+      keysAvailable = true;
+      keyLoadFailed = false;
+      tracker.forEach(decorate);
+      try {
+        await fetchStatus();
+        retry.hidden = true;
+        notice.textContent = '';
+      } catch (error) {
+        retry.hidden = false;
+        notice.textContent = error instanceof Error ? error.message : 'Could not refresh provider status. Choose Retry.';
+      }
+      tracker.forEach(decorate);
+    } catch (error) {
+      keysAvailable = false;
+      keyLoadFailed = true;
+      retry.hidden = false;
+      notice.textContent = error instanceof Error ? error.message : 'Could not load provider settings. Try again.';
+    } finally {
+      retry.disabled = false;
+      updateRows();
+    }
+  };
+  retry.addEventListener('click', () => { void loadKeys(); });
   updateRows();
-  void Promise.all([fetchKeyStatus(), fetchStatus()]).then(([result]) => {
-    keyStatus = result; updateRows(); tracker.forEach(decorate);
-  }).catch(error => {
-    notice.textContent = error instanceof Error ? error.message : 'Could not load provider settings.';
-  });
+  void loadKeys();
   try {
     await showDialog({ title: 'Configure AI Providers', body, buttons: [Dialog.okButton({ label: 'Done' })] });
   } finally {
@@ -258,12 +329,14 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
   if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return; }
   const sessionId = panel.sessionContext.session?.id;
   if (!sessionId) { status(panel, promptId, 'error', 'Start a kernel before running this prompt.'); return; }
-  const backend = metadata(prompt).backend || defaultBackend();
-  if (serverStatus?.providers?.[backend]?.configured === false) {
-    try { await fetchStatus(); } catch { /* The prompt request will surface a server error if unavailable. */ }
+  if (!serverStatus || serverStatusError || serverStatus?.providers?.[cellProvider(metadata(prompt).backend, preferredBackend(), serverStatus.providers)]?.configured === false) {
+    try { await fetchStatus(); }
+    catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not reach the AI server.'); return; }
   }
-  const configured = serverStatus?.providers?.[backend]?.configured;
-  if (configured === false) { status(panel, promptId, 'error', `${backend === 'openai_api' ? 'OpenAI' : 'Anthropic'} API key is missing. Choose Configure AI to add it.`); return; }
+  const backend = cellProvider(metadata(prompt).backend, preferredBackend(), serverStatus?.providers || null);
+  const available = configured(serverStatus?.providers || null, backend);
+  if (available === false) { status(panel, promptId, 'error', 'API key required. Choose Configure AI or another provider.'); return; }
+  if (!metadata(prompt).backend) setMetadata(prompt, { backend });
   let preceding: ReturnType<typeof precedingCells>;
   try { preceding = precedingCells(notebook, promptId); }
   catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return; }
@@ -284,15 +357,9 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
       })
     });
     if (!response.ok) {
-      const detail = await response.text();
-      let message = detail;
-      try {
-        const parsed = JSON.parse(detail) as { message?: unknown; error?: unknown };
-        if (typeof parsed.message === 'string') message = parsed.message;
-        else if (typeof parsed.error === 'string') message = parsed.error;
-        else if (parsed.error && typeof parsed.error === 'object' && 'message' in parsed.error) message = String(parsed.error.message);
-      } catch { /* Use plain response text. */ }
-      throw new Error(message.slice(0, 500) || `Server error ${response.status}`);
+      const message = promptHttpErrorMessage(response.status);
+      if (response.status === 404) throw new EndpointUnavailableError(message);
+      throw new Error(message);
     }
     status(panel, promptId, 'running', 'Generating…');
     await readEventStream(response, (event: StreamEvent) => {
@@ -314,7 +381,12 @@ async function runPrompt(panel: NotebookPanel, promptId: string): Promise<void> 
     } else {
       const message = error instanceof Error ? error.message : String(error);
       status(panel, promptId, 'error', message);
-      if (!run.text) { output.sharedModel.setSource(`**AI error:** ${message}`); refreshOutput(panel, output); }
+      if (!run.text) {
+        output.sharedModel.setSource(error instanceof EndpointUnavailableError
+          ? '**AI server endpoint unavailable.** Check the status beside the prompt for recovery steps.'
+          : '**AI request failed.** Check the status beside the prompt for details.');
+        refreshOutput(panel, output);
+      }
     }
   } finally {
     runs.delete(runKey(panel, promptId));
@@ -336,6 +408,38 @@ function insertPrompt(panel: NotebookPanel): void {
   notebook.mode = 'edit';
   decorate(panel);
 }
+function syncModelControls(controls: HTMLElement, backend: Backend, savedModel: string): void {
+  const select = controls.querySelector('[data-nbinlineai-model-select]') as HTMLSelectElement;
+  const input = controls.querySelector('[data-nbinlineai-model]') as HTMLInputElement;
+  const models = availableModels(serverStatus?.providers?.[backend]?.models);
+  const defaultId = resolvedDefault(modelFor(backend), serverStatus?.providers?.[backend]?.default_model || serverStatus?.default_models?.[backend]);
+  const signature = JSON.stringify([backend, defaultId, models]);
+  if (select.dataset.optionsSignature !== signature) {
+    select.replaceChildren();
+    const defaultOption = document.createElement('option');
+    defaultOption.value = DEFAULT_MODEL;
+    defaultOption.textContent = defaultId ? `Default (${defaultId})` : 'Default (server model)';
+    select.appendChild(defaultOption);
+    for (const model of models) {
+      const option = document.createElement('option');
+      option.value = model;
+      option.textContent = model;
+      select.appendChild(option);
+    }
+    const customOption = document.createElement('option');
+    customOption.value = CUSTOM_MODEL;
+    customOption.textContent = 'Custom model…';
+    select.appendChild(customOption);
+    select.dataset.optionsSignature = signature;
+  }
+  const savedChoice = selectedModelChoice(savedModel, models);
+  if (!(select.dataset.customActive === 'true' && savedChoice === DEFAULT_MODEL && select.value === CUSTOM_MODEL)) {
+    select.value = savedChoice;
+  }
+  input.hidden = select.value !== CUSTOM_MODEL;
+  if (document.activeElement !== input) input.value = select.value === CUSTOM_MODEL ? savedModel : '';
+}
+
 function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const controls = document.createElement('div');
   controls.className = 'nbinlineai-controls';
@@ -350,26 +454,40 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
     provider.appendChild(option);
   }
   const prompt = getCell(panel, id);
-  provider.value = prompt && metadata(prompt).backend || defaultBackend();
+  provider.value = cellProvider(prompt ? metadata(prompt).backend : undefined, preferredBackend(), serverStatus?.providers || null);
+  const modelSelect = document.createElement('select');
+  modelSelect.dataset.nbinlineaiModelSelect = '';
+  modelSelect.setAttribute('aria-label', 'AI model');
   const modelInput = document.createElement('input');
   modelInput.dataset.nbinlineaiModel = '';
-  modelInput.setAttribute('aria-label', 'AI model');
-  modelInput.placeholder = 'Server default model';
-  modelInput.value = prompt && metadata(prompt).model || '';
-  const updateModelHint = () => {
-    const backend = provider.value as Backend;
-    const info = serverStatus?.providers?.[backend];
-    modelInput.placeholder = modelFor(backend) || info?.default_model || serverStatus?.default_models?.[backend] || 'Server default model';
-    modelInput.title = info?.models?.length ? `Known models: ${info.models.join(', ')}` : 'Blank uses the server default model';
-  };
-  updateModelHint();
+  modelInput.setAttribute('aria-label', 'Custom AI model ID');
+  modelInput.placeholder = 'Enter model ID';
+  modelInput.hidden = true;
   provider.addEventListener('change', () => {
     const cell = getCell(panel, id);
     if (cell) setMetadata(cell, { backend: provider.value as Backend, model: '' });
-    modelInput.value = '';
-    updateModelHint();
+    modelSelect.dataset.customActive = 'false';
+    syncModelControls(controls, provider.value as Backend, '');
+    decorate(panel);
   });
-  modelInput.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) setMetadata(cell, { model: modelInput.value.trim() }); });
+  modelSelect.addEventListener('change', () => {
+    const cell = getCell(panel, id);
+    if (!cell) return;
+    if (modelSelect.value === CUSTOM_MODEL) {
+      modelSelect.dataset.customActive = 'true';
+      setMetadata(cell, { backend: provider.value as Backend, model: modelInput.value.trim() });
+      syncModelControls(controls, provider.value as Backend, modelInput.value.trim());
+      modelInput.focus();
+    } else {
+      modelSelect.dataset.customActive = 'false';
+      setMetadata(cell, { backend: provider.value as Backend, model: modelSelect.value === DEFAULT_MODEL ? '' : modelSelect.value });
+      syncModelControls(controls, provider.value as Backend, metadata(cell).model || '');
+    }
+  });
+  modelInput.addEventListener('input', () => {
+    const cell = getCell(panel, id);
+    if (cell) setMetadata(cell, { backend: provider.value as Backend, model: modelInput.value.trim() });
+  });
   const run = document.createElement('button');
   run.dataset.nbinlineaiRun = '';
   run.textContent = 'Run AI';
@@ -386,7 +504,8 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const label = document.createElement('span');
   label.className = 'nbinlineai-status';
   label.setAttribute('role', 'status');
-  controls.append(provider, modelInput, run, cancel, configure, label);
+  controls.append(provider, modelSelect, modelInput, run, cancel, configure, label);
+  syncModelControls(controls, provider.value as Backend, prompt && metadata(prompt).model || '');
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -402,20 +521,38 @@ function decorate(panel: NotebookPanel): void {
     let controls = widget.node.querySelector(':scope > .nbinlineai-controls') as HTMLElement | null;
     if (!controls) { controls = makeControls(panel, cell.id); widget.node.appendChild(controls); }
     const selectedProvider = controls.querySelector('[data-nbinlineai-provider]') as HTMLSelectElement;
-    selectedProvider.value = meta.backend || defaultBackend();
-    const selectedModel = controls.querySelector('[data-nbinlineai-model]') as HTMLInputElement;
-    if (document.activeElement !== selectedModel) selectedModel.value = meta.model || '';
-    const backend = selectedProvider.value as Backend;
-    selectedModel.placeholder = modelFor(backend) || serverStatus?.providers?.[backend]?.default_model || serverStatus?.default_models?.[backend] || 'Server default model';
+    selectedProvider.value = cellProvider(meta.backend, preferredBackend(), serverStatus?.providers || null);
+    const availableCount = backends.filter(backend => configured(serverStatus?.providers || null, backend)).length;
+    for (const option of Array.from(selectedProvider.options)) {
+      const backend = option.value as Backend;
+      const usable = configured(serverStatus?.providers || null, backend);
+      option.disabled = usable === false;
+      option.textContent = `${backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'}${usable === false ? ' — API key required' : ''}`;
+    }
+    selectedProvider.disabled = !serverStatus || availableCount === 0;
+    syncModelControls(controls, selectedProvider.value as Backend, meta.model || '');
+    const selectedAvailability = configured(serverStatus?.providers || null, selectedProvider.value as Backend);
+    const modelSelect = controls.querySelector('[data-nbinlineai-model-select]') as HTMLSelectElement;
+    const customInput = controls.querySelector('[data-nbinlineai-model]') as HTMLInputElement;
+    modelSelect.disabled = selectedAvailability !== true;
+    customInput.disabled = selectedAvailability !== true;
     const running = runs.has(runKey(panel, cell.id));
     const runButton = controls.querySelector('[data-nbinlineai-run]') as HTMLButtonElement;
     const cancelButton = controls.querySelector('[data-nbinlineai-cancel]') as HTMLButtonElement;
-    runButton.disabled = running;
+    runButton.disabled = running || selectedAvailability === false;
     cancelButton.disabled = !running;
     const label = controls.querySelector('.nbinlineai-status') as HTMLElement;
-    const current = statuses.get(runKey(panel, cell.id));
-    label.dataset.state = current?.state || 'idle';
-    label.textContent = current?.text || '';
+    const key = runKey(panel, cell.id);
+    let current = statuses.get(key);
+    if (selectedAvailability === true && current?.state === 'error' && current.text.startsWith('API key required.')) {
+      statuses.delete(key);
+      current = undefined;
+    }
+    const availabilityNotice = selectedAvailability === false
+      ? availableCount === 0 ? 'No API key configured. Choose Configure AI.' : 'API key required. Choose Configure AI or another provider.'
+      : '';
+    label.dataset.state = serverStatusError ? 'error' : selectedAvailability === false ? 'error' : current?.state || 'idle';
+    label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice || current?.text || (serverStatus ? '' : 'Checking AI providers…');
   }
 }
 const plugin: JupyterFrontEndPlugin<void> = {
@@ -427,7 +564,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       settings.changed.connect(() => tracker.forEach(decorate));
       tracker.forEach(decorate);
     }).catch(console.error);
-    void fetchStatus().then(() => tracker.forEach(decorate)).catch(error => console.warn('nbinlineai status unavailable:', error));
+    void fetchStatus().then(() => tracker.forEach(decorate)).catch(error => { console.warn('nbinlineai status unavailable:', error); tracker.forEach(decorate); });
     app.commands.addCommand(commandInsert, { label: 'Insert AI Prompt Cell', execute: () => { const panel = tracker.currentWidget; if (panel) insertPrompt(panel); } });
     app.commands.addCommand(commandRun, { label: 'Run AI Prompt Cell', isEnabled: () => isPrompt(tracker.currentWidget?.content.activeCell?.model), execute: () => {
       const panel = tracker.currentWidget; const id = panel?.content.activeCell?.model.id;

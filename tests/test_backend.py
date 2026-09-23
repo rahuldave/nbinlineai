@@ -3,10 +3,11 @@
 import asyncio
 
 import pytest
-from aidialog.msg_parts import Completion, Msg, Refusal, Text, ToolUse
+from aidialog.msg_parts import Completion, Msg, Refusal, Text, Thinking, ToolUse
 from jupyter_client import AsyncKernelManager
 
 from nbinlineai import providers
+from nbinlineai.config import DEFAULT_MODELS, MODEL_CHOICES
 from nbinlineai.kernel import KernelDispatcher
 from nbinlineai.prompt import _history, run_prompt, validate_request
 from nbinlineai.tool_schema import fastllm_tool
@@ -137,6 +138,45 @@ def test_request_rejects_bad_backend_and_args(monkeypatch):
         validate_request({**_body(), "max_tool_steps": 100})
     with pytest.raises(ValueError, match="Invalid model"):
         validate_request({**_body(), "model": "../bad"})
+
+
+def test_model_defaults_and_custom_ids_are_preserved(monkeypatch):
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {
+        "openai_api": {"configured": True}, "anthropic_api": {"configured": True}
+    })
+    for backend, default in DEFAULT_MODELS.items():
+        request = {**_body(), "backend": backend}
+        request.pop("model")
+        assert validate_request(request)["model"] == default
+        custom = {**_body(), "backend": backend, "model": "custom-model-v2:latest"}
+        assert validate_request(custom)["model"] == "custom-model-v2:latest"
+
+
+def test_fastllm_builds_native_payloads_for_listed_models():
+    import fastllm.anthropic
+    import fastllm.openai_responses  # noqa: F401 - registers adapter
+    from fastllm.types import api_registry
+
+    messages = [Msg("user", [Text("Hello")])]
+    for backend, api in (("openai_api", "openai"), ("anthropic_api", "anthropic")):
+        for model in MODEL_CHOICES[backend]:
+            payload = api_registry[api].mk_payload(messages, model, system="Notebook context", stream=True,
+                                                   max_tokens=128, tools=[])
+            if fix := getattr(api_registry[api], "fix_payload", None):
+                fix(payload, model, api)
+            assert payload["model"] == model
+            assert payload["stream"] is True
+
+
+def test_anthropic_tool_replay_preserves_empty_thinking_and_signature():
+    from fastllm.anthropic import denorm_assistant
+
+    raw = {"role": "assistant", "content": [
+        {"type": "thinking", "thinking": "", "signature": "signed-block"},
+        {"type": "tool_use", "id": "call_1", "name": "add", "input": {"a": 1, "b": 2}},
+    ]}
+    message = Msg("assistant", [Thinking(""), ToolUse(id="call_1", name="add", arguments={"a": 1, "b": 2})], raw=raw)
+    assert denorm_assistant(message) == raw
 
 
 @pytest.mark.parametrize("backend,vendor,key", [

@@ -18,3 +18,8 @@
 .nbinlineai-key-provider button { padding: 5px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
 .nbinlineai-key-provider button:disabled { opacity: .5; cursor: default; }
 .nbinlineai-key-notice { min-height: 1.3em; color: var(--jp-ui-font-color2); }
+.nbinlineai-controls [data-nbinlineai-model-select] { max-width: 220px; }
+.nbinlineai-controls [data-nbinlineai-model][hidden] { display: none; }
+.nbinlineai-keys-dialog [data-nbinlineai-key-retry] { margin: 0 0 8px; padding: 4px 10px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
+.nbinlineai-keys-dialog [data-nbinlineai-key-retry][hidden] { display: none; }
+.nbinlineai-status { max-width: 100%; overflow-wrap: anywhere; }
