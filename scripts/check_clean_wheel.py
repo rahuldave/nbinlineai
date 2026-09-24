@@ -81,8 +81,13 @@ def main() -> None:
     base = Path(info["base"]).resolve(strict=True)
     python = Path(info["python"]).absolute()
     venv = python.parent.parent
-    if (not python.is_file() or not python.is_relative_to(base)
-            or venv == base or ROOT.is_relative_to(base)):
+    # macOS spells the same temporary directory as /var or /private/var. The
+    # venv's interpreter is also a symlink outside the venv; validate its
+    # containing environment rather than the executable's resolved target.
+    if (not python.is_file() or python.parent.name != "bin"
+            or not (venv / "pyvenv.cfg").is_file()
+            or not venv.resolve().is_relative_to(base)
+            or venv.resolve() == base or ROOT.is_relative_to(base)):
         raise SystemExit("The clean interpreter must belong to the disposable environment")
     _check_port()
     node = shutil.which("node")
