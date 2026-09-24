@@ -1,162 +1,146 @@
-# ChatGPT subscription runtime compatibility gate
+# ChatGPT subscription runtime gate and implementation record
 
-Checked 2026-09-24 against the official Python `openai-codex==0.156.1` and
-`openai-codex-cli-bin==0.156.1` packages. This is a compatibility spike,
-**not an implemented subscription backend**. The 0.1.13 execution gate
-remains **failed** for the strict host-owned round contract. PyPI remains at
-nbinlineai 0.1.12.
+Checked 2026-09-24 against packaged `openai-codex==0.156.1` and
+`openai-codex-cli-bin==0.156.1`. The [integration specification](chatgpt_subscription_integration.md)
+was revised during implementation: Codex may make internal inference/recovery
+requests inside a turn. The 64,000-character estimate applies to each
+**host-assembled submitted notebook round**, and `maxToolSteps` counts only
+notebook tool-plan groups. The notebook host still owns context selection,
+declared tool execution, results, cancellation, and per-notebook binding.
+Native Codex tools and ambient project instructions remain forbidden.
 
-## Result
+## Supported isolation and actual wire evidence
 
-The [integration specification](chatgpt_subscription_integration.md) gives
-nbinlineai ownership of each model round, its 64,000-character estimate, and
-every declared notebook-tool group. A documented `model_catalog_json`
-override, an empty environment list, and explicit feature controls **can**
-make pinned App Server 0.156.1 offer no native tools or ambient instructions
-in an actual local mock Responses request. A normal structured answer,
-refusal, or tool plan then returns as one App Server message after one model
-request. This refutes the earlier conclusion that native-tool suppression
-itself is impossible on the pinned runtime.
-
-The remaining failure is native-call handling **after** a provider returns
-an unexpected call. The zero-tool mock request advertised `tool_choice:
-"auto"`. When the mock returned an unrequested `apply_patch`
-`custom_tool_call`, App Server did not edit the synthetic file, but it
-appended that call and its error result to its own history and sent a
-**second Responses request inside the same turn**. That bypasses the host's
-one-request-per-round budget and tool-group validator. The packaged
-[request builder](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/core/src/client.rs#L971)
-hardcodes `tool_choice: "auto"`. The generated `turn/start` schema has no
-tool-choice, fail-on-unknown-call, or maximum native-step field.
-
-This negative test deliberately sends an invalid provider response. It does
-not prove an ordinary ChatGPT model would emit a call when no tools are
-advertised; it proves the packaged runtime does not enforce the required
-host-owned boundary if one appears. The minimal unblock is a supported
-fail-closed, one-completion/no-native-loop mode, or a continuation policy that
-requires client acknowledgement before another model request (or equivalent
-enforceable tool-choice control), followed by a fresh adversarial probe. Do not route
-notebook questions through this runtime under the current contract.
-
-## Supported suppression path and actual wire evidence
-
-The public [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+The public [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
 documents `model_catalog_json`. The pinned
 [config loader](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/core/src/config/mod.rs)
-loads its model descriptors as a nonempty catalog, and the
-[models manager](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/models-manager/src/manager.rs)
-uses that catalog authoritatively for `model/list`. A no-turn test with one
-sanitized `gpt-6-sol` descriptor returned exactly that model. The descriptor
-sets `apply_patch_tool_type=null`, `experimental_supported_tools=[]`,
-`tool_mode="direct"`, `multi_agent_version=null`, and
-`supports_search_tool=false`. These fields are in the pinned package's model
-schema and source; their exact behavior must be re-gated for each runtime
-upgrade. Live account model discovery could happen separately on the official
-provider, followed by a validated sanitized catalog of only known available
-models. Unknown choices would be rejected.
+and [models manager](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/models-manager/src/manager.rs)
+load that catalog as the authoritative descriptors. A one-model override was
+returned by `model/list`. The pinned schema/source define descriptor fields
+`apply_patch_tool_type`, `experimental_supported_tools`, `tool_mode`,
+`multi_agent_version`, and `supports_search_tool`; the runtime pins them to
+`null`, `[]`, `direct`, `null`, and `false`, respectively. Known feature/config
+flags additionally disable shell, unified exec, apps, plugins, multi-agent,
+plan, image, search, goals, skills, MCP, environment, permission, and other
+automatic instruction sources. `environments:[]` and `dynamicTools:[]` close
+the per-thread surfaces. `tool_mode="direct"` prevents code-mode `exec`/`wait`
+metadata even when top-level tools are empty.
 
-The [deterministic probe](../scripts/subscription_tool_inventory_probe.py)
-starts a fresh ephemeral thread with `environments:[]`, `dynamicTools:[]`,
-synthetic instructions, deny-all approval replies, and a temporary isolated
-`CODEX_HOME` and working directory. It disables shell, unified exec, apps,
-plugins, multi-agent, plan, image, search, goal, skills, MCP, environment,
-permissions, collaboration, and related automatic instructions through
-supported settings. `tool_mode="direct"` matters: the pinned tool builder
-otherwise registers code-mode `exec` and `wait` even when underlying tools
-are empty. `features.goals=false` removes App Server goal tools embedded in
-a developer tool namespace after the top-level Responses `tools` array was
-empty. Explicit `skills.include_instructions=false` and related switches
-remove ambient skills and environment blocks. The mock uses a minimal child
-process environment and a dummy local provider; it is never a production
-auth route.
+The [credential-free actual-wire probe](../scripts/subscription_tool_inventory_probe.py)
+starts the packaged binary in isolated state, using a local synthetic Responses
+server and dummy key. It asserts the first model request has top-level
+`tools=[]`, an empty embedded code-mode tool namespace, exactly the expected
+developer/developer/user inputs, no project instruction sources, and no
+poisoned project configuration marker. Clean structured answer, refusal,
+and tool-plan responses each returned one matching `agentMessage`. The six
+currently offered compatible model slugs (`gpt-6-astra`, `gpt-6-sol`,
+`gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`) passed this
+inventory framing probe on macOS arm64. Other bundled models are excluded
+until their distinct prompt framing is checked.
 
-Run all five deterministic scenarios using uv:
+An adversarial mock returned an undeclared `apply_patch` custom tool call
+despite `tools=[]`. The runtime did **not** edit its synthetic file; it
+recorded an unknown-tool error and made a second internal Responses request.
+This was a blocker under the original one-request-per-round requirement.
+Under the user's revised contract the extra internal request is accepted;
+the production adapter still fails closed if a raw native-call event arrives.
+The pinned request builder advertises `tool_choice:"auto"`; App Server has no
+public client-acknowledged pause before internal continuation. The negative
+probe therefore remains important regression evidence, not a guarantee that
+the host can interrupt before an internal retry. It verifies no native tool
+effect in this tested configuration. See the
+[pinned turn loop](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/core/src/session/turn.rs#L537)
+and [App Server interface](https://learn.chatgpt.com/docs/app-server).
 
-```sh
-for scenario in inventory answer refusal tool_plan unexpected; do
-  uv run --no-project --with openai-codex==0.156.1 \
-    python scripts/subscription_tool_inventory_probe.py --scenario "$scenario"
-done
-```
+## Production adapter boundary
 
-The local fake Responses server prints counts, item types, and tool names,
-never request contents or credentials. The script asserts both top-level
-`tools=[]` and the embedded code-mode developer tool namespace are empty,
-and only expected developer/developer/user items reach the first request.
-The first wire input had three items and 425 JSON characters; the separate
-structured output schema occupied 606 JSON characters. Those are synthetic
-short-input figures, **not** a production notebook budget. Clean answer,
-refusal, and tool-plan replies each produced one request and one matching
-`agentMessage`. The unexpected-call scenario produced two requests, with
-`custom_tool_call` and `custom_tool_call_output` added to the second input.
-The synthetic `unexpected.txt` did not exist. This is an executable
-pinned-runtime regression, not just source inspection.
+[`subscription_runtime.py`](../nbinlineai/subscription_runtime.py) owns a
+private per-user managed Codex state directory and a narrow stdio JSON-RPC
+client for the packaged executable. It never reads or copies an existing
+`auth.json`, never inherits API keys, access-token, workload-identity,
+custom-endpoint, plugin, or desktop-host environment variables, and rejects
+managed `config.toml`/`requirements.toml`. It selects official
+`modelProvider="openai"` and requires public `account/read` mode `chatgpt`
+before model turns. There is no API-key or ACP fallback. Browser/device sign-in
+uses App Server's account methods and only returns public URL/code fields.
+Disconnect detaches this Jupyter server in memory and closes **its own**
+children without global logout; explicit successful sign-in reconnects.
+Account, model, effort, usage, and run identity are rechecked for every round.
+Provider payloads and credential contents are never sent to UI errors.
 
-The generated experimental App Server schema supports `thread/start.ephemeral`,
-instruction overrides, `environments`, `dynamicTools`,
-`experimentalRawEvents`, and `turn/start.outputSchema`. The Python SDK wrapper
-does not expose all experimental fields, so a narrow protocol client would
-be needed. The public [App Server documentation](https://learn.chatgpt.com/docs/app-server)
-and [Python SDK documentation](https://learn.chatgpt.com/docs/codex-sdk)
-describe the supported product surface. With raw events enabled, the mock
-emitted `rawResponseItem/completed` for the unexpected native call before the
-second HTTP request. But this event is asynchronously forwarded by the App
-Server listener while the core turn loop continues automatically on
-`needs_follow_up` ([source](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/core/src/session/turn.rs#L537)).
-No client acknowledgement or pause barrier exists. A subsequent public
-`turn/interrupt` might win a race, but cannot guarantee the host sees and
-rejects the call before another model request.
+The child process and ephemeral thread use the private managed directory as
+their real cwd. This is deliberate: a notebook/project cwd would allow a
+project `.codex/config.toml` to override the official provider or load hooks,
+MCP, or instructions before a turn. The authenticated notebook parent and
+selected file-access root are supplied only as budgeted, inert context to the
+model. Direct native file operations remain disabled, so the UI truthfully
+shows **Notebook tools only**. Existing notebook-declared Python/kernel tools
+retain their existing live kernel cwd and user permissions; the runtime's cwd
+does not move that kernel. No direct-file selector is claimed as active.
 
-If a supported stop mechanism is added, the adapter should expose an exact
-`round_wire_cost(messages, tools)` callback to the existing context builder.
-Packing normalized host messages into App Server text causes a second JSON
-escaping layer, so a fixed additive guess is insufficient. The callback
-must count actual message serialization, explicit instructions, output
-schema, and framing before optional notebook source, while preserving
-completed tool groups without replay. Backend groundwork accepts this
-callback but leaves subscription execution gated.
+Each host round gets a fresh ephemeral thread and child. The host serializes
+normalized messages and declared schemas into one JSON text input; App Server
+receives a strict answer/refusal/one-tool-group output schema. Returned plans
+are validated against the host-declared tool names, argument objects, unique
+call IDs, count, and size. The host executes notebook tools and builds any
+later round with results; the runtime never executes those tools. Server
+approval requests are rejected. Raw native-call events fail closed.
+Per-run cancellation closes only that round's child; concurrent cancellation,
+disconnect, and final cleanup are serialized. Owned child processes have
+bounded wait, terminate, and kill cleanup. The Jupyter extension's awaited
+shutdown hook calls `close()`; it does not sign out other clients.
 
-## Earlier live smoke and auth limits
+`round_wire_cost(messages, tools)` uses the exact shared JSON serializer for
+instructions, normalized messages, tool schemas, and output schema, including
+the second escaping layer. It adds a conservative 4,096-character reserve for
+the two App Server JSON-RPC envelopes, runtime thread ID, model, effort, and
+control metadata that the context builder cannot know at preview time. Before
+`turn/start`, the adapter measures the actual combined `thread/start` and
+`turn/start` envelopes and rejects a round above either the reserved estimate
+or 64,000 characters. This is a character estimate of **host-submitted**
+material, not a tokenizer bound or a limit on Codex-internal continuation
+requests. The server-provided notebook folder is included in the budgeted
+host system message; completed tool groups are reserialized, not re-executed.
 
-Before the catalog suppression audit, two bounded synthetic live turn
-attempts used an existing account reported as `chatgpt` by public
-`account/read`. The first timed out in an initial notification collector
-that discarded events. The second used a temporary synthetic folder and
-disabled named shell flags; it emitted a `fileChange` item and created
-`probe.txt` with native `apply_patch`, despite `approvalPolicy:"never"` and
-explicit denial of server requests. The reporter timed out after 45 seconds
-waiting for final status, but the file mutation was observed. Its
-notification matcher was corrected without another live request. Those
-attempts may have consumed subscription allowance. No paid API test was
-intended, and neither used a personal notebook or Jupyter server. Owned child processes were waited
-or terminated, and temporary folders were removed.
+## Verification and remaining acceptance
 
-That live attempt did not record returned `modelProvider` or scrub every
-inherited provider override. It proves native tool exposure in an ordinary
-pinned runtime configuration, **not** a verified ChatGPT billing trace. The
-revised [no-turn account probe](../scripts/subscription_runtime_probe.py)
-selects `modelProvider="openai"`, removes known API endpoint/key overrides
-by name, and confirmed package 0.156.1, account mode `chatgpt`, provider
-`openai`, ephemeral thread, and zero project instruction sources. It did not
-submit another model turn. Production would need a dedicated state/auth
-boundary and official ChatGPT provider, with no API-key fallback. No auth
-JSON, browser token, or private account material was read or copied.
+Deterministic runtime tests cover structured answer/refusal/tool plans and
+invalid calls, poisoned inherited environment and project configuration,
+strict private state, no-auth account/model/usage responses, official provider
+and ephemeral no-environment thread request, sibling run cancellation,
+simultaneous close, Disconnect persistence, login completion/cancel, usage
+limit, and safe expired-auth notification mapping. These tests use a fake
+stdio child and no credentials. Local focused result: **5/5 passed**, Ruff
+passed. A production no-auth smoke on fresh private state started packaged
+0.156.1, returned `signed_out` with no models, and confirmed owned child
+shutdown. [`subscription_platform_check.py`](../scripts/subscription_platform_check.py)
+repeats that smoke in a Tornado loop. The
+[cross-platform workflow](../.github/workflows/subscription-runtime.yml)
+adds credential-free packaged startup, fake-protocol tests, and actual
+empty-inventory synthetic round on macOS/Linux/Windows x64/arm64 and Alpine
+musl x64/arm64. **Those remote executions are pending**; only local macOS
+arm64 execution has passed as of this record. Python 3.12 and 3.14 wheel-only
+dependency resolution passed all eight target environments; that proves
+availability, not execution or Jupyter lifecycle behavior. A cold Python
+3.14 macOS arm64 wheel-only dependency install also passed (112 packages,
+SDK/runtime 0.156.1). The observed install time, 12.67 seconds, depends on
+this machine and network and is not a support promise.
 
-## Release implications
+Two earlier small synthetic live turns used an existing public account
+reported as `chatgpt`, before the sanitized-catalog production path. One
+timed out in an event collector; the other demonstrated a native `fileChange`
+under ordinary runtime settings and timed out waiting for completion. The
+file was synthetic and temporary; owned processes were stopped and temporary
+folders removed. Those attempts may have used subscription allowance. The
+effective provider/billing route was not captured, so they are **not** a
+verified subscription billing trace. No intentional paid API test occurred.
+The corrected no-turn probe confirmed public account mode, official provider,
+ephemeral thread, and no instruction sources but submitted no new model turn.
+No auth JSON, browser token, or personal notebook was read or copied.
 
-This spike did not implement account status, model selection, usage
-reporting, cancellation propagation, notebook tool-group replay, production
-auth, or cross-platform folder enforcement. Clean structured mock replies
-establish only local wire shape; they are not subscription acceptance tests.
-Final integration-groundwork checks passed **245 Python tests** and Ruff,
-**55 frontend unit tests** and TypeScript type checking, then a production
-frontend rebuild/relink. A selected isolated JupyterLab browser regression
-set passed **11/11** uninterrupted on port 8897, covering API provider keys,
-availability, models, defaults, settings recovery, and a saved unavailable
-ChatGPT selection. This was a focused browser subset, not the full browser
-suite or a subscription acceptance test. Python 3.12
-wheel-only dependency resolution passed eight macOS/Linux/Windows runtime
-wheel platforms; it establishes package availability, not runtime policy
-enforcement on each OS. The SDK wheel is about 0.09 MiB and native wheels
-range 113.72–139.22 MiB. No version bump, distribution artifacts,
-publication, source commit, push, or tag was made here. PyPI remains 0.1.12.
+Acceptance still requires a fresh managed private-store sign-in through the
+actual UI, explicit confirmation of ChatGPT account/provider, one bounded
+subscription-backed answer/refusal/tool-group flow through a real isolated
+JupyterLab and kernel, cancellation and usage-limit handling, and completed
+remote cross-platform workflow runs. The parent release process owns final
+distribution build, clean wheel install, tag, push, and publication checks.

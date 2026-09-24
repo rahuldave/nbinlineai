@@ -52,7 +52,9 @@ copy `auth.json`, depend on a global Codex executable, or inherit the SDK's
 accepting approval fallback unintentionally.
 
 Preserve each host-assembled submission's 64,000-character estimate with the
-runtime's exact `round_wire_cost(messages, tools)` serializer. Count fixed
+runtime's `round_wire_cost(messages, tools)` serializer: exact serialized
+content plus a bounded transport-metadata reserve, checked against the actual
+combined App Server submission envelopes before `turn/start`. Count fixed
 instructions, schema/framing, current prompt, discovered tool definitions and
 completed notebook-tool groups before optional context; preview and execution
 must use the same callback. Codex internal inference/recovery calls after a

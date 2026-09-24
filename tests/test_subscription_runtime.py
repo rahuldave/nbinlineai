@@ -141,6 +141,12 @@ for line in sys.stdin:
         content = params["input"][0]["text"]
         if "WAIT_FOREVER" in content:
             continue
+        if "AUTH_FAIL" in content:
+            send({"method": "error", "params": {"threadId": "thread-1",
+                  "turnId": "turn-1", "willRetry": False,
+                  "error": {"message": "private provider payload",
+                            "codexErrorInfo": "unauthorized"}}})
+            continue
         payload = {"kind": "answer", "text": "OK", "reason": None, "calls": []}
         send({"method": "item/completed", "params": {"threadId": "thread-1",
               "turnId": "turn-1", "item": {"type": "agentMessage",
@@ -196,6 +202,13 @@ async def _exercise_private_rounds(tmp_path, monkeypatch):
     await asyncio.gather(manager.cancel("waiting"), manager.cancel("waiting"))
     with pytest.raises(asyncio.CancelledError):
         await waiting
+    with pytest.raises(runtime.SubscriptionRuntimeError, match="sign-in expired") as expired:
+        await manager.complete_round(
+            "gpt-6-sol", [Msg("user", [Text("AUTH_FAIL")])], [],
+            reasoning_effort=None, scope=scope, run_id="expired",
+        )
+    assert "private provider payload" not in str(expired.value)
+    assert (await manager.status())["state"] == "expired"
     await manager.disconnect()
     assert not manager._runs
     assert (await manager.status())["configured"] is False

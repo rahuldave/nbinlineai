@@ -14,6 +14,7 @@ import re
 import stat
 import subprocess
 import tempfile
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -408,6 +409,7 @@ class SubscriptionRuntime:
         self._login_error: str | None = None
         self._bundled: dict[str, dict] | None = None
         self._detached = False
+        self._auth_expired = False
 
     def round_wire_cost(self, messages: list[Msg], tools: list[dict]) -> int:
         return round_wire_cost(messages, tools)
@@ -457,11 +459,12 @@ class SubscriptionRuntime:
                 self._login_error = None
             else:
                 self._login_error = "ChatGPT sign-in did not complete"
-        if succeeded and self._detached:
+        if succeeded and (self._detached or self._auth_expired):
             result = await client.request("account/read", {"refreshToken": False})
             account = result.get("account")
             if isinstance(account, dict) and account.get("type") == "chatgpt":
                 self._detached = False
+                self._auth_expired = False
 
     async def _bundled_models(self) -> dict[str, dict]:
         if self._bundled is not None:
@@ -572,6 +575,12 @@ class SubscriptionRuntime:
                     "models": [], "usage": {"state": "unavailable"},
                     "message": ("ChatGPT sign-in is in progress" if self._logins else
                                 self._login_error or "ChatGPT is disconnected on this server")}
+        if self._auth_expired:
+            return {"state": "connecting" if self._logins else "expired",
+                    "configured": False, "auth_mode": "chatgpt",
+                    "models": [], "usage": {"state": "unavailable"},
+                    "message": ("ChatGPT sign-in is in progress" if self._logins else
+                                "ChatGPT sign-in expired; connect again")}
         try:
             account = await self._account()
             if not account or account.get("type") != "chatgpt":
@@ -668,6 +677,8 @@ class SubscriptionRuntime:
         await self._refresh_login_state()
         if self._detached:
             raise SubscriptionRuntimeError("ChatGPT is disconnected on this server")
+        if self._auth_expired:
+            raise SubscriptionRuntimeError("ChatGPT sign-in expired; connect again")
         if run_id in self._run_tasks:
             raise SubscriptionRuntimeError("ChatGPT run is already active")
         if not isinstance(model, str) or not MODEL_ID.fullmatch(model):
@@ -759,6 +770,7 @@ class SubscriptionRuntime:
         model: str, tools: list[dict],
     ) -> Completion:
         agent_messages: list[str] = []
+        native_refusals: list[str] = []
         deadline = asyncio.get_running_loop().time() + TURN_TIMEOUT
         while True:
             remaining = deadline - asyncio.get_running_loop().time()
@@ -778,13 +790,33 @@ class SubscriptionRuntime:
                 continue
             if event_turn is not None and event_turn != turn_id:
                 continue
-            if method == "rawResponseItem/completed":
+            if method == "error":
+                error = params.get("error") or {}
+                if isinstance(error, dict) and error.get("codexErrorInfo") == "unauthorized":
+                    self._auth_expired = True
+                    raise SubscriptionRuntimeError("ChatGPT sign-in expired; connect again")
+            elif method == "rawResponseItem/completed":
                 item = params.get("item") or {}
                 if isinstance(item, dict) and item.get("type") in {
                     "function_call", "custom_tool_call", "local_shell_call", "web_search_call",
                     "image_generation_call", "tool_search_call",
                 }:
                     raise SubscriptionRuntimeError("ChatGPT attempted an undeclared native tool")
+                if isinstance(item, dict) and item.get("type") == "message":
+                    content = item.get("content")
+                    if isinstance(content, list):
+                        for part in content:
+                            if isinstance(part, dict) and part.get("type") == "refusal":
+                                reason = part.get("refusal")
+                                if not isinstance(reason, str) or not reason:
+                                    raise SubscriptionRuntimeError(
+                                        "ChatGPT returned an invalid refusal"
+                                    )
+                                native_refusals.append(reason)
+                                if len(native_refusals) > 1:
+                                    raise SubscriptionRuntimeError(
+                                        "ChatGPT returned multiple refusals"
+                                    )
             elif method == "item/completed":
                 item = params.get("item") or {}
                 if isinstance(item, dict) and item.get("type") == "agentMessage":
@@ -796,19 +828,109 @@ class SubscriptionRuntime:
                         raise SubscriptionRuntimeError("ChatGPT returned multiple final messages")
             elif method == "turn/completed":
                 turn = params.get("turn") or {}
+                error = turn.get("error") if isinstance(turn, dict) else None
+                if isinstance(error, dict) and error.get("codexErrorInfo") == "unauthorized":
+                    self._auth_expired = True
+                    raise SubscriptionRuntimeError("ChatGPT sign-in expired; connect again")
                 if not isinstance(turn, dict) or turn.get("status") != "completed":
                     raise SubscriptionRuntimeError("ChatGPT turn did not complete")
+                if native_refusals:
+                    if agent_messages:
+                        raise SubscriptionRuntimeError(
+                            "ChatGPT returned conflicting final messages"
+                        )
+                    reason = native_refusals[0][:500]
+                    return Completion(model, Msg("assistant", [Refusal(reason)]))
                 if len(agent_messages) != 1:
                     raise SubscriptionRuntimeError("ChatGPT returned no structured answer")
                 return _decode_plan(model, agent_messages[0], tools)
 
 
-_RUNTIME: SubscriptionRuntime | None = None
+class _WindowsSubscriptionRuntime:
+    """Keep subprocesses on an owned Proactor loop under Jupyter's Selector loop.
+
+    Jupyter Server installs WindowsSelectorEventLoopPolicy for Tornado. That
+    loop cannot start asyncio subprocesses, while the packaged App Server
+    requires pipe-backed stdin/stdout. Only this manager's work crosses to a
+    private Proactor loop; Jupyter's process-wide loop policy is untouched.
+    """
+
+    def __init__(self, *, state_directory: Path | None = None, binary: Path | None = None):
+        self._core = SubscriptionRuntime(state_directory=state_directory, binary=binary)
+        self._ready = threading.Event()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread = threading.Thread(target=self._run_loop, name="nbinlineai-codex", daemon=True)
+        self._thread.start()
+        if not self._ready.wait(10) or self._loop is None:
+            raise SubscriptionRuntimeError("ChatGPT runtime worker did not start")
+        self._close_lock = asyncio.Lock()
+
+    def _run_loop(self) -> None:
+        loop = asyncio.ProactorEventLoop()
+        asyncio.set_event_loop(loop)
+        self._loop = loop
+        self._ready.set()
+        try:
+            loop.run_forever()
+        finally:
+            loop.close()
+
+    async def _dispatch(self, coroutine: Any) -> Any:
+        loop = self._loop
+        if loop is None or not self._thread.is_alive():
+            coroutine.close()
+            raise SubscriptionRuntimeError("ChatGPT runtime worker stopped")
+        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coroutine, loop))
+
+    def round_wire_cost(self, messages: list[Msg], tools: list[dict]) -> int:
+        return round_wire_cost(messages, tools)
+
+    async def status(self) -> dict:
+        return await self._dispatch(self._core.status())
+
+    async def usage(self) -> dict:
+        return await self._dispatch(self._core.usage())
+
+    async def start_login(self, method: str) -> dict:
+        return await self._dispatch(self._core.start_login(method))
+
+    async def cancel_login(self, login_id: str) -> None:
+        await self._dispatch(self._core.cancel_login(login_id))
+
+    async def complete_round(
+        self, model: str, messages: list[Msg], tools: list[dict], *,
+        reasoning_effort: str | None, scope: dict, run_id: str,
+    ) -> Completion:
+        return await self._dispatch(self._core.complete_round(
+            model, messages, tools, reasoning_effort=reasoning_effort,
+            scope=scope, run_id=run_id,
+        ))
+
+    async def cancel(self, run_id: str) -> None:
+        await self._dispatch(self._core.cancel(run_id))
+
+    async def disconnect(self) -> None:
+        await self._dispatch(self._core.disconnect())
+
+    async def close(self) -> None:
+        async with self._close_lock:
+            if self._loop is None:
+                return
+            await self._dispatch(self._core.close())
+            loop = self._loop
+            self._loop = None
+            loop.call_soon_threadsafe(loop.stop)
+            await asyncio.to_thread(self._thread.join, 10)
+            if self._thread.is_alive():
+                raise SubscriptionRuntimeError("ChatGPT runtime worker did not stop")
 
 
-def get_subscription_runtime() -> SubscriptionRuntime:
+_RUNTIME: SubscriptionRuntime | _WindowsSubscriptionRuntime | None = None
+
+
+def get_subscription_runtime() -> SubscriptionRuntime | _WindowsSubscriptionRuntime:
     """Return the per-server manager; account state is private and OS-user scoped."""
     global _RUNTIME
     if _RUNTIME is None:
-        _RUNTIME = SubscriptionRuntime()
+        _RUNTIME = _WindowsSubscriptionRuntime() if os.name == "nt" else SubscriptionRuntime()
     return _RUNTIME

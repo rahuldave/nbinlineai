@@ -27,6 +27,8 @@ dependencies = [
   "jupyter_server>=2,<3",
   "python-fastllm==0.0.63",
   "openai-codex==0.156.1; (sys_platform == 'darwin' and (platform_machine == 'arm64' or platform_machine == 'x86_64')) or (sys_platform == 'linux' and (platform_machine == 'aarch64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and (platform_machine == 'AMD64' or platform_machine == 'ARM64'))",
+  "argon2-cffi-bindings<26.1.0; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+  "argon2-cffi-bindings>=26.1.0; (sys_platform == 'darwin' and platform_machine == 'arm64') or (sys_platform == 'linux' and (platform_machine == 'aarch64' or platform_machine == 'x86_64')) or (sys_platform == 'win32' and (platform_machine == 'AMD64' or platform_machine == 'ARM64'))",
   "fastcore>=2.2.30,<3",
   "pathspec>=1.1.1,<2",
   "markdown-it-py>=4.2,<5",

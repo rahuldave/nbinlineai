@@ -37,10 +37,9 @@ def one_sanitized_model(binary: Path, env: dict[str, str], slug: str) -> dict:
         env=env,
         check=True,
         capture_output=True,
-        text=True,
         timeout=20,
     )
-    catalog = json.loads(result.stdout)
+    catalog = json.loads(result.stdout.decode("utf-8"))
     model = next(item for item in catalog["models"] if item["slug"] == slug)
     model["apply_patch_tool_type"] = None
     model["experimental_supported_tools"] = []
@@ -113,6 +112,17 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
                                 "type": "custom_tool_call", "name": "apply_patch",
                                 "input": patch, "call_id": "unexpected-call"}},
                             {"type": "response.completed", "response": {"id": "resp-1",
+                                "usage": {"input_tokens": 0, "input_tokens_details": None,
+                                          "output_tokens": 0, "output_tokens_details": None,
+                                          "total_tokens": 0}}},
+                        )
+                    elif scenario == "native_refusal":
+                        events = (
+                            {"type": "response.created", "response": {"id": "resp-refusal"}},
+                            {"type": "response.output_item.done", "item": {
+                                "type": "message", "role": "assistant", "id": "msg-refusal",
+                                "content": [{"type": "refusal", "refusal": "Synthetic refusal"}]}},
+                            {"type": "response.completed", "response": {"id": "resp-refusal",
                                 "usage": {"input_tokens": 0, "input_tokens_details": None,
                                           "output_tokens": 0, "output_tokens_details": None,
                                           "total_tokens": 0}}},
@@ -300,6 +310,8 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
                         str(item.get("role", item.get("type", "?")))
                         for item in requests_seen[1].get("input", [])
                     ))
+                elif scenario == "native_refusal":
+                    print("native_refusal_agent_message_count:", len(agent_messages))
                 elif len(requests_seen) != 1 or len(agent_messages) != 1 or (
                     json.loads(agent_messages[0].get("text", "null"))
                     != structured_payload(scenario)
@@ -327,7 +339,8 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenario", choices=("inventory", "unexpected", "answer",
-                                               "refusal", "tool_plan"), default="inventory")
+                                               "refusal", "native_refusal", "tool_plan"),
+                        default="inventory")
     parser.add_argument("--model", default="gpt-6-sol")
     args = parser.parse_args()
     asyncio.run(main(scenario=args.scenario, model_slug=args.model))

@@ -312,7 +312,10 @@ applies to **each host-assembled submission** to the runtime, including fixed
 instructions, exact serialized message input, output schema/framing, current
 prompt, discovered tool schemas and completed notebook-tool groups before any
 optional notebook context. The same `round_wire_cost(messages, tools)` serializer
-must drive preview and execution. Codex may make internal inference or recovery
+drives preview and execution: it counts the exact double-serialized content and
+adds a 4,096-character transport-metadata reserve. Before `turn/start`, the
+adapter measures actual `thread/start` plus `turn/start` envelope lengths and
+rejects any excess over the reserved estimate or 64,000 characters. Codex may make internal inference or recovery
 requests after that bounded submission; those calls are not notebook-tool steps.
 `maxToolSteps` counts validated notebook-tool plan groups returned to and
 executed by nbinlineai, with at most ten calls per group. Never re-execute a
@@ -335,6 +338,32 @@ and acknowledged browser edits. No native file editing may stand in for editing
 the originating unsaved notebook. Keep executed effects on cancellation; do not
 restart a failed turn automatically. Terminate unknown/cross-run tool calls and
 dispose pending actions when the bound kernel or document changes.
+
+### Unreleased source implementation as of 2026-09-24
+
+The explicit backend registry keeps `openai_codex_subscription` separate from
+`openai_api` and `anthropic_api`. `GET nbinlineai/status` includes
+`subscription_capable` and discovered model/effort capabilities; a present
+manager means the setup UI can open, while a ChatGPT account and compatible
+discovered model are still required for `configured: true`. Account routes are
+Jupyter-authenticated, execute-authorized and single-user guarded:
+`GET subscription/status`, `POST subscription/login` (browser/device),
+`POST subscription/login/cancel`, `POST subscription/disconnect`,
+`GET subscription/usage` and `GET/POST subscription/file-access` under the
+Jupyter base URL. Status and usage expose bounded typed presentation fields,
+never raw account/RPC objects. The file-access routes return
+`native_files_capable: false`; their named choice is dormant.
+
+The server extension injects the owned runtime manager and uses Jupyter Server's
+awaited `ExtensionApp.stop_extension()` hook to close only its child processes.
+An authenticated session ID resolves and refreshes the notebook folder under a
+frozen local content root. Prompt execution verifies the ChatGPT auth mode,
+exact selected model and effort, then rechecks session path and bound kernel
+before submissions and tool dispatch. Preview invokes the pure round serializer
+without account/model RPC or a model call, even if signed out. Subscription
+runtime errors become safe SSE errors. The API-key transport remains separate
+and cannot serve a subscription request. This implementation still needs full
+isolated browser and optional live acceptance, artifact checks and publication.
 
 ## Concrete implementation seams
 
