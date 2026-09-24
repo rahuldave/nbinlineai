@@ -55,14 +55,18 @@ The [tools reference](tools.md) lists callable functions, and the [examples guid
     '8-how-it-works-underneath': 'manual/saving-and-privacy.html#how-it-works-underneath',
     '9-troubleshooting-and-limits': 'manual/troubleshooting.html'
   };
-  let fragment;
-  try {
-    fragment = decodeURIComponent(location.hash.slice(1));
-  } catch {
-    return;
-  }
-  if (Object.prototype.hasOwnProperty.call(legacy, fragment)) {
-    location.replace(new URL(legacy[fragment], location.href));
-  }
+  const redirectLegacyFragment = () => {
+    let fragment;
+    try {
+      fragment = decodeURIComponent(location.hash.slice(1));
+    } catch {
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(legacy, fragment)) {
+      location.replace(new URL(legacy[fragment], location.href));
+    }
+  };
+  window.addEventListener('hashchange', redirectLegacyFragment);
+  redirectLegacyFragment();
 })();
 </script>
