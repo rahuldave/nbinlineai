@@ -25,7 +25,7 @@ jobs:
       - name: Start and stop packaged runtime in Tornado loop
         run: uv run --no-sync python scripts/subscription_platform_check.py
       - name: Verify private runtime and synthetic round boundaries
-        run: uv run --no-sync python -m pytest tests/test_subscription_runtime.py -q
+        run: uv run --no-sync python -m pytest tests/test_subscription_runtime.py tests/test_subscription_windows.py -q
       - name: Verify actual empty native-tool inventory
         run: uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
 
@@ -44,6 +44,6 @@ jobs:
             python -m pip install --no-cache-dir uv
             uv sync --frozen --group dev --no-install-project --no-build --python 3.12
             uv run --no-sync python scripts/subscription_platform_check.py
-            uv run --no-sync python -m pytest tests/test_subscription_runtime.py -q
+            uv run --no-sync python -m pytest tests/test_subscription_runtime.py tests/test_subscription_windows.py -q
             uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
           '

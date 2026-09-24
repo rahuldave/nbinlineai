@@ -647,15 +647,20 @@ class SubscriptionRuntime:
     async def disconnect(self) -> None:
         # Never call account/logout: that would affect another project or Codex client.
         self._detached = True
+        tasks = [task for task in self._run_tasks.values()
+                 if task is not asyncio.current_task()]
+        for task in tasks:
+            task.cancel()
         clients = list(self._runs.values())
-        self._runs.clear()
         if self._control is not None:
             clients.append(self._control)
             self._control = None
         await asyncio.gather(*(client.close() for client in clients))
-        for task in list(self._run_tasks.values()):
-            if task is not asyncio.current_task():
-                task.cancel()
+        try:
+            await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), 15)
+        except TimeoutError as exc:
+            raise SubscriptionRuntimeError("ChatGPT runtime did not stop active rounds") from exc
+        self._runs.clear()
         self._logins.clear()
         self._login_error = None
 
@@ -864,6 +869,9 @@ class _WindowsSubscriptionRuntime:
         if not self._ready.wait(10) or self._loop is None:
             raise SubscriptionRuntimeError("ChatGPT runtime worker did not start")
         self._close_lock = asyncio.Lock()
+        self._submit_lock = threading.Lock()
+        self._closing = False
+        self._pending: set[Any] = set()
 
     def _run_loop(self) -> None:
         loop = asyncio.ProactorEventLoop()
@@ -873,14 +881,21 @@ class _WindowsSubscriptionRuntime:
         try:
             loop.run_forever()
         finally:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.run_until_complete(loop.shutdown_default_executor())
             loop.close()
 
-    async def _dispatch(self, coroutine: Any) -> Any:
-        loop = self._loop
-        if loop is None or not self._thread.is_alive():
-            coroutine.close()
-            raise SubscriptionRuntimeError("ChatGPT runtime worker stopped")
-        return await asyncio.wrap_future(asyncio.run_coroutine_threadsafe(coroutine, loop))
+    async def _dispatch(self, coroutine: Any, *, allow_closing: bool = False) -> Any:
+        with self._submit_lock:
+            loop = self._loop
+            if (loop is None or not self._thread.is_alive()
+                    or (self._closing and not allow_closing)):
+                coroutine.close()
+                raise SubscriptionRuntimeError("ChatGPT runtime worker stopped")
+            future = asyncio.run_coroutine_threadsafe(coroutine, loop)
+            self._pending.add(future)
+            future.add_done_callback(self._pending.discard)
+        return await asyncio.wrap_future(future)
 
     def round_wire_cost(self, messages: list[Msg], tools: list[dict]) -> int:
         return round_wire_cost(messages, tools)
@@ -912,14 +927,51 @@ class _WindowsSubscriptionRuntime:
     async def disconnect(self) -> None:
         await self._dispatch(self._core.disconnect())
 
+    @staticmethod
+    async def _drain_worker() -> None:
+        # A caller can cancel a forwarded round during account/model preflight,
+        # before the core run registry knows about it. The cross-thread future
+        # becomes done immediately, while its worker task still has a finally
+        # block to run. Drain every remaining worker task before loop.stop.
+        current = asyncio.current_task()
+        tasks = [task for task in asyncio.all_tasks() if task is not current]
+        if tasks:
+            # The caller may already have canceled a forwarded task, leaving
+            # it in an async finally block. Give that cleanup a bounded chance
+            # to finish before issuing a second cancellation.
+            _, pending = await asyncio.wait(tasks, timeout=2)
+            for task in pending:
+                task.cancel()
+            try:
+                await asyncio.wait_for(asyncio.gather(*pending, return_exceptions=True), 15)
+            except TimeoutError as exc:
+                raise SubscriptionRuntimeError("ChatGPT runtime worker did not drain") from exc
+
     async def close(self) -> None:
         async with self._close_lock:
-            if self._loop is None:
-                return
-            await self._dispatch(self._core.close())
-            loop = self._loop
-            self._loop = None
-            loop.call_soon_threadsafe(loop.stop)
+            with self._submit_lock:
+                if self._loop is None:
+                    return
+                self._closing = True
+            try:
+                await self._dispatch(self._core.close(), allow_closing=True)
+                await self._dispatch(self._drain_worker(), allow_closing=True)
+                with self._submit_lock:
+                    pending = list(self._pending)
+                if pending:
+                    await asyncio.wait_for(asyncio.gather(
+                        *(asyncio.wrap_future(future) for future in pending),
+                        return_exceptions=True,
+                    ), 15)
+            except BaseException:
+                with self._submit_lock:
+                    self._closing = False
+                raise
+            with self._submit_lock:
+                loop = self._loop
+                self._loop = None
+                assert loop is not None
+                loop.call_soon_threadsafe(loop.stop)
             await asyncio.to_thread(self._thread.join, 10)
             if self._thread.is_alive():
                 raise SubscriptionRuntimeError("ChatGPT runtime worker did not stop")

@@ -147,6 +147,14 @@ for line in sys.stdin:
                   "error": {"message": "private provider payload",
                             "codexErrorInfo": "unauthorized"}}})
             continue
+        if "NATIVE_REFUSAL" in content:
+            send({"method": "rawResponseItem/completed", "params": {
+                  "threadId": "thread-1", "turnId": "turn-1", "item": {
+                      "type": "message", "role": "assistant", "content": [
+                          {"type": "refusal", "refusal": "Synthetic refusal"}]}}})
+            send({"method": "turn/completed", "params": {"threadId": "thread-1",
+                  "turn": {"id": "turn-1", "status": "completed"}}})
+            continue
         payload = {"kind": "answer", "text": "OK", "reason": None, "calls": []}
         send({"method": "item/completed", "params": {"threadId": "thread-1",
               "turnId": "turn-1", "item": {"type": "agentMessage",
@@ -199,6 +207,11 @@ async def _exercise_private_rounds(tmp_path, monkeypatch):
         reasoning_effort=None, scope=scope, run_id="sibling",
     )
     assert answer.message.text == "OK"
+    refusal = await manager.complete_round(
+        "gpt-6-sol", [Msg("user", [Text("NATIVE_REFUSAL")])], [],
+        reasoning_effort=None, scope=scope, run_id="native-refusal",
+    )
+    assert isinstance(refusal.message.content[0], Refusal)
     await asyncio.gather(manager.cancel("waiting"), manager.cancel("waiting"))
     with pytest.raises(asyncio.CancelledError):
         await waiting

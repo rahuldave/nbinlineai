@@ -267,6 +267,8 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
                 assert child.stdout is not None
                 observed = []
                 completed_items = []
+                raw_refusals = []
+                raw_item_shapes = []
                 first_raw_tool_at: float | None = None
                 try:
                     while True:
@@ -280,6 +282,17 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
                             (params := message.get("params") or {}).get("item") or {}
                         ).get("type") == "custom_tool_call":
                             first_raw_tool_at = time.monotonic()
+                        if message.get("method") == "rawResponseItem/completed":
+                            raw_item = (message.get("params") or {}).get("item") or {}
+                            if isinstance(raw_item, dict):
+                                raw_item_shapes.append((raw_item.get("type"),
+                                    [part.get("type") for part in raw_item.get("content", [])
+                                     if isinstance(part, dict)]))
+                            if isinstance(raw_item, dict) and raw_item.get("type") == "message":
+                                raw_refusals.extend(
+                                    part.get("refusal") for part in raw_item.get("content", [])
+                                    if isinstance(part, dict) and part.get("type") == "refusal"
+                                )
                         params = message.get("params") or {}
                         if message.get("method") == "item/completed":
                             completed_items.append(params.get("item"))
@@ -312,6 +325,10 @@ async def main(*, scenario: str = "inventory", model_slug: str = "gpt-6-sol") ->
                     ))
                 elif scenario == "native_refusal":
                     print("native_refusal_agent_message_count:", len(agent_messages))
+                    print("native_refusal_raw_shapes:", raw_item_shapes)
+                    print("native_refusal_visible_raw_count:", len(raw_refusals))
+                    if len(requests_seen) != 1 or agent_messages or raw_refusals:
+                        raise RuntimeError("Native refusal mapping changed; re-gate adapter")
                 elif len(requests_seen) != 1 or len(agent_messages) != 1 or (
                     json.loads(agent_messages[0].get("text", "null"))
                     != structured_payload(scenario)
