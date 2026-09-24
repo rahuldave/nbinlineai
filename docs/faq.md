@@ -243,7 +243,11 @@ No. Closing a notebook stops the extension's ongoing request, but it does not un
 
 Version 0.1.12 replaces the mandatory `rgapi` and `exhash` search/document dependencies with pure Python tools backed by `pathspec` and `markdown-it-py`. It also removes the mandatory `remold` dependency and defers four syntax tools: `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. This removes those native source builds from nbinlineai's direct requirements. Other packages in a Jupyter environment may still have native dependencies. Restart the whole JupyterLab server after updating, refresh the browser, and restart existing kernels before importing the new tools.
 
-The earlier investigation reproduced long native builds in 0.1.11. It did not establish the cause of the reported Ctrl-C stall.
+The earlier investigation reproduced long native builds in 0.1.11. In the actual 0.1.12 update test, Python 3.14 and Jupyter AI were installed together: the update completed in **3.8 seconds**, even while **Updating extensions list…** remained visible and the server responded normally. That catalogue animation does not prove an installation is still running.
+
+A separate shutdown delay was reproduced after browsing the catalogue with a notebook open. A thread trace showed Python waiting for an idle AnyIO worker after Jupyter stopped its extensions and kernel; it was no longer building packages. The component that created that worker is not yet established. Plain JupyterLab shut down normally in a separate control, while disabling the MCP server alone in the fuller setup did not solve the wait. A direct Ctrl-C probe without an open notebook exited normally.
+
+JupyterLab's [read-only extension manager](https://jupyterlab.readthedocs.io/en/stable/user/extensions.html#extension-manager-implementations) removes catalogue discovery while keeping installed extensions available. It is **not a confirmed shutdown fix**: a matched longer notebook/browser test reproduced the same AnyIO wait in read-only mode. The 0.1.12 package update removes the Rust build requirement; it does not claim to fix that separate shutdown problem. The user's existing server and environment were left unchanged.
 
 ### Why could updating to 0.1.11 show a moving blue bar for a long time?
 
