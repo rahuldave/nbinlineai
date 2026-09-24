@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.11**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.12**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -239,9 +239,15 @@ No. Closing a notebook stops the extension's ongoing request, but it does not un
 
 ## Saving, installation, and limits
 
-### Why can updating to 0.1.11 show a moving blue bar for a long time?
+### What changed for Python 3.14 upgrades in 0.1.12?
 
-The new project search and document navigation tools add two native dependencies:
+Version 0.1.12 replaces the mandatory `rgapi` and `exhash` search/document dependencies with pure Python tools backed by `pathspec` and `markdown-it-py`. It also removes the mandatory `remold` dependency and defers four syntax tools: `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. This removes those native source builds from nbinlineai's direct requirements. Other packages in a Jupyter environment may still have native dependencies. Restart the whole JupyterLab server after updating, refresh the browser, and restart existing kernels before importing the new tools.
+
+The earlier investigation reproduced long native builds in 0.1.11. It did not establish the cause of the reported Ctrl-C stall.
+
+### Why could updating to 0.1.11 show a moving blue bar for a long time?
+
+Version 0.1.11 added two native dependencies for project search and document navigation:
 `rgapi` and `exhash`. Their released versions (0.1.30 and 0.4.16) did not provide
 prebuilt packages for **Python 3.14 on Apple Silicon** when 0.1.11 was released.
 Pip builds them from Rust source instead. That requires a Rust compiler and took
@@ -253,7 +259,7 @@ that launches JupyterLab. After stopping the server normally, run this in that
 activated environment:
 
 ```bash
-python -m pip install --verbose --upgrade nbinlineai==0.1.11
+python -m pip install --verbose --upgrade nbinlineai==0.1.12
 ```
 
 For a uv project whose server environment is `.venv`, use
@@ -346,7 +352,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.11 has 55 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. Version 0.1.12 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -354,7 +360,7 @@ Run `tool_catalog()` to list group names without any `&` declarations. `tools_ma
 
 ### Can a tool search my source project or run a command?
 
-Yes, if you import and declare it. `search_files` and `ast_search` search saved files starting from a path on the **selected kernel machine**. Relative paths start at the kernel's current working directory, not necessarily the notebook folder; a directory is a search location, not a sandbox. `run_python` runs a fresh interpreter process without access to live notebook variables, and `run_shell` runs a shell subprocess. Both use the kernel user's real permissions, are not sandboxed, and have a 1–20 second timeout. `trace_function` instead calls a live function and can repeat its effects.
+Yes, if you import and declare it. `search_files` and `search_notebooks` search saved files starting from a path on the **selected kernel machine**. Relative paths start at the kernel's current working directory, not necessarily the notebook folder; a directory is a search location, not a sandbox. `run_python` runs a fresh interpreter process without access to live notebook variables, and `run_shell` runs a shell subprocess. Both use the kernel user's real permissions, are not sandboxed, and have a 1–20 second timeout. `trace_function` instead calls a live function and can repeat its effects.
 
 ### Can the AI read cells below my question now?
 
@@ -412,7 +418,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.11**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+In version **0.1.12**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -434,7 +440,7 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.11 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Yes. Version 0.1.12 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

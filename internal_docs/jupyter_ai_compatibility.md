@@ -322,3 +322,10 @@ native-build deadlock. Real pip/cargo child processes in the terminal's foregrou
 process group can themselves receive Ctrl-C. That distinction, network waits and
 an already engaged ACP agent remain outside this probe; the exact reported
 Ctrl-C failure is still unconfirmed.
+
+
+## 0.1.12 Python replacements and clean co-install
+
+The 0.1.12 release removes mandatory rgapi, exhash, and remold requirements, defers four syntax tools, and retains Python implementations of saved-file/notebook search plus Markdown/Python document sections. Clean Python 3.12.10 and 3.14.0 environments installed the complete dependency graph with wheels only. The 3.14 environment included JupyterLab 4.6.4 and Jupyter AI 3.2.0; rgapi, exhash, remold, ast-grep-py, and LibCST were absent. The final local wheel's tools, packaged docs/examples, and both extension discovery paths passed.
+
+A separate real JupyterLab/kernel on 8897 passed deterministic native Run All ordering, Keep, Jupyter AI single-code execution/tagged-Markdown no-op, and metadata preservation. The first browser attempt ran before the new kernel connected; explicitly waiting for an idle connected kernel resolved that harness race. No paid provider request or authenticated ACP call was used. The user's course environment and server on 8888 were untouched. This removes the reproduced native build requirement; the original report of Ctrl-C failing remains unconfirmed. See the [release record](releasing.md#version-0112-verification) for publication and upgrade evidence.

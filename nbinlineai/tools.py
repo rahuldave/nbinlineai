@@ -399,8 +399,7 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
         "file_replace_checked", "search_files", "document_outline", "read_document_section",
     ),
     "code": (
-        "search_files", "search_notebooks", "ast_search", "ast_rewrite", "file_ast_replace",
-        "python_symbols", "source_doc", "source_files", "view_file", "view_file_hashes",
+        "search_files", "search_notebooks", "source_doc", "source_files", "view_file", "view_file_hashes",
         "file_replace_checked", "inspect_python", "show_doc",
     ),
     "inspect": (

@@ -32,6 +32,7 @@ SOURCE_REQUIRED = {
     "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
     "nbinlineai/kernel_insert_tools.py",
+    "nbinlineai/_search.py", "nbinlineai/_search_worker.py", "nbinlineai/_documents.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
 } | EXAMPLE_REQUIRED
 WHEEL_REQUIRED_SUFFIXES = {
@@ -41,6 +42,7 @@ WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
     "nbinlineai/kernel_insert_tools.py",
+    "nbinlineai/_search.py", "nbinlineai/_search_worker.py", "nbinlineai/_documents.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
     "etc/jupyter/jupyter_server_config.d/nbinlineai.json",
     "share/doc/nbinlineai/docs/user-guide.md",

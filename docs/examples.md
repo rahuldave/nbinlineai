@@ -4,7 +4,7 @@ title: Examples guide
 
 # Examples guide
 
-These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.11** adds project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
+These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.12** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
 
 ## Import and share tools
 
@@ -73,7 +73,7 @@ This image uses a simulated provider and sample page content; insertion uses the
 
 ## Explore a disposable project
 
-The [Fastcore tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) creates a temporary project and demonstrates saved-file search, Python syntax patterns, static source documentation, document sections, and digest-checked edits. Its setup code works without a provider or network request.
+The [Fastcore tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) creates a temporary project and demonstrates saved-file search, static Python source documentation, Markdown/Python document sections, and digest-checked edits. Its setup code works without a provider or network request.
 
 Use `tool_catalog()` to inspect group names without declaring anything. `tools_markdown(group="code")` prints removable declarations for a task-focused group; the default `starter` group has 19 tools. Select at most 20 tool and variable names combined in one AI question. `source_doc(path)` parses source without importing it; `show_doc(name, module="...")` imports a named module explicitly and can run its initialization. Search paths are relative to the selected kernel's current working directory, not necessarily the notebook folder. See the [tools reference](tools.md) for exact signatures and limits.
 

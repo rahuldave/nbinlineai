@@ -1,29 +1,29 @@
 # Fastcore and dialoghelper tool candidates
 
-Research reviewed **2026-09-23**. The pinned upstream analysis below predates the 0.1.11 implementation and is retained as decision history. The current source has a **55-tool** registry; publication status and hashes belong in [release records](releasing.md). This extends the [original dialoghelper catalog](dialoghelper_tool_catalog.md), which is also historical.
+Research reviewed **2026-09-23**. The pinned upstream analysis below predates the 0.1.11 implementation and is retained as decision history. The 0.1.12 source has a **51-tool** registry; publication status and hashes belong in [release records](releasing.md). This extends the [original dialoghelper catalog](dialoghelper_tool_catalog.md), which is also historical.
 
-## 0.1.11 implementation matrix
+## 0.1.12 implementation matrix
 
 | Capability from the survey | Current nbinlineai tools or status |
 | --- | --- |
 | Fastcore documentation and bounded file edits | `show_doc`, `path_info`, `list_files`, `view_file`, `create_file`, `file_str_replace`, `file_insert_line`, `file_replace_lines` |
-| rgapi project and saved-notebook search | `search_files`, `search_notebooks` |
-| remold syntax search, preview, rewrite and names | `ast_search`, `ast_rewrite`, `file_ast_replace`, `python_symbols` |
-| Static source docs and saved outlines | `source_doc`, `notebook_outline`, `document_outline`, `read_document_section` |
+| Bounded Python project and saved-notebook search | `search_files`, `search_notebooks`; nested `.gitignore`, `.ignore`, `.rgignore` through `pathspec`, source-only results, hard regex timeout |
+| Syntax search, preview, rewrite and names | The 0.1.11 tools `ast_search`, `ast_rewrite`, `file_ast_replace`, `python_symbols` are deferred in 0.1.12. |
+| Static source docs and saved outlines | `source_doc`, `notebook_outline`, `document_outline`, `read_document_section`; Markdown and Python only, with SHA-256-bound copied addresses |
 | Batch and checked text replacement | `file_strs_replace`, `view_file_hashes`, `file_replace_checked`; whole-file SHA-256 rather than an arbitrary exhash command language |
 | Live API/value/source and skill inspection | `api_names`, `search_docs`, `inspect_value`, `search_value`, `source_files`, `list_skills`, `read_skill` |
 | Function trace | `trace_function` invokes a live function with bounded JSON arguments/events; execution effects are real |
 | Local subprocess and terminal reading | `run_shell`, `run_python`, `tmux_sessions`, `tmux_read`; 1–20 second process timeout; no sandbox or tmux session creation |
 | Targeted web extraction | `read_url_section` with a CSS selector within the public-page fetch bounds |
 | Live ordinary-cell search and edits | `find_cells`, `replace_cell`, `cell_str_replace`, `cell_insert_line`, `cell_replace_lines`, `delete_cell`, `move_cell`, `copy_cell`, `split_cell`, `merge_cells`; stable IDs and source/match guards where applicable |
-| Deferred | Images/screenshots, new agent lifecycle, enforced interactive pause/resume, service-kernel cell execution control, arbitrary Solveit DOM/events, bulk context collectors, and cross-notebook live editing. These need additional transports or orchestration and are not promised for 0.1.11. |
+| Deferred | JavaScript, TypeScript/TSX, Rust, Zig, and Swift outlines; images/screenshots, new agent lifecycle, enforced interactive pause/resume, service-kernel cell execution control, arbitrary Solveit DOM/events, bulk context collectors, and cross-notebook live editing. These are not promised for 0.1.12. |
 
 The rest of this document records the **earlier buildability assessment**, including references to missing tools at that point in time. Use the matrix and [current tools reference](../docs/tools.md) for implemented behavior.
 
-## Non-Rust replacement assessment after the 0.1.11 install report
+## Historical replacement assessment after the 0.1.11 install report
 
-Reviewed **2026-09-23**. This is an assessment, **not an implemented dependency
-change**. The published package still requires rgapi and exhash. Their missing
+Reviewed **2026-09-23**. This section records the assessment before the 0.1.12
+source change. The published 0.1.11 package requires rgapi and exhash. Their missing
 macOS ARM Python 3.14 wheels caused the source-build delay reproduced in the
 [compatibility investigation](jupyter_ai_compatibility.md#matched-python-314-follow-up).
 
@@ -71,14 +71,14 @@ pathspec **1.1.1**, markdown-it-py **4.2.0**, and its only base dependency mdurl
 **0.1.2**. Use the base packages: pathspec's optional re2/hyperscan accelerators
 and markdown-it-py's optional comparison extras are unnecessary. These candidate
 packages were not installed in the user's course environment or added to the
-project lockfile.
+0.1.11 project lockfile. The 0.1.12 source adopts these base dependencies.
 
-Recommendation: implement Python-backed search and Markdown/Python navigation as
-the default, retaining native acceleration or additional-language parsing only
-as explicit optional features if needed. Keep the public tool names and stale
-content checks. This addresses the two source builds without pretending that
-the whole dependency graph becomes Rust-free: direct `remold` still pulls in
-`ast-grep-py` (and LibCST), which need a separate packaging/optional-feature decision.
+The 0.1.12 implementation follows this recommendation for Python-backed search
+and Markdown/Python navigation, retains the public search/outline names and stale
+content checks, and removes direct `remold` with its four syntax tools. This
+removes those mandatory native builds, but does not establish that the entire
+Jupyter environment is free of native dependencies or that every Extension
+Manager shutdown report is resolved.
 
 ## Upstream sources inspected
 
@@ -124,7 +124,7 @@ This is a capability-family inventory. Exported classes, low-level helpers and a
 
 The 0.1.11 repository environment has fastcore 2.2.30, rgapi 0.1.30, remold 0.1.1, exhash 0.4.16, and pyskills 0.0.33 as direct dependencies. Dialoghelper, toolslm, tracefunc, ipykernel-helper, safecmd, and safepyrun are not required. This says nothing about a separately selected notebook kernel. Current upstream source can also expose APIs absent from the installed dependency version.
 
-The 55 bundled tools are a convenience registry, not a restriction to those callables. A compatible synchronous function imported into the bound kernel can already be offered by `&`. A missing dependency needs installation in that kernel; incompatible signatures/results need wrappers; Solveit service calls need a Jupyter implementation. These are three different gaps.
+The current 51 bundled tools are a convenience registry, not a restriction to those callables. A compatible synchronous function imported into the bound kernel can already be offered by `&`. A missing dependency needs installation in that kernel; incompatible signatures/results need wrappers; Solveit service calls need a Jupyter implementation. These are three different gaps.
 
 ## Selected first implementation (historical eight-tool phase)
 
@@ -155,7 +155,7 @@ Explicit imports execute module initialization. The tool does not install packag
 
 ## Other candidates, assessed against our architecture
 
-The following were **proposed at the eight-tool phase**. Most are implemented in 0.1.11 as mapped above. “Kernel wrapper” means the existing synchronous callable route is sufficient; it does not mean an upstream function can be exposed unchanged.
+The following were **proposed at the eight-tool phase**. Many shipped in 0.1.11; the current 0.1.12 matrix above records the syntax-tool deferral and replacement search/document implementations. “Kernel wrapper” means the existing synchronous callable route is sufficient; it does not mean an upstream function can be exposed unchanged.
 
 | Candidate and upstream basis | Buildability now | Concrete adaptation |
 | --- | --- | --- |
@@ -176,7 +176,7 @@ The following were **proposed at the eight-tool phase**. Most are implemented in
 | **Model-driven cell execution**: dialoghelper `run_msg`, `run_and_prompt` | **Additional execution orchestration required.** | Respect our notebook queue, Keep, cancellation, error stops and outputs. A synchronous tool cannot enqueue work on its own busy kernel and block waiting for it. Use server/browser orchestration with an explicit lifecycle. |
 | **Images/screenshots, interactive pause/resume, subagents** | **New result/lifecycle work.** | Current tool results are bounded text and the browser protocol is named document operations. These need image transport, enforced pause/resume, or agent lifecycle/context management respectively. |
 
-The project search, AST/source outlines, AST file rewrite, live-cell editing, and bounded tracing work described above are implemented in the 0.1.11 source. Remaining candidates are explicitly marked deferred in the current matrix.
+The 0.1.11 source implemented project search, broader code outlines, AST file rewrite, live-cell editing, and bounded tracing. Version 0.1.12 retains search, Markdown/Python outlines, live-cell editing and tracing while deferring the syntax tools and additional-language outlines. The current matrix above is authoritative.
 
 ## Useful fastcore building blocks that need not be model tools
 

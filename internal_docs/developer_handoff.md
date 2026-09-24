@@ -1,6 +1,8 @@
 # Developer handoff
 
-Reviewed **2026-09-23**. Latest published package: **0.1.11**, source commit `f52aaed193d4c35587be30b23320334dda7b1f1d`, tag `v0.1.11`; source and tag are pushed. The release adds 55 opt-in tools in eight groups, ordinary live-cell edits, project/source search and checked file edits, documentation/inspection tools, bounded subprocess execution, and separate Tools reference / Examples pages. Minimum Python is corrected to **3.12** after a clean 3.11 install exposed incompatible upstream aidialog syntax. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for exact tests, hashes and deployment evidence, and [the tool inventory](fastcore_tool_candidates.md).
+Reviewed **2026-09-23**. Release **0.1.12** is being prepared; latest published package remains **0.1.11** until the publication record below is completed. The current source retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. See [releasing](releasing.md) and [the tool inventory](fastcore_tool_candidates.md).
+
+The user's course environment and JupyterLab on 8888 must remain untouched. The 0.1.11 investigation reproduced Python 3.14 native builds for rgapi/exhash, but did not establish the cause of the reported Ctrl-C stall. The new dependency graph avoids those builds; do not claim a diagnosed JupyterLab deadlock was fixed. Weekly wheel monitoring is already active as the thread heartbeat `check-python-3-14-native-wheels` (Mondays 09:00 America/New_York); do not duplicate it.
 
 ## Product and environment
 
@@ -40,7 +42,7 @@ The shared budget is 64,000 serialized Unicode characters, including tool schema
 | Flat FastLLM schema translation, API request | `nbinlineai/tool_schema.py`, `nbinlineai/providers.py` |
 | Tool registry/formatting, bounded web reads | `nbinlineai/tools.py`, `nbinlineai/web_tools.py` |
 | Fastcore documentation/filesystem tools; shared bounds/name lookup | `nbinlineai/fastcore_tools.py`, `nbinlineai/_tool_helpers.py` |
-| Project/source search, AST changes and verified file edits | `nbinlineai/source_tools.py` |
+| Project search, static sections and verified file edits | `nbinlineai/source_tools.py`, `nbinlineai/_search.py`, `nbinlineai/_search_worker.py`, `nbinlineai/_documents.py` |
 | API/value inspection, skill discovery and execution tracing | `nbinlineai/inspection_tools.py` |
 | Live notebook edit signatures and shared-model operations | `nbinlineai/notebook_tools.py`, `src/frontendCellEdits.ts` |
 | Separate subprocess execution and local tmux reads | `nbinlineai/execution_tools.py` |

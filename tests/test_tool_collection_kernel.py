@@ -1,6 +1,8 @@
 """Registry, schemas, and representative effects in one isolated real kernel."""
 
+import ast
 import asyncio
+import json
 from pathlib import Path
 
 from jupyter_client import AsyncKernelManager
@@ -49,7 +51,7 @@ async def _setup(kernel: AsyncKernelManager, source: str) -> None:
 def test_every_advertised_tool_inspects_and_representative_calls_work(tmp_path: Path) -> None:
     """One kernel sees the whole registry and applies bounded saved-file effects."""
     names = list(TOOL_FUNCTIONS)
-    assert len(names) == 55
+    assert len(names) == 51
     assert len(SPECIAL_TOOL_FUNCTIONS) == 15
     assert set(SPECIAL_TOOL_FUNCTIONS) <= set(names)
 
@@ -100,8 +102,18 @@ def test_every_advertised_tool_inspects_and_representative_calls_work(tmp_path: 
             assert "revised score" in (tmp_path / path).read_text()
             assert "value + 2" in (tmp_path / path).read_text()
             assert "score" in await call("source_doc", path=path)
-            assert "score" in await call("python_symbols", path=path)
+            assert "score" in await call("document_outline", path=path)
             assert "value + 2" in await call("search_files", query="value + 2", path=path)
+
+            outline = ast.literal_eval(await call("document_outline", path=path))
+            token = next(line.split()[0] for line in outline.splitlines() if "score" in line)
+            assert "value + 2" in await call("read_document_section", path=path, section=token)
+            (tmp_path / "saved.ipynb").write_text(json.dumps({"cells": [{
+                "id": "saved-source-id", "cell_type": "code", "source": "SOURCE_NEEDLE",
+                "outputs": [{"text": "OUTPUT_ONLY"}], "metadata": {},
+            }]}))
+            assert "saved-source-id" in await call("search_notebooks", query="SOURCE_NEEDLE")
+            assert "saved-source-id" not in await call("search_notebooks", query="OUTPUT_ONLY")
 
             process = await call("run_python", code=(
                 'from pathlib import Path\n'

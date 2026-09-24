@@ -1,8 +1,8 @@
 # Bundled tools and frontend interface
 
-Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7**, context/tool selection in **0.1.8**, unexecuted code insertion in **0.1.10**, and the expanded 55-tool catalog and live edits in **0.1.11**. Public instructions are in the [Tools reference](../docs/tools.md) and [Examples guide](../docs/examples.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
+Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7**, context/tool selection in **0.1.8**, unexecuted code insertion in **0.1.10**, the expanded catalog and live edits in **0.1.11**, and the pure Python search/document replacements in **0.1.12**. Public instructions are in the [Tools reference](../docs/tools.md) and [Examples guide](../docs/examples.md). The [dialoghelper catalog](dialoghelper_tool_catalog.md) and [ipylab assessment](ipylab_frontend_bridge_assessment.md) record the research and deferred capabilities.
 
-**0.1.11 source contract (2026-09-23):** `nbinlineai.tools.TOOL_FUNCTIONS` now has 55 curated callables. The original eleven and eight fastcore documentation/file tools remain; `source_tools`, `inspection_tools`, `execution_tools`, `notebook_tools`, and `read_url_section` add project search, static source/document parsing, checked edits, live inspection and tracing, subprocess/tmux reading, web sections, and live ordinary-cell edits. `TOOL_GROUPS` names eight setup groups. `tool_catalog()` lists names without declarations; `tools_markdown()` and `insert_tools()` default to the 19-tool starter group. The same 20 combined tool/variable name limit applies. The two authenticated browser transports remain; the model action allowlist now includes ordinary-cell edits. See the [current public contracts](../docs/tools.md) and [implementation matrix](fastcore_tool_candidates.md).
+**0.1.12 source contract (2026-09-23):** `nbinlineai.tools.TOOL_FUNCTIONS` has 51 curated callables. The four 0.1.11 syntax tools (`ast_search`, `ast_rewrite`, `file_ast_replace`, `python_symbols`) are deferred. `search_files` and `search_notebooks` use bounded Python matching and `pathspec` ignore rules; pathological regexes have a hard timeout. `document_outline` and `read_document_section` use `markdown-it-py` for Markdown and standard-library AST for Python, with SHA-256-bound opaque addresses that become stale after any file change. Other language outlines are deferred. The original eleven and eight fastcore documentation/file tools remain. `TOOL_GROUPS` still names eight setup groups (code: nine tools); `tool_catalog()` lists names without declarations; `tools_markdown()` and `insert_tools()` default to the 19-tool starter group. The same 20 combined tool/variable name limit and two authenticated browser transports apply. See the [current public contracts](../docs/tools.md) and [implementation matrix](fastcore_tool_candidates.md).
 
 ## Who owns what?
 
@@ -20,11 +20,11 @@ Default context is a bounded source snapshot above the prompt plus completed ear
 
 ## Tool surface and registration
 
-The original 0.1.10 registry contained eleven tools; this historical baseline is retained below. Version 0.1.11 has 55:
+The original 0.1.10 registry contained eleven tools; this historical baseline is retained below. Version 0.1.12 has 51:
 
 - Kernel dispatch: `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`, `inspect_python`, `read_url`.
 - Special frontend dispatch: `list_cells`, `read_cell`, `insert_markdown`, `insert_code`, `url_to_note`.
-- Setup helpers in 0.1.11: `tool_catalog(group="")` lists names without declarations; `tools_markdown(names=None, custom=None, group="starter")` returns removable Markdown references; `insert_tools(names=None, custom=None, group="starter")` requests a Markdown declaration below the calling code cell through an execution-bound Jupyter comm. None is a model tool. The latter requires no provider key.
+- Setup helpers: `tool_catalog(group="")` lists names without declarations; `tools_markdown(names=None, custom=None, group="starter")` returns removable Markdown references; `insert_tools(names=None, custom=None, group="starter")` requests a Markdown declaration below the calling code cell through an execution-bound Jupyter comm. None is a model tool. The latter requires no provider key.
 
 Formatting is not registration. Users import functions, print references, and paste desired lines into ordinary Markdown notes or AI questions. In 0.1.7, the server scans all ordinary Markdown and AI question cells above plus the current question for `&` declarations before context trimming. It unions/deduplicates names and inspects the current kernel on each run. AI answers, code/raw cells, and printed output do not declare tools. `$` references still resolve only in the current question. The existing regex scans quotations and fences too. Several declarations can accumulate through a notebook; an omitted declaration's schema remains available. No metadata flag or execution of the declaration cell is required. See [context selection](cell_kernel_model_and_context_selection.md) for the shared budget and discovery boundary.
 
@@ -121,7 +121,7 @@ Reviewed [dialoghelper at 118fff2](https://github.com/AnswerDotAI/dialoghelper/t
 
 Namespace/file tools correspond to `names_containing`, `list_dialogs`, `find_msgs`, and `read_msgid`/`view_msg`; the formatter corresponds to `mk_toollist`. The frontend supplies the missing model reads and limited insertion for `url2note`-style behavior. No ipylab dependency is needed: our extension already owns the panel/model, and acknowledged stable-ID actions fit better than current-widget command dispatch.
 
-Still deferred: editing/deleting existing cells, AI-triggered code execution, images/screenshots, shell tools, AST rewriting, tracing, other-notebook live operations, and model-aware token budgeting. See [cell/kernel model](cell_kernel_model_and_context_selection.md) before expanding those contracts.
+This paragraph describes the earlier 0.1.6 design baseline. Current source has ordinary live-cell edits, bounded shell subprocesses, and tracing. Still deferred: AI-triggered live-cell execution, images/screenshots, syntax search/rewrite tools, other-notebook live operations, and model-aware token budgeting. See [cell/kernel model](cell_kernel_model_and_context_selection.md) before expanding those contracts.
 
 ## Verification
 

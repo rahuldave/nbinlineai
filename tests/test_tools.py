@@ -20,7 +20,7 @@ def _notebook(
 
 def test_registry_and_markdown_are_explicit() -> None:  # No accidental model tools.
     """Expose the curated registry while keeping default declarations within budget."""
-    assert len(tools.TOOL_FUNCTIONS) == 55
+    assert len(tools.TOOL_FUNCTIONS) == 51
     assert list(tools.TOOL_GROUPS["starter"]) == [
         "search_kernel_names", "list_notebooks", "find_notebook_cells", "read_notebook_cell",
         "inspect_python", "read_url", "path_info", "list_files", "view_file", "create_file",
@@ -50,7 +50,9 @@ def test_registry_and_markdown_are_explicit() -> None:  # No accidental model to
         assert set(names) <= tools.TOOL_FUNCTIONS.keys()
         assert tools.tools_markdown(group=group).count("&`") == len(names)
     assert "&`" not in tools.tool_catalog()
-    assert "ast_search" in tools.tool_catalog("code")
+    assert "source_doc" in tools.tool_catalog("code")
+    assert {"ast_search", "ast_rewrite", "file_ast_replace", "python_symbols"}.isdisjoint(tools.TOOL_FUNCTIONS)
+    assert len(tools.TOOL_GROUPS["code"]) == 9
     with pytest.raises(ValueError, match="Unknown tool group"):
         tools.tools_markdown(group="missing")
 

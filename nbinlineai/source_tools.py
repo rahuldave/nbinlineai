@@ -4,18 +4,13 @@ import ast
 import hashlib
 import io
 import json
-import os
 import re
-import time
 import tokenize
-from itertools import islice
-from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
 from ._tool_helpers import _bounded, _text
 from .fastcore_tools import (
-    MAX_FILE_BYTES,
     _editable_path,
     _new_content,
     _path,
@@ -23,10 +18,7 @@ from .fastcore_tools import (
     _write_changed,
 )
 
-MAX_VISITED = 2_000
-MAX_DEPTH = 6
 MAX_SEARCH_RESULTS = 50
-MAX_AST_BYTES = 128_000
 
 
 def _positive(value: int, name: str, maximum: int) -> int:
@@ -41,53 +33,6 @@ def _nonnegative(value: int, name: str, maximum: int) -> int:
     return value
 
 
-def _files(root: Path, suffix: str = "", status: dict[str, bool] | None = None):
-    """Yield at most 2,000 visible regular files, without following links."""
-    if root.is_file():
-        if not suffix or root.suffix.lower() == suffix:
-            yield root
-        return
-    if not root.is_dir():
-        raise ValueError(f"Path is not a file or directory: {root}")
-    seen = 0
-    stack = [(root, 0)]
-    while stack and seen < MAX_VISITED:
-        directory, depth = stack.pop()
-        remaining = MAX_VISITED - seen
-        with os.scandir(directory) as scan:
-            entries = sorted(islice(scan, remaining + 1), key=lambda item: item.name)
-        if len(entries) > remaining:
-            entries.pop()
-            if status is not None:
-                status['partial'] = True
-        for entry in entries:
-            seen += 1
-            if seen > MAX_VISITED:
-                return
-            if entry.name.startswith('.') or entry.name in {'node_modules', '__pycache__', 'venv', 'env'} or entry.is_symlink():
-                continue
-            if entry.is_file(follow_symlinks=False):
-                p = Path(entry.path)
-                if not suffix or p.suffix.lower() == suffix:
-                    yield p
-            elif entry.is_dir(follow_symlinks=False):
-                if depth < MAX_DEPTH:
-                    stack.append((Path(entry.path), depth + 1))
-                elif status is not None:
-                    status['partial'] = True
-    if stack and status is not None:
-        status['partial'] = True
-
-
-def _search_notice(result: Any, limit: int) -> str:
-    reason = getattr(result, 'stop_reason', None)
-    if len(result) > limit:
-        return '\n[more matches; narrow the search]'
-    if reason or not getattr(result, 'complete', True):
-        return f'\n[partial results: {reason or "search stopped"}; narrow the search]'
-    return ''
-
-
 def search_files(
     query: str,  # Text or regular expression to find.
     path: str = ".",  # Saved file or directory on the kernel machine.
@@ -95,8 +40,8 @@ def search_files(
     regex: bool = False,  # Interpret query as a regular expression.
     limit: int = 20,  # Maximum matches.
 ) -> str:
-    """Search saved project text with bounded ripgrep results and file filters."""
-    import rgapi
+    """Search saved project text with bounded results and file filters."""
+    from ._search import search
 
     query = _text(query, 'query', 500)
     pattern = _text(pattern, 'pattern', 200)
@@ -106,15 +51,7 @@ def search_files(
     root = _path(path)
     if not root.exists():
         raise ValueError(f'Path does not exist: {root}')
-    expression = query if regex else re.escape(query)
-    try:
-        result = rgapi.rg(expression, root, glob=pattern, max_results=limit + 1,
-                          timeout_ms=1_500, max_filesize=MAX_FILE_BYTES,
-                          max_depth=MAX_DEPTH, maxlen=180)
-    except Exception as exc:
-        raise ValueError(f'Search failed: {exc}') from exc
-    rows = [str(item) for item in result[:limit]]
-    tail = _search_notice(result, limit)
+    rows, tail = search(root, query, pattern, regex, limit, notebooks=False)
     return _bounded(f'Saved-file matches under {root}:\n' + ('\n'.join(rows) or '[none]') + tail)
 
 
@@ -124,138 +61,15 @@ def search_notebooks(
     limit: int = 20,  # Maximum matching cells.
 ) -> str:
     """Search saved notebook cell source; include stable saved cell IDs."""
-    import rgapi
+    from ._search import search
 
     query = _text(query, 'query', 500)
     limit = _positive(limit, 'limit', MAX_SEARCH_RESULTS)
     root = _path(path)
     if not root.exists():
         raise ValueError(f'Path does not exist: {root}')
-    try:
-        result = rgapi.nbrg(re.escape(query), root, max_results=limit + 1,
-                            timeout_ms=1_500, max_filesize=MAX_FILE_BYTES,
-                            max_depth=MAX_DEPTH, maxlen=140)
-    except Exception as exc:
-        raise ValueError(f'Notebook search failed: {exc}') from exc
-    rows = [str(cell) for cell in result[:limit]]
-    tail = _search_notice(result, limit)
+    rows, tail = search(root, query, "*.ipynb", False, limit, notebooks=True)
     return _bounded(f'Saved notebook matches under {root}:\n' + ('\n'.join(rows) or '[none]') + tail)
-
-
-def ast_search(
-    pattern: str,  # ast-grep Python syntax pattern.
-    path: str = ".",  # Saved Python file or directory.
-    limit: int = 20,  # Maximum matches.
-) -> str:
-    """Find Python syntax patterns in bounded saved files."""
-    import remold
-
-    pattern = _text(pattern, 'pattern', 500)
-    limit = _positive(limit, 'limit', MAX_SEARCH_RESULTS)
-    root = _path(path)
-    rows: list[str] = []
-    visited = 0
-    status = {'partial': False}
-    deadline = time.monotonic() + 1.5
-    for file in _files(root, '.py', status):
-        if time.monotonic() >= deadline:
-            status['partial'] = True
-            break
-        visited += 1
-        try:
-            if file.stat().st_size > MAX_AST_BYTES:
-                status['partial'] = True
-                continue
-            source, _ = _read_file(file)
-        except (OSError, ValueError):
-            status['partial'] = True
-            continue
-        try:
-            matches = remold.astfind(source, pattern)
-        except Exception as exc:
-            raise ValueError(f'Invalid AST pattern: {exc}') from exc
-        cursor = 0
-        for match in matches:
-            match_text = str(match)
-            position = source.find(match_text, cursor)
-            if position < 0:
-                position = source.find(match_text)
-            line = source.count('\n', 0, max(position, 0)) + 1
-            cursor = max(position, 0) + len(match_text)
-            rows.append(f'{file}:{line}: {match_text[:180]}')
-            if len(rows) >= limit:
-                return _bounded('\n'.join(rows) + '\n[match limit reached]')
-    body = '\n'.join(rows) or f'[no AST matches in {visited} Python files]'
-    if status['partial']:
-        body += '\n[partial results: time, depth, or traversal limit reached]'
-    return _bounded(body)
-
-
-def _ast_changed(source: str, pattern: str, replacement: str) -> tuple[str, int]:
-    import remold
-
-    if not isinstance(source, str) or len(source.encode('utf-8')) > MAX_AST_BYTES:
-        raise ValueError('source must be UTF-8 text of at most 128 KB for syntax rewriting')
-    pattern = _text(pattern, 'pattern', 500)
-    replacement = _new_content(replacement, 'replacement')
-    try:
-        matches = remold.astfind(source, pattern)
-        changed = remold.astmap((pattern, replacement))(source)
-    except Exception as exc:
-        raise ValueError(f'AST rewrite failed: {exc}') from exc
-    if len(changed) > MAX_FILE_BYTES:
-        raise ValueError('Rewritten source exceeds the 1 MB limit')
-    return changed, len(matches)
-
-
-def ast_rewrite(
-    source: str,  # Python source text to preview.
-    pattern: str,  # ast-grep syntax pattern.
-    replacement: str,  # Declarative replacement pattern.
-) -> str:
-    """Preview a declarative Python syntax rewrite without writing a file."""
-    from fastcore.xtras import str_diff
-
-    source = _new_content(source, 'source')
-    changed, count = _ast_changed(source, pattern, replacement)
-    return _bounded(f'{count} syntax matches\n' + (str_diff(source, changed, n=2) if changed != source else '[no change]'))
-
-
-def file_ast_replace(
-    path: str,  # Saved Python source file.
-    pattern: str,  # ast-grep syntax pattern.
-    replacement: str,  # Declarative replacement pattern.
-    expected_matches: int = 1,  # Required match count before writing.
-) -> str:
-    """Apply a syntax rewrite only when the match count is expected."""
-    target = _editable_path(path)
-    expected_matches = _positive(expected_matches, 'expected_matches', 100)
-    original, before = _read_file(target)
-    changed, count = _ast_changed(original, pattern, replacement)
-    if count != expected_matches:
-        raise ValueError(f'Expected {expected_matches} AST matches; found {count}. No change made')
-    return _write_changed(target, original, before, changed)
-
-
-def python_symbols(
-    path: str,  # Saved Python source file.
-    kind: str = 'definitions',  # definitions or references.
-) -> str:
-    """List syntactic names bound or referenced in one saved Python file."""
-    import remold
-
-    target = _path(path)
-    if target.suffix.lower() != '.py':
-        raise ValueError('path must be a Python file')
-    source, _ = _read_file(target)
-    if kind not in ('definitions', 'references'):
-        raise ValueError("kind must be 'definitions' or 'references'")
-    try:
-        ast.parse(source)
-    except SyntaxError as exc:
-        raise ValueError(f'Invalid Python syntax at line {exc.lineno}') from exc
-    names = remold.symdefs(source) if kind == 'definitions' else remold.symrefs(source)
-    return _bounded(f'{kind} in {target}: ' + (', '.join(sorted(names)[:200]) or '[none]'))
 
 
 def _declaration_header(source: str, node: ast.AST) -> str:
@@ -362,17 +176,17 @@ def notebook_outline(
 
 
 def _document(path: str):
-    import exhash
+    from ._documents import build_document
 
     target = _path(path)
     if target.suffix.lower() == '.ipynb':
         raise ValueError('Use notebook_outline for saved notebooks')
     source, _ = _read_file(target)
-    return target, exhash.open_doc(source, fname=str(target))
+    return target, build_document(source, target)
 
 
 def document_outline(
-    path: str,  # Saved Markdown or code document.
+    path: str,  # Saved Markdown or Python document.
     start: int = 0,  # First outline row.
     limit: int = 20,  # Maximum rows to list.
 ) -> str:
@@ -380,7 +194,7 @@ def document_outline(
     start = _nonnegative(start, 'start', 100_000)
     limit = _positive(limit, 'limit', 50)
     target, document = _document(path)
-    rows = str(document).splitlines()
+    rows = document.outline_rows
     body = '\n'.join(rows[start:start + limit]) or '[none]'
     tail = '\n[more sections]' if len(rows) > start + limit else ''
     return _bounded(f'Outline: {target}\n{body}{tail}')
@@ -394,12 +208,12 @@ def read_document_section(
     if not isinstance(section, str) or len(section) > 200:
         raise ValueError('section must be a short outline address')
     target, document = _document(path)
-    section = section or str(document).splitlines()[0].split()[0]
+    section = section or document.root_token
     try:
-        selected = document.at(section)
+        selected = document.read(section)
     except (KeyError, ValueError) as exc:
         raise ValueError('Section address is missing or stale; refresh the outline') from exc
-    return _bounded(f'{target} {section}\n{selected.view()}')
+    return _bounded(f'{target} {section}\n{selected}')
 
 
 def file_strs_replace(
@@ -476,14 +290,10 @@ def file_replace_checked(
 
 
 __all__ = (
-    'ast_rewrite',
-    'ast_search',
     'document_outline',
-    'file_ast_replace',
     'file_replace_checked',
     'file_strs_replace',
     'notebook_outline',
-    'python_symbols',
     'read_document_section',
     'search_files',
     'search_notebooks',
