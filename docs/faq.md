@@ -116,7 +116,7 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content and automatic file contents remain excluded.
 
-Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See the [context table and limits](user-guide.md#4-what-context-does-the-ai-receive).
+Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See [choose notebook context](manual/context-selection.md).
 
 ### How does nbinlineai choose context when the notebook is large?
 
@@ -142,7 +142,7 @@ Default's boxes show the cells the backend estimates will fit. All above checks 
 
 In Full notebook, All above, either ten-cell mode or Custom, it means selected as a candidate. **Partial** and **omitted by budget** describe actual first-round inclusion. Default uses checked/mixed boxes for the fitted set itself. Full notebook remains budget limited. Current-question answers are always excluded, even if moved above their question.
 
-The same nearest-first candidate algorithm serves OpenAI API, Claude API, and ChatGPT subscription. API connections use the same character estimate; ChatGPT measures its own runtime request, so provider framing can change how much optional text fits. Tool definitions and later tool results also use space. An unchecked Default box is a computed first-round estimate, not a saved Custom exclusion; budget omission never rewrites your notebook choices. See [why a selected cell may be missing](user-guide.md#why-a-selected-cell-may-be-missing) for a side-by-side example.
+The same nearest-first candidate algorithm serves OpenAI API, Claude API, and ChatGPT subscription. API connections use the same character estimate; ChatGPT measures its own runtime request, so provider framing can change how much optional text fits. Tool definitions and later tool results also use space. An unchecked Default box is a computed first-round estimate, not a saved Custom exclusion; budget omission never rewrites your notebook choices. See [why a selected cell may be missing](manual/context-selection.md#why-a-selected-cell-may-be-missing) for a side-by-side example.
 
 ### Which question do the controls describe?
 
@@ -342,7 +342,7 @@ Their saved prompts and answers remain readable Markdown. AI requests require th
 
 Normally no: environments under the same operating-system account share the saved per-user credential file on the computer running Jupyter Server. A different account, machine, or configuration root can use a different file.
 
-Keys are not stored in the notebook. See [key storage](user-guide.md#7-where-keys-are-stored) for paths, environment overrides, and removal behavior.
+Keys are not stored in the notebook. See [key storage](manual/saving-and-privacy.md#where-keys-are-stored) for paths, environment overrides, and removal behavior.
 
 ### I updated the extension. Is refreshing the page enough?
 
@@ -472,4 +472,4 @@ Your Jupyter server and notebook kernel may use different Python environments. I
 
 ### Does Learning mode guarantee the AI will never reveal a solution?
 
-No. Its instructions ask for Socratic questions and small hints, but this is model guidance, not an enforced assessment restriction. You can edit the style instructions in Configure AI. See [response styles](user-guide.md#response-styles).
+No. Its instructions ask for Socratic questions and small hints, but this is model guidance, not an enforced assessment restriction. You can edit the style instructions in Configure AI. See [response styles](manual/models-and-styles.md#response-styles).

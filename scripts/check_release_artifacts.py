@@ -1,4 +1,4 @@
-"""Check that the public wheel and source archive contain only release material."""
+"""Check public archives, including either the old guide or complete split manual."""
 
 from __future__ import annotations
 
@@ -23,6 +23,12 @@ EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples"
 EXAMPLE_REQUIRED = {
     "examples/README.md", "examples/bundled-tools.ipynb", "examples/data/ecosystem-lesson.ipynb",
 } | {f"examples/{path.relative_to(EXAMPLE_DIR).as_posix()}" for path in EXAMPLE_DIR.rglob("*.ipynb")}
+MANUAL_CHAPTERS = (
+    "setup", "prompts", "models-and-styles", "editing-and-running",
+    "context-selection", "variables-and-tools", "saving-and-privacy", "troubleshooting",
+)
+MANUAL_DOCS = tuple(f"docs/manual/{chapter}.md" for chapter in MANUAL_CHAPTERS)
+IMAGE_DOCS = ("docs/user-guide.md", "docs/tools.md", "docs/examples.md")
 SOURCE_REQUIRED = {
     "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
     "docs/tools.md", "docs/examples.md",
@@ -78,37 +84,47 @@ def _image_targets(markdown: str) -> list[str]:
     return [target.removeprefix("<").removesuffix(">") for target in targets]
 
 
-def _docs_image_path(target: str, *, remote: bool) -> str | None:
+def _docs_image_path(target: str, *, remote: bool, document: str = "docs/user-guide.md") -> str | None:
     url = urlsplit(target)
     if bool(url.scheme) != remote:
         return None
-    path = unquote(url.path).removeprefix("./").removeprefix("/")
+    path = unquote(url.path).removeprefix("./")
     marker = "docs/images/"
     if remote:
+        path = path.removeprefix("/")
         if url.scheme != "https" or marker not in path:
             return None
         path = path[path.index(marker):]
-    elif path.startswith("images/"):
-        path = "docs/" + path
     else:
-        raise SystemExit(f"Documentation image must use an images/ relative path: {target}")
-    if not path.startswith(marker) or any(part in ("", ".", "..") for part in Path(path).parts):
+        if path.startswith("/"):
+            raise SystemExit(f"{document} image must use a relative path: {target}")
+        expected = "../images/" if document.startswith("docs/manual/") else "images/"
+        if not path.startswith(expected):
+            raise SystemExit(f"{document} image must use a {expected} relative path: {target}")
+        path = marker + path[len(expected):]
+    if ("\\" in path or not path.startswith(marker)
+            or any(part in ("", ".", "..") for part in Path(path).parts)):
         raise SystemExit(f"Invalid documentation image path: {target}")
     return path
 
 
 def _check_doc_images(markdown: str, packaged: set[str], origin: str,
-                      prefix: str = "", minimum: int = 0) -> set[str]:
+                      document: str, prefix: str = "") -> set[str]:
     referenced = {
         path for target in _image_targets(markdown)
-        if (path := _docs_image_path(target, remote=False)) is not None
+        if (path := _docs_image_path(target, remote=False, document=document)) is not None
     }
-    if len(referenced) < minimum:
-        raise SystemExit(f"{origin} references fewer than {minimum} screenshots")
     missing = {prefix + path for path in referenced} - packaged
     if missing:
         raise SystemExit(f"{origin} missing documentation images: {', '.join(sorted(missing))}")
     return referenced
+
+
+def _check_manual_screenshots(doc_images: dict[str, set[str]], *, split: bool, origin: str) -> None:
+    pages = ("docs/user-guide.md", *MANUAL_DOCS) if split else ("docs/user-guide.md",)
+    screenshots = set().union(*(doc_images[page] for page in pages))
+    if len(screenshots) < 9:
+        raise SystemExit(f"{origin} manual references fewer than nine screenshots")
 
 
 def _check_readme_images(markdown: str, source_files: set[str]) -> None:
@@ -159,26 +175,30 @@ def check_sdist(path: Path) -> dict[str, set[str]]:
         project = tomllib.loads(pyproject.read().decode("utf-8")).get("project", {})
         _check_subscription_dependency(project.get("dependencies", []), "Source archive")
         doc_images: dict[str, set[str]] = {}
+        guide = archive.extractfile(relative["docs/user-guide.md"]) if "docs/user-guide.md" in relative else None
+        if guide is None:
+            raise SystemExit("Source archive could not read docs/user-guide.md")
+        split_manual = any(filename in relative for filename in MANUAL_DOCS) or b"manual/" in guide.read()
         for suffix in ("package.json", "nbinlineai/labextension/package.json"):
             if suffix in relative:
                 content = archive.extractfile(relative[suffix])
                 if content is None:
                     raise SystemExit(f"Source archive could not read {suffix}")
                 _check_server_discovery(content.read(), f"Source archive {suffix}")
-        for filename in ("docs/user-guide.md", "docs/tools.md", "docs/examples.md", "README.md"):
+        for filename in (*IMAGE_DOCS, *(MANUAL_DOCS if split_manual else ()), "README.md"):
             content = archive.extractfile(relative[filename]) if filename in relative else None
             if content is None:
                 raise SystemExit(f"Source archive could not read {filename}")
             markdown = content.read().decode("utf-8")
             if filename.startswith("docs/"):
                 doc_images[filename] = _check_doc_images(
-                    markdown, set(relative), f"Source archive {filename}",
-                    minimum=9 if filename == "docs/user-guide.md" else 0,
+                    markdown, set(relative), f"Source archive {filename}", filename,
                 )
             else:
                 _check_readme_images(markdown, set(relative))
+        _check_manual_screenshots(doc_images, split=split_manual, origin="Source archive")
     _check_forbidden(names)
-    missing = SOURCE_REQUIRED - relative.keys()
+    missing = (SOURCE_REQUIRED | (set(MANUAL_DOCS) if split_manual else set())) - relative.keys()
     if missing:
         raise SystemExit(f"Source archive missing: {', '.join(sorted(missing))}")
     print(f"Source archive OK: {path.name} ({len(names)} files)")
@@ -186,6 +206,7 @@ def check_sdist(path: Path) -> dict[str, set[str]]:
 
 
 def check_wheel(path: Path, source_doc_images: dict[str, set[str]]) -> None:
+    split_manual = any(filename in source_doc_images for filename in MANUAL_DOCS)
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         metadata = next((name for name in names if name.endswith(".dist-info/METADATA")), None)
@@ -196,18 +217,23 @@ def check_wheel(path: Path, source_doc_images: dict[str, set[str]]) -> None:
         manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
         if manifest is not None:
             _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")
-        for filename in ("docs/user-guide.md", "docs/tools.md", "docs/examples.md"):
+        wheel_doc_images: dict[str, set[str]] = {}
+        for filename in (*IMAGE_DOCS, *(MANUAL_DOCS if split_manual else ())):
             page = next((name for name in names if name.endswith("share/doc/nbinlineai/" + filename)), None)
-            if page is not None:
-                prefix = page.removesuffix(filename)
-                wheel_images = _check_doc_images(
-                    archive.read(page).decode("utf-8"), set(names), f"Wheel {filename}", prefix,
-                    minimum=9 if filename == "docs/user-guide.md" else 0,
-                )
-                if wheel_images != source_doc_images[filename]:
-                    raise SystemExit(f"Wheel and source archive {filename} image references differ")
+            if page is None:
+                raise SystemExit(f"Wheel could not read {filename}")
+            prefix = page.removesuffix(filename)
+            wheel_images = _check_doc_images(
+                archive.read(page).decode("utf-8"), set(names), f"Wheel {filename}", filename, prefix,
+            )
+            if wheel_images != source_doc_images[filename]:
+                raise SystemExit(f"Wheel and source archive {filename} image references differ")
+            wheel_doc_images[filename] = wheel_images
+        _check_manual_screenshots(wheel_doc_images, split=split_manual, origin="Wheel")
     _check_forbidden(names)
-    missing = {suffix for suffix in WHEEL_REQUIRED_SUFFIXES if not any(name.endswith(suffix) for name in names)}
+    required = WHEEL_REQUIRED_SUFFIXES | ({f"share/doc/nbinlineai/{name}" for name in MANUAL_DOCS}
+                                         if split_manual else set())
+    missing = {suffix for suffix in required if not any(name.endswith(suffix) for name in names)}
     if missing:
         raise SystemExit(f"Wheel missing: {', '.join(sorted(missing))}")
     if not any(name.endswith("/licenses/LICENSE") for name in names):

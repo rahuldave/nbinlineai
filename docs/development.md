@@ -72,8 +72,9 @@ Use an output directory containing exactly one version's wheel and source archiv
 The site source is the repository's `docs/` folder. GitHub Pages publishes `main:/docs` using Jekyll and the Minimal theme, with a white documentation layout and small local style overrides. No separate documentation release command is needed: push a documentation change to `main`, then check the **Pages build and deployment** run on GitHub.
 
 - Write pages in Markdown with a title in YAML front matter.
-- Keep links to other pages relative, such as `user-guide.md`; Jekyll's relative-links plugin adapts them for the website.
-- Keep screenshots in `docs/images/` and reference them as `images/filename.png` from documentation pages.
+- Keep links to other pages relative, such as `user-guide.md` from a root page or `../faq.md` from a manual chapter; Jekyll's relative-links plugin adapts them for the website.
+- Keep the short `docs/user-guide.md` index and the eight `docs/manual/` chapters in reading order. Link each chapter from the site homepage, and keep the chapter's Manual, Previous, and Next links current. When moving a section, update cross-links and the legacy fragment redirect map in the index.
+- Keep screenshots in `docs/images/` and reference them as `images/filename.png` from root documentation pages or `../images/filename.png` from nested manual chapters.
 - The README uses absolute GitHub image URLs so its images also render on PyPI. Keep it to at most two screenshots.
 - Use the isolated demonstration setup for screenshots. Do not capture personal notebooks, API keys, or login tokens.
 

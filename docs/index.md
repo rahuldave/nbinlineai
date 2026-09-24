@@ -22,11 +22,24 @@ uv run jupyter lab
 
 ![Notebook defaults, an AI prompt, and its saved answer](images/overview.png)
 
+## User guide chapters
+
+The [user guide index](user-guide.md) shows the reading order. Open the chapter you need:
+
+1. [Install and connect](manual/setup.md) — install, sign in with ChatGPT, or save an API key.
+2. [Write and run AI questions](manual/prompts.md) — prompts, answers, code copying, and insertion.
+3. [Models, styles, and effort](manual/models-and-styles.md) — notebook and cell choices.
+4. [Edit, rerun, and run notebooks](manual/editing-and-running.md) — Keep answer, corrections, and Run All.
+5. [Choose notebook context](manual/context-selection.md) — cell choices, previews, and provider budgets.
+6. [Live values and tools](manual/variables-and-tools.md) — kernel references and declared functions.
+7. [Saved notebooks and privacy](manual/saving-and-privacy.md) — cells, keys, and account state.
+8. [Troubleshooting and limits](manual/troubleshooting.md) — common failures and size limits.
+
 ## Read more
 
 | Guide | What you will find |
 | --- | --- |
-| [User guide](user-guide.md) | Illustrated setup, notebook defaults, styles, thinking effort, editing and rerunning, context, variables, tools, and troubleshooting. |
+| [User guide index](user-guide.md) | The reading order and links to all eight chapters. |
 | [Tools reference](tools.md) | Import and declare tools; check the 51 functions, groups, and limits. |
 | [Examples guide](examples.md) | Try task walkthroughs and downloadable teaching notebooks. |
 | [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |

@@ -4,7 +4,7 @@ Write AI prompts directly in JupyterLab notebooks. Connect a ChatGPT subscriptio
 
 ## User manual
 
-The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) covers setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. It is included in the source archive and installed under `share/doc/nbinlineai/docs/user-guide.md` in the Python environment. The [FAQ](https://rahuldave.github.io/nbinlineai/faq.html) covers Run All, cell toggles, corrections, kernel loss, and other edge cases. The [documentation site](https://rahuldave.github.io/nbinlineai/) also includes architecture and contributor guides. The quick start below is self-contained.
+The [user manual](https://rahuldave.com/nbinlineai/user-guide.html) has eight short chapters covering setup, editing and rerunning cells, context boundaries, live variables and tools, saved notebook data, and troubleshooting. Package releases include an offline copy of the documentation under `share/doc/nbinlineai/docs/` in the Python environment; the website has the latest edition. The [FAQ](https://rahuldave.com/nbinlineai/faq.html) covers Run All, cell toggles, corrections, kernel loss, and other edge cases. The [documentation site](https://rahuldave.com/nbinlineai/) also includes architecture and contributor guides. The quick start below is self-contained.
 
 ## Quick start
 
@@ -40,7 +40,7 @@ Ordinary code cells keep their normal execution behavior. See the runnable examp
 
 **Keep AI answers** is on by default for the notebook. Cells inherit it unless you explicitly change their **Keep answer** checkbox; the cell's reset control restores inheritance. A new prompt can still run once, and failed, cancelled, empty, or deleted answers can be retried. Keep protects completed answers; it does not disable all provider requests.
 
-Editing an earlier answer changes the history available to later prompts, but does not regenerate their existing answers. Rerun affected prompts with Keep answer off. Pin a manually corrected answer to preserve it when running the notebook again. See the [rerun and Run All edge cases](https://rahuldave.github.io/nbinlineai/user-guide.html#3-edit-rerun-and-save), including kernel restarts and tool side effects. Native Run All support starts in 0.1.5; earlier releases rendered AI Markdown without calling the provider.
+Editing an earlier answer changes the history available to later prompts, but does not regenerate their existing answers. Rerun affected prompts with Keep answer off. Pin a manually corrected answer to preserve it when running the notebook again. See [edit, rerun, and run notebooks](https://rahuldave.com/nbinlineai/manual/editing-and-running.html), including kernel restarts and tool side effects. Native Run All support starts in 0.1.5; earlier releases rendered AI Markdown without calling the provider.
 
 ## Choose a response style
 
