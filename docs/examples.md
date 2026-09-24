@@ -32,6 +32,39 @@ The helper requests a Markdown note below that code cell and returns an asynchro
 
 This image uses a simulated provider and a real Python kernel; the custom function actually changes the live bonus counter.
 
+## Ask after declaring a tool
+
+Here is a complete example using `show_doc`. First run this **Python code cell**:
+
+```python
+from nbinlineai.tools import show_doc
+```
+
+Then put this reference in an **ordinary Markdown cell above your AI question**, with its Tools checkbox enabled:
+
+```text
+Available documentation tool: &`show_doc`
+```
+
+In a new **AI question cell below that note**, ask:
+
+```text
+Use show_doc to show the documentation for Path.read_text from the
+installed pathlib module. Explain its encoding parameter and give
+me one short usage example.
+```
+
+The model can call `show_doc(name="Path.read_text", module="pathlib")`. You do not need another `&` reference in this question or later questions that inherit the same enabled declaration. Plain tool names in a question are instructions to the model; the earlier declaration is what makes the function available. Importing `pathlib` this way runs its module initialization, but showing the method's docs does not read a file.
+
+The [function index](tools.md#function-index) gives an example question for **each of the 51 tools**, assuming its reference has already been declared. For example, after importing and declaring `source_doc` instead, ask:
+
+```text
+Use source_doc to explain the written signature and documentation of
+normalize in demo_project/analysis.py without importing the file.
+```
+
+That second example assumes the saved file and function exist. For a multi-tool task, import and declare each tool the question needs; a reference to `show_doc` alone does not also offer `source_doc`.
+
 ## Read saved or live notebook cells
 
 For saved notebooks, import `list_notebooks`, `find_notebook_cells`, and `read_notebook_cell`, then declare them in a Markdown note. Ask the AI to locate a saved `.ipynb`, find a literal phrase, and read a returned cell ID. Save your latest edits first: these functions read disk files relative to the kernel's working directory.

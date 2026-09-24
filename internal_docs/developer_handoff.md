@@ -6,6 +6,8 @@ The user's course environment and JupyterLab on 8888 must remain untouched. The 
 
 ## Product and environment
 
+Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). This is a documentation-only follow-up; the published package remains 0.1.12.
+
 - Public repo: https://github.com/rahuldave/nbinlineai; website: https://rahuldave.com/nbinlineai/; PyPI package: `nbinlineai`.
 - GPL-3.0-only, matching ai-jup. Runtime Python >=3.12; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
 - A prebuilt Python wheel contains frontend assets and the auto-enabled Jupyter Server extension. Students install through JupyterLab's PyPI Extension Manager or their environment's uv/pip. Restart the **whole server** after installation/update, then refresh the page. Reloading only the frontend can leave new server routes unavailable.

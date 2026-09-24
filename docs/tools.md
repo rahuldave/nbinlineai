@@ -31,86 +31,90 @@ An eligible ordinary Markdown cell or earlier AI question can declare tools for 
 
 Every row below is an import from `nbinlineai.tools`. Signatures show the callable parameters and defaults. All functions are synchronous; model calls use named arguments. `tools_markdown`, `insert_tools`, and `tool_catalog` are setup helpers, not model tools.
 
+Each **Example** is a question you can ask **after importing the tool and declaring its reference** in an earlier Markdown note with Tools enabled. You do not need to repeat the `&` reference in the question. Ask the model to use the named tool when you want an explicit lookup or action; offering a tool does not force a call. See the [complete declaration-to-question example](examples.md#ask-after-declaring-a-tool).
+
+Replace the sample paths, variable names, and cell descriptions with your own. The examples assume those inputs exist; `create_file` needs an existing parent folder and a new filename. Examples referring to an earlier read, search, outline, or listing need that result in the question's selected context, or the relevant reading tool declared too. Copy actual cell IDs, section addresses, and digests from tool results. Source-checked cell edits need the **complete** current cell source; read any remaining lines before editing a long cell. The write and execution examples perform the requested action when called.
+
 ### Live Python and registered skills
 
 | Function | Purpose |
 | --- | --- |
-| `search_kernel_names(query: str, limit: int = 20)` | Find live Python kernel names containing a literal query, with types only. |
-| `inspect_python(name: str, section: str = 'help')` | Inspect a live Python name's help, signature, or available source. |
-| `show_doc(name: str, module: str = '')` | Show docs for a live name, or import `module` and inspect its public name. |
-| `api_names(name: str, module: str = '', query: str = '', limit: int = 30)` | List public members of a live object or explicitly imported module. |
-| `search_docs(name: str, query: str, module: str = '', depth: int = 1, limit: int = 20)` | Search public names and direct docstrings in a bounded object tree. |
-| `inspect_value(name: str, start: int = 0, limit: int = 20)` | Show a bounded slice of a live built-in container or text value. |
-| `search_value(name: str, query: str, limit: int = 20)` | Search bounded visible values in live text or a built-in container. |
-| `source_files(name: str, module: str = '', limit: int = 30)` | Find nearby Python source files for a live symbol or imported module. |
-| `list_skills(query: str = '', limit: int = 30)` | List installed pyskill entry points and static module descriptions. |
-| `read_skill(module: str)` | Read a registered pyskill's static module instructions without importing it. |
-| `trace_function(name: str, args_json: str = '[]', kwargs_json: str = '{}', max_events: int = 40)` | Call a live Python function once and show a bounded execution trace. |
+| `search_kernel_names(query: str, limit: int = 20)` | Find live Python kernel names containing a literal query, with types only.<br>**Example:** “Find live variable names containing `score` and tell me their types.” |
+| `inspect_python(name: str, section: str = 'help')` | Inspect a live Python name's help, signature, or available source.<br>**Example:** “Show the signature and available source of my live function `normalize`.” |
+| `show_doc(name: str, module: str = '')` | Show docs for a live name, or import `module` and inspect its public name.<br>**Example:** “Show formatted documentation for `Path.read_text` from the installed module `pathlib`.” |
+| `api_names(name: str, module: str = '', query: str = '', limit: int = 30)` | List public members of a live object or explicitly imported module.<br>**Example:** “List up to 15 public names containing `mean` in the installed `statistics` module.” |
+| `search_docs(name: str, query: str, module: str = '', depth: int = 1, limit: int = 20)` | Search public names and direct docstrings in a bounded object tree.<br>**Example:** “Search the installed `statistics` module's public docstrings for `sample`.” |
+| `inspect_value(name: str, start: int = 0, limit: int = 20)` | Show a bounded slice of a live built-in container or text value.<br>**Example:** “Show the first five items in the live list `scores`.” |
+| `search_value(name: str, query: str, limit: int = 20)` | Search bounded visible values in live text or a built-in container.<br>**Example:** “Find entries containing `error` in the live string `log_text`.” |
+| `source_files(name: str, module: str = '', limit: int = 30)` | Find nearby Python source files for a live symbol or imported module.<br>**Example:** “Find Python source files near the installed `nbinlineai` package.” |
+| `list_skills(query: str = '', limit: int = 30)` | List installed pyskill entry points and static module descriptions.<br>**Example:** “List the installed Python skills and their descriptions.” |
+| `read_skill(module: str)` | Read a registered pyskill's static module instructions without importing it.<br>**Example:** “Read the instructions for the registered skill returned by the earlier `list_skills` call.” |
+| `trace_function(name: str, args_json: str = '[]', kwargs_json: str = '{}', max_events: int = 40)` | Call a live Python function once and show a bounded execution trace.<br>**Example:** “Run my live function `normalize` once with the list `[2, 4, 6]` as its argument and show up to 20 trace events.” |
 
 ### Saved files and source
 
 | Function | Purpose |
 | --- | --- |
-| `path_info(path: str = '.')` | Show the kernel working directory and a path's resolved type and size. |
-| `list_files(path: str = '.', pattern: str = '*', recursive: bool = False, limit: int = 30)` | List visible file and directory paths, optionally matching a name pattern. |
-| `view_file(path: str, start_line: int = 1, end_line: int = 40)` | Read a bounded range of one UTF-8 text file with one-based line numbers. |
-| `create_file(path: str, contents: str)` | Create a new UTF-8 text file without replacing an existing path. |
-| `file_str_replace(path: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact literal only when its occurrence count matches expectation. |
-| `file_insert_line(path: str, line: int, new_str: str)` | Insert text after a one-based line; line 0 inserts before the first line. |
-| `file_replace_lines(path: str, start_line: int, end_line: int, new_content: str)` | Replace an explicit inclusive, one-based line range with UTF-8 text. |
-| `search_files(query: str, path: str = '.', pattern: str = '*', regex: bool = False, limit: int = 20)` | Search saved project source text with bounded Python-based results and file filters. |
-| `source_doc(path: str, symbol: str = '')` | Read Python source documentation statically, without importing the file. |
-| `document_outline(path: str, start: int = 0, limit: int = 20)` | List headings or definitions in saved Markdown or Python, with opaque section addresses. |
-| `read_document_section(path: str, section: str = '')` | Read saved Markdown or Python, or one section using a copied outline address. |
-| `file_strs_replace(path: str, old_strings: list[str], new_strings: list[str])` | Replace several exact literals atomically when each old string occurs once. |
-| `view_file_hashes(path: str, start_line: int = 1, end_line: int = 40)` | Show numbered lines and the SHA-256 digest for a saved text file. |
-| `file_replace_checked(path: str, old_str: str, new_str: str, expected_sha256: str)` | Replace one literal only when the whole file has the expected SHA-256. |
+| `path_info(path: str = '.')` | Show the kernel working directory and a path's resolved type and size.<br>**Example:** “Show the kernel's current working directory and resolve `demo_project`.” |
+| `list_files(path: str = '.', pattern: str = '*', recursive: bool = False, limit: int = 30)` | List visible file and directory paths, optionally matching a name pattern.<br>**Example:** “List up to 20 Python files under `demo_project`, including subfolders.” |
+| `view_file(path: str, start_line: int = 1, end_line: int = 40)` | Read a bounded range of one UTF-8 text file with one-based line numbers.<br>**Example:** “Read lines 1–30 of `demo_project/analysis.py` with line numbers.” |
+| `create_file(path: str, contents: str)` | Create a new UTF-8 text file without replacing an existing path.<br>**Example:** “Create `demo_project/notes.md` containing `# Experiment notes` on its own line.” |
+| `file_str_replace(path: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact literal only when its occurrence count matches expectation.<br>**Example:** “In `demo_project/analysis.py`, replace the single occurrence of `threshold = 0.5` with `threshold = 0.7`.” |
+| `file_insert_line(path: str, line: int, new_str: str)` | Insert text after a one-based line; line 0 inserts before the first line.<br>**Example:** “Insert `# Inputs` as a new line after line 2 of `demo_project/analysis.py`.” |
+| `file_replace_lines(path: str, start_line: int, end_line: int, new_content: str)` | Replace an explicit inclusive, one-based line range with UTF-8 text.<br>**Example:** “Replace lines 2–3 of `demo_project/notes.md` with the single line `Status: ready`.” |
+| `search_files(query: str, path: str = '.', pattern: str = '*', regex: bool = False, limit: int = 20)` | Search saved project source text with bounded Python-based results and file filters.<br>**Example:** “Find `normalize` in Python files under `demo_project`; show up to ten matches.” |
+| `source_doc(path: str, symbol: str = '')` | Read Python source documentation statically, without importing the file.<br>**Example:** “Explain the written signature and documentation of `normalize` in `demo_project/analysis.py` without importing it.” |
+| `document_outline(path: str, start: int = 0, limit: int = 20)` | List headings or definitions in saved Markdown or Python, with opaque section addresses.<br>**Example:** “Show the section hierarchy of `demo_project/README.md`, including the addresses for reading sections.” |
+| `read_document_section(path: str, section: str = '')` | Read saved Markdown or Python, or one section using a copied outline address.<br>**Example:** “Read only the Installation section of `demo_project/README.md` using its address from the earlier outline.” |
+| `file_strs_replace(path: str, old_strings: list[str], new_strings: list[str])` | Replace several exact literals atomically when each old string occurs once.<br>**Example:** “In `demo_project/settings.py`, replace `retries = 2` with `retries = 3` and `timeout = 5` with `timeout = 10`, each occurring once.” |
+| `view_file_hashes(path: str, start_line: int = 1, end_line: int = 40)` | Show numbered lines and the SHA-256 digest for a saved text file.<br>**Example:** “Show lines 1–20 of `demo_project/settings.py` and its whole-file SHA-256 for a checked edit.” |
+| `file_replace_checked(path: str, old_str: str, new_str: str, expected_sha256: str)` | Replace one literal only when the whole file has the expected SHA-256.<br>**Example:** “Using the digest from the earlier file read, replace the single `retries = 2` with `retries = 3` in `demo_project/settings.py`; stop if the file changed.” |
 
 ### Saved notebooks
 
 | Function | Purpose |
 | --- | --- |
-| `list_notebooks(path: str = '.', limit: int = 30)` | List saved .ipynb paths, skipping hidden and environment directories. |
-| `find_notebook_cells(path: str, query: str, limit: int = 10)` | Find saved notebook cells by case-insensitive literal source text. |
-| `read_notebook_cell(path: str, cell_id: str, start_line: int = 1, end_line: int = 40)` | Read numbered saved cell source by ID or zero-based index:N fallback. |
-| `search_notebooks(query: str, path: str = '.', limit: int = 20)` | Search saved notebook cell source; include stable saved cell IDs. |
-| `notebook_outline(path: str, start: int = 0, limit: int = 20)` | Summarize a saved notebook's cells and stable IDs by index. |
+| `list_notebooks(path: str = '.', limit: int = 30)` | List saved .ipynb paths, skipping hidden and environment directories.<br>**Example:** “List up to ten saved notebooks under `demo_project`.” |
+| `find_notebook_cells(path: str, query: str, limit: int = 10)` | Find saved notebook cells by case-insensitive literal source text.<br>**Example:** “Find cells containing `train_test_split` in the saved notebook `demo_project/analysis.ipynb`.” |
+| `read_notebook_cell(path: str, cell_id: str, start_line: int = 1, end_line: int = 40)` | Read numbered saved cell source by ID or zero-based index:N fallback.<br>**Example:** “Read the saved cell containing `train_test_split` in `demo_project/analysis.ipynb`, using the ID from the earlier search.” |
+| `search_notebooks(query: str, path: str = '.', limit: int = 20)` | Search saved notebook cell source; include stable saved cell IDs.<br>**Example:** “Search saved notebooks under `demo_project` for `train_test_split` and report each matching cell ID.” |
+| `notebook_outline(path: str, start: int = 0, limit: int = 20)` | Summarize a saved notebook's cells and stable IDs by index.<br>**Example:** “Summarize the first 20 saved cells in `demo_project/analysis.ipynb`, including their IDs.” |
 
 ### Live notebook cells
 
 | Function | Purpose |
 | --- | --- |
-| `list_cells(start: int = 0, limit: int = 20)` | List live notebook cells, including unsaved edits, by ID and position. |
-| `read_cell(cell_id: str, start_line: int = 1, end_line: int = 40)` | Read live notebook cell source, including unsaved edits, by cell ID. |
-| `find_cells(query: str, cell_type: str = '', limit: int = 20)` | Find live notebook cells containing text, including unsaved edits. |
-| `insert_markdown(content: str, after_cell_id: str = '')` | Insert a Markdown note into the current live notebook after a cell. |
-| `insert_code(content: str, after_cell_id: str = '')` | Insert an unexecuted code cell below the AI answer, or after a chosen cell. |
-| `replace_cell(cell_id: str, expected_source: str, new_source: str)` | Replace an ordinary cell only when its source still matches. |
-| `cell_str_replace(cell_id: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact string when its occurrence count matches. |
-| `cell_insert_line(cell_id: str, line: int, content: str, expected_source: str)` | Insert content before a line in an unchanged ordinary cell. |
-| `cell_replace_lines(cell_id: str, start_line: int, end_line: int, content: str, expected_source: str)` | Replace inclusive source lines in an unchanged ordinary cell. |
-| `delete_cell(cell_id: str, expected_source: str)` | Delete an ordinary cell only when its source still matches. |
-| `move_cell(cell_id: str, after_cell_id: str)` | Move an ordinary cell after another cell without executing it. |
-| `copy_cell(cell_id: str, after_cell_id: str)` | Copy an ordinary cell after another cell without execution results. |
-| `split_cell(cell_id: str, line: int, expected_source: str)` | Split an unchanged ordinary cell before a source line. |
-| `merge_cells(first_cell_id: str, second_cell_id: str, expected_first: str, expected_second: str)` | Merge adjacent same-type cells when both sources match. |
+| `list_cells(start: int = 0, limit: int = 20)` | List live notebook cells, including unsaved edits, by ID and position.<br>**Example:** “List the first 20 cells in this open notebook, with their IDs and source previews.” |
+| `read_cell(cell_id: str, start_line: int = 1, end_line: int = 40)` | Read live notebook cell source, including unsaved edits, by cell ID.<br>**Example:** “Read lines 1–40 of the live cell with the ID returned by the earlier cell search.” |
+| `find_cells(query: str, cell_type: str = '', limit: int = 20)` | Find live notebook cells containing text, including unsaved edits.<br>**Example:** “Find live code cells containing `train_test_split`, including unsaved edits.” |
+| `insert_markdown(content: str, after_cell_id: str = '')` | Insert a Markdown note into the current live notebook after a cell.<br>**Example:** “Add an ordinary Markdown note below your answer saying `Check the validation split before training.`” |
+| `insert_code(content: str, after_cell_id: str = '')` | Insert an unexecuted code cell below the AI answer, or after a chosen cell.<br>**Example:** “Add a code cell below your answer that plots the live list `scores`; leave it unexecuted for me to review.” |
+| `replace_cell(cell_id: str, expected_source: str, new_source: str)` | Replace an ordinary cell only when its source still matches.<br>**Example:** “Replace the scratch cell just read with `print('ready')`, using its exact current source as the check.” |
+| `cell_str_replace(cell_id: str, old_str: str, new_str: str, expected_matches: int = 1)` | Replace an exact string when its occurrence count matches.<br>**Example:** “In the live cell just found, replace the single `test_size=0.2` with `test_size=0.25`.” |
+| `cell_insert_line(cell_id: str, line: int, content: str, expected_source: str)` | Insert content before a line in an unchanged ordinary cell.<br>**Example:** “In the scratch cell just read, insert `# Prepare inputs` before line 1, checking its full current source.” |
+| `cell_replace_lines(cell_id: str, start_line: int, end_line: int, content: str, expected_source: str)` | Replace inclusive source lines in an unchanged ordinary cell.<br>**Example:** “In the scratch cell just read, replace lines 2–3 with `scores = [1, 2, 3]`, checking its full current source.” |
+| `delete_cell(cell_id: str, expected_source: str)` | Delete an ordinary cell only when its source still matches.<br>**Example:** “Delete the ordinary scratch cell just read, only if its full source is unchanged.” |
+| `move_cell(cell_id: str, after_cell_id: str)` | Move an ordinary cell after another cell without executing it.<br>**Example:** “Move the scratch cell after the imports cell, using their IDs from the earlier listing.” |
+| `copy_cell(cell_id: str, after_cell_id: str)` | Copy an ordinary cell after another cell without execution results.<br>**Example:** “Copy the scratch cell after the imports cell, using their listed IDs and leaving the copy unexecuted.” |
+| `split_cell(cell_id: str, line: int, expected_source: str)` | Split an unchanged ordinary cell before a source line.<br>**Example:** “Split the scratch cell just read before line 4, checking that its full source is unchanged.” |
+| `merge_cells(first_cell_id: str, second_cell_id: str, expected_first: str, expected_second: str)` | Merge adjacent same-type cells when both sources match.<br>**Example:** “Merge the two adjacent ordinary Markdown cells just read, checking both full sources.” |
 
 ### Web pages
 
 | Function | Purpose |
 | --- | --- |
-| `read_url(url: str)` | Read a public web page as bounded, sanitized Markdown with its source URL. |
-| `read_url_section(url: str, selector: str = '')` | Read one public web-page section using a CSS selector or URL fragment. |
-| `url_to_note(url: str, after_cell_id: str = '')` | Fetch a public page and insert its bounded Markdown as a notebook note. |
+| `read_url(url: str)` | Read a public web page as bounded, sanitized Markdown with its source URL.<br>**Example:** “Read https://docs.python.org/3/tutorial/datastructures.html and explain its advice about using lists as stacks.” |
+| `read_url_section(url: str, selector: str = '')` | Read one public web-page section using a CSS selector or URL fragment.<br>**Example:** “Read only the `#list-comprehensions` section of https://docs.python.org/3/tutorial/datastructures.html and explain its example.” |
+| `url_to_note(url: str, after_cell_id: str = '')` | Fetch a public page and insert its bounded Markdown as a notebook note.<br>**Example:** “Insert a reading note from https://docs.python.org/3/tutorial/datastructures.html below your answer.” |
 
 ### Processes and terminals
 
 | Function | Purpose |
 | --- | --- |
-| `run_python(code: str, cwd: str = '.', timeout: int = 10)` | Execute Python with the kernel's interpreter in a fresh process; effects are real. |
-| `run_shell(command: str, cwd: str = '.', timeout: int = 10)` | Execute a shell command in a separate process; effects are real, not sandboxed. |
-| `tmux_sessions()` | List local tmux panes; requires tmux and does not list JupyterLab terminals. |
-| `tmux_read(pane: str, lines: int = 40)` | Read a local tmux pane's recent screen/scrollback without sending input. |
+| `run_python(code: str, cwd: str = '.', timeout: int = 10)` | Execute Python with the kernel's interpreter in a fresh process; effects are real.<br>**Example:** “Run `print(sum([2, 4, 6]))` in a fresh Python process and show the result.” |
+| `run_shell(command: str, cwd: str = '.', timeout: int = 10)` | Execute a shell command in a separate process; effects are real, not sandboxed.<br>**Example:** “Run `git status --short` in the `demo_project` repository and report changed paths.” |
+| `tmux_sessions()` | List local tmux panes; requires tmux and does not list JupyterLab terminals.<br>**Example:** “List the local tmux panes and their session names.” |
+| `tmux_read(pane: str, lines: int = 40)` | Read a local tmux pane's recent screen/scrollback without sending input.<br>**Example:** “Read the last 30 lines from the tmux pane identified in the earlier listing.” |
 
 ## Files, source, and saved notebooks
 
@@ -145,6 +149,23 @@ from nbinlineai.tools import read_cell as read_live, tools_markdown
 print(tools_markdown(["read_live"], custom={"read_live": read_live}))
 ```
 
-The alias must also be bound in the kernel namespace when the question runs. The tools draw on [dialoghelper research](https://github.com/AnswerDotAI/dialoghelper) but do not require dialoghelper, Solveit, or ipylab.
+The alias must also be bound in the kernel namespace when the question runs.
+
+## Relationship to dialoghelper
+
+The tool selection draws on [Answer.AI's dialoghelper](https://github.com/AnswerDotAI/dialoghelper) and the libraries it surfaces. We reuse fastcore helpers where they fit and reimplement selected capabilities with nbinlineai's own arguments, bounded results, and JupyterLab integration. The following describes the **0.1.12 implementation**, rather than every capability available upstream.
+
+| Capability surveyed upstream | Implementation in nbinlineai |
+| --- | --- |
+| Fastcore documentation and text editing | `show_doc` uses fastcore's `MarkdownRenderer`/docments for formatted object documentation. The file tools wrap fastcore text-edit/diff helpers with our own path, size, match-count, and atomic-write checks. `source_doc` separately parses a Python file without importing it. |
+| rgapi file and notebook search | `search_files` and `search_notebooks` were reimplemented using Python matching and notebook JSON reads, with `pathspec` ignore rules and a separate process enforcing the search timeout. They do not require rgapi. |
+| exhash document navigation and checked edits | `document_outline` and `read_document_section` were reimplemented for Markdown with `markdown-it-py` and Python with the standard-library AST. Addresses become stale when file contents change. Our checked text edits use whole-file SHA-256 through `hashlib`; they do not expose exhash's edit language or require exhash. |
+| toolslm/pyskills inspection and skill discovery | Our fixed-signature tools inspect Python objects and installed `pyskills` entry-point metadata. Skill instructions are read statically; discovering a skill does not install it or automatically offer its functions to the model. |
+| dialoghelper/Solveit and aidialog message operations | Live cell search, insertion, replacement, deletion, move/copy, split, and merge are adapted to the originating JupyterLab document through our browser bridge. Saved-notebook tools read `.ipynb` files separately. |
+| Execution, tracing, and terminal utilities | Our subprocess tools use Python's standard library; `trace_function` traces a real call in the live kernel. The terminal tools read local tmux. These are our implementations, without the safecmd/safepyrun policy layer or a tracefunc dependency. |
+
+This is a selected capability set, not API compatibility with dialoghelper. Neither dialoghelper, Solveit, nor ipylab is required. The remold/AST tools `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols` are **deferred in 0.1.12**, along with document outlines for languages other than Markdown/Python. Agent orchestration, Solveit-specific UI/lifecycle operations, and model-driven live-cell execution are also outside the current tools.
+
+The [implementation matrix and pinned upstream survey](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/fastcore_tool_candidates.md) explain the package-by-package decisions; the [original dialoghelper catalog](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/dialoghelper_tool_catalog.md) records the earlier research.
 
 [Examples guide](examples.md) · [User guide](user-guide.md) · [FAQ](faq.md) · [Architecture](architecture.md)
