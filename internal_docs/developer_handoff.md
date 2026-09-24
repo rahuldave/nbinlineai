@@ -20,6 +20,12 @@ App Server manager with isolated ephemeral round children, exact serialized
 round-content accounting plus a bounded transport reserve and actual-envelope
 preflight, and host-validated notebook-tool plans.
 Jupyter Server's awaited extension shutdown hook closes only owned children.
+On Windows, Jupyter Server selects a Tornado-compatible Selector loop, so the
+subscription manager owns a private Proactor worker thread for pipe-backed
+App Server children; it leaves Jupyter's loop policy untouched and drains
+pending worker tasks/default-executor work before thread shutdown. The
+credential-free platform probe applies Jupyter's policy, and synthetic
+Selector-to-worker cancellation/close tests cover the cleanup boundary.
 The server resolves notebook path from the authenticated session and freezes
 its local project root; path/focus/kernel changes are checked during runs.
 The notebook folder is **inert, budgeted planning context**. Runtime cwd and
@@ -28,18 +34,32 @@ hooks or MCP. Native direct file operations are disabled. The UI reports
 **“ChatGPT file access: Notebook tools only”**; stored notebook/project scope
 preference has no active permission effect. Python kernel tools retain their
 actual cwd and OS-user permissions. Existing API modes have no subscription
-fallback. This work is **unreleased** pending complete integration, browser,
-packaging and publication checks. Source version metadata and uv lock now read
-**0.1.13**, but PyPI remains **0.1.12**; no 0.1.13 artifacts, publication,
-source push or tag has happened.
+fallback. This work is **unreleased** pending final-wheel installation,
+publication, and website verification. Source version
+metadata and uv lock read **0.1.13**, but PyPI remains **0.1.12**. Three source
+checkpoints have been pushed to the `codex/chatgpt-subscription-0-1-13` branch;
+there is no 0.1.13 release artifact, main-branch release, tag, or PyPI upload.
 
-Earlier-stage checks for the unreleased groundwork passed **245 Python tests** and
-Ruff, **55 frontend unit tests** and TypeScript type checking, followed by a
-production frontend build and relink. The selected isolated JupyterLab browser
-regression set passed **11/11** uninterrupted on port 8897, covering API
-provider keys, availability, models, defaults, settings recovery, and a saved
-unavailable ChatGPT selection. This was a focused browser subset, not the full
-browser suite or a subscription acceptance test. No paid API test was run.
+The latest full Python suite passed **260 tests** in 56.74 seconds, with Ruff
+clean. The frontend passed **57 unit tests** and TypeScript type checking; its
+production bundle was built and relinked. Platform CI run `36029215455` passed
+**14/14 jobs** at checkpoint `5b1f6be`, including Windows worker lifecycle
+coverage. The isolated default browser run passed 66 scenarios, had three
+obsolete dialog-expectation failures, and skipped two opt-in scenarios. The
+corrected focused default rerun passed 4/4, and the opt-in real-server,
+real-kernel workflow with a deterministic subscription runtime passed 2/2:
+**71 distinct scenarios passed across runs**, not in one uninterrupted run.
+The later static file-access DOM correction passed its source unit check,
+final build/relink, focused setup browser check **1/1**, and screenshot capture
+**1/1**; the image was visually reviewed. The separate
+live ChatGPT acceptance harness **passed** after device-code sign-in in Safari:
+three bounded subscription prompt requests checked one live model-planned
+kernel-tool group and exactly one effect, an unsaved live-cell read, Keep without
+replay, and cancellation. Paid API transport was disabled, environment API keys
+were stripped, and no API fallback occurred. Authentication lived only in the
+harness's temporary private store; this does not connect a user's ordinary
+JupyterLab installation. Earlier 245/55/11 and 137-focused counts are superseded
+by these broader checks, not additional release evidence.
 
 Reviewed **2026-09-23**. Latest published package: **0.1.12**, source commit `68ef13a364565c82ae7d324ecd952478d372f23a`, tag `v0.1.12`; source and tag are pushed. The release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
 
@@ -158,14 +178,15 @@ For a separate **interactive, allowance-consuming ChatGPT acceptance** after
 build/relink, run `uv run --no-sync python scripts/subscription_live_smoke.py`.
 It refuses an occupied port 8897, starts only its own isolated temporary Lab,
 fresh managed account store, real kernel and synthetic notebook, and opens a
-visible browser for manual ChatGPT sign-in. It disables repository `.env` loading
+visible browser with a device-code link for sign-in in the user's preferred
+browser, allowing up to 30 minutes. It disables repository `.env` loading
 and paid API transport, caps browser prompt requests to three, checks one
 kernel-tool group, an unsaved live-cell read, Keep/no replay, cancellation and
 owned server shutdown. It never uses port 8888, never prints account/token/login
-URL data, and never reads personal notebooks. The Python/Node harness has only passed
-static syntax/lint checks so far; a live authenticated acceptance result must
-be recorded separately. A model may decline a requested tool, in which case
-the harness fails safely and the acceptance remains unproven.
+URL data, and never reads personal notebooks. One live run passed the bounded
+synthetic checks above; it does not prove full account/model compatibility or
+connect any ordinary installation. A model may decline a requested tool on a
+later run, in which case the harness fails safely.
 
 Version 0.1.8 evidence: **140 Python tests, 44 frontend unit tests, an uninterrupted 57/57 browser run**, plus production build, lint, examples in real kernels, archive checks and clean installation. Later patch checks are recorded below and in the release record; do not imply unchanged backend tests were rerun for a frontend-only patch.
 

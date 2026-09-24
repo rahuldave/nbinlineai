@@ -13,13 +13,15 @@ async function mockSubscription(page: Page) {
   let loginMethod: string | null = null;
   let loginCancelCount = 0;
   let disconnectCount = 0;
+  let documentationDemo = false;
   const status = () => ({
     state,
     configured: state === 'connected' || state === 'limited',
     account: state === 'connected' || state === 'limited'
-      ? { display_name: 'Sample student', workspace: 'Class workspace' } : undefined,
+      ? { display_name: documentationDemo ? 'Demo connection (simulated)' : 'Sample student',
+          workspace: 'Class workspace' } : undefined,
     models: state === 'connected' || state === 'limited' ? offeredModels : [],
-    usage: { state: 'available', remaining_percent: 60 },
+    usage: documentationDemo ? { state: 'unavailable' } : { state: 'available', remaining_percent: 60 },
     project_root: '/synthetic/course',
     working_folder: '/synthetic/course/week2',
     file_access: scope,
@@ -68,6 +70,7 @@ async function mockSubscription(page: Page) {
   });
   return {
     setState(value: ConnectionState) { state = value; },
+    setDocumentationDemo(value: boolean) { documentationDemo = value; },
     setModels(value: typeof models) { offeredModels = value; },
     get loginMethod() { return loginMethod; },
     get loginCancelCount() { return loginCancelCount; },
@@ -102,8 +105,13 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   await panel.locator('.jp-CodeCell').first().click();
   await page.getByRole('button', { name: 'AI Prompt' }).click();
   await expect(panel.locator('.jp-Cell.nbinlineai-prompt-cell')).toBeVisible();
-  await page.keyboard.press('Meta+s');
-  await expect(page.getByText('Saving completed')).toBeVisible();
+  // The kernel fills Jupyter's language_info after notebook startup. Save that
+  // native metadata before measuring whether sign-in touches the notebook.
+  await expect.poll(async () => {
+    await page.keyboard.press('Meta+s');
+    const saved = await request.get(`/api/contents/${name}?content=1`);
+    return saved.ok() ? (await saved.json()).content.metadata?.language_info?.name : null;
+  }, { timeout: 30_000, intervals: [500, 1000, 1000] }).toBe('python');
   await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
@@ -138,7 +146,9 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   await expect(setup).toContainText('Sample student');
   await expect(setup.locator('[data-nbinlineai-subscription-model]')).toHaveValue('gpt-6-sol');
   await expect(setup).toContainText('60% remaining');
-  await expect(setup.locator('[data-nbinlineai-subscription-scope]')).toBeHidden();
+  await expect(setup.locator('[data-nbinlineai-subscription-scope]')).toHaveCount(0);
+  await expect(setup.locator('[data-nbinlineai-subscription-scope-static]')).toBeVisible();
+  await expect(setup.locator('select')).toHaveCount(2);
   await expect(setup).toContainText('Notebook tools only');
   await expect(setup).toContainText('Applies to direct ChatGPT operations. Python keeps its normal permissions.');
   await expect(setup).toContainText('Notebook folder: /synthetic/course/week2');
@@ -181,3 +191,38 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   expect(fake.disconnectCount).toBe(1);
   await expect(panel.locator('[data-nbinlineai-notebook-provider]')).toHaveValue('openai_codex_subscription');
 });
+
+if (process.env.NBINLINEAI_CAPTURE_DOCS === '1') {
+  test('capture the simulated connected ChatGPT setup for documentation', async ({ page, request }) => {
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    const fake = await mockSubscription(page);
+    fake.setState('connected');
+    fake.setDocumentationDemo(true);
+    await request.get('/lab');
+    const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+    expect(xsrf).toBeTruthy();
+    const name = `subscription-docs-${Date.now()}.ipynb`;
+    await createNotebook(request, name, xsrf!);
+    await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+    const panel = page.locator('.jp-NotebookPanel:visible');
+    await expect(panel.locator('.jp-CodeCell')).toHaveCount(1);
+    await panel.locator('.jp-CodeCell').click();
+    await page.getByRole('button', { name: 'AI Prompt' }).click();
+    await expect(panel.locator('.nbinlineai-prompt-cell')).toBeVisible();
+    await page.addStyleTag({ content: `
+      .jp-Dialog-content, .jp-Dialog-body, .nbinlineai-keys-dialog {
+        max-height: none !important; height: auto !important; overflow: visible !important;
+      }
+    ` });
+    await page.getByRole('button', { name: 'Configure AI' }).first().click();
+    const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+    const setup = dialog.locator('[data-nbinlineai-subscription-setup]');
+    await expect(setup).toContainText('Demo connection (simulated)');
+    await expect(setup).toContainText('Usage information is unavailable');
+    await expect(setup.locator('[data-nbinlineai-subscription-action="use"]')).toBeEnabled();
+    await setup.locator('details').last().evaluate(element => { (element as HTMLDetailsElement).open = true; });
+    await expect(setup.locator('[data-nbinlineai-subscription-scope]')).toHaveCount(0);
+    await expect(setup.locator('[data-nbinlineai-subscription-scope-static]')).toBeVisible();
+    await page.locator('.jp-Dialog-content').screenshot({ path: 'docs/images/configure-ai.png' });
+  });
+}

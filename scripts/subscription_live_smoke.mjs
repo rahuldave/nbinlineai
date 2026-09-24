@@ -6,11 +6,11 @@ const baseURL = 'http://127.0.0.1:8897';
 const fail = code => { throw new Error(code); };
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function until(check, timeoutMs, code) {
+async function until(check, timeoutMs, code, pollMs = 500) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await check()) return;
-    await pause(500);
+    await pause(pollMs);
   }
   fail(code);
 }
@@ -86,10 +86,10 @@ try {
   await dialog.locator('[data-nbinlineai-connection]').selectOption('openai_codex_subscription');
   const setup = dialog.locator('[data-nbinlineai-subscription-setup]');
   await until(() => setup.isVisible(), 20_000, 'subscription-setup-not-visible');
-  const popup = page.waitForEvent('popup', { timeout: 20_000 });
-  await setup.locator('[data-nbinlineai-subscription-action="login"]').click();
-  await popup;
-  console.log('Complete ChatGPT sign-in in the opened browser. Waiting up to ten minutes.');
+  await setup.locator('[data-nbinlineai-subscription-action="device-login"]').click();
+  await until(() => setup.locator('.nbinlineai-connection-login-details a').isVisible(),
+    20_000, 'device-sign-in-details-not-visible');
+  console.log('Use the device code and link shown in Configure AI with your preferred browser. Waiting up to 30 minutes.');
   let connected = null;
   await until(async () => {
     const response = await request.get('/nbinlineai/subscription/status');
@@ -101,7 +101,7 @@ try {
       return true;
     }
     return false;
-  }, 600_000, 'chatgpt-sign-in-did-not-complete');
+  }, 1_800_000, 'chatgpt-sign-in-did-not-complete', 5_000);
   await setup.locator('[data-nbinlineai-subscription-action="refresh"]').click();
   await setup.locator('[data-nbinlineai-subscription-model]').selectOption(connected.models[0].id);
   await until(() => setup.locator('[data-nbinlineai-subscription-action="use"]').isEnabled(),

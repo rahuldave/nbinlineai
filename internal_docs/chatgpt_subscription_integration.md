@@ -356,25 +356,31 @@ never raw account/RPC objects. The file-access routes return
 
 The server extension injects the owned runtime manager and uses Jupyter Server's
 awaited `ExtensionApp.stop_extension()` hook to close only its child processes.
+On Windows, Jupyter Server's Tornado startup switches to a Selector loop, which
+cannot host asyncio subprocess pipes. A private Proactor worker loop owns only
+subscription App Server children; Jupyter's process-wide loop policy stays
+unchanged. Shutdown cancels and drains worker tasks, including preflight calls
+that have not entered the per-run registry, then joins the worker and executor.
 An authenticated session ID resolves and refreshes the notebook folder under a
 frozen local content root. Prompt execution verifies the ChatGPT auth mode,
 exact selected model and effort, then rechecks session path and bound kernel
 before submissions and tool dispatch. Preview invokes the pure round serializer
 without account/model RPC or a model call, even if signed out. Subscription
 runtime errors become safe SSE errors. The API-key transport remains separate
-and cannot serve a subscription request. This implementation still needs full
-isolated browser and optional live acceptance, artifact checks and publication.
+and cannot serve a subscription request. Managed private-store sign-in and a
+subscription-backed isolated JupyterLab/kernel acceptance run passed locally;
+final artifact checks and publication remain.
 
 ## Concrete implementation seams
 
-| Area | Existing boundary and proposed work |
+| Area | 0.1.13 source boundary |
 | --- | --- |
-| Provider selection | `src/providerChoice.ts`, `defaults.ts`, `schema/plugin.json`: third backend, extensible capabilities, explicit selection without billing fallback. |
-| Configure AI | Extract the hardcoded connection dialog from `src/index.ts` into its own module; keep compact notebook controls. |
-| Status/config | `nbinlineai/config.py`: readiness must represent runtime/account/model availability, not only API-key presence. |
-| Validation | `prompt.validate_request` uses the backend registry, then actual discovered ChatGPT models/efforts are checked at execution. |
-| Run strategy | Share snapshot/introspection/selection, dispatch and SSE above API round vs isolated Codex structured-plan adapter; `round_wire_cost` counts exact payloads. |
-| Lifecycle | SDK-backed owned async App Server connection manager, integrated with `handlers.py` cancellation and server shutdown. |
+| Provider selection | `src/providerChoice.ts`, `defaults.ts`, `schema/plugin.json`: explicit third backend and capability-driven choices without billing fallback. |
+| Configure AI | `src/configureAI.ts` owns the connection dialog; notebook controls stay compact. |
+| Status/config | `nbinlineai/config.py` and authenticated routes report runtime, account, model and effort availability separately from API-key presence. |
+| Validation | `prompt.validate_request` uses the backend registry; discovered ChatGPT model/effort are checked again before each runtime round. |
+| Run strategy | Host snapshot/introspection/selection, dispatch and SSE surround the API transport or isolated Codex structured-plan adapter; `round_wire_cost` includes serialization and transport reserve. |
+| Lifecycle | An owned async App Server manager integrates with `handlers.py` cancellation and the Jupyter extension shutdown hook. |
 | Credentials | `credentials.py` remains API-key-only; account routes/state are separate. |
 
 ## Verified Python SDK packaging and limits
@@ -383,16 +389,26 @@ A fresh disposable uv install obtained **`openai-codex==0.156.1`**, which depend
 on **`openai-codex-cli-bin==0.156.1`**. Its bundled executable reported
 `codex-cli 0.156.1`. The SDK resolves that runtime by default; overriding the
 executable is optional. Python >=3.10 is supported by package metadata, below
-nbinlineai's existing Python 3.12 minimum. No model or login request was made.
+nbinlineai's existing Python 3.12 minimum. That initial packaging check made
+no model or login request.
 
 Runtime 0.156.1 metadata lists wheels for macOS arm64/x86_64, manylinux and
 musllinux aarch64/x86_64, and Windows arm64/amd64. The 0.1.13 lock resolves
-the pinned dependency wheels for all eight supported platform combinations;
-only macOS arm64 execution has been tested here. Verify clean installation on
-the supported-platform matrix. If a native runtime is unavailable, account
-status must fail safely while API backends continue; do not make students discover
-and manually install a Codex executable. Record wheel size and cold-install
-behavior, given this project's prior Extension Manager installation issue.
+the pinned dependency wheels for all eight supported platform combinations.
+The final [credential-free CI run](https://github.com/rahuldave/nbinlineai/actions/runs/36029215455)
+passed 14/14 jobs: packaged startup/shutdown in a Tornado loop, deterministic
+RPC/lifecycle tests, and an actual empty native-tool inventory with a local
+mock model on macOS, Linux and Windows x64/arm64 under Python 3.12 and 3.14,
+plus Alpine musl x64/arm64 under Python 3.12. On Windows the probe applies
+Jupyter Server's Selector-loop policy and uses the private Proactor worker.
+This tests runtime execution without credentials; it is not a full Jupyter
+Server/kernel or subscribed-account acceptance run. A macOS Intel-only
+`argon2-cffi-bindings<26.1.0` bound selects the available 25.1.0 wheel;
+other supported platforms retain 26.1.0. Clean installation of the **built
+nbinlineai wheel** remains a release check. If a native runtime is unavailable,
+account status must fail safely while API backends continue; do not make
+students discover and manually install a Codex executable. Record wheel size
+and cold-install behavior, given this project's prior Extension Manager issue.
 
 Source inspection of the installed SDK found:
 
@@ -417,8 +433,10 @@ the intended behavior; the name alone is not evidence of enforcement.
 The selected runtime's actual schemas and effective policy must be checked. The
 same direct-command sandbox probe was subsequently run against the SDK-bundled
 **0.156.1** runtime and passed all six inside/outside/symlink checks on this Mac.
-An isolated `AsyncCodex` startup and signed-out account read also passed. This
-still does not validate a model turn, all App Server tools or other platforms.
+An isolated `AsyncCodex` startup and signed-out account read also passed.
+That earlier sandbox check alone did not validate a model turn, all App Server
+tools or other platforms; later actual-wire and CI evidence is in the
+[runtime gate record](chatgpt_subscription_gate.md).
 Sources: [official SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library),
 [SDK package metadata](https://pypi.org/pypi/openai-codex/0.156.1/json),
 [runtime package metadata](https://pypi.org/pypi/openai-codex-cli-bin/0.156.1/json).
@@ -444,15 +462,28 @@ Sources: [official SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library)
   per-run App Server integration still needs verification.
   Do not silently pass unsupported fields and claim folder containment.
 
-## Next implementation milestone and acceptance
+## Acceptance evidence and release checks
 
-Complete a vertical slice in an isolated environment: subscription account
-status, model selection, a synthetic question/answer, one harmless kernel tool,
-one live-model read, cancellation, and clean shutdown. Verify exact host wire
-budgeting and disabled native tools, including unexpected native-call handling.
+The credential-free runtime and host integration tests cover account status,
+model selection, structured answer/refusal/tool plans, cancellation, clean
+shutdown, exact host-wire budgeting, and disabled native tools including an
+unexpected call. The [opt-in live acceptance harness](../scripts/subscription_live_smoke.py)
+then passed on local macOS arm64 with a fresh private store, device-code
+ChatGPT sign-in in Safari, the production manager, an isolated JupyterLab and
+real kernel, and a synthetic notebook. Across exactly three subscription
+prompt requests it verified one declared kernel-tool effect exactly once,
+an unsaved live `read_cell` result distinct from the saved file, Shift+Enter
+Keep without replay, and cancellation of a running question. The driver
+rejected API-backend requests and the server's paid API completion function
+was replaced with a hard failure. This proves the bounded local path, not
+all account states, models, cross-platform signed-in behavior, or a live
+provider-native refusal. The [runtime gate record](chatgpt_subscription_gate.md)
+separates structured refusal and native-refusal limitations.
+
 The private runtime cwd and inert notebook-folder context must not be described
 as project file confinement. Use deterministic protocol fixtures for regressions;
-any live subscription trial uses synthetic content and consumes subscription allowance.
+the completed live subscription trial used synthetic content and may have
+consumed subscription allowance.
 
 Required coverage includes existing API behavior; old notebook metadata;
 no automatic billing fallback; per-project roots with nested notebooks;
@@ -466,6 +497,7 @@ folder enforcement tests on each supported OS before activating its selector.
 
 After frontend changes, rebuild/relink before the isolated browser suite on
 8897. Do not touch the user's 8888 server. Update public instructions/examples
-when behavior ships. Remaining release work includes a version bump, checked
-artifacts, clean-install checks, PyPI publication, pushed source/tag and
-publication verification. None of that has happened yet for 0.1.13.
+when behavior ships. The source version is now 0.1.13, but PyPI remains
+0.1.12. Remaining release work includes checked artifacts, clean wheel
+install, PyPI publication, pushed release source/tag and publication
+verification. A source checkpoint on the release branch is not publication.

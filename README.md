@@ -72,7 +72,7 @@ The Context toolbar shows the notebook mode and **Details**. Click an AI questio
 
 ## Choose a model
 
-The notebook's **AI defaults** row has a model dropdown. Choose a listed model, use **Default**, or choose **Custom model…** and enter another model ID supported by that provider. Most notebooks can use one model throughout. Individual AI cells expose their own choices under **Override**. Changing providers clears the previous provider's model choice.
+The notebook's **AI defaults** row has a model dropdown. Choose a listed model or **Default**. For an API connection, **Custom model…** accepts another model ID supported by that API provider. ChatGPT offers only runtime-supported models available to your account; an unavailable saved ID remains visible but cannot run. Most notebooks can use one model throughout. Individual AI cells expose their own choices under **Override**. Changing providers clears the previous provider's model choice.
 
 API providers without a configured key are marked unavailable. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). ChatGPT is selected deliberately with **Use for this notebook** or a saved notebook/cell choice; it is never substituted for an API provider, and a disconnected ChatGPT choice never falls back to API billing. Saved provider/model choices remain visible when unavailable. Cells created by older versions keep their saved choices until you return them to notebook defaults.
 
@@ -82,7 +82,7 @@ API providers without a configured key are marked unavailable. If you have only 
 | Anthropic | `claude-sonnet-5` | `claude-haiku-4-5-20251001`, `claude-opus-5-5`, `claude-fable-5-1` |
 | ChatGPT subscription | From your connected account | Models and reasoning effort come from the connection; unavailable saved choices stay selected. |
 
-The API rows are bundled suggestions, not a live list of account model access. Their IDs were checked against the [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for version 0.1.1. ChatGPT models and efforts are read from the connected account. Existing cells keep any explicitly selected model; select **Default** to use the current default. A provider default set in JupyterLab's nbinlineai settings takes precedence over the bundled default.
+The API rows are bundled suggestions, not a live list of account model access. Their IDs were checked against the [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for version 0.1.1. ChatGPT lists runtime-supported models available to your connected account and their efforts. Existing cells keep any explicitly selected model; select **Default** to use the current default. A provider default set in JupyterLab's nbinlineai settings takes precedence over the bundled default.
 
 ### Thinking effort
 
@@ -98,7 +98,7 @@ For direct ChatGPT operations, **ChatGPT file access** currently shows **Noteboo
 
 API keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. ChatGPT credentials are managed by the runtime, never copied into this key file or notebook metadata. No `.env` file is needed.
 
-![Configure AI with provider key setup and expandable style instructions](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
+![Simulated connected ChatGPT setup with model, effort, usage, and Use for this notebook](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
 
 Your school or hosted Jupyter service may manage extensions centrally. If Extension Manager is unavailable, ask the administrator to install the package in the Python environment running Jupyter Server and restart that server. For a self-managed environment using `pip`, the equivalent command is:
 

@@ -35,8 +35,10 @@ test('provider controls follow key availability and preserve an explicit unavail
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  const connection = dialog.locator('[data-nbinlineai-connection]');
   const anthropicRow = dialog.locator('[data-nbinlineai-key-provider="anthropic_api"]');
   const openaiRow = dialog.locator('[data-nbinlineai-key-provider="openai_api"]');
+  await connection.selectOption('anthropic_api');
   await anthropicRow.locator('[data-nbinlineai-key-input]').fill('e2e-no-network-anthropic');
   await anthropicRow.locator('[data-nbinlineai-key-save]').click();
   await expect(anthropicRow.locator('[data-nbinlineai-key-status]')).toContainText('Saved');
@@ -59,6 +61,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await model.selectOption('claude-haiku-4-5-20251001');
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await connection.selectOption('openai_api');
   await openaiRow.locator('[data-nbinlineai-key-input]').fill('e2e-no-network-openai');
   await openaiRow.locator('[data-nbinlineai-key-save]').click();
   await expect(openaiRow.locator('[data-nbinlineai-key-status]')).toContainText('Saved');
@@ -71,6 +74,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await expect(run).toBeEnabled();
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await connection.selectOption('openai_api');
   await openaiRow.locator('[data-nbinlineai-key-remove]').click();
   await expect(openaiRow.locator('[data-nbinlineai-key-status]')).toContainText('Not configured');
   await page.getByRole('button', { name: 'Done' }).click();
@@ -86,6 +90,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await connection.selectOption('anthropic_api');
   await anthropicRow.locator('[data-nbinlineai-key-remove]').click();
   await expect(anthropicRow.locator('[data-nbinlineai-key-status]')).toContainText('Not configured');
   await page.getByRole('button', { name: 'Done' }).click();

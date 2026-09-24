@@ -84,6 +84,9 @@ export class SubscriptionSetup {
   private readonly model = document.createElement('select');
   private readonly effort = document.createElement('select');
   private readonly scope = document.createElement('select');
+  private readonly scopeControl = document.createElement('div');
+  private readonly scopeSelector = textElement('label', 'ChatGPT file access');
+  private readonly scopeStatic = document.createElement('div');
   private readonly scopeReadOnly = textElement('span', 'Notebook tools only — direct ChatGPT file operations are off.', 'nbinlineai-connection-detail');
   private readonly browserLogin = this.button('Sign in with ChatGPT', 'login');
   private readonly deviceLogin = this.button('Use device code', 'device-login');
@@ -111,16 +114,19 @@ export class SubscriptionSetup {
     this.effort.setAttribute('aria-label', 'ChatGPT reasoning effort');
     this.scope.dataset.nbinlineaiSubscriptionScope = '';
     this.scope.setAttribute('aria-label', 'ChatGPT file access');
-    this.scope.hidden = true;
     for (const [value, label] of [['project', 'JupyterLab project folder'], ['notebook', 'This notebook’s folder']]) {
       const option = document.createElement('option');
       option.value = value; option.textContent = label; this.scope.appendChild(option);
     }
     const modelLabel = textElement('label', 'Model'); modelLabel.appendChild(this.model);
     const effortLabel = textElement('label', 'Reasoning effort'); effortLabel.appendChild(this.effort);
-    const scopeLabel = textElement('label', 'ChatGPT file access');
-    scopeLabel.append(this.scope, this.scopeReadOnly,
+    this.scopeSelector.append(this.scope,
       textElement('span', 'Applies to direct ChatGPT operations. Python keeps its normal permissions.', 'nbinlineai-connection-detail'));
+    this.scopeStatic.className = 'nbinlineai-subscription-scope-static';
+    this.scopeStatic.dataset.nbinlineaiSubscriptionScopeStatic = '';
+    this.scopeStatic.append(textElement('strong', 'ChatGPT file access'), this.scopeReadOnly,
+      textElement('span', 'Applies to direct ChatGPT operations. Python keeps its normal permissions.', 'nbinlineai-connection-detail'));
+    this.scopeControl.append(this.scopeStatic);
     const actions = document.createElement('div'); actions.className = 'nbinlineai-connection-actions';
     actions.append(this.browserLogin, this.deviceLogin, this.cancelLogin, this.disconnect, this.refreshButton);
     const useRow = document.createElement('div'); useRow.className = 'nbinlineai-connection-actions';
@@ -132,7 +138,7 @@ export class SubscriptionSetup {
       textElement('p', 'Usage limits are shared across your account. Additional ChatGPT credits may apply. API access is a separate choice.'),
       textElement('p', 'Each notebook has its own conversation and tools. Your ChatGPT sign-in is shared.'));
     this.node.append(this.statusLine, this.accountLine, actions, this.loginDetails, modelLabel, effortLabel,
-      this.paths, scopeLabel, details,
+      this.paths, this.scopeControl, details,
       textElement('span', 'Disconnect stops this Jupyter server connection. It does not sign you out of other apps or projects.', 'nbinlineai-connection-detail'),
       useRow, this.feedback);
     this.browserLogin.addEventListener('click', () => { void this.startLogin('browser'); });
@@ -216,8 +222,8 @@ export class SubscriptionSetup {
       if (status.working_folder) this.paths.append(textElement('span', `Notebook folder: ${status.working_folder}`));
       if (status.project_root) this.paths.append(textElement('span', `JupyterLab project folder: ${status.project_root}`));
       this.scope.value = status.file_access;
-      this.scope.hidden = status.native_files_capable !== true;
-      this.scopeReadOnly.hidden = status.native_files_capable === true;
+      const scopeView = status.native_files_capable === true ? this.scopeSelector : this.scopeStatic;
+      if (this.scopeControl.firstElementChild !== scopeView) this.scopeControl.replaceChildren(scopeView);
       const saved = this.env.notebookChoice();
       const savedModel = saved.backend === SUBSCRIPTION_BACKEND ? saved.model || '' : '';
       const previousModel = this.model.value || savedModel;

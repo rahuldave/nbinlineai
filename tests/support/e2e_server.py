@@ -388,7 +388,7 @@ def main() -> None:
         raise SystemExit("E2E port must be between 1 and 65535")
     with tempfile.TemporaryDirectory(prefix="nbinlineai-e2e-") as tmp:
         base = Path(tmp)
-        for name in ("root", "config", "runtime", "data", "xdg"):
+        for name in ("root", "config", "runtime", "data", "xdg", "ipython"):
             (base / name).mkdir()
         kernelspec = base / "data" / "kernels" / "python3"
         kernelspec.mkdir(parents=True)
@@ -402,6 +402,7 @@ def main() -> None:
         os.environ["JUPYTER_RUNTIME_DIR"] = str(base / "runtime")
         os.environ["JUPYTER_DATA_DIR"] = str(base / "data")
         os.environ["XDG_CONFIG_HOME"] = str(base / "xdg")
+        os.environ["IPYTHONDIR"] = str(base / "ipython")
         live = os.environ.get("NBINLINEAI_E2E_LIVE") == "1"
         if not live:
             # Blank overrides prevent the test server from reading a developer's

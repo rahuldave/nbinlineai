@@ -109,7 +109,7 @@ def main() -> None:
             )
             try:
                 _wait_ready(process)
-                print("Isolated JupyterLab is ready on port 8897. Complete sign-in in the opened browser.")
+                print("Isolated JupyterLab is ready on port 8897. Complete device-code sign-in using your preferred browser.")
                 browser = subprocess.run(
                     [node, str(ROOT / "scripts/subscription_live_smoke.mjs")],
                     cwd=ROOT, env=child_env, check=False,

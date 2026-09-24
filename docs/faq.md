@@ -284,6 +284,10 @@ distinguishes successful tests from the still-unconfirmed shutdown report.
 
 No. Choose **ChatGPT subscription** in **Configure AI**, sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
 
+If browser sign-in is blocked or cannot return to the server, choose **Use device code**. Open the displayed verification link in your usual browser profile, enter the code from Configure AI, complete sign-in there, and return to the notebook. **Check connection** refreshes a status that has not yet changed; **Cancel sign-in** stops a pending attempt. A normal browser profile, such as Safari, may work when an automated browser shows a challenge, but it is not a guarantee.
+
+If device-code login is disabled, enable it in your personal ChatGPT security settings, or ask your workspace administrator to enable it in workspace permissions. [OpenAI's authentication guide](https://learn.chatgpt.com/docs/auth) explains this setting.
+
 Your ChatGPT account allowance has limits and may use additional credits. If usage information is unavailable, that is not evidence of unlimited usage. A disconnected or expired account, exhausted allowance, or unavailable saved model keeps the notebook's chosen ChatGPT connection visible; nbinlineai never automatically charges an API key instead. Reconnect, wait for a displayed reset time, or explicitly choose another connection. **Disconnect** detaches this Jupyter server; it does not sign you out of other apps or projects.
 
 ### Does ChatGPT file access confine my notebook or Python tools?

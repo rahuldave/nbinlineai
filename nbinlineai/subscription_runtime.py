@@ -807,7 +807,8 @@ class SubscriptionRuntime:
                     "image_generation_call", "tool_search_call",
                 }:
                     raise SubscriptionRuntimeError("ChatGPT attempted an undeclared native tool")
-                if isinstance(item, dict) and item.get("type") == "message":
+                if (isinstance(item, dict) and item.get("type") == "message"
+                        and item.get("role") == "assistant"):
                     content = item.get("content")
                     if isinstance(content, list):
                         for part in content:

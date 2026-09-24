@@ -31,7 +31,7 @@ You need JupyterLab 4.2 or newer and Python 3.12 or newer. Use a ChatGPT subscri
 4. In **Configure AI**, choose **ChatGPT subscription** and sign in, or choose an API connection, paste its key, and click **Save**. An API provider should show **Saved on this computer**.
 5. For ChatGPT, choose an available model and effort, then click **Use for this notebook**. For an API connection, use the notebook's **AI defaults** row to choose provider and model. Compact is the starting style; Model default lets the provider choose thinking effort.
 
-![Configure AI: add provider keys and open the style-instruction editors](images/configure-ai.png)
+![Simulated connected ChatGPT setup with model, effort, usage, and Use for this notebook](images/configure-ai.png)
 
 For a project managed by uv, install and launch with:
 
@@ -46,7 +46,11 @@ ChatGPT uses your account allowance, which has limits and may use additional cre
 
 ### ChatGPT connection
 
-**Sign in with ChatGPT** opens the account sign-in page. If its browser callback cannot reach the Jupyter server, choose **Use device code** and follow the displayed link and code. The connection shows the account, available models and reasoning efforts, and usage information when available. An unavailable usage display does not mean unlimited usage. No separate Codex app, command, Node installation, or API key is needed for this connection.
+**Sign in with ChatGPT** opens the account sign-in page. If its browser callback cannot reach the Jupyter server, choose **Use device code** and follow the displayed link and code. The connection shows the account, runtime-supported models available to it and their reasoning efforts, and usage information when available. An unavailable usage display does not mean unlimited usage. No separate Codex app, command, Node installation, or API key is needed for this connection.
+
+For device-code sign-in, leave **Configure AI** open, choose **Use device code**, then open **Open device sign-in page** in your usual browser profile and enter the code shown in the dialog. If an embedded or automated browser meets a sign-in challenge, you can copy that link into your normal browser, such as Safari; this does not require moving the notebook there. Finish the account sign-in, return to the notebook, and use **Check connection** if the status has not updated. **Cancel sign-in** stops a pending attempt. A completed sign-in only connects the account; choose a supported model and **Use for this notebook** to save the notebook default.
+
+If device-code login is disabled, enable it in your personal ChatGPT security settings, or ask your workspace administrator to enable it in workspace permissions. See [OpenAI's authentication guide](https://learn.chatgpt.com/docs/auth).
 
 Signing in, checking status, and opening Configure AI do not change the notebook. **Use for this notebook** explicitly saves the ChatGPT connection, model, and effort as notebook defaults. Each notebook has its own questions, context, declared tools, and Keep choices; your ChatGPT sign-in is shared. If sign-in expires, a model becomes unavailable, or usage is limited, your saved selection remains visible and requests pause until you reconnect or deliberately change it. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
 
@@ -84,9 +88,9 @@ The suggestions disappear once the question contains text, and return if you cle
 
 - An API provider without a configured key is marked **API key required** and cannot be selected. A disconnected ChatGPT selection remains visible with its own unavailable message.
 - If only one provider is configured, a notebook without saved AI defaults starts with that provider automatically.
-- Choose a listed model, **Default**, or **Custom model…** to enter another model ID.
+- Choose a listed model or **Default**. **Custom model…** is for API connections to enter another model ID supported by that provider; ChatGPT offers only supported models available to the connected account.
 - Bundled defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A default you set in JupyterLab's nbinlineai settings takes precedence.
-- API listed models are suggestions, not a live account-access check. ChatGPT models and reasoning efforts come from the connected account; an unavailable saved model or effort is kept and cannot run until you change it.
+- API listed models are suggestions, not a live account-access check. ChatGPT lists runtime-supported models available to the connected account and their reasoning efforts; an unavailable saved model or effort is kept and cannot run until you change it.
 - Notebook defaults are stored in notebook metadata. Inherited cells use those choices without saving separate copies in every prompt.
 - **Override** exposes choices for an individual cell. Returning to notebook defaults removes those overrides. Cells from earlier versions retain their saved provider/model choices until you do this.
 - A saved provider/model is not silently replaced when a key or ChatGPT connection changes. Changing providers clears the previous provider's model choice. A missing connection produces setup guidance until you restore it or select another provider yourself.
@@ -308,7 +312,7 @@ Every mode uses the shared **64,000-character estimate**. Tools, instructions, e
 
 Context has two steps. First, the mode chooses **candidates** from the live notebook: Default and All above look above the question; Full notebook can also look below; the ten-cell modes count physical positions; Custom uses your saved checkboxes. The current question is always included. Its own answer, raw or empty cells, and unfinished or orphaned AI answers are ineligible. Default treats earlier completed AI questions and answers as whole conversation pairs; an explicit mode can select an individual AI cell as labeled notebook source. **Tools** is separate: enabled declarations in the current or earlier Markdown/AI questions are discovered before text is trimmed, even if the declaration note is not chosen as Context. Only the current question's `$` references read live Python values.
 
-Second, each provider round spends the 64,000-character host budget on instructions, the expanded question, tool descriptions, and any completed notebook-tool calls/results. It then tries candidate source and whole earlier AI pairs nearest to this question, with above winning a distance tie. The first source cell that does not fit can contribute its nearest end (above) or beginning (below); an AI pair is never split. Selection stops there, so a smaller but more distant cell is not substituted. Retained cells are sent in notebook order. A later round can omit more earlier context because tool results take space, but the tool effects are not repeated.
+Second, each provider round spends the 64,000-character host budget on instructions, the expanded question, tool descriptions, and any completed notebook-tool calls/results. It then tries candidate source and whole earlier AI pairs nearest to this question, with above winning a distance tie. The first source cell that does not fit can contribute its nearest end (above) or beginning (below); an AI pair is never split. Selection stops there, so a smaller but more distant cell is not substituted. Retained source is sent in notebook order and completed pairs in conversation order. A later round can omit more earlier context because tool results take space, but the tool effects are not repeated.
 
 | Connection | How the same candidate cells are measured |
 | --- | --- |
@@ -419,7 +423,7 @@ nbinlineai extension inside Jupyter Server
 
 The TypeScript frontend creates the controls, reads the notebook model, and updates the answer cell. The Python server extension builds the model context and manages requests and notebook-tool rounds. FastLLM adapts API requests; the ChatGPT runtime uses its account connection. The host chooses the notebook text and declared tools in each submitted request, then validates and executes returned tool groups. The runtime may make internal inference or recovery requests within one host round; those are outside the 64,000-character submitted-request estimate. Live variable inspection and ordinary function execution happen in the notebook's existing Python kernel, which is a separate process. Built-in live notebook tools use an authenticated request/reply interface between the server and the original notebook panel; they do not block the Python kernel while waiting for the browser.
 
-The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. API mode requires no extra model process; ChatGPT mode owns a private native child supplied by the installed Python dependency, with no separate student installation. Neither mode nests a notebook event loop. There is no new notebook cell type or cell magic: AI behavior is attached to Markdown cells through their metadata.
+The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. API model requests go through FastLLM; ChatGPT model requests use a private native runtime supplied by the installed Python dependency, with no separate student installation. Neither mode nests a notebook event loop. There is no new notebook cell type or cell magic: AI behavior is attached to Markdown cells through their metadata.
 
 For the request lifecycle, tool schemas, module map, and event-loop details, see [Architecture](architecture.md).
 

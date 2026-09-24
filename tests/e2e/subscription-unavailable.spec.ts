@@ -61,9 +61,13 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
-  await expect(dialog.locator('[data-nbinlineai-connection]')).toBeHidden();
-  await expect(dialog.locator('[data-nbinlineai-subscription-setup]')).toBeHidden();
+  const connection = dialog.locator('[data-nbinlineai-connection]');
+  await expect(connection).toHaveValue('openai_codex_subscription');
+  await expect(dialog.locator('[data-nbinlineai-subscription-setup]')).toBeVisible();
+  await expect(dialog.locator('[data-nbinlineai-subscription-setup] strong').first()).toContainText('Connect your ChatGPT account');
+  await connection.selectOption('openai_api');
   await expect(dialog.locator('[data-nbinlineai-key-provider="openai_api"]')).toBeVisible();
+  await connection.selectOption('anthropic_api');
   await expect(dialog.locator('[data-nbinlineai-key-provider="anthropic_api"]')).toBeVisible();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(0);

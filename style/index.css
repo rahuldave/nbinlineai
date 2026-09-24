@@ -41,6 +41,7 @@
 .nbinlineai-connection-actions button, .nbinlineai-subscription-setup [data-nbinlineai-subscription-action="refresh-usage"] { padding: 5px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
 .nbinlineai-connection-actions button:disabled { opacity: .5; cursor: default; }
 .nbinlineai-connection-paths { display: grid; gap: 4px; overflow-wrap: anywhere; font-size: var(--jp-ui-font-size1); }
+.nbinlineai-subscription-scope-static { display: grid; gap: 5px; }
 .nbinlineai-connection-login-details { display: flex; flex-wrap: wrap; gap: 8px; }
 .nbinlineai-subscription-setup details { padding-top: 5px; border-top: 1px solid var(--jp-border-color2); }
 .nbinlineai-subscription-setup details summary { cursor: pointer; }
