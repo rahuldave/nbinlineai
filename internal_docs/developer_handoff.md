@@ -43,15 +43,18 @@ source commit `e3893761988e5f023e279338bcee3a05202d21c9`. GitHub Pages
 deployment `36033920623` succeeded at that commit; seven public documentation
 pages and the Configure AI image hash were verified.
 
-**Documentation-only checkout follow-up:** The public guide is now organized
+**Published documentation follow-up (2026-09-24):** The public guide is now organized
 as eight chapters under [docs/manual](../docs/manual/), with
 [user-guide.md](../docs/user-guide.md) as a short index and redirects for old
 fragments. The homepage links to every chapter; the navigation highlights the
 Manual. The split preserves the guide's 164 content blocks and 13 screenshots.
-This is a source-checkout documentation change, not a change to application
-behavior or the published PyPI **0.1.13** archives, which still contain the
-earlier single-page guide. Publication checks for the new site layout are
-being handled separately.
+PyPI **0.1.13** and application behavior are unchanged; its immutable archives
+still contain the earlier single-page guide. Pages deployment `36037365193`
+succeeded at `208f31a`. The live crawl checked 15 pages, 232 links and 16 images
+without failures. Browser review confirmed the short index and context chapter,
+including old fragment redirects on initial load and in an already-open tab.
+The archive checker accepts historical single-page archives and requires all
+eight chapters with their images when the split manual is packaged.
 
 The latest full Python suite passed **260 tests** in 56.74 seconds, with Ruff
 clean. The frontend passed **57 unit tests** and TypeScript type checking; its
