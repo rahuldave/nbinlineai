@@ -1,5 +1,12 @@
 # FastLLM tool bridge and ChatGPT subscription sign-in
 
+**Historical research:** the 0.1.13 ChatGPT subscription implementation now
+uses the official pinned Codex runtime and its archives were accepted by PyPI.
+The [integration spec](chatgpt_subscription_integration.md) and
+[release record](releasing.md) give current behavior and release status. The
+proposed downloader and “unimplemented” language below describe the earlier
+2026-09-22/23 state.
+
 Research date: 2026-09-22. Examined [`ai-jup` at `2ac432b`](https://github.com/AnswerDotAI/ai-jup/tree/2ac432b6c7662da0e894272831be9f7f18182901) and [`fastllm` at `78ca64c`](https://github.com/AnswerDotAI/fastllm/tree/78ca64c3daed288e7d0bc6b6e5d3fab7d80852ea). This note updates the provider choice in [the original ai-jup analysis](ai_jup_research_and_design.md): use FastLLM for API-backed Claude and OpenAI, not Lisette. The checked-in MVP executes API-backed prompts and kernel tools; ChatGPT subscription sign-in remains a design proposal.
 
 ## Decision

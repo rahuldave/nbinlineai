@@ -1,6 +1,6 @@
 # Developer handoff
 
-**2026-09-24 subscription implementation in progress:** The user revised the
+**2026-09-24 subscription release:** The user revised the
 strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md):
 Codex internal inference/recovery requests are permitted after each bounded
 host submission. The **64,000-character estimate applies to each host-assembled
@@ -34,16 +34,19 @@ hooks or MCP. Native direct file operations are disabled. The UI reports
 **“ChatGPT file access: Notebook tools only”**; stored notebook/project scope
 preference has no active permission effect. Python kernel tools retain their
 actual cwd and OS-user permissions. Existing API modes have no subscription
-fallback. This work is **unreleased** pending final-wheel installation,
-publication, and website verification. Source version
-metadata and uv lock read **0.1.13**, but PyPI remains **0.1.12**. Three source
-checkpoints have been pushed to the `codex/chatgpt-subscription-0-1-13` branch;
-there is no 0.1.13 release artifact, main-branch release, tag, or PyPI upload.
+fallback. Version **0.1.13** is published on PyPI: both public distribution
+downloads match the checked local artifacts. A fresh install from the public
+index and a separate checked-wheel installation passed. Packaged source
+checkpoint `9be3b05` and the unpackaged clean-wheel helper fix `e389376`
+have been pushed to `main`. The annotated `v0.1.13` tag was pushed and verified to peel to checked
+source commit `e3893761988e5f023e279338bcee3a05202d21c9`. GitHub Pages
+deployment `36033920623` succeeded at that commit; seven public documentation
+pages and the Configure AI image hash were verified.
 
 The latest full Python suite passed **260 tests** in 56.74 seconds, with Ruff
 clean. The frontend passed **57 unit tests** and TypeScript type checking; its
-production bundle was built and relinked. Platform CI run `36029215455` passed
-**14/14 jobs** at checkpoint `5b1f6be`, including Windows worker lifecycle
+production bundle was built and relinked. Final main/tag code CI run `36033921756` passed
+**14/14 jobs** at checked source commit `e389376`, including Windows worker lifecycle
 coverage. The isolated default browser run passed 66 scenarios, had three
 obsolete dialog-expectation failures, and skipped two opt-in scenarios. The
 corrected focused default rerun passed 4/4, and the opt-in real-server,
@@ -59,9 +62,13 @@ replay, and cancellation. Paid API transport was disabled, environment API keys
 were stripped, and no API fallback occurred. Authentication lived only in the
 harness's temporary private store; this does not connect a user's ordinary
 JupyterLab installation. Earlier 245/55/11 and 137-focused counts are superseded
-by these broader checks, not additional release evidence.
+by these broader checks, not additional release evidence. Strict Twine and
+release-artifact checks passed. The isolated clean wheel on Python 3.14 passed
+both extension discovery entries and packaged quickstart UI checks. A fresh
+Python 3.14 public-index install passed dependency consistency and the same
+no-auth extension/runtime checks without global Node or Codex.
 
-Reviewed **2026-09-23**. Latest published package: **0.1.12**, source commit `68ef13a364565c82ae7d324ecd952478d372f23a`, tag `v0.1.12`; source and tag are pushed. The release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
+Prior release reviewed **2026-09-23**: **0.1.12**, source commit `68ef13a364565c82ae7d324ecd952478d372f23a`, tag `v0.1.12`; source and tag are pushed. That release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
 
 The user's course environment and JupyterLab on 8888 must remain untouched. The 0.1.11 investigation reproduced Python 3.14 native builds for rgapi/exhash; the new dependency graph avoids those builds. The actual 0.1.10-to-0.1.12 Extension Manager upgrade passed in 3.803 seconds, but browser-open shutdown probes later exposed a surviving idle AnyIO worker while the main thread waited in threading._shutdown. Its originating component is not yet established; do not claim a JupyterLab deadlock was fixed. A short readonly-manager check passed, but a matched 45-second browser-open test reproduced the same thread wait in readonly mode; do not recommend it as a shutdown fix. A core-only control exited normally, while disabling only MCP in the fuller setup still reproduced the wait; the remaining extension/dependency interaction is unidentified. Weekly wheel monitoring is already active as the thread heartbeat `check-python-3-14-native-wheels` (Mondays 09:00 America/New_York); do not duplicate it.
 
@@ -79,16 +86,15 @@ context but never changes the private runtime cwd or kernel cwd. The current UI
 must state “ChatGPT file access: Notebook tools only”; no whole-kernel or native
 folder sandbox is claimed. The [repository design preview](design/chatgpt-configure-ai.html)
 is historical visual input, and its old active scope selector is superseded by
-the revised contract. API behavior is preserved. Tests, checked artifacts,
-publication and source/tag verification remain release work; source version
-metadata has already been aligned to 0.1.13.
+the revised contract. API behavior is preserved. Tests, checked artifacts, PyPI publication, and public-index installation
+passed. The pushed `v0.1.13` tag and public website have also been verified.
 
-Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). This is a documentation-only follow-up; the published package remains 0.1.12.
+Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). This is a documentation-only follow-up to the prior 0.1.12 release; version 0.1.13 is now published.
 
 - Public repo: https://github.com/rahuldave/nbinlineai; website: https://rahuldave.com/nbinlineai/; PyPI package: `nbinlineai`.
 - GPL-3.0-only, matching ai-jup. Runtime Python >=3.12; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
 - A prebuilt Python wheel contains frontend assets and the auto-enabled Jupyter Server extension. Students install through JupyterLab's PyPI Extension Manager or their environment's uv/pip. Restart the **whole server** after installation/update, then refresh the page. Reloading only the frontend can leave new server routes unavailable.
-- API backends: OpenAI and Anthropic via pinned `python-fastllm==0.0.63`. The source checkout adds an unreleased native inline ChatGPT subscription backend through the official Codex runtime. A separate Jupyter AI Codex ACP chat route was successfully exercised; see the [worked-example run](codex_acp_example_run.md). Never treat a subscription as an API key or assume Jupyter AI login configures inline requests.
+- API backends: OpenAI and Anthropic via pinned `python-fastllm==0.0.63`. Version 0.1.13 adds a native inline ChatGPT subscription backend through the official Codex runtime. A separate Jupyter AI Codex ACP chat route was successfully exercised; see the [worked-example run](codex_acp_example_run.md). Never treat a subscription as an API key or assume Jupyter AI login configures inline requests.
 - Students supply their own keys through Configure AI. Private per-user JSON is under `$XDG_CONFIG_HOME/nbinlineai/credentials.json`, or `~/.config/nbinlineai/credentials.json` on macOS/Linux when XDG is absent; Windows falls back to APPDATA. Server environment keys and development `.env` are supported. The browser gets availability, not saved key values. Inspect storage behavior through `credentials.py` and tests, not by printing real credentials.
 - Server and selected kernel can use different environments. Bundled imports require installation in the kernel environment too. Custom ordinary functions still work without nbinlineai installed there. `insert_tools` additionally needs `comm>=0.2,<1` and `ipykernel>=6.18` in that kernel.
 
@@ -132,7 +138,7 @@ The shared budget is 64,000 serialized Unicode characters, including tool schema
 
 Paths in the table are repository-relative. No separate background application server is needed for API mode: Jupyter Server awaits provider calls, Python kernel executes live functions, and JupyterLab owns live documents. Normal kernel dispatch is already asynchronous; do not introduce `asyncio.run`, blocking comm waits, or same-kernel reentrant execution.
 
-The unreleased subscription routes are all Jupyter-authenticated, require
+The 0.1.13 subscription routes are all Jupyter-authenticated, require
 kernel execute authorization and a single-user server, and use the Jupyter
 base URL. `GET nbinlineai/status` retains API provider fields and reports
 `subscription_capable` plus the discovered ChatGPT model/effort list. A true

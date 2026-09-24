@@ -8,8 +8,9 @@ requests inside a turn. The 64,000-character estimate applies to each
 notebook tool-plan groups. The notebook host still owns context selection,
 declared tool execution, results, cancellation, and per-notebook binding.
 Native Codex tools and ambient project instructions remain forbidden.
-The source version is 0.1.13; PyPI remains at 0.1.12 pending package and
-publication checks.
+Version 0.1.13 archives were accepted by PyPI. Public project metadata and
+both downloaded SHA-256 hashes match the locally audited artifacts; The packaged source and an unpackaged helper fix are pushed to main;
+the annotated release tag and live documentation site were verified.
 
 ## Supported isolation and actual wire evidence
 
@@ -138,15 +139,15 @@ repeats that smoke in a Tornado loop. The
 [cross-platform workflow](../.github/workflows/subscription-runtime.yml)
 adds credential-free packaged startup, fake-protocol tests, and actual
 empty-inventory synthetic round on macOS/Linux/Windows x64/arm64 and Alpine
-musl x64/arm64. The final
-[CI run 36029215455](https://github.com/rahuldave/nbinlineai/actions/runs/36029215455)
-passed all 14 jobs at source checkpoint `5b1f6be`: six hosted OS/arch
+musl x64/arm64. The final main/tag code
+[CI run 36033921756](https://github.com/rahuldave/nbinlineai/actions/runs/36033921756)
+passed all 14 jobs at checked source commit `e389376`: six hosted OS/arch
 combinations on both Python 3.12 and 3.14, plus two Alpine musl architectures
 on Python 3.12. This exercised packaged startup/shutdown under Tornado,
 deterministic RPC and Windows worker lifecycle tests, and actual empty
 native-tool inventory. It did not launch a full Windows Jupyter Server with
 a kernel; the Windows probe reproduces its Selector policy. The local
-assistant-role refusal guard added after that checkpoint passed the 9 focused
+assistant-role refusal guard passed the 9 focused
 tests but was not in this CI run. Python 3.12 and 3.14 wheel-only
 dependency resolution passed all eight target environments independently.
 The first CI run found the lock's `argon2-cffi-bindings==26.1.0` lacked a
@@ -192,6 +193,9 @@ This live run validates one local account, one available model, and the stated
 notebook path; it does not establish every account quota state, every model,
 cross-platform **account-backed** behavior, or provider-native refusal
 delivery. Structured `kind=refusal` and native-refusal failure handling remain
-deterministic tests as described above. The parent release process still owns
-final distribution build, clean wheel install, tag, push, PyPI publication,
-and publication verification.
+deterministic tests as described above. The checked wheel and source archive
+were built and accepted by PyPI. Strict Twine/archive checks, an isolated
+Python 3.14 clean-wheel installation, both extension-discovery checks, and
+packaged quickstart UI without a model turn passed. Public project metadata,
+README rendering, and both download hashes were verified. The pushed annotated release tag and live site were verified; see
+[the release record](releasing.md).

@@ -1,8 +1,9 @@
 # Implementation task prompt: ChatGPT subscription integration
 
-This prompt records the active **0.1.13** implementation contract and can be
-reused for follow-up work. Version 0.1.12 is published. The source integration
-is in progress; this file is not evidence that 0.1.13 has been released.
+This is the historical task contract used for **0.1.13**. The 0.1.13 archives
+were accepted by PyPI on 2026-09-24; consult the [release record](releasing.md)
+for completed tag and public-site verification. The instructions below are
+preserved for provenance, not as a statement that implementation is unfinished.
 
 ---
 

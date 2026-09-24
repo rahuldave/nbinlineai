@@ -1,8 +1,8 @@
 # Implementation spec: ChatGPT subscription access
 
-Reviewed **2026-09-24**. **0.1.13 implementation in progress; not shipped.**
-Version 0.1.12 is already published and must not be reused. PyPI remains 0.1.12
-until the 0.1.13 release checklist succeeds. The
+Reviewed **2026-09-24**. **0.1.13 is published and verified on PyPI, GitHub and the live
+documentation site.** Version 0.1.12 is a prior release
+and must not be reused. The
 [implementation task prompt](chatgpt_subscription_task_prompt.md) records the
 active contract and acceptance work. The earlier strict one-model-request gate
 and its evidence remain in the [runtime gate record](chatgpt_subscription_gate.md),
@@ -52,8 +52,8 @@ terminal command, API key or credential-file manipulation is required.
 Do not add Claude subscription support, ChatGPT website automation, a generic
 OAuth-to-API proxy, Jupyter AI/ACP as a required dependency, or a whole-kernel
 sandbox in this release. Keep future backends possible through the provider
-registry. The source integration is in progress; this document does not claim
-the 0.1.13 package has shipped or passed every acceptance gate.
+registry. The shipped 0.1.13 package passed its stated release checks; bounded local
+live acceptance does not establish every account, model or quota state.
 
 ## Working directory and accessible project are separate
 
@@ -282,7 +282,7 @@ protocol client; its high-level wrapper does not expose all needed fields.
 Verify public account/model RPCs, structured output, cancellation and native
 tool suppression in the selected SDK/runtime version.
 Lock and test the SDK/runtime together. Cross-platform installation/size/support
-remain release gates. Do not depend on the user's global PATH or desktop bundle.
+were checked in the release gates. Do not depend on the user's global PATH or desktop bundle.
 The native engine is still Codex internally; a library wrapper does not turn
 ChatGPT subscription access into the ordinary billed OpenAI API. The user sees
 “ChatGPT subscription” and ChatGPT sign-in, not a separate Codex product setup.
@@ -368,8 +368,10 @@ before submissions and tool dispatch. Preview invokes the pure round serializer
 without account/model RPC or a model call, even if signed out. Subscription
 runtime errors become safe SSE errors. The API-key transport remains separate
 and cannot serve a subscription request. Managed private-store sign-in and a
-subscription-backed isolated JupyterLab/kernel acceptance run passed locally;
-final artifact checks and publication remain.
+subscription-backed isolated JupyterLab/kernel acceptance run passed locally.
+Checked archives, clean-wheel installation, PyPI upload, public artifact
+hashes, README rendering, source and annotated tag push, and live site
+verification passed.
 
 ## Concrete implementation seams
 
@@ -395,7 +397,7 @@ no model or login request.
 Runtime 0.156.1 metadata lists wheels for macOS arm64/x86_64, manylinux and
 musllinux aarch64/x86_64, and Windows arm64/amd64. The 0.1.13 lock resolves
 the pinned dependency wheels for all eight supported platform combinations.
-The final [credential-free CI run](https://github.com/rahuldave/nbinlineai/actions/runs/36029215455)
+The final [credential-free CI run](https://github.com/rahuldave/nbinlineai/actions/runs/36033921756)
 passed 14/14 jobs: packaged startup/shutdown in a Tornado loop, deterministic
 RPC/lifecycle tests, and an actual empty native-tool inventory with a local
 mock model on macOS, Linux and Windows x64/arm64 under Python 3.12 and 3.14,
@@ -405,7 +407,7 @@ This tests runtime execution without credentials; it is not a full Jupyter
 Server/kernel or subscribed-account acceptance run. A macOS Intel-only
 `argon2-cffi-bindings<26.1.0` bound selects the available 25.1.0 wheel;
 other supported platforms retain 26.1.0. Clean installation of the **built
-nbinlineai wheel** remains a release check. If a native runtime is unavailable,
+nbinlineai wheel** passed as a release check. If a native runtime is unavailable,
 account status must fail safely while API backends continue; do not make
 students discover and manually install a Codex executable. Record wheel size
 and cold-install behavior, given this project's prior Extension Manager issue.
@@ -497,7 +499,7 @@ folder enforcement tests on each supported OS before activating its selector.
 
 After frontend changes, rebuild/relink before the isolated browser suite on
 8897. Do not touch the user's 8888 server. Update public instructions/examples
-when behavior ships. The source version is now 0.1.13, but PyPI remains
-0.1.12. Remaining release work includes checked artifacts, clean wheel
-install, PyPI publication, pushed release source/tag and publication
-verification. A source checkpoint on the release branch is not publication.
+when behavior ships. Version 0.1.13 archives were accepted by PyPI and both
+public downloads match the locally audited SHA-256 hashes. Clean installation
+of the built wheel and packaged quickstart UI also passed. The annotated `v0.1.13` tag peels to checked source `e389376`; the
+live documentation site passed its release checks.
