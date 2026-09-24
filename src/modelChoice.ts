@@ -11,7 +11,7 @@ export function selectedModelChoice(savedModel: string | undefined, models: read
   return models.includes(savedModel) ? savedModel : CUSTOM_MODEL;
 }
 
-export function resolvedDefault(settingModel: string | undefined, serverDefault: string | undefined): string {
+export function resolvedDefault(settingModel: string | undefined, serverDefault: string | null | undefined): string {
   return settingModel || serverDefault || '';
 }
 

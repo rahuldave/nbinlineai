@@ -9,7 +9,7 @@ title: nbinlineai
 ## Start here
 
 1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook and use **Configure AI** to save your OpenAI or Anthropic API key.
+2. Open a Python notebook and use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key.
 3. Choose your notebook's model and style in **AI defaults**.
 4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
 
@@ -33,7 +33,13 @@ uv run jupyter lab
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.12
+## New in version 0.1.13
+
+- Use a ChatGPT subscription for inline questions through a connection owned by the Jupyter server. Sign in through a browser or device code, inspect account models and usage, then choose **Use for this notebook**. No separate Codex installation or API key is needed for this connection.
+- ChatGPT and API billing stay separate. Saved notebook choices remain explicit when a connection or model becomes unavailable; there is no automatic switch to an API provider.
+- The notebook owns submitted context, declared tools, Keep answers, execution order, and cancellation. Built-in ChatGPT file, shell, and browser actions are off; enabled notebook tools keep their normal Python permissions.
+
+## Added in version 0.1.12
 
 - The 51 optional tools keep the eight task groups and 19-tool starter note. Source and saved-notebook search now use bounded Python matching with nested ignore rules; Markdown and Python outlines have copied addresses that expire after any file change.
 - Four 0.1.11 syntax search/rewrite tools are deferred. The 0.1.11 native search and document dependencies are replaced with `pathspec` and `markdown-it-py`.
@@ -78,7 +84,7 @@ Version 0.1.8 adds selectable notebook context.
 - Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
 - Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
 
-This version supports OpenAI and Anthropic API keys. API usage is billed by the provider; ChatGPT subscription sign-in is not included.
+ChatGPT subscription use has account limits and may use additional credits. OpenAI and Anthropic API requests are billed separately by those providers.
 
 [Install from PyPI](https://pypi.org/project/nbinlineai/) · [Source on GitHub](https://github.com/rahuldave/nbinlineai) · [Report an issue](https://github.com/rahuldave/nbinlineai/issues)
 

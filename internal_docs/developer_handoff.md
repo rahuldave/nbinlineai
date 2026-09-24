@@ -1,17 +1,73 @@
 # Developer handoff
 
+**2026-09-24 subscription implementation in progress:** The user revised the
+strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md):
+Codex internal inference/recovery requests are permitted after each bounded
+host submission. The **64,000-character estimate applies to each host-assembled
+payload**, including exact serialized protocol/schema cost and completed
+notebook-tool groups before optional context. `maxToolSteps` counts only validated
+notebook-tool plan groups that nbinlineai executes. Effects are never replayed.
+The pinned sanitized model catalog and private runtime environment suppress
+native tools/ambient instructions in deterministic probes. An unexpected native
+call may still trigger internal recovery; this is allowed under the revised
+budget contract, but native tool execution remains disabled and its output is
+never treated as a notebook-tool plan.
+
+The checkout now has an explicit backend registry, a ChatGPT subscription route
+using account allowance with no API fallback, authenticated single-user account/login/cancel/
+disconnect/usage/file-access routes, public account/model discovery, an owned
+App Server manager with isolated ephemeral round children, exact round wire
+accounting for preview and execution, and host-validated notebook-tool plans.
+Jupyter Server's awaited extension shutdown hook closes only owned children.
+The server resolves notebook path from the authenticated session and freezes
+its local project root; path/focus/kernel changes are checked during runs.
+The notebook folder is **inert, budgeted planning context**. Runtime cwd and
+`CODEX_HOME` are private because a project cwd could load `.codex/config.toml`,
+hooks or MCP. Native direct file operations are disabled. The UI reports
+**“ChatGPT file access: Notebook tools only”**; stored notebook/project scope
+preference has no active permission effect. Python kernel tools retain their
+actual cwd and OS-user permissions. Existing API modes have no subscription
+fallback. This work is **unreleased** pending complete integration, browser,
+packaging and publication checks. Source version metadata and uv lock now read
+**0.1.13**, but PyPI remains **0.1.12**; no 0.1.13 artifacts, publication,
+source push or tag has happened.
+
+Earlier-stage checks for the unreleased groundwork passed **245 Python tests** and
+Ruff, **55 frontend unit tests** and TypeScript type checking, followed by a
+production frontend build and relink. The selected isolated JupyterLab browser
+regression set passed **11/11** uninterrupted on port 8897, covering API
+provider keys, availability, models, defaults, settings recovery, and a saved
+unavailable ChatGPT selection. This was a focused browser subset, not the full
+browser suite or a subscription acceptance test. No paid API test was run.
+
 Reviewed **2026-09-23**. Latest published package: **0.1.12**, source commit `68ef13a364565c82ae7d324ecd952478d372f23a`, tag `v0.1.12`; source and tag are pushed. The release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
 
 The user's course environment and JupyterLab on 8888 must remain untouched. The 0.1.11 investigation reproduced Python 3.14 native builds for rgapi/exhash; the new dependency graph avoids those builds. The actual 0.1.10-to-0.1.12 Extension Manager upgrade passed in 3.803 seconds, but browser-open shutdown probes later exposed a surviving idle AnyIO worker while the main thread waited in threading._shutdown. Its originating component is not yet established; do not claim a JupyterLab deadlock was fixed. A short readonly-manager check passed, but a matched 45-second browser-open test reproduced the same thread wait in readonly mode; do not recommend it as a shutdown fix. A core-only control exited normally, while disabling only MCP in the fuller setup still reproduced the wait; the remaining extension/dependency interaction is unidentified. Weekly wheel monitoring is already active as the thread heartbeat `check-python-3-14-native-wheels` (Mondays 09:00 America/New_York); do not duplicate it.
 
 ## Product and environment
 
+The active **0.1.13 subscription contract** is in
+[ChatGPT subscription integration](chatgpt_subscription_integration.md) and the
+[implementation prompt](chatgpt_subscription_task_prompt.md). The user wants
+course/project files available through declared notebook tools, with per-project
+uv environments recommended. Each notebook is a separate logical harness with
+shared user authentication; **no ACP** is used. The official pinned
+`openai-codex==0.156.1` package supplies the matching runtime, so students need
+no separate Codex install. The host resolves the notebook parent for location
+context but never changes the private runtime cwd or kernel cwd. The current UI
+must state “ChatGPT file access: Notebook tools only”; no whole-kernel or native
+folder sandbox is claimed. The [repository design preview](design/chatgpt-configure-ai.html)
+is historical visual input, and its old active scope selector is superseded by
+the revised contract. API behavior is preserved. Tests, checked artifacts,
+publication and source/tag verification remain release work; source version
+metadata has already been aligned to 0.1.13.
+
 Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). This is a documentation-only follow-up; the published package remains 0.1.12.
 
 - Public repo: https://github.com/rahuldave/nbinlineai; website: https://rahuldave.com/nbinlineai/; PyPI package: `nbinlineai`.
 - GPL-3.0-only, matching ai-jup. Runtime Python >=3.12; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
 - A prebuilt Python wheel contains frontend assets and the auto-enabled Jupyter Server extension. Students install through JupyterLab's PyPI Extension Manager or their environment's uv/pip. Restart the **whole server** after installation/update, then refresh the page. Reloading only the frontend can leave new server routes unavailable.
-- API backends: OpenAI and Anthropic via pinned `python-fastllm==0.0.63`. A native inline ChatGPT subscription/Codex backend remains research only. A separate Jupyter AI Codex ACP chat route was successfully exercised; see the [worked-example run](codex_acp_example_run.md). Never treat a subscription as an API key or assume agent login configures inline requests.
+- API backends: OpenAI and Anthropic via pinned `python-fastllm==0.0.63`. The source checkout adds an unreleased native inline ChatGPT subscription backend through the official Codex runtime. A separate Jupyter AI Codex ACP chat route was successfully exercised; see the [worked-example run](codex_acp_example_run.md). Never treat a subscription as an API key or assume Jupyter AI login configures inline requests.
 - Students supply their own keys through Configure AI. Private per-user JSON is under `$XDG_CONFIG_HOME/nbinlineai/credentials.json`, or `~/.config/nbinlineai/credentials.json` on macOS/Linux when XDG is absent; Windows falls back to APPDATA. Server environment keys and development `.env` are supported. The browser gets availability, not saved key values. Inspect storage behavior through `credentials.py` and tests, not by printing real credentials.
 - Server and selected kernel can use different environments. Bundled imports require installation in the kernel environment too. Custom ordinary functions still work without nbinlineai installed there. `insert_tools` additionally needs `comm>=0.2,<1` and `ipykernel>=6.18` in that kernel.
 
@@ -23,7 +79,7 @@ Keep is on by default, inherits from notebook defaults, and skips completed prot
 
 0.1.7 discovers `&` tool declarations in the current question plus **all earlier ordinary Markdown and AI questions**, independently of prose trimming. Tools are resolved from the live kernel per run; code/raw/answers/outputs and later cells do not declare tools. Only `$` in the current question resolves variables. The combined distinct reference cap is 20.
 
-The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each provider round without repeating tools. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Version 0.1.8 also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
+The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each host submission without repeating tools. Subscription mode uses the runtime's exact wire-cost callback, including its double-serialized message input and structured output schema; Codex internal inference/recovery requests after a bounded host submission are outside this estimate. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Version 0.1.8 also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
 
 ## Source map
 
@@ -50,8 +106,28 @@ The shared budget is 64,000 serialized Unicode characters, including tool schema
 | Separate subprocess execution and local tmux reads | `nbinlineai/execution_tools.py` |
 | Authenticated routes, session/kernel binding, safe errors | `nbinlineai/handlers.py`, `nbinlineai/__init__.py` |
 | Private keys and server/model configuration | `nbinlineai/credentials.py`, `nbinlineai/config.py` |
+| Subscription backend registry, account/model/runtime, exact round cost | `nbinlineai/backend_registry.py`, `nbinlineai/subscription_runtime.py`, `nbinlineai/context_budget.py` |
+| Authenticated notebook folder and dormant file-access preference | `nbinlineai/notebook_scope.py`, `nbinlineai/subscription_settings.py` |
 
 Paths in the table are repository-relative. No separate background application server is needed for API mode: Jupyter Server awaits provider calls, Python kernel executes live functions, and JupyterLab owns live documents. Normal kernel dispatch is already asynchronous; do not introduce `asyncio.run`, blocking comm waits, or same-kernel reentrant execution.
+
+The unreleased subscription routes are all Jupyter-authenticated, require
+kernel execute authorization and a single-user server, and use the Jupyter
+base URL. `GET nbinlineai/status` retains API provider fields and reports
+`subscription_capable` plus the discovered ChatGPT model/effort list. A true
+capability means the manager is wired; `configured` is true only for a ChatGPT
+account with a compatible discovered model. `GET nbinlineai/subscription/status`
+returns typed state, safe account/model/usage presentation fields and, when
+given `session_id`, the server-resolved notebook/project folders. It also
+reports `native_files_capable: false`. `POST .../login` accepts browser/device
+method and returns the owned sign-in URL or device code; `POST .../login/cancel`
+accepts its login ID. `GET .../usage` returns a direct safe usage object;
+`POST .../disconnect` stops owned children without global account logout.
+`GET/POST .../file-access` reads/stores a named dormant preference after
+authenticated session validation, not a file grant. Context preview is
+read-only and uses the pure wire serializer even when signed out. Execution
+rechecks exact account, model and effort before an isolated round, with
+per-run cancellation and no paid API fallback.
 
 ## Protocol quick reference
 
@@ -103,7 +179,7 @@ Keep versions aligned in `pyproject.toml`, `package.json`, `nbinlineai/__init__.
 
 GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
 
-Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and ChatGPT subscription login. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
+Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and any enforceable native ChatGPT direct-file scope. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
 
 ## Context selection in version 0.1.8
 

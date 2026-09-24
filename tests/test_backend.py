@@ -198,8 +198,9 @@ def test_combined_source_limit_and_malformed_metadata():
 def test_request_rejects_bad_backend_and_args(monkeypatch):
     monkeypatch.setattr("nbinlineai.config.load_server_env", lambda: None)
     monkeypatch.setenv("OPENAI_API_KEY", "test-only")
-    with pytest.raises(ValueError, match="Unsupported API backend"):
-        validate_request({**_body(), "backend": "openai_codex_subscription"})
+    assert validate_request({**_body(), "backend": "openai_codex_subscription"})["backend"] == (
+        "openai_codex_subscription"
+    )
     with pytest.raises(ValueError, match="max_tool_steps"):
         validate_request({**_body(), "max_tool_steps": 100})
     with pytest.raises(ValueError, match="Invalid model"):
@@ -426,6 +427,30 @@ def test_provider_passes_notebook_context_as_system(monkeypatch, backend, vendor
     assert received["vendor_name"] == vendor
     assert received["stream"] is True
     assert received["retries"] == 0
+
+
+def test_subscription_cannot_fall_through_to_paid_api_transport(monkeypatch):
+    async def forbidden_api(*_args, **_kwargs):
+        raise AssertionError("API transport must not be called")
+
+    def forbidden_key(_backend):
+        raise AssertionError("API key must not be read")
+
+    monkeypatch.setattr(providers, "acomplete", forbidden_api)
+    monkeypatch.setattr(providers, "resolve_api_key", forbidden_key)
+    with pytest.raises(ValueError, match="requires its own connection"):
+        asyncio.run(providers.complete(
+            "openai_codex_subscription", "test-model", [Msg("user", [Text("Hello")])], [],
+        ))
+
+
+def test_subscription_request_validation_does_not_require_api_key_status(monkeypatch):
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {
+        "openai_codex_subscription": {"configured": True}
+    })
+    assert validate_request({**_body(), "backend": "openai_codex_subscription"})["model"] == "test-model"
+    with pytest.raises(ValueError, match="Invalid model"):
+        validate_request({**_body(), "backend": "openai_codex_subscription", "model": ""})
 
 
 @pytest.mark.parametrize("backend,model,effort,budget", [

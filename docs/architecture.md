@@ -4,9 +4,9 @@ title: Architecture
 
 # Architecture
 
-This describes the API-based implementation in version 0.1.12, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes version 0.1.13's API and ChatGPT subscription connections, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
 
-## Three parts, plus the provider
+## Notebook host and connection routes
 
 ```text
 Browser: JupyterLab + nbinlineai frontend
@@ -14,6 +14,7 @@ Browser: JupyterLab + nbinlineai frontend
     v
 Jupyter Server + nbinlineai Python extension
     |-- FastLLM asynchronous client --> OpenAI / Anthropic API
+    |-- owned native runtime ----------> ChatGPT account allowance
     |-- Jupyter kernel messages -----> notebook's Python kernel
     |
     +-- streamed events -------------> paired Markdown answer
@@ -26,7 +27,8 @@ Jupyter Server + nbinlineai Python extension
 | JupyterLab frontend | Add prompt controls, read the notebook model, resolve settings, intercept AI execution, update the answer cell, and perform bounded live-cell actions. |
 | Python server extension | Authenticate requests, validate inputs, construct context, read credentials, call the provider, coordinate tool rounds, and correlate browser action replies. |
 | Notebook kernel | Retrieve explicitly referenced live values, inspect function signatures, and execute allowed functions. |
-| FastLLM | Adapt a common message/tool representation to provider APIs and stream their responses. |
+| FastLLM | Adapt a common message/tool representation to the two API providers. |
+| ChatGPT runtime | Own account login and internal model work; return an answer or proposed declared notebook-tool group to the host. |
 
 The frontend is a prebuilt JupyterLab 4.2+ extension bundled in the Python package. Students do not need Node.js. The same package registers a Jupyter Server extension; this is why installation and upgrades require a **whole-server restart**.
 
@@ -40,15 +42,15 @@ Editing a completed answer changes the source that later requests use as history
 
 ## One prompt request
 
-1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no API request.
+1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no model request.
 2. It resolves cell overrides over notebook defaults over user preferences. When its queued turn starts, it snapshots the actual prompt ID, all live cell models in order, the context policy, notebook session ID and effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Tool declarations in ordinary Markdown and AI questions above are combined with those in the current question, before context selection. The kernel inspects those functions afresh. Variable references are read and substituted only in the current question.
 5. The server accounts for tools, the expanded question, instructions and bounded cell landmarks, then fills the remaining character budget from selected eligible source and complete earlier AI pairs, nearest first. It sends selected material in chronological order.
-6. FastLLM calls the selected provider. Text events stream back to the answer cell. If the model requests a tool, the server validates it and dispatches an ordinary function to the same kernel or a recognized live notebook tool to the browser. It appends the result, budgets again with the same notebook snapshot, and continues the conversation without replaying completed tools.
+6. The selected connection sends one host-built round: FastLLM for an API provider, or the owned ChatGPT runtime. The ChatGPT runtime may make internal inference or recovery requests within that round, but native file, shell, browser, and ambient project-instruction tools are disabled. It returns an answer or a proposed group of declared notebook-tool calls. The host validates and dispatches ordinary functions to the same kernel or recognized live notebook tools to the originating browser. It appends completed results, budgets a new host round against the same snapshot, and continues without replaying tool effects.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
-The server disables automatic provider retries: silently repeating a request that can call functions could repeat a side effect. A user-initiated rerun is a new request.
+The server does not automatically repeat a completed notebook-tool action. A user-initiated rerun is a new request. **Maximum tool steps** counts host-executed groups of declared notebook tools, not internal ChatGPT inference requests; a group can contain several calls.
 
 ## Context and live state
 
@@ -121,14 +123,16 @@ The current algorithm in `nbinlineai/prompt.py` is deterministic and uses **char
 
 1. `validate_request` permits up to 10,000 ordered snapshot cells, a current question of up to 16,000 characters, and custom style instructions of up to 8,000 characters. The snapshot includes all cell types; the transport cap is not a context-selection rule.
 2. Discover tool names in all enabled eligible Markdown/AI questions above plus the enabled current-question declarations. Exclude AI answers, code/raw cells, and anything below. Deduplicate before fresh kernel introspection. `$` discovery stays limited to the current question.
-3. Count serialized tool definitions first, then messages containing system/style instructions, bounded cell landmarks, the expanded current question, and any ongoing tool conversation. This fixed material must fit the shared 64,000-character budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
+3. Count serialized tool definitions first, then messages containing system/style instructions, bounded cell landmarks, the expanded current question, and any ongoing notebook-tool conversation. This fixed material must fit the 64,000-character **host-submitted round** budget. The expanded question is counted even though its separate 16,000-character validation happened before substitution.
 4. Walk selected source and complete earlier AI pairs by distance, above winning ties. A pair is anchored at its answer. Boundary source can retain its ending above or beginning below, with an explicit partial-source marker. AI pairs remain whole; stop rather than skip a non-fitting pair to select smaller older ones.
 5. Restore selected source and history to chronological order. Send source with system instructions, completed pairs as user/assistant messages, then the current question and its tool conversation. These two representations are still separate; the selection budget is shared.
-6. Before each subsequent provider call, include all accumulated tool calls/results in the fixed material and select again from the **original snapshot**. This can remove more old context. Tools already called are not executed again by this selection pass.
+6. Before each subsequent host round, include all accumulated declared tool calls/results in the fixed material and select again from the **original snapshot**. This can remove more old context. Tools already called are not executed again by this selection pass.
 
 For example, if tools and the current request leave 30,000 characters, a nearby 20,000-character code cell takes priority over a much older 40,000-character note. The remaining allowance can retain the end of that note after accounting for serialization and labels. A tool declared at the note's beginning remains available even when that text is omitted.
 
-This is an application-level character estimate, **not a model-aware token budget**. Serialized messages include labels, substituted values, and tool traffic; tool schemas count separately. Provider-specific conversion and tokenization differ, so the extension cannot guarantee that every request fits the chosen model. It does not yet reserve context capacity for output and reasoning using that model's limits.
+OpenAI API and Claude API use the same normalized-message JSON plus tool-schema character estimate in `build_context`, so identical host material generally produces the same candidate fit. ChatGPT calls the runtime's `round_wire_cost` for the fixed part and every optional candidate; that cost includes its escaped payload, structured schema and a fixed protocol metadata reserve, and the host adds authenticated notebook-folder context to its instructions. The actual RPC envelopes are checked before submission. All three paths share `select_context`, candidate order, pair handling, and the 64,000-character boundary. A provider-specific budget estimate may change which candidates fit without changing their saved `contextInclude` flags. In Default, computed checkbox states mirror first-round inclusion; explicit modes show saved or mode-selected candidates and report budget omission separately. See the [user-facing example](user-guide.md#why-a-selected-cell-may-be-missing).
+
+This is an application-level character estimate, **not a model-aware token budget**. Serialized messages include labels, substituted values, and tool traffic; tool schemas count separately. Provider-specific conversion and tokenization differ, so the extension cannot guarantee that every request fits the chosen model. It does not yet reserve context capacity for output and reasoning using that model's limits. ChatGPT can make internal inference or recovery calls within one host round; those internal requests are outside this submitted-payload estimate. The host still controls which notebook content and declared tool groups it submits and executes.
 
 `nbinlineai/providers.py` sets an output ceiling of 16,384 tokens, 32,768 for effective `high` effort, or 65,536 for `xhigh`/`max`. This is a generation allowance, not the notebook context limit or an implemented reservation of room in it. Provider rules determine how input, output, and reasoning allowances interact.
 
@@ -186,7 +190,7 @@ The tool result combines captured standard output with the return value's repres
 
 ### Bundled tools
 
-Version 0.1.12 exposes **51** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
+Version 0.1.13 exposes **51** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
 
 Kernel-side tools inspect live Python state or saved files, search source, parse documents, make checked text edits, or start bounded subprocesses. Saved-notebook tools require a `.ipynb` file on disk and cannot see unsaved frontend edits. Relative file paths use the **selected kernel's cwd**, which may differ from both the notebook folder and the Jupyter server cwd. Paths are locations, not a sandbox. `search_files` and `search_notebooks` use bounded Python source matching with nested `.gitignore`, `.ignore`, and `.rgignore` rules; regex matching has a hard timeout. `document_outline` reads Markdown headings or Python definitions and issues SHA-256-bound section addresses, which become stale after any file change. Other language outlines are deferred. `source_doc` parses `.py` source without import; `show_doc` with an explicit module imports and runs module initialization. `trace_function` invokes a live function; `run_python` and `run_shell` start separate processes, run with kernel-user permissions, and have 1–20 second timeouts. Their effects are real and are not undone on cancellation. The source and document parsers apply result, file-size, traversal, and time bounds.
 
@@ -227,6 +231,8 @@ The interface does not provide general browser execution, arbitrary Jupyter comm
 | Cell overrides and Keep answer | Prompt-cell `metadata.nbinlineai`. |
 | Initial user preferences and custom style wording | JupyterLab user settings. |
 | API keys saved through Configure AI | Private per-user configuration file on the machine running Jupyter Server. |
+| ChatGPT sign-in | Runtime-owned per-user account state, separate from API keys and notebook metadata. |
+| ChatGPT file-access preference | Private per-user extension settings; no browser-supplied filesystem root. Direct native file actions are disabled in this release. |
 
 Effective notebook defaults are captured on first AI use, once a provider is configured. Merely opening an ordinary notebook does not create AI settings. Later cells inherit notebook defaults; legacy explicit cell choices remain overrides until reset.
 
@@ -240,13 +246,13 @@ JupyterLab schedules multiple cell-executor calls concurrently. nbinlineai queue
 
 Each AI request snapshots context when its turn executes, so it sees completed or edited earlier answers and the kernel state created by earlier work. Kept answers skip provider calls and do not replay earlier tool side effects. Headless notebook execution does not load this browser plugin and treats these cells as Markdown.
 
-The server publishes the bundled style instructions and known model effort capabilities. The frontend sends any chosen custom style wording with a request; the server validates its size and keeps notebook-context instructions separate. FastLLM maps effort to OpenAI `reasoning.effort` or Anthropic `output_config.effort` with adaptive thinking where supported. Unknown models use their provider's default rather than an inferred effort schema.
+The server publishes the bundled style instructions and model effort capabilities. The frontend sends any chosen custom style wording with a request; the server validates its size and keeps notebook-context instructions separate. FastLLM maps effort to OpenAI `reasoning.effort` or Anthropic `output_config.effort` with adaptive thinking where supported. ChatGPT models and efforts come from the connected account. An unavailable saved ChatGPT model or effort remains selected and blocks a run rather than silently choosing another.
 
 Saved API keys take precedence over server environment keys. On macOS/Linux, the default file is `~/.config/nbinlineai/credentials.json`; an absolute `XDG_CONFIG_HOME` changes the configuration root. The browser receives availability and key-source information, never the saved key value. Project environments under the same OS account can share the file. See [key storage](user-guide.md#7-where-keys-are-stored) for details.
 
 ## Processes, event loops, and cancellation
 
-Provider networking and HTTP streaming use the existing asynchronous Jupyter Server loop. Kernel work travels through Jupyter's normal kernel channels to a separate kernel process. The extension does not call `asyncio.run()` inside the notebook or patch the notebook event loop. No separate AI daemon, Codex CLI, or Codex app server is required for the API mode.
+Provider networking and HTTP streaming use the existing asynchronous Jupyter Server loop. API mode uses FastLLM; ChatGPT mode owns a native child process supplied by the installed Python dependency, without requiring a separate student-installed app or CLI. Kernel work travels through Jupyter's normal kernel channels to a separate kernel process. The extension does not call `asyncio.run()` inside the notebook or patch the notebook event loop.
 
 Frontend actions wait on an asynchronous server future while JupyterLab performs the model operation and posts its reply. They do not send a Python execute request that waits for the browser, so the kernel is free during that wait. Ordinary synchronous tools, including `read_url`, occupy the kernel while running; the server-side fetch for `url_to_note` uses a worker thread with bounded network work.
 
@@ -254,7 +260,7 @@ A per-kernel lock serializes the extension's own inspection and tool calls. It d
 
 Closing or cancelling a request cancels the server task and cleans up provider/kernel channels. If an extension operation is actively executing in the kernel, cancellation or timeout can interrupt it. Cancellation cannot undo side effects that already occurred.
 
-ChatGPT subscription sign-in is a future transport/authentication feature, not implemented through these API-key routes.
+The account connection is shared within one Jupyter server, while notebook runs, context, tool allowlists, Keep settings, and execution queues are independent. The original authenticated notebook session supplies its parent folder as **logical location context**. The native engine uses a private working directory; it does not inherit project instructions or gain built-in file, shell, or browser tools. The selected **ChatGPT file access** preference is dormant while those native actions are disabled. Enabled notebook tools still execute through the existing browser/kernel paths with their ordinary Python user permissions and kernel cwd; the preference does not sandbox the kernel. The server resolves the notebook path from its authenticated session and effective ContentsManager root, never a root supplied by notebook metadata or the browser.
 
 ## Source map
 
@@ -262,7 +268,7 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 
 | Path | Purpose |
 | --- | --- |
-| `src/index.ts` | JupyterLab plugin, notebook controls, settings dialog, request lifecycle. |
+| `src/index.ts`, `src/configureAI.ts`, `src/subscriptionSetup.ts` | JupyterLab plugin, compact connection setup, notebook controls, and request lifecycle. |
 | `src/context.ts` | Ordered live-model snapshots, including unsaved/offscreen cells. |
 | `src/context.ts`, `src/contextControls.ts` | Context policy, saved choices, per-cell controls and authoritative preview lifecycle. |
 | `src/frontendActions.ts` | Bounded live notebook operations, insertion order, and action deduplication. |
@@ -275,6 +281,8 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `nbinlineai/prompt.py` | Shared execution/preview preparation, validation, style instructions and provider/tool loop. |
 | `nbinlineai/context_selection.py`, `nbinlineai/context_budget.py` | Candidate eligibility/history, below-source labels and shared character accounting. |
 | `nbinlineai/providers.py` | FastLLM API adapter. |
+| `nbinlineai/backend_registry.py`, `nbinlineai/subscription_runtime.py` | Explicit connection routes and the owned ChatGPT runtime adapter. |
+| `nbinlineai/notebook_scope.py`, `nbinlineai/subscription_settings.py` | Authenticated notebook-folder resolution and per-user direct-file preference. |
 | `nbinlineai/kernel.py` | Session-bound kernel inspection and execution. |
 | `nbinlineai/frontend_bridge.py` | Bound run/action registry, argument/reply validation, and expiring asynchronous waiters. |
 | `nbinlineai/tool_schema.py` | Signature-to-tool-schema translation. |
@@ -282,4 +290,4 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `nbinlineai/web_tools.py` | Bounded public-page retrieval and text/Markdown conversion. |
 | `nbinlineai/config.py`, `nbinlineai/credentials.py` | Model capabilities, configuration, and key storage. |
 
-Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/context-preview`, `POST nbinlineai/prompt`, `POST nbinlineai/action-reply`, `GET/POST nbinlineai/settings/keys`, and `DELETE nbinlineai/settings/keys/{backend}`. These use Jupyter authentication and kernel-execution authorization.
+Endpoints are relative to the Jupyter Server base URL: `GET nbinlineai/status`, `POST nbinlineai/context-preview`, `POST nbinlineai/prompt`, `POST nbinlineai/action-reply`, `GET/POST nbinlineai/settings/keys`, `DELETE nbinlineai/settings/keys/{backend}`, and the separate authenticated `nbinlineai/subscription/{status,login,login/cancel,disconnect,usage,file-access}` routes. These use Jupyter authentication and kernel-execution authorization; mutating requests also use normal XSRF checks.

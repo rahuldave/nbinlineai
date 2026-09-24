@@ -183,6 +183,13 @@ class HandlerTests(AsyncHTTPTestCase):
         assert response.code == 400
         assert b"not configured" in response.body
 
+    def test_subscription_without_runtime_is_rejected_before_stream(self):
+        body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
+                "backend": "openai_codex_subscription", "model": "synthetic-model"}
+        response = self._post(body)
+        assert response.code == 400
+        assert b"ChatGPT subscription connection is unavailable" in response.body
+
     def test_sse_done_and_error(self):
         body = {"prompt": "Hello", "session_id": "s", "prompt_cell_id": "p", "preceding_cells": [],
                 "backend": "openai_api"}

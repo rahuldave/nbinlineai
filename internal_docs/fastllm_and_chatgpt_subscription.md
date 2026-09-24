@@ -4,6 +4,13 @@ Research date: 2026-09-22. Examined [`ai-jup` at `2ac432b`](https://github.com/A
 
 ## Decision
 
+**Superseded subscription proposal (2026-09-24):** see
+[the current integration design](chatgpt_subscription_integration.md) for the
+user-approved project/course folder scope, configuration flow, current protocol
+evidence and unresolved round-budget boundary. Transport, model and schema
+details below are historical; current App Server documentation now describes
+additional transports and capabilities. No subscription backend has shipped.
+
 **Status update (2026-09-23):** API mode is shipped in 0.1.7; subscription mode remains unimplemented research. The FastLLM schema/transport rationale below remains relevant, but the early MVP UI/context summary at the end is historical. Current notebook defaults, inherited declarations, context budgeting and browser tools are described in [the developer handoff](developer_handoff.md), [context model](cell_kernel_model_and_context_selection.md), and [tool/protocol contract](bundled_tools.md). Reverify official App Server authentication and dynamic-tool APIs before implementing subscription mode.
 
 Use three distinct backends:

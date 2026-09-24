@@ -1,6 +1,6 @@
 {
   "title": "nbinlineai",
-  "description": "AI prompt cell settings for response style, model, and tool steps. API keys are configured privately through Configure AI or the Jupyter server environment; they are never saved in notebooks.",
+  "description": "AI prompt cell settings for response style, model, and tool steps. ChatGPT sign-in and API keys are configured through Configure AI; credentials are never saved in notebooks.",
   "type": "object",
   "properties": {
     "defaultBackend": {
@@ -8,13 +8,14 @@
       "title": "Default provider",
       "enum": [
         "openai_api",
-        "anthropic_api"
+        "anthropic_api",
+        "openai_codex_subscription"
       ],
       "default": "openai_api"
     },
     "backendModels": {
       "type": "object",
-      "title": "Model for each API provider (blank uses server default)",
+      "title": "Model for each connection (blank uses server default)",
       "properties": {
         "openai_api": {
           "type": "string",
@@ -23,12 +24,17 @@
         "anthropic_api": {
           "type": "string",
           "default": ""
+        },
+        "openai_codex_subscription": {
+          "type": "string",
+          "default": ""
         }
       },
       "additionalProperties": false,
       "default": {
         "openai_api": "",
-        "anthropic_api": ""
+        "anthropic_api": "",
+        "openai_codex_subscription": ""
       }
     },
     "maxToolSteps": {

@@ -1,0 +1,49 @@
+name: Subscription runtime compatibility
+
+on:
+  pull_request:
+  push:
+    branches: [main, codex/chatgpt-subscription-0-1-13]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  packaged-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm, windows-2025, windows-11-arm]
+        python: ['3.12', '3.14']
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install wheel-only dependencies
+        run: uv sync --frozen --group dev --no-install-project --no-build --python ${{ matrix.python }}
+      - name: Start and stop packaged runtime in Tornado loop
+        run: uv run --no-sync python scripts/subscription_platform_check.py
+      - name: Verify private runtime and synthetic round boundaries
+        run: uv run --no-sync python -m pytest tests/test_subscription_runtime.py -q
+      - name: Verify actual empty native-tool inventory
+        run: uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
+
+  musl-runtime:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Alpine packaged runtime without credentials
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD:/src" -w /src python:3.12-alpine sh -eu -c '
+            python -m pip install --no-cache-dir uv
+            uv sync --frozen --group dev --no-install-project --no-build --python 3.12
+            uv run --no-sync python scripts/subscription_platform_check.py
+            uv run --no-sync python -m pytest tests/test_subscription_runtime.py -q
+            uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
+          '

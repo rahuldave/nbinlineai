@@ -5,6 +5,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .backend_registry import get_backend
 from .credentials import CredentialStore
 
 DEFAULT_MODELS = {
@@ -60,6 +61,15 @@ def provider_status() -> dict:
             "default_model": DEFAULT_MODELS[backend],
             "models": MODEL_CHOICES[backend],
         }
+    # A subscription selection remains explicit even while the account/runtime
+    # connection is unavailable. It can never borrow an API key or vendor.
+    result["openai_codex_subscription"] = {
+        "configured": False,
+        "source": None,
+        "default_model": None,
+        "models": [],
+        "state": "unavailable",
+    }
     return result
 
 
@@ -67,7 +77,7 @@ def key_settings_status() -> dict:
     return {
         "providers": {
             backend: {"configured": status["configured"], "source": status["source"]}
-            for backend, status in provider_status().items()
+            for backend, status in provider_status().items() if get_backend(backend).transport == "api_key"
         }
     }
 

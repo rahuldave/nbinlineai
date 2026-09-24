@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.12**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.13**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -35,7 +35,7 @@ An explicit cell choice wins. Otherwise, the cell inherits the notebook's **Keep
 
 Changing a cell checkbox makes an explicit choice. Click **Use notebook setting** beside an overridden checkbox to restore inheritance. The cell checkbox displays the effective setting. Notebook and cell choices are saved with the notebook.
 
-### Does Keep AI answers on prevent every API call?
+### Does Keep AI answers on prevent every AI request?
 
 No. It protects **completed, nonempty answers**. A new unanswered prompt can run once. A failed, cancelled, empty, or deleted answer can be retried.
 
@@ -120,7 +120,7 @@ Explicit references such as ``$`score` `` retrieve selected live values. A live 
 
 ### How does nbinlineai choose context when the notebook is large?
 
-Every Context mode uses a shared **64,000-character estimate** for each provider request:
+Every Context mode uses a **64,000-character host estimate** for each submitted question or notebook-tool round:
 
 | Material | Selection rule |
 | --- | --- |
@@ -128,9 +128,9 @@ Every Context mode uses a shared **64,000-character estimate** for each provider
 | Current question and instructions | Account for the question **after** live-value substitution, system/style instructions, and message formatting. |
 | Selected source and completed earlier AI exchanges | Start with the nearest eligible candidates, with above winning distance ties. Default considers earlier material only. Send retained material in original order. |
 | Boundary cell | Keep the end of source above or the beginning of source below, marked as partial. AI history pairs stay whole; stop if the next pair will not fit. |
-| Tool rounds | Recalculate with the accumulated tool calls and results. Older notebook context may be removed to make room; completed tools are not replayed. |
+| Notebook-tool rounds | Recalculate with completed tool calls and results. Older notebook context may be removed to make room; completed tools are not replayed. |
 
-There is no relevance search or automatic summary. Selection stops at the first budget boundary instead of skipping to smaller distant cells. These limits do not modify or delete notebook cells. A separate transport safety limit accepts up to 10,000 cells in the ordered snapshot; oversize snapshots fail explicitly.
+There is no relevance search or automatic summary. Selection stops at the first budget boundary instead of skipping to smaller distant cells. These limits do not modify or delete notebook cells. A separate transport safety limit accepts up to 10,000 cells in the ordered snapshot; oversize snapshots fail explicitly. ChatGPT may make internal inference or recovery requests within one host round; those internal calls are outside the submitted-payload character estimate. **Maximum tool steps** counts groups of declared notebook-tool calls returned to the host, not those internal calls; one group may contain several tools.
 
 The status reports included cells and offered tools. **Done · context trimmed** means a provider round omitted or shortened eligible context. Hover over the status for included, omitted, and partial cell counts, tool names, and the character estimate. This report lasts in the open browser session; it is not a saved transcript or exact model-token count.
 
@@ -141,6 +141,8 @@ Default's boxes show the cells the backend estimates will fit. All above checks 
 ### Does a checked box guarantee the whole cell reaches the model?
 
 In Full notebook, All above, either ten-cell mode or Custom, it means selected as a candidate. **Partial** and **omitted by budget** describe actual first-round inclusion. Default uses checked/mixed boxes for the fitted set itself. Full notebook remains budget limited. Current-question answers are always excluded, even if moved above their question.
+
+The same nearest-first candidate algorithm serves OpenAI API, Claude API, and ChatGPT subscription. API connections use the same character estimate; ChatGPT measures its own runtime request, so provider framing can change how much optional text fits. Tool definitions and later tool results also use space. An unchecked Default box is a computed first-round estimate, not a saved Custom exclusion; budget omission never rewrites your notebook choices. See [why a selected cell may be missing](user-guide.md#why-a-selected-cell-may-be-missing) for a side-by-side example.
 
 ### Which question do the controls describe?
 
@@ -263,7 +265,7 @@ that launches JupyterLab. After stopping the server normally, run this in that
 activated environment:
 
 ```bash
-python -m pip install --verbose --upgrade nbinlineai==0.1.12
+python -m pip install --verbose --upgrade nbinlineai==0.1.13
 ```
 
 For a uv project whose server environment is `.venv`, use
@@ -278,6 +280,20 @@ unresponsive update has the same cause. The
 [investigation record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md#matched-python-314-follow-up)
 distinguishes successful tests from the still-unconfirmed shutdown report.
 
+### Do I need an API key or a separate Codex installation for ChatGPT?
+
+No. Choose **ChatGPT subscription** in **Configure AI**, sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
+
+Your ChatGPT account allowance has limits and may use additional credits. If usage information is unavailable, that is not evidence of unlimited usage. A disconnected or expired account, exhausted allowance, or unavailable saved model keeps the notebook's chosen ChatGPT connection visible; nbinlineai never automatically charges an API key instead. Reconnect, wait for a displayed reset time, or explicitly choose another connection. **Disconnect** detaches this Jupyter server; it does not sign you out of other apps or projects.
+
+### Does ChatGPT file access confine my notebook or Python tools?
+
+No. In this release the **ChatGPT file access** field reads **Notebook tools only**. Built-in ChatGPT file, shell, and browser actions are disabled. The displayed notebook folder is location context derived from the authenticated notebook session; the runtime itself uses a private working directory. Explicitly enabled notebook tools run in Python with that kernel user's usual permissions and current working directory. The project/notebook scope preference is retained for direct ChatGPT operations, but has no active native-file effect while those actions are disabled. It is not a sandbox for the kernel.
+
+### Is a ChatGPT sign-in shared across notebooks?
+
+Yes, the account connection is shared for that Jupyter server. Each notebook still owns its questions, context choices, declared tools, Keep choices, execution queue, and cancellation. A tool requested in one notebook acts through that notebook's original session and kernel, even if another notebook has a cell with the same ID. Closing or cancelling one request does not cancel a separate notebook's request.
+
 ### Can I run nbinlineai alongside Jupyter AI for Claude or Codex ACP chat?
 
 An isolated test of **nbinlineai 0.1.9 + Jupyter AI 3.2.0 + JupyterLab 4.6.4** successfully installed and opened both extensions. A deterministic execution check also preserved native Run All ordering, kept completed AI answers, and retained nbinlineai metadata when a Jupyter AI command edited a question. No paid model or authenticated ACP-agent request was used in that check.
@@ -290,11 +306,11 @@ There is an important command difference in Jupyter AI's default setup:
 | Native **Run All**, including Jupyter AI's Run All command | Includes AI questions and respects their Keep choices. New unanswered questions can make API requests. |
 | Jupyter AI's individual **Run Cell** tool | Executes code directly; treats a Markdown AI question as a no-op. It also bypasses nbinlineai's code/AI ordering queue. |
 
-Jupyter AI requires separately installed ACP adapters and their own authentication. Its Claude/Codex chat does not use nbinlineai's saved API keys or turn inline cells into subscription-backed requests. Follow [Jupyter AI's setup instructions](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html). Install both extensions in the Jupyter server's environment and restart the whole server.
+Jupyter AI requires separately installed ACP adapters and their own authentication. Its Claude/Codex chat does not use nbinlineai's API keys or ChatGPT connection; choosing ChatGPT in nbinlineai does not configure Jupyter AI. Follow [Jupyter AI's setup instructions](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html). Install both extensions in the Jupyter server's environment and restart the whole server.
 
 Both systems can change the same live notebook. Avoid asking an agent to edit or execute it during an inline request whose context you want to keep stable. Jupyter AI also starts its own local MCP server; multiple Jupyter instances may need its port configuration adjusted. The [versioned investigation](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md) records source links, light/dark visual checks, tested paths, and remaining RTC/concurrency limits.
 
-A separate **authenticated Codex ACP trial** successfully read a teaching notebook, fixed one function and ran its three specified Python cells; all checks passed. Try the [Codex worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb). The committed template keeps the starting bug for you to solve. Its two nbinlineai questions are unrun: use them afterward for an explanation and a Learning follow-up with your API provider. See the [exact run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md).
+A separate **authenticated Codex ACP trial** successfully read a teaching notebook, fixed one function and ran its three specified Python cells; all checks passed. Try the [Codex worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb). The committed template keeps the starting bug for you to solve. Its two nbinlineai questions are unrun: use them afterward for an explanation and a Learning follow-up with whichever nbinlineai connection you choose. See the [exact run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md).
 
 ### Does Jupyter AI have the same AI cells as nbinlineai?
 
@@ -356,7 +372,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.12 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. Version 0.1.13 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -422,7 +438,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.12**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+In version **0.1.13**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -444,7 +460,7 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.12 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Yes. Version 0.1.13 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

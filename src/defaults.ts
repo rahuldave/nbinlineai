@@ -22,7 +22,7 @@ export interface ResolvedAI {
 export function resolveAI(
   cell: AIOverrides,
   notebook: AIDefaults,
-  user: { backend: Backend; models: Record<Backend, string>; promptMode: PromptMode },
+  user: { backend: Backend; models: Partial<Record<Backend, string>>; promptMode: PromptMode },
   availability: Availability
 ): ResolvedAI {
   const notebookBackend = notebook.backend || defaultProvider(user.backend, availability);

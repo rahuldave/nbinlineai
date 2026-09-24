@@ -4,7 +4,7 @@ title: Tools reference
 
 # Tools reference
 
-Version **0.1.12** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
+Version **0.1.13** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
 
 A new release with frontend changes needs a **JupyterLab server restart** after installation or upgrade, followed by a browser reload. Restart the selected Python kernel and rerun imports too. The older editable-install, Python-only shortcut for the first eight fastcore tools does not apply to this release's live notebook edits. See [setup](user-guide.md) and [development](development.md).
 
@@ -17,7 +17,7 @@ print(tools_markdown(["search_files", "source_doc"]))
 
 Paste the output into an ordinary Markdown cell above your AI question; delete any references you do not want to offer. To have the frontend insert that note below the calling code cell, use `insert_tools(["search_files", "source_doc"])`. The helper returns an asynchronous receipt: check its `status`, `cell_id`, or `error` in a later code cell. Save the notebook after insertion. The helper needs the nbinlineai frontend and ipykernel 6.18 or newer; `tools_markdown()` also works without the frontend.
 
-`tool_catalog(group="")` lists group names and member names **without `&` declarations**. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` default to the 19-tool starter group. Pass a group such as `"code"` (nine tools in 0.1.12), `"notebook"`, or `"web"`, or pass an explicit `names` list to select individual functions. `names` takes precedence over the group. Some groups contain overlapping tools, and the 20-reference limit still applies to a generated note. The available groups are `starter`, `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`.
+`tool_catalog(group="")` lists group names and member names **without `&` declarations**. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` default to the 19-tool starter group. Pass a group such as `"code"` (nine tools), `"notebook"`, or `"web"`, or pass an explicit `names` list to select individual functions. `names` takes precedence over the group. Some groups contain overlapping tools, and the 20-reference limit still applies to a generated note. The available groups are `starter`, `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`.
 
 ```python
 from nbinlineai.tools import *         # Import the toolbox; declarations choose model access.
@@ -25,7 +25,7 @@ print(tool_catalog())                  # names only; no declarations
 print(tools_markdown(group="code"))    # removable & references
 ```
 
-An eligible ordinary Markdown cell or earlier AI question can declare tools for later questions. AI answers, code cells, raw cells, output, and cells below the question do not declare them. The **Tools** checkbox on each declaration cell controls whether its references count; it is independent of the **Context** text checkbox. The server discovers enabled references before optional context trimming, and Current question only retains enabled tool choices. Duplicate names count once. A missing imported name fails before the provider call. The current question's ``$`name` `` reads a live kernel value; earlier `$` references stay literal. A request permits **20 distinct tool and variable names combined**. This is nbinlineai’s own guardrail, not a provider-imposed tool limit. Schemas, instructions, and executed tool results use the shared 64,000-character estimate before optional notebook text. Keep answer skips a completed tool run; cancellation does not undo completed effects.
+An eligible ordinary Markdown cell or earlier AI question can declare tools for later questions. AI answers, code cells, raw cells, output, and cells below the question do not declare them. The **Tools** checkbox on each declaration cell controls whether its references count; it is independent of the **Context** text checkbox. The server discovers enabled references before optional context trimming, and Current question only retains enabled tool choices. Duplicate names count once. A missing imported name fails before the provider call. The current question's ``$`name` `` reads a live kernel value; earlier `$` references stay literal. A request permits **20 distinct tool and variable names combined**. This is nbinlineai’s own guardrail, not a provider-imposed tool limit. Schemas, instructions, and executed tool results use the 64,000-character host-submitted estimate before optional notebook text. ChatGPT's internal inference calls are outside that estimate. **Maximum tool steps** counts host-executed groups of declared notebook-tool calls, with several calls possible in one group. The same tool declarations work with ChatGPT and API connections. Keep answer skips a completed tool run; cancellation does not undo completed effects.
 
 ## Function index
 
@@ -153,7 +153,7 @@ The alias must also be bound in the kernel namespace when the question runs.
 
 ## Relationship to dialoghelper
 
-The tool selection draws on [Answer.AI's dialoghelper](https://github.com/AnswerDotAI/dialoghelper) and the libraries it surfaces. We reuse fastcore helpers where they fit and reimplement selected capabilities with nbinlineai's own arguments, bounded results, and JupyterLab integration. The following describes the **0.1.12 implementation**, rather than every capability available upstream.
+The tool selection draws on [Answer.AI's dialoghelper](https://github.com/AnswerDotAI/dialoghelper) and the libraries it surfaces. We reuse fastcore helpers where they fit and reimplement selected capabilities with nbinlineai's own arguments, bounded results, and JupyterLab integration. The following describes the **0.1.13 implementation**, rather than every capability available upstream.
 
 | Capability surveyed upstream | Implementation in nbinlineai |
 | --- | --- |

@@ -1,6 +1,6 @@
 # nbinlineai
 
-Write AI prompts directly in JupyterLab notebooks. Choose an OpenAI or Anthropic model once for the notebook, and override it in individual prompts when needed. Each answer appears in a paired Markdown cell below its prompt. Prompts, answers, and notebook defaults stay in the notebook when you save and reopen it.
+Write AI prompts directly in JupyterLab notebooks. Connect a ChatGPT subscription or use an OpenAI or Anthropic API key, then choose a model for the notebook and override it in individual prompts when needed. Each answer appears in a paired Markdown cell below its prompt. Prompts, answers, and notebook defaults stay in the notebook when you save and reopen it.
 
 ## User manual
 
@@ -11,7 +11,7 @@ The full [user manual](https://rahuldave.github.io/nbinlineai/user-guide.html) c
 You need Python 3.12 or newer and JupyterLab 4.2 or newer.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
-2. **Configure AI:** open a Python notebook, click **Configure AI** in its toolbar, and save an OpenAI or Anthropic API key.
+2. **Configure AI:** open a Python notebook, click **Configure AI**, and either sign in with ChatGPT or save an OpenAI or Anthropic API key. ChatGPT needs no separately installed Codex app or command.
 3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, or choose an editable starter such as **Explain code above**.
 4. **Set notebook defaults:** use the **AI defaults** row at the top of the notebook to choose provider, model, response style, and thinking effort. Compact and Model default effort are the starting choices.
 5. **Run it:** press **Shift+Enter** or click **Run AI**. The answer appears in a paired Markdown cell below the prompt. Use the cell's **Override** control only when it needs different settings.
@@ -66,7 +66,7 @@ In **Compact** and **Full**, the AI is instructed to put code in fenced Markdown
 - **Editing and rerunning:** edit questions or answers directly. Rerunning a prompt replaces its paired answer, including manual edits. Each run reads the current notebook and kernel state. Later AI cells do not rerun automatically when earlier content changes.
 - **Context (0.1.8):** choose Default, Full notebook, All above, 10 above, 10 above + below, Custom, or Current question only. Per-cell checkboxes choose notebook text; the backend preview identifies included, partial and omitted cells. Every mode uses the shared character budget. Separate Tools checkboxes enable declaration cells; enabled tools remain available even when their text is unchecked. Raw cells, code outputs and image data are omitted.
 - **Live values:** explicit variable/function references use the running kernel, including values created by code executed out of order or below the prompt. The source-code boundary and live kernel state are separate.
-- **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. That extension calls providers through FastLLM and reads variables or calls functions in the notebook's separate Python kernel.
+- **Architecture:** the JupyterLab interface talks to a Python extension inside Jupyter Server. API providers use FastLLM; ChatGPT uses an owned native runtime. The extension reads variables and calls declared functions through the notebook's separate Python kernel.
 
 The Context toolbar shows the notebook mode and **Details**. Click an AI question to inspect its context; **Details → Check context** optionally shows counts and a check time without asking the AI. Each cell's Context and Tools choices appear above that cell's content, aligned with its text. Running a question always calculates context automatically.
 
@@ -74,14 +74,15 @@ The Context toolbar shows the notebook mode and **Details**. Click an AI questio
 
 The notebook's **AI defaults** row has a model dropdown. Choose a listed model, use **Default**, or choose **Custom model…** and enter another model ID supported by that provider. Most notebooks can use one model throughout. Individual AI cells expose their own choices under **Override**. Changing providers clears the previous provider's model choice.
 
-Providers without a configured API key are marked unavailable. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). Saved notebook choices and explicit cell overrides are preserved; if that provider's key is missing, add it through **Configure AI** or select an available provider. Cells created by older versions keep their saved provider/model choices until you return them to notebook defaults.
+API providers without a configured key are marked unavailable. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). ChatGPT is selected deliberately with **Use for this notebook** or a saved notebook/cell choice; it is never substituted for an API provider, and a disconnected ChatGPT choice never falls back to API billing. Saved provider/model choices remain visible when unavailable. Cells created by older versions keep their saved choices until you return them to notebook defaults.
 
 | Provider | Bundled default | Other listed choices |
 | --- | --- | --- |
 | OpenAI | `gpt-6-sol` | `gpt-6-luna`, `gpt-6-astra` |
 | Anthropic | `claude-sonnet-5` | `claude-haiku-4-5-20251001`, `claude-opus-5-5`, `claude-fable-5-1` |
+| ChatGPT subscription | From your connected account | Models and reasoning effort come from the connection; unavailable saved choices stay selected. |
 
-These are bundled suggestions, not a live list of your account's model access. The IDs were checked against the [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for version 0.1.1. Existing cells keep any explicitly selected model; select **Default** to use the current default. A provider default set in JupyterLab's nbinlineai settings takes precedence over the bundled default.
+The API rows are bundled suggestions, not a live list of account model access. Their IDs were checked against the [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [Anthropic model catalog](https://platform.claude.com/docs/en/models/overview) for version 0.1.1. ChatGPT models and efforts are read from the connected account. Existing cells keep any explicitly selected model; select **Default** to use the current default. A provider default set in JupyterLab's nbinlineai settings takes precedence over the bundled default.
 
 ### Thinking effort
 
@@ -89,9 +90,13 @@ The effort selector starts at **Model default** and offers the levels supported 
 
 Unknown custom model IDs and models without this effort control use Model default. nbinlineai does not guess unsupported API parameters. A cell can override effort through the same **Override** control.
 
-## Installation and API keys
+## Installation and connections
 
-Keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. No `.env` file is needed.
+In **Configure AI**, choose **ChatGPT subscription**, then **Sign in with ChatGPT**. If browser sign-in cannot reach the server, choose **Use device code**. After the connection reports an available model, choose its effort and click **Use for this notebook**. Opening the dialog, checking status, or signing in does not change the notebook. ChatGPT uses your account allowance, which has limits; additional credits may apply. API requests are billed separately, and switching between them is always explicit. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
+
+For direct ChatGPT operations, **ChatGPT file access** currently shows **Notebook tools only**: built-in file, shell, and browser actions are off. Enabled notebook tools still run in Python with its normal user permissions. The displayed notebook folder supplies location context; it does not change the Python kernel's working directory or confine its tools.
+
+API keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. ChatGPT credentials are managed by the runtime, never copied into this key file or notebook metadata. No `.env` file is needed.
 
 ![Configure AI with provider key setup and expandable style instructions](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
 
@@ -140,7 +145,7 @@ The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/exampl
 
 ### Bundled tools
 
-Version **0.1.12** offers 51 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
+Version **0.1.13** offers 51 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
 
 ```python
 from nbinlineai.tools import search_files, source_doc, tool_catalog, tools_markdown
@@ -155,7 +160,7 @@ Tools can inspect live Python objects, search saved source files and notebooks, 
 
 By default, the model sees bounded earlier code, ordinary Markdown and completed AI pairs. Wider Context modes can include cells below as clearly labeled source. Custom choices save with the notebook; the current question and all its linked answers are always excluded from optional context. Only AI Prompt cells use the new Shift+Enter behavior; ordinary code cells run normally. Re-running a prompt updates its paired answer cell instead of adding another one.
 
-This release supports text prompts and Python kernels. It does not send notebook images or rich outputs as model context, and it does not offer ChatGPT subscription sign-in.
+This release supports text prompts and Python kernels. It does not send notebook images or rich outputs as model context. The host builds at most 64,000 characters for each submitted question or notebook-tool round; the ChatGPT runtime can make internal recovery requests within a round. **Maximum tool steps** counts returned groups of declared notebook-tool calls, which the host validates and executes; internal model requests do not consume that setting.
 
 ## Develop from source
 
@@ -191,7 +196,7 @@ An optional live smoke sends one small prompt to each configured API provider an
 NBINLINEAI_E2E_LIVE=1 uv run --no-sync jlpm test:e2e
 ```
 
-A tool round can make multiple provider API calls within one prompt. These live requests incur provider usage.
+A notebook-tool round may contain several calls to declared tools. Live API tests incur provider usage; ChatGPT has separate account limits. The deterministic browser tests do not contact either provider.
 
 ## License
 

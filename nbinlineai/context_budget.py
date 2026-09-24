@@ -7,6 +7,7 @@ This deterministic character estimate is not a model-token guarantee.
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -160,15 +161,26 @@ def build_context(
     executed_messages: list[Msg],  # Completed assistant/tool groups to preserve.
     selection_report: dict[str, Any] | None = None,
     focus: Any = None,  # Bounded frozen-snapshot landmarks, when available.
+    *,
+    round_wire_cost: Callable[[list[Msg], list[dict[str, Any]]], int] | None = None,
 ) -> BuiltContext:  # Messages and per-round accounting.
-    """Fit schemas and fixed messages first, then nearest units without gaps."""
+    """Fit fixed material first, then nearest units without gaps.
+
+    A non-API transport can provide the exact cost of its complete serialized
+    round, including schema, framing, and any escaping of these messages.
+    The same callback is used before optional context and for each candidate.
+    """
     tool_schema_chars = json_chars(tools)
     current = Msg("user", [Text(current_prompt)])
     focus_before = focus.render(set(), set(), units, []) if focus else ""
     focus_prefix = (system_prefix + "\n\nNotebook cell landmarks:\n" + focus_before
                     + "\n\nNotebook source:\n") if focus else system_prefix
     empty_system = Msg("system", [Text(focus_prefix + system_suffix)])
-    fixed = tool_schema_chars + messages_chars([empty_system, current, *executed_messages])
+    fixed_messages = [empty_system, current, *executed_messages]
+    fixed = (round_wire_cost(fixed_messages, tools) if round_wire_cost
+             else tool_schema_chars + messages_chars(fixed_messages))
+    if isinstance(fixed, bool) or not isinstance(fixed, int) or fixed < 0:
+        raise ValueError("Round wire cost must be a nonnegative integer")
     if fixed > MAX_CONTEXT_CHARS:
         raise ContextWindowExceededError(
             "Current prompt, instructions, tool definitions, or executed tool results exceed "
@@ -180,20 +192,72 @@ def build_context(
     selected_pairs: list[ContextUnit] = []
     used = fixed
     separator_cost = _escaped_chars("\n\n")
+
+    def candidate_wire_cost() -> int:
+        """Serialize the currently selected optional units exactly once."""
+        ordered_sources = sorted(selected_sources, key=lambda item: item[0])
+        ordered_pairs = sorted(selected_pairs, key=lambda item: item.anchor)
+        source_text = "\n\n".join(item[2] for item in ordered_sources)
+        system = Msg("system", [Text(focus_prefix + source_text + system_suffix)])
+        history = []
+        for pair in ordered_pairs:
+            assert pair.prompt is not None and pair.answer is not None
+            history.extend([Msg("user", [Text(pair.prompt["source"])]),
+                            Msg("assistant", [Text(pair.answer["source"])])])
+        cost = round_wire_cost([system, *history, current, *executed_messages], tools)
+        if isinstance(cost, bool) or not isinstance(cost, int) or cost < 0:
+            raise ValueError("Round wire cost must be a nonnegative integer")
+        return cost
+
     for unit in units:
         if unit.kind == "pair":
             assert unit.prompt is not None and unit.answer is not None
-            cost = (message_chars(Msg("user", [Text(unit.prompt["source"])]))
-                    + message_chars(Msg("assistant", [Text(unit.answer["source"])])) + 2)
-            if used + cost > MAX_CONTEXT_CHARS:
-                break
-            selected_pairs.append(unit)
-            used += cost
+            if round_wire_cost:
+                selected_pairs.append(unit)
+                candidate = candidate_wire_cost()
+                if candidate > MAX_CONTEXT_CHARS:
+                    selected_pairs.pop()
+                    break
+                used = candidate
+            else:
+                cost = (message_chars(Msg("user", [Text(unit.prompt["source"])]))
+                        + message_chars(Msg("assistant", [Text(unit.answer["source"])])) + 2)
+                if used + cost > MAX_CONTEXT_CHARS:
+                    break
+                selected_pairs.append(unit)
+                used += cost
             continue
         assert unit.cell is not None
         cell = unit.cell
         separator = separator_cost if selected_sources else 0
         full = _source_label(cell, partial=False, position=unit.position) + cell["source"]
+        if round_wire_cost:
+            selected_sources.append((unit.anchor, cell, full, len(cell["source"]), False))
+            candidate = candidate_wire_cost()
+            if candidate <= MAX_CONTEXT_CHARS:
+                used = candidate
+                continue
+            selected_sources.pop()
+            label = _source_label(cell, partial=True, position=unit.position)
+            low, high = 0, len(cell["source"])
+            partial = ""
+            while low < high:
+                middle = (low + high + 1) // 2
+                chunk = (cell["source"][-middle:] if unit.position == "above"
+                         else cell["source"][:middle])
+                text = label + chunk
+                selected_sources.append((unit.anchor, cell, text, middle, True))
+                cost = candidate_wire_cost()
+                selected_sources.pop()
+                if cost <= MAX_CONTEXT_CHARS:
+                    low = middle
+                    partial = text
+                    used = cost
+                else:
+                    high = middle - 1
+            if partial:
+                selected_sources.append((unit.anchor, cell, partial, low, True))
+            break
         cost = _escaped_chars(full) + separator
         if used + cost <= MAX_CONTEXT_CHARS:
             selected_sources.append((unit.anchor, cell, full, len(cell["source"]), False))
@@ -224,7 +288,8 @@ def build_context(
         history.extend([Msg("user", [Text(pair.prompt["source"])]),
                         Msg("assistant", [Text(pair.answer["source"])])])
     messages = [system, *history, current, *executed_messages]
-    exact = tool_schema_chars + messages_chars(messages)
+    exact = (round_wire_cost(messages, tools) if round_wire_cost
+             else tool_schema_chars + messages_chars(messages))
     assert exact == used, "Incremental accounting must match serialized messages"
 
     source_units = sum(unit.kind == "source" for unit in units)
@@ -249,6 +314,8 @@ def build_context(
         "context_budget_chars": MAX_CONTEXT_CHARS,
         "tool_schema_chars": tool_schema_chars,
     }
+    if round_wire_cost:
+        counts["round_wire_chars"] = exact
     selected_ids = [item[1]["id"] for item in selected_sources]
     selected_ids.extend(cell["id"] for pair in selected_pairs
                         for cell in (pair.prompt, pair.answer) if cell)

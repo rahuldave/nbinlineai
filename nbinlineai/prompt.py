@@ -8,10 +8,12 @@ from aidialog.msg_parts import Msg, Refusal, Text, mk_tool_res_msg
 from fasttransport.errors import APIError
 
 from . import providers
-from .config import DEFAULT_MODELS, KEY_NAMES, MODEL_CAPABILITIES, provider_status
+from .backend_registry import get_backend
+from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, provider_status
 from .context_budget import ai_role, build_context
 from .context_selection import CONTEXT_MODES, select_context
 from .prompt_focus import locate_focus
+from .subscription_runtime import SubscriptionRuntimeError
 from .tool_schema import fastllm_tools
 from .web_tools import MAX_WEB_TOTAL_SECONDS, fetch_url_markdown
 
@@ -67,12 +69,13 @@ def validate_request(body: dict, *, preview: bool = False) -> dict:
                 or len(instructions) > MAX_PROMPT_INSTRUCTIONS_CHARS):
             raise ValueError("prompt_instructions must be nonempty text of at most 8000 characters")
     backend = body.get("backend", "openai_api" if preview else None)
-    if backend not in KEY_NAMES:
-        raise ValueError("Unsupported API backend")
+    route = get_backend(backend)
     body["backend"] = backend
-    if not preview and not provider_status()[backend]["configured"]:
+    if not preview and route.transport == "api_key" and not provider_status().get(backend, {}).get("configured", False):
         raise ValueError("Selected API provider is not configured")
-    model = body.get("model") or DEFAULT_MODELS[backend]
+    model = body.get("model") or DEFAULT_MODELS.get(backend)
+    if route.transport == "subscription" and not model and preview:
+        model = "context-preview"
     if not isinstance(model, str) or not re.fullmatch(r"[A-Za-z0-9._:-]{1,100}", model):
         raise ValueError("Invalid model name")
     body["model"] = model
@@ -82,7 +85,9 @@ def validate_request(body: dict, *, preview: bool = False) -> dict:
     if effort == "default":
         body["reasoning_effort"] = None
     else:
-        choices = MODEL_CAPABILITIES[backend].get(model, {}).get("efforts", [])
+        choices = (["none", "low", "medium", "high", "xhigh", "max", "ultra"]
+                   if route.transport == "subscription"
+                   else MODEL_CAPABILITIES.get(backend, {}).get(model, {}).get("efforts", []))
         if effort not in choices:
             raise ValueError("reasoning_effort is unavailable for the selected model")
         body["reasoning_effort"] = effort
@@ -187,6 +192,17 @@ def _special_arguments(arguments):
     return arguments
 
 
+def _subscription_scope_preamble(scope: dict) -> str:
+    """Budget server-resolved path context without changing kernel tool cwd."""
+    folder = json.dumps(scope["working_folder"], ensure_ascii=False)
+    return (
+        "\n\nOriginating notebook folder (location context only): " + folder
+        + "\nNative ChatGPT file operations are disabled for this notebook question. "
+        "Registered Python kernel tools retain the kernel's current working "
+        "directory and user permissions; do not infer their cwd from the notebook folder."
+    )
+
+
 async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, preview: bool = False):
     mode = _prompt_mode(body)
     prompt = body["prompt"]
@@ -267,15 +283,22 @@ async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, pre
     return cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info, focus
 
 
-async def preview_context(body: dict, dispatcher, kernel_id: str, kernel) -> dict:
+async def preview_context(body: dict, dispatcher, kernel_id: str, kernel, *,
+                          subscription_runtime=None, subscription_scope=None) -> dict:
     prepared = await prepare_context(body, dispatcher, kernel_id, kernel, preview=True)
     cells, units, tools, prefix, suffix, prompt, report, vars_, funcs, info, focus = prepared
-    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report, focus)
+    round_wire_cost = (subscription_runtime.round_wire_cost
+                       if body["backend"] == "openai_codex_subscription" and subscription_runtime else None)
+    if body["backend"] == "openai_codex_subscription" and subscription_scope is not None:
+        prefix += _subscription_scope_preamble(subscription_scope)
+    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report, focus,
+                          round_wire_cost=round_wire_cost)
     return {"type": "context", **built.counts,
             "variables": {name: info[name] for name in vars_}, "tools": funcs}
 
 
-async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None):
+async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None, *,
+                     subscription_runtime=None, subscription_scope=None):
     prepared = await prepare_context(body, dispatcher, kernel_id, kernel)
     cells, units, tools, system_prefix, system_suffix, prompt, selection_report, vars_, funcs, info, focus = prepared
     special_tools = {name: info[name]["frontend_special"] for name in funcs
@@ -283,21 +306,48 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     executed_messages: list[Msg] = []
     allowed = set(funcs)
     steps = 0
+    is_subscription = body["backend"] == "openai_codex_subscription"
+    if is_subscription and (subscription_runtime is None or subscription_scope is None or run is None):
+        raise ValueError("ChatGPT subscription connection is unavailable")
+    if is_subscription:
+        system_prefix += _subscription_scope_preamble(subscription_scope)
+    round_wire_cost = subscription_runtime.round_wire_cost if is_subscription else None
+
+    async def check_subscription_binding():
+        current_id, current_kernel = await dispatcher.resolve(body["session_id"])
+        if current_id != kernel_id or current_kernel is not kernel:
+            raise ValueError("Notebook session changed kernels during the prompt")
+        session = await dispatcher.sessions.get_session(session_id=body["session_id"])
+        if (session.get("id") != subscription_scope["session_id"]
+                or session.get("path") != subscription_scope["notebook_path"]
+                or session.get("type") != "notebook"):
+            raise ValueError("Notebook session changed documents during the prompt")
+
     while True:
         built = build_context(cells, units, tools, system_prefix,
-                              system_suffix, prompt, executed_messages, selection_report, focus)
+                              system_suffix, prompt, executed_messages, selection_report, focus,
+                              round_wire_cost=round_wire_cost)
         messages = built.messages
         yield {"type": "context", **built.counts,
                "variables": {name: info[name] for name in vars_}, "tools": funcs}
+        if is_subscription:
+            await check_subscription_binding()
         try:
-            if body.get("reasoning_effort") not in (None, "default"):
+            if is_subscription:
+                response = await subscription_runtime.complete_round(
+                    body["model"], messages, tools,
+                    reasoning_effort=body.get("reasoning_effort"),
+                    scope=subscription_scope,
+                    run_id=run.run_id,
+                )
+            elif body.get("reasoning_effort") not in (None, "default"):
                 response = await providers.complete(
                     body["backend"], body["model"], messages, tools,
                     reasoning_effort=body["reasoning_effort"],
                 )
             else:
                 response = await providers.complete(body["backend"], body["model"], messages, tools)
-        except (APIError, KeyboardInterrupt, SystemExit):
+        except (APIError, SubscriptionRuntimeError, KeyboardInterrupt, SystemExit):
             raise
         except Exception as exc:
             raise RuntimeError("Model request failed") from exc
@@ -377,10 +427,14 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
                     current_id, current_kernel = await dispatcher.resolve(body["session_id"])
                     if current_id != kernel_id or current_kernel is not kernel:
                         raise ValueError("Notebook session changed kernels during the prompt")
+                    if is_subscription:
+                        await check_subscription_binding()
                     event, pending = bridge.prepare(run, action, arguments)
                     yield event
                     result = await bridge.wait(run, pending)
                 else:
+                    if is_subscription:
+                        await check_subscription_binding()
                     result = await dispatcher.call(body["session_id"], kernel_id, kernel, allowed,
                                                    call.name, call.arguments)
             except (ValueError, TypeError, TimeoutError) as exc:

@@ -86,6 +86,43 @@ def test_action_reply_binding_duplicate_and_malicious_fields():
     asyncio.run(exercise())
 
 
+@pytest.mark.parametrize("shared_kernel", [False, True])
+def test_same_cell_ids_in_two_sessions_keep_actions_and_cancellation_isolated(shared_kernel):
+    class TwoSessions:
+        def __init__(self):
+            first = object()
+            self.kernels = {"session-a": first, "session-b": first if shared_kernel else object()}
+
+        async def resolve(self, session_id):
+            return "kernel-shared" if shared_kernel else f"kernel-{session_id}", self.kernels[session_id]
+
+    async def exercise():
+        dispatcher = TwoSessions()
+        bridge = FrontendBridge()
+        run_a = bridge.start("session-a", "same-prompt-id",
+                             "kernel-shared" if shared_kernel else "kernel-session-a",
+                             dispatcher.kernels["session-a"])
+        run_b = bridge.start("session-b", "same-prompt-id",
+                             "kernel-shared" if shared_kernel else "kernel-session-b",
+                             dispatcher.kernels["session-b"])
+        event_a, pending_a = bridge.prepare(run_a, "read_cell", {"cell_id": "same-cell-id"})
+        event_b, pending_b = bridge.prepare(run_b, "read_cell", {"cell_id": "same-cell-id"})
+        assert event_a["run_id"] != event_b["run_id"]
+        assert event_a["request_id"] != event_b["request_id"]
+        with pytest.raises(ValueError, match="does not match"):
+            await bridge.reply(_reply(run_a, event_a, session_id="session-b"), dispatcher)
+        bridge.close(run_a)
+        with pytest.raises(BridgeNotFound, match="ended"):
+            await bridge.reply(_reply(run_a, event_a), dispatcher)
+        with pytest.raises(asyncio.CancelledError):
+            await bridge.wait(run_a, pending_a)
+        await bridge.reply(_reply(run_b, event_b, text="only notebook b"), dispatcher)
+        assert await bridge.wait(run_b, pending_b) == "only notebook b"
+        bridge.close(run_b)
+
+    asyncio.run(exercise())
+
+
 def test_action_timeout_and_cancel_cleanup(monkeypatch: pytest.MonkeyPatch):
     async def exercise():
         dispatcher = _Dispatcher()

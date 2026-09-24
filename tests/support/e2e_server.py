@@ -317,6 +317,69 @@ async def fake_complete(
     return Completion(model=model, message=Msg("assistant", [Text(text)]))
 
 
+class FakeSubscriptionRuntime:
+    """Offline account and round adapter for opt-in subscription browser tests."""
+
+    def __init__(self) -> None:
+        self.connected = True
+
+    async def status(self) -> dict:
+        return {
+            "state": "connected" if self.connected else "signed_out",
+            "configured": self.connected,
+            "auth_mode": "chatgpt" if self.connected else None,
+            "account": {"display_name": "E2E student"} if self.connected else None,
+            "models": [{"id": "gpt-6-sol", "display_name": "GPT 6 Sol",
+                        "efforts": ["medium", "high"], "default_effort": "medium"}],
+            "usage": await self.usage(),
+        }
+
+    async def usage(self) -> dict:
+        return {"state": "unavailable"}
+
+    async def start_login(self, method: str) -> dict:
+        self.connected = False
+        if method == "browser":
+            return {"login_id": "e2e-login", "state": "connecting",
+                    "auth_url": "https://example.test/auth"}
+        return {"login_id": "e2e-login", "state": "connecting",
+                "device_code": "E2E-CODE", "verification_url": "https://example.test/device"}
+
+    async def cancel_login(self, login_id: str) -> None:
+        self.connected = False
+
+    async def disconnect(self) -> None:
+        self.connected = False
+
+    async def close(self) -> None:
+        self.connected = False
+
+    async def cancel(self, run_id: str) -> None:
+        # The request task itself is cancelled by the host. No account-global
+        # state changes, so another notebook's run remains independent.
+        return None
+
+    def round_wire_cost(self, messages: list, tools: list) -> int:
+        from nbinlineai.context_budget import json_chars, messages_chars
+
+        return json_chars(tools) + messages_chars(messages)
+
+    async def complete_round(
+        self, model: str, messages: list, tools: list, *, reasoning_effort: str | None,
+        scope: dict, run_id: str,
+    ) -> Completion:
+        if not self.connected:
+            raise RuntimeError("E2E ChatGPT account is disconnected")
+        latest = "".join(
+            part.text for part in getattr(messages[-1], "content", []) if isinstance(part, Text)
+        )
+        if "E2E_SUBSCRIPTION_SCOPE" in latest:
+            answer = f"E2E ChatGPT scope={scope['access']} working={Path(scope['working_folder']).name}"
+            return Completion(model=model, message=Msg("assistant", [Text(answer)]))
+        return await fake_complete("openai_codex_subscription", model, messages, tools,
+                                   reasoning_effort=reasoning_effort)
+
+
 def main() -> None:
     port = int(os.environ.get("NBINLINEAI_E2E_PORT", "8897"))
     if port == 8888:
@@ -350,6 +413,11 @@ def main() -> None:
 
         if not live:
             providers.complete = fake_complete
+            if os.environ.get("NBINLINEAI_E2E_SUBSCRIPTION") == "1":
+                from nbinlineai import subscription_runtime
+
+                fake_subscription = FakeSubscriptionRuntime()
+                subscription_runtime.get_subscription_runtime = lambda: fake_subscription
             # Keep browser coverage deterministic and offline; production URL
             # validation and fetching are exercised in dedicated Python tests.
             import importlib

@@ -4,7 +4,7 @@ title: Examples guide
 
 # Examples guide
 
-These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.12** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
+These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.13** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
 
 ## Import and share tools
 
@@ -128,7 +128,7 @@ Download notebooks from the [examples folder on GitHub](https://github.com/rahul
 | [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
 | [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
 
-For the combined-extension examples, work step by step and paste chat prompts into **Jupyter Chat**. Codex authentication belongs to Jupyter AI's adapter; nbinlineai inline questions still use a separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) describes the authenticated trial and its limits.
+For the combined-extension examples, work step by step and paste chat prompts into **Jupyter Chat**. Jupyter AI's Codex authentication belongs to its adapter and does not configure nbinlineai. Inline questions can use nbinlineai's own ChatGPT connection or a separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) describes the earlier authenticated Jupyter AI trial and its limits.
 
 For a locally installed copy, this Python code prints the example directory:
 

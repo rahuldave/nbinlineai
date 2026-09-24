@@ -19,7 +19,7 @@ uv run --no-sync jupyter-builder develop . --overwrite
 uv run jupyter lab
 ```
 
-Use Configure AI to save a key, or supply `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` in the server environment. A project-root `.env` file is supported for development. Never commit keys or place them in notebook cells.
+Use Configure AI to save a key or connect a ChatGPT account, or supply `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` in the server environment. A project-root `.env` file is supported for API development. Never commit credentials or place them in notebook cells.
 
 ## Tests
 
@@ -37,11 +37,19 @@ uv run --no-sync jlpm test:e2e
 | Frontend unit tests | Context windows and saved choices, defaults and overrides, Keep answer, code-copy behavior, live model actions, context reports, insertion request validation, and asynchronous event ordering. |
 | Browser tests | A real JupyterLab interface and Python kernel: all Context modes, accessible text/tool choices, stale previews, shared tool declarations, direct helper insertion and Run All ordering, settings, saving/reopening, live-cell actions, styles, and rerun protection. |
 
-The default browser suite substitutes a deterministic provider, so it does not incur API charges. It starts its own JupyterLab on `127.0.0.1:8897`, uses temporary notebooks/configuration/fake keys, refuses port 8888, and disables automatic port retries. Set `NBINLINEAI_E2E_PORT` to use another free port. Install Chromium if requested:
+The default browser suite substitutes a deterministic API provider, so it does not incur API charges. It starts its own JupyterLab on `127.0.0.1:8897`, uses temporary notebooks/configuration/fake keys, refuses port 8888, and disables automatic port retries. Set `NBINLINEAI_E2E_PORT` to use another free port. Install Chromium if requested:
 
 ```bash
 uv run --no-sync jlpm playwright install chromium
 ```
+
+The subscription UI has stateful browser tests that intercept only the account routes. To exercise the real Jupyter Server, notebook kernel, declared tools, Run All, Keep and cancellation through a deterministic offline ChatGPT manager, run the focused suite separately after rebuilding and relinking:
+
+```bash
+NBINLINEAI_E2E_SUBSCRIPTION=1 uv run --no-sync jlpm exec playwright test tests/e2e/subscription-run.spec.ts
+```
+
+That fixture uses no personal sign-in, provider key, or network model call. Run this after the default suite has stopped its isolated server; do not run two builds or browser servers against the same assets at once.
 
 An optional live check sends a small tool-using prompt to each configured provider and incurs API usage:
 

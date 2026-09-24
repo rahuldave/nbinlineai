@@ -1,9 +1,10 @@
 """Versioned notebook context selection and provider-free preview."""
 
 import asyncio
+import json
 
 import pytest
-from aidialog.msg_parts import Msg, ToolResult, ToolUse
+from aidialog.msg_parts import Msg, ToolResult, ToolUse, msg2dict
 
 from nbinlineai.context_budget import build_context
 from nbinlineai.context_selection import select_context
@@ -296,6 +297,40 @@ def test_new_mode_rebudgets_below_source_without_replaying_tool_group(monkeypatc
     assert second.messages[-2:] == executed
     assert sum(message.role == "tool" for message in second.messages) == 1
     assert second.counts["context_chars"] <= 1_600
+
+
+def test_external_round_serializer_is_counted_before_optional_context(monkeypatch):
+    from nbinlineai import context_budget
+
+    cells = [cell("long", 'BEGIN "\\\n' + "字" * 1_000 + "END"),
+             cell("current", role="question")]
+    selected = select_context(cells, "current", "all-above")
+
+    def wire_cost(messages, tools):
+        normalized = [msg2dict(message) for message in messages]
+        # The external runtime wraps normalized messages in a text field, so
+        # quotes and backslashes get escaped a second time on the wire.
+        inner = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        return len(json.dumps({
+            "input": inner, "tools": tools, "schema": {"kind": "answer-or-tool-group"},
+            "instructions": "Host-owned round",
+        }, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+
+    fixed = wire_cost([Msg("system", []), Msg("user", [])], [])
+    monkeypatch.setattr(context_budget, "MAX_CONTEXT_CHARS", fixed + 800)
+    normal = build_context(cells, selected.units, [], "P\n", "\nS", "Now", [],
+                           selected.report, round_wire_cost=wire_cost)
+
+    def larger_protocol(messages, tools):
+        return wire_cost(messages, tools) + 180
+
+    larger = build_context(cells, selected.units, [], "P\n", "\nS", "Now", [],
+                           selected.report, round_wire_cost=larger_protocol)
+    assert normal.counts["source_chars"] > larger.counts["source_chars"] > 0
+    assert normal.counts["context_chars"] == wire_cost(normal.messages, [])
+    assert larger.counts["context_chars"] == larger_protocol(larger.messages, [])
+    assert larger.counts["context_chars"] <= larger.counts["context_budget_chars"]
+    assert larger.counts["round_wire_chars"] == larger.counts["context_chars"]
 
 
 def test_preview_budget_parity_with_unicode_escaping_live_value_and_tool_schema():

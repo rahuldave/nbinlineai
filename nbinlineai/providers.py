@@ -2,11 +2,15 @@
 
 from fastllm.acomplete import acomplete
 
+from .backend_registry import get_backend
 from .config import MODEL_CAPABILITIES, resolve_api_key
 
 
 async def complete(backend: str, model: str, messages: list, tools: list, *, reasoning_effort: str | None = None):
-    vendor = {"openai_api": "openai", "anthropic_api": "anthropic"}[backend]
+    route = get_backend(backend)
+    if route.transport != "api_key":
+        raise ValueError("ChatGPT subscription requires its own connection")
+    vendor = route.vendor
     system = "\n\n".join(message.text for message in messages if message.role == "system")
     conversation = [message for message in messages if message.role != "system"]
     # Explicit vendor and no retries: a repeated model request can duplicate a tool call.

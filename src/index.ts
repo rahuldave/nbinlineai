@@ -1,5 +1,5 @@
 import { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
-import { Dialog, ICommandPalette, ToolbarButton, showDialog } from '@jupyterlab/apputils';
+import { ICommandPalette, ToolbarButton } from '@jupyterlab/apputils';
 import { ICellModel, MarkdownCell } from '@jupyterlab/cells';
 import { INotebookCellExecutor, INotebookModel, INotebookTracker, NotebookActions, NotebookPanel } from '@jupyterlab/notebook';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
@@ -10,7 +10,9 @@ import { notebookCells, snapshotTransportError } from './context';
 import { NotebookContextControls, PreviewRequest, ensureCellControls, notebookContextMode } from './contextControls';
 import { copyCodeText } from './codeCopy';
 import { availableModels, CUSTOM_MODEL, DEFAULT_MODEL, resolvedDefault, selectedModelChoice, promptHttpErrorMessage, serverUnavailableMessage } from './modelChoice';
-import { configured, defaultProvider } from './providerChoice';
+import { API_BACKENDS, ApiBackend, Backend, configured, defaultProvider, hasSelectableProvider, isBackend, KeyStatus, PROVIDERS, ServerStatus, SUBSCRIPTION_BACKEND, subscriptionConnectionErrorMessage, subscriptionSelectionIssue, unavailableMessage, visibleBackends } from './providerChoice';
+import { EndpointUnavailableError, showConfigureProviders } from './configureAI';
+import { SubscriptionSetupEnvironment } from './subscriptionSetup';
 import { promptMode as normalizePromptMode, promptModeLabel, PromptMode } from './promptMode';
 import { AIDefaults, hasOverride, resolveAI, snapshotDefaults, supportedEffort } from './defaults';
 import { effectiveKeepAnswer, keepsCompletedAnswer } from './keepAnswer';
@@ -21,7 +23,6 @@ import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed,
 import { runTrackedStandardCell } from './insertTools';
 import '../style/index.css';
 
-type Backend = 'openai_api' | 'anthropic_api';
 interface CellMetadata {
   isPromptCell?: boolean;
   isOutputCell?: boolean;
@@ -33,16 +34,12 @@ interface CellMetadata {
   keepAnswer?: boolean;
   status?: string;
 }
-interface ProviderStatus { configured: boolean; source?: 'saved' | 'environment' | null; default_model: string; models: string[] }
-interface KeyStatus { providers: Record<Backend, { configured: boolean; source: 'saved' | 'environment' | null }> }
-interface Status { providers: Record<Backend, ProviderStatus>; default_models: Record<Backend, string>; prompt_mode_instructions?: Record<PromptMode, string>; model_capabilities?: Record<Backend, Record<string, { efforts: string[]; default_effort: string | null }>> }
 interface RunState { controller: AbortController; panel: NotebookPanel; output: ICellModel; text: string; done: boolean; context: ContextReport | null; contextTrimmed: boolean }
 const metadataKey = 'nbinlineai';
 const commandInsert = 'nbinlineai:insert-prompt-cell';
 const commandRun = 'nbinlineai:run-prompt-cell';
 const commandCancel = 'nbinlineai:cancel-prompt-cell';
 const commandConfigure = 'nbinlineai:configure-providers';
-const backends: Backend[] = ['openai_api', 'anthropic_api'];
 const runs = new Map<string, RunState>();
 const pendingPromptRuns = new Map<string, Promise<boolean>>();
 const pendingCancels = new Set<string>();
@@ -62,11 +59,10 @@ let modeSavePending = false;
 let instructionsSavePending = false;
 let confirmedInstructions: Partial<Record<PromptMode, string>> = {};
 let instructionNotices: Partial<Record<PromptMode, string>> = {};
-let serverStatus: Status | null = null;
+let serverStatus: ServerStatus | null = null;
 let serverStatusError: string | null = null;
 let configureDialog: Promise<void> | null = null;
 let notebookTracker: INotebookTracker | null = null;
-class EndpointUnavailableError extends Error {}
 
 function metadata(cell: ICellModel): CellMetadata {
   return (cell.getMetadata(metadataKey) as CellMetadata | undefined) || {};
@@ -79,7 +75,7 @@ function setMetadata(cell: ICellModel, patch: CellMetadata): void {
 }
 function preferredBackend(): Backend {
   const selected = settings?.get('defaultBackend').composite;
-  return selected === 'anthropic_api' ? 'anthropic_api' : 'openai_api';
+  return isBackend(selected) ? selected : 'openai_api';
 }
 function modelFor(backend: Backend): string {
   const models = settings?.get('backendModels').composite as Record<string, unknown> | undefined;
@@ -131,7 +127,11 @@ function maybeSnapshotNotebookDefaults(panel: NotebookPanel): void {
   pendingSnapshots.delete(panel);
 }
 function flushPendingSnapshots(): void {
-  for (const panel of Array.from(pendingSnapshots)) maybeSnapshotNotebookDefaults(panel);
+  for (const panel of Array.from(pendingSnapshots)) {
+    // A status refresh after account sign-in must not initialize notebook
+    // metadata. Keep the snapshot pending until explicit notebook use or run.
+    if (resolvedFor(panel).backend !== SUBSCRIPTION_BACKEND) maybeSnapshotNotebookDefaults(panel);
+  }
 }
 
 function clearCellOverrides(cell: ICellModel): void {
@@ -142,7 +142,7 @@ function clearCellOverrides(cell: ICellModel): void {
 function resolvedFor(panel: NotebookPanel, cell?: ICellModel | null) {
   return resolveAI(cell ? metadata(cell) : {}, notebookDefaults(panel), {
     backend: preferredBackend(),
-    models: { openai_api: modelFor('openai_api'), anthropic_api: modelFor('anthropic_api') },
+    models: { openai_api: modelFor('openai_api'), anthropic_api: modelFor('anthropic_api'), openai_codex_subscription: modelFor('openai_codex_subscription') },
     promptMode: currentPromptMode()
   }, serverStatus?.providers || null);
 }
@@ -293,7 +293,7 @@ async function fetchStatus(): Promise<void> {
     const response = await fetch(serverUrl('nbinlineai/status'), { credentials: 'same-origin', headers: authHeaders() });
     if (response.status === 404) throw new EndpointUnavailableError(serverUnavailableMessage('prompt'));
     if (!response.ok) throw new Error(`AI server status ${response.status}`);
-    serverStatus = await response.json() as Status;
+    serverStatus = await response.json() as ServerStatus;
     serverStatusError = null;
     flushPendingSnapshots();
   } catch (error) {
@@ -328,7 +328,7 @@ async function fetchKeyStatus(): Promise<KeyStatus> {
   return response.json() as Promise<KeyStatus>;
 }
 
-async function changeKey(backend: Backend, method: 'POST' | 'DELETE', key?: string): Promise<KeyStatus> {
+async function changeKey(backend: ApiBackend, method: 'POST' | 'DELETE', key?: string): Promise<KeyStatus> {
   const path = method === 'POST' ? 'nbinlineai/settings/keys' : `nbinlineai/settings/keys/${backend}`;
   const response = await fetch(serverUrl(path), {
     method, credentials: 'same-origin', headers: authHeaders(),
@@ -347,9 +347,25 @@ async function changeKey(backend: Backend, method: 'POST' | 'DELETE', key?: stri
   return response.json() as Promise<KeyStatus>;
 }
 
+async function subscriptionRequest<T>(path: string, method: 'GET' | 'POST' = 'GET', body?: object): Promise<T> {
+  const response = await fetch(serverUrl(`nbinlineai/${path}`), {
+    method, credentials: 'same-origin', headers: authHeaders(),
+    ...(method === 'POST' ? { body: JSON.stringify(body || {}) } : {})
+  });
+  if (!response.ok) {
+    let message = `ChatGPT connection request failed (${response.status}).`;
+    try {
+      const result = await response.json() as { message?: string };
+      if (typeof result.message === 'string' && result.message.length <= 500) message = result.message;
+    } catch { /* Keep the safe status message. */ }
+    throw new Error(message);
+  }
+  return response.json() as Promise<T>;
+}
+
 function mergeKeyStatus(result: KeyStatus): void {
   if (!serverStatus) return;
-  for (const backend of backends) {
+  for (const backend of API_BACKENDS) {
     const key = result.providers?.[backend];
     const provider = serverStatus.providers?.[backend];
     if (key && provider) serverStatus.providers[backend] = { ...provider, configured: key.configured, source: key.source };
@@ -359,329 +375,47 @@ function mergeKeyStatus(result: KeyStatus): void {
 
 function configureProviders(tracker: INotebookTracker): Promise<void> {
   if (configureDialog) return configureDialog;
-  configureDialog = showConfigureProviders(tracker).finally(() => { configureDialog = null; });
+  const origin = tracker.currentWidget;
+  const originModel = origin?.content.model;
+  const boundPanel = () => origin && !origin.isDisposed && origin.content.model === originModel ? origin : null;
+  const subscription: SubscriptionSetupEnvironment = {
+    capable: () => serverStatus?.subscription_capable === true,
+    sessionId: () => boundPanel()?.sessionContext.session?.id || null,
+    notebookChoice: () => {
+      const panel = boundPanel();
+      return panel ? notebookDefaults(panel) : {};
+    },
+    useForNotebook: (model, effort) => {
+      const panel = boundPanel();
+      if (!panel || !panel.sessionContext.session?.id) throw new Error('The originating notebook session changed. Reopen Configure AI.');
+      if (serverStatus?.subscription_capable !== true || serverStatus.providers?.openai_codex_subscription?.configured !== true ||
+          !serverStatus.providers.openai_codex_subscription.models.includes(model)) {
+        throw new Error('The selected ChatGPT connection or model is unavailable. Check connection again.');
+      }
+      setNotebookDefaults(panel, { backend: 'openai_codex_subscription', model, reasoningEffort: effort || 'default' });
+    },
+    request: subscriptionRequest,
+    refreshProviders: async () => { await fetchStatus(); tracker.forEach(decorate); }
+  };
+  configureDialog = showConfigureProviders(tracker, {
+    state: {
+      get settings() { return settings; },
+      get settingsError() { return settingsError; },
+      get settingsWarning() { return settingsWarning; }, set settingsWarning(value) { settingsWarning = value; },
+      get settingRegistry() { return settingRegistry; },
+      get modeSavePending() { return modeSavePending; }, set modeSavePending(value) { modeSavePending = value; },
+      get instructionsSavePending() { return instructionsSavePending; }, set instructionsSavePending(value) { instructionsSavePending = value; },
+      get confirmedPromptMode() { return confirmedPromptMode; }, set confirmedPromptMode(value) { confirmedPromptMode = value; },
+      get confirmedInstructions() { return confirmedInstructions; }, set confirmedInstructions(value) { confirmedInstructions = value; },
+      get instructionNotices() { return instructionNotices; }, set instructionNotices(value) { instructionNotices = value; }
+    },
+    settingsReady, currentPromptMode, reloadResponseSettings, readInstructionOverrides,
+    fetchKeyStatus, changeKey, mergeKeyStatus, fetchStatus, getServerStatus: () => serverStatus, decorate,
+    subscription
+  }).finally(() => { configureDialog = null; });
   return configureDialog;
 }
 
-async function showConfigureProviders(tracker: INotebookTracker): Promise<void> {
-  const body = new Widget();
-  body.node.className = 'nbinlineai-keys-dialog';
-  body.node.dataset.nbinlineaiKeysDialog = '';
-  const styleHeading = document.createElement('h3');
-  styleHeading.textContent = 'Default style for notebooks';
-  const styleSelect = document.createElement('select');
-  styleSelect.dataset.nbinlineaiPromptMode = '';
-  styleSelect.setAttribute('aria-label', 'Response style');
-  styleSelect.disabled = true;
-  for (const [value, label] of [
-    ['compact', 'Compact — very succinct'],
-    ['full', 'Full — detailed explanations and code'],
-    ['learning', 'Learning — questions, up to three lines of code, no full solutions']
-  ]) {
-    const option = document.createElement('option');
-    option.value = value; option.textContent = label; styleSelect.appendChild(option);
-  }
-  const styleDescription = document.createElement('p');
-  styleDescription.className = 'nbinlineai-style-description';
-  styleDescription.textContent = 'Used when a notebook or cell has no style override. Learning guides with questions and up to three lines of code.';
-  const styleNotice = document.createElement('div');
-  styleNotice.className = 'nbinlineai-style-notice';
-  styleNotice.setAttribute('role', 'status');
-  styleNotice.textContent = 'Loading response style settings…';
-  let refreshInstructionEditors: () => void = () => undefined;
-  const styleRetry = document.createElement('button');
-  styleRetry.type = 'button';
-  styleRetry.textContent = 'Retry response style settings';
-  styleRetry.dataset.nbinlineaiStyleRetry = '';
-  styleRetry.hidden = true;
-  styleRetry.addEventListener('click', () => {
-    styleRetry.disabled = true;
-    styleNotice.textContent = 'Reloading response style settings…';
-    void reloadResponseSettings().then(() => {
-      styleSelect.value = currentPromptMode();
-      styleSelect.disabled = false;
-      refreshInstructionEditors();
-      styleRetry.hidden = true;
-      styleNotice.textContent = `${promptModeLabel(currentPromptMode())} is the current response style.`;
-    }).catch(() => {
-      styleSelect.disabled = true;
-      styleNotice.textContent = settingsError || settingsWarning || 'Could not reload response style settings. Choose Retry.';
-    }).finally(() => { styleRetry.disabled = false; });
-  });
-  body.node.append(styleHeading, styleSelect, styleDescription, styleNotice, styleRetry);
-  void settingsReady.then(() => {
-    if (settingsError || !settings) {
-      styleNotice.textContent = settingsError || 'Response style settings are unavailable.';
-      styleRetry.hidden = !settingRegistry;
-      return;
-    }
-    styleSelect.value = currentPromptMode();
-    styleSelect.disabled = false;
-    refreshInstructionEditors();
-    styleRetry.hidden = !settingsWarning;
-    styleNotice.textContent = settingsWarning || '';
-  });
-  styleSelect.addEventListener('change', () => {
-    const chosen = normalizePromptMode(styleSelect.value);
-    const previous = currentPromptMode();
-    if (!settings) {
-      styleSelect.value = previous;
-      styleNotice.textContent = 'Response style settings are unavailable. Nothing was saved.';
-      return;
-    }
-    styleSelect.disabled = true;
-    modeSavePending = true;
-    styleNotice.textContent = 'Saving response style…';
-    void settings.set('promptMode', chosen).then(() => {
-      const authoritative = normalizePromptMode(settings?.get('promptMode').composite);
-      confirmedPromptMode = authoritative;
-      styleSelect.value = authoritative;
-      settingsWarning = authoritative === chosen ? null : 'Saved response style differs from the requested style.';
-      styleRetry.hidden = !settingsWarning;
-      styleNotice.textContent = authoritative === chosen
-        ? `${promptModeLabel(chosen)} is now your user default for notebooks without a style override.`
-        : `The saved response style is ${promptModeLabel(authoritative)}. Choose Retry response style settings to check it.`;
-      tracker.forEach(decorate);
-    }).catch(() => {
-      confirmedPromptMode = previous;
-      styleSelect.value = previous;
-      settingsWarning = 'Could not confirm the response style save.';
-      styleRetry.hidden = false;
-      styleNotice.textContent = 'Could not confirm the response style save. Choose Retry response style settings to check what was saved.';
-      tracker.forEach(decorate);
-    }).finally(() => { modeSavePending = false; styleSelect.disabled = false; });
-  });
-  const templateDetails = document.createElement('details');
-  templateDetails.className = 'nbinlineai-template-details';
-  templateDetails.dataset.nbinlineaiTemplateDetails = '';
-  const templateHeading = document.createElement('summary');
-  templateHeading.textContent = 'Edit style instructions';
-  templateDetails.appendChild(templateHeading);
-  const templateInfo = document.createElement('p');
-  templateInfo.textContent = 'Edit the instructions behind each response style. Reset uses the current server default. Custom instructions apply to future runs and reruns.';
-  templateDetails.appendChild(templateInfo);
-  body.node.appendChild(templateDetails);
-  const templateRows = new Map<PromptMode, { textarea: HTMLTextAreaElement; label: HTMLElement; save: HTMLButtonElement; reset: HTMLButtonElement }>();
-  refreshInstructionEditors = () => {
-    for (const [mode, row] of templateRows) {
-      const custom = confirmedInstructions[mode];
-      const serverDefault = serverStatus?.prompt_mode_instructions?.[mode] || '';
-      if (document.activeElement !== row.textarea) row.textarea.value = custom || serverDefault;
-      row.label.textContent = instructionNotices[mode] || (custom ? 'Custom instructions saved' : serverDefault ? 'Using server default' : 'Server default unavailable');
-      row.reset.disabled = !settings || instructionsSavePending || !custom;
-      row.save.disabled = !settings || instructionsSavePending;
-    }
-  };
-  for (const mode of ['compact', 'full', 'learning'] as PromptMode[]) {
-    const row = document.createElement('details');
-    row.className = 'nbinlineai-template-row';
-    row.dataset.nbinlineaiTemplateMode = mode;
-    row.addEventListener('toggle', () => {
-      if (row.open) for (const sibling of Array.from(templateDetails.querySelectorAll<HTMLDetailsElement>('.nbinlineai-template-row'))) if (sibling !== row) sibling.open = false;
-    });
-    const rowHeading = document.createElement('summary');
-    rowHeading.textContent = promptModeLabel(mode);
-    const name = document.createElement('label');
-    name.textContent = `${promptModeLabel(mode)} instructions`;
-    const textarea = document.createElement('textarea');
-    textarea.dataset.nbinlineaiInstruction = mode;
-    textarea.setAttribute('aria-label', `${promptModeLabel(mode)} instructions`);
-    textarea.maxLength = 8000;
-    textarea.rows = 4;
-    name.appendChild(textarea);
-    const state = document.createElement('span');
-    state.className = 'nbinlineai-template-state';
-    state.setAttribute('role', 'status');
-    const save = document.createElement('button');
-    save.type = 'button'; save.textContent = 'Save'; save.dataset.nbinlineaiInstructionSave = mode;
-    const reset = document.createElement('button');
-    reset.type = 'button'; reset.textContent = 'Reset'; reset.dataset.nbinlineaiInstructionReset = mode;
-    templateRows.set(mode, { textarea, label: state, save, reset });
-    const writeTemplate = async (custom: string | undefined) => {
-      if (!settings) { state.textContent = 'Response style settings are unavailable. Nothing was saved.'; return; }
-      if (instructionsSavePending) return;
-      const next = { ...confirmedInstructions };
-      if (custom) next[mode] = custom;
-      else delete next[mode];
-      save.disabled = true; reset.disabled = true;
-      instructionsSavePending = true;
-      refreshInstructionEditors();
-      state.textContent = custom ? 'Saving custom instructions…' : 'Resetting to server default…';
-      try {
-        await settings.set('promptInstructions', next);
-        const authoritative = readInstructionOverrides(settings.get('promptInstructions').composite);
-        confirmedInstructions = authoritative;
-        if ((authoritative[mode] || '') === (custom || '')) {
-          settingsWarning = null;
-          styleRetry.hidden = true;
-          instructionNotices[mode] = custom ? 'Custom instructions saved for future runs.' : 'Using server default for future runs.';
-        } else {
-          settingsWarning = 'Could not confirm preset instructions.';
-          styleRetry.hidden = false;
-          instructionNotices[mode] = 'Saved instructions differ from the requested change. Choose Retry response style settings.';
-        }
-        refreshInstructionEditors();
-      } catch {
-        settingsWarning = 'Could not confirm preset instructions save.';
-        styleRetry.hidden = false;
-        instructionNotices[mode] = 'Could not confirm this change. Choose Retry response style settings to check what was saved.';
-      } finally {
-        instructionsSavePending = false;
-        refreshInstructionEditors();
-        tracker.forEach(decorate);
-      }
-    };
-    save.addEventListener('click', () => {
-      const custom = textarea.value.trim();
-      if (!custom) { state.textContent = 'Enter nonblank instructions or choose Reset.'; return; }
-      if (textarea.value.length > 8000) { state.textContent = 'Instructions must be 8000 characters or fewer.'; return; }
-      void writeTemplate(textarea.value);
-    });
-    reset.addEventListener('click', () => { void writeTemplate(undefined); });
-    row.append(rowHeading, name, state, save, reset);
-    templateDetails.appendChild(row);
-  }
-  refreshInstructionEditors();
-  const keysHeading = document.createElement('h3');
-  keysHeading.textContent = 'API keys';
-  body.node.appendChild(keysHeading);
-  const intro = document.createElement('p');
-  intro.textContent = 'Add your own API key for each provider you want to use. Saved keys stay on the computer running JupyterLab, outside notebooks, and are reused across your local Jupyter environments. Removing a saved key removes it for those environments too.';
-  body.node.appendChild(intro);
-  const notice = document.createElement('div');
-  notice.className = 'nbinlineai-key-notice';
-  notice.setAttribute('role', 'status');
-  body.node.appendChild(notice);
-  const rows = new Map<Backend, { input: HTMLInputElement; save: HTMLButtonElement; remove: HTMLButtonElement; status: HTMLElement }>();
-  let keyStatus: KeyStatus | null = null;
-  const pending = new Set<Backend>();
-  let keysAvailable = false;
-  let keyLoadFailed = false;
-  const retry = document.createElement('button');
-  retry.type = 'button';
-  retry.textContent = 'Retry';
-  retry.dataset.nbinlineaiKeyRetry = '';
-  retry.hidden = true;
-  body.node.appendChild(retry);
-  const updateRows = () => {
-    for (const backend of backends) {
-      const row = rows.get(backend)!;
-      const current = keyStatus?.providers?.[backend];
-      row.status.textContent = keyLoadFailed ? 'Settings unavailable' : !current ? 'Checking…' : current.source === 'saved' ? 'Saved on this computer' : current.source === 'environment' ? 'Configured by server administrator' : 'Not configured';
-      row.remove.disabled = !keysAvailable || pending.has(backend) || !current || current.source !== 'saved';
-      row.save.disabled = !keysAvailable || pending.has(backend) || !row.input.value.trim();
-    }
-  };
-  for (const backend of backends) {
-    const name = backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API';
-    const section = document.createElement('section');
-    section.className = 'nbinlineai-key-provider';
-    section.dataset.nbinlineaiKeyProvider = backend;
-    const title = document.createElement('strong');
-    title.textContent = name;
-    const current = document.createElement('span');
-    current.className = 'nbinlineai-key-status';
-    current.dataset.nbinlineaiKeyStatus = backend;
-    const input = document.createElement('input');
-    input.type = 'password';
-    input.autocomplete = 'off';
-    input.spellcheck = false;
-    input.placeholder = 'Paste API key';
-    input.setAttribute('aria-label', `${name} API key`);
-    input.dataset.nbinlineaiKeyInput = backend;
-    const save = document.createElement('button');
-    save.type = 'button';
-    save.textContent = 'Save';
-    save.dataset.nbinlineaiKeySave = backend;
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.textContent = 'Remove';
-    remove.title = 'Remove your saved key from this computer';
-    remove.dataset.nbinlineaiKeyRemove = backend;
-    rows.set(backend, { input, save, remove, status: current });
-    input.addEventListener('input', updateRows);
-    input.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); save.click(); }
-    });
-    save.addEventListener('click', () => {
-      const key = input.value.trim();
-      if (!key || !keysAvailable || pending.has(backend)) return;
-      input.value = '';
-      pending.add(backend); updateRows(); notice.textContent = `Saving ${name} key…`;
-      void changeKey(backend, 'POST', key).then(async result => {
-        keyStatus = result;
-        mergeKeyStatus(result);
-        tracker.forEach(decorate);
-        let refreshed = true;
-        try { await fetchStatus(); } catch { refreshed = false; retry.hidden = false; }
-        tracker.forEach(decorate);
-        notice.textContent = refreshed
-          ? `${name} key saved on this computer.`
-          : `${name} key saved on this computer. Provider status could not refresh; choose Retry.`;
-      }).catch(error => {
-        if (error instanceof EndpointUnavailableError) { keysAvailable = false; keyLoadFailed = true; retry.hidden = false; }
-        notice.textContent = error instanceof Error ? error.message : 'Could not save key.';
-      }).finally(() => { pending.delete(backend); updateRows(); });
-    });
-    remove.addEventListener('click', () => {
-      if (!keysAvailable || pending.has(backend)) return;
-      pending.add(backend); updateRows(); notice.textContent = `Removing ${name} key…`;
-      void changeKey(backend, 'DELETE').then(async result => {
-        keyStatus = result;
-        mergeKeyStatus(result);
-        tracker.forEach(decorate);
-        let refreshed = true;
-        try { await fetchStatus(); } catch { refreshed = false; retry.hidden = false; }
-        tracker.forEach(decorate);
-        notice.textContent = refreshed
-          ? `${name} saved key removed.`
-          : `${name} saved key removed. Provider status could not refresh; choose Retry.`;
-      }).catch(error => {
-        if (error instanceof EndpointUnavailableError) { keysAvailable = false; keyLoadFailed = true; retry.hidden = false; }
-        notice.textContent = error instanceof Error ? error.message : 'Could not remove key.';
-      }).finally(() => { pending.delete(backend); updateRows(); });
-    });
-    section.append(title, current, input, save, remove);
-    body.node.appendChild(section);
-  }
-  const loadKeys = async () => {
-    retry.disabled = true;
-    notice.textContent = 'Checking provider settings…';
-    try {
-      keyStatus = await fetchKeyStatus();
-      mergeKeyStatus(keyStatus);
-      keysAvailable = true;
-      keyLoadFailed = false;
-      tracker.forEach(decorate);
-      try {
-        await fetchStatus();
-        refreshInstructionEditors();
-        retry.hidden = true;
-        notice.textContent = '';
-      } catch (error) {
-        retry.hidden = false;
-        notice.textContent = error instanceof Error ? error.message : 'Could not refresh provider status. Choose Retry.';
-      }
-      tracker.forEach(decorate);
-    } catch (error) {
-      keysAvailable = false;
-      keyLoadFailed = true;
-      retry.hidden = false;
-      notice.textContent = error instanceof Error ? error.message : 'Could not load provider settings. Try again.';
-    } finally {
-      retry.disabled = false;
-      updateRows();
-    }
-  };
-  retry.addEventListener('click', () => { void loadKeys(); });
-  updateRows();
-  void loadKeys();
-  try {
-    await showDialog({ title: 'Configure AI', body, buttons: [Dialog.okButton({ label: 'Done' })] });
-  } finally {
-    for (const row of rows.values()) row.input.value = '';
-  }
-}
 function eventText(event: StreamEvent): string {
   return typeof event.text === 'string' ? event.text : '';
 }
@@ -706,11 +440,20 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
     catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : 'Could not reach the AI server.'); return false; }
   }
   if (pendingCancels.delete(runKey(panel, promptId))) { status(panel, promptId, 'cancelled', 'Cancelled'); return false; }
-  maybeSnapshotNotebookDefaults(panel);
-  const effective = resolvedFor(panel, prompt);
-  const { backend, promptMode: mode } = effective;
+  let effective = resolvedFor(panel, prompt);
+  const { backend } = effective;
   const available = configured(serverStatus?.providers || null, backend);
-  if (available === false) { status(panel, promptId, 'error', 'API key required. Choose Configure AI or another provider.'); return false; }
+  if (available === false) {
+    const anyApiConfigured = API_BACKENDS.some(candidate => configured(serverStatus?.providers || null, candidate));
+    status(panel, promptId, 'error', unavailableMessage(backend, anyApiConfigured));
+    return false;
+  }
+  const selectionIssue = backend === SUBSCRIPTION_BACKEND
+    ? subscriptionSelectionIssue(serverStatus, effective.model, effective.reasoningEffort) : null;
+  if (selectionIssue) { status(panel, promptId, 'error', selectionIssue); return false; }
+  maybeSnapshotNotebookDefaults(panel);
+  effective = resolvedFor(panel, prompt);
+  const { promptMode: mode } = effective;
   let cells: ReturnType<typeof notebookCells>;
   try { cells = notebookCells(notebook, promptId); }
   catch (error) { status(panel, promptId, 'error', error instanceof Error ? error.message : String(error)); return false; }
@@ -744,7 +487,17 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
       })
     });
     if (!response.ok) {
-      const message = promptHttpErrorMessage(response.status);
+      let message = promptHttpErrorMessage(response.status);
+      if (backend === SUBSCRIPTION_BACKEND && response.status === 400) {
+        try {
+          await fetchStatus();
+          notebookTracker?.forEach(decorate);
+          message = subscriptionConnectionErrorMessage(serverStatus) ||
+            subscriptionSelectionIssue(serverStatus, effective.model, effective.reasoningEffort) || message;
+        } catch {
+          // The generic message remains safe if the status endpoint is unavailable.
+        }
+      }
       if (response.status === 404) throw new EndpointUnavailableError(message);
       throw new Error(message);
     }
@@ -929,6 +682,25 @@ function syncEffortSelect(select: HTMLSelectElement, backend: Backend, model: st
   select.disabled = !serverStatus;
 }
 
+function syncProviderSelect(select: HTMLSelectElement, selected: string, preserve?: Backend): void {
+  const visible = visibleBackends(serverStatus?.providers || null, preserve);
+  for (const option of Array.from(select.options)) {
+    if (option.value === SUBSCRIPTION_BACKEND && !visible.includes(SUBSCRIPTION_BACKEND)) option.remove();
+  }
+  for (const backend of visible) {
+    let option = Array.from(select.options).find(candidate => candidate.value === backend);
+    if (!option) {
+      option = document.createElement('option');
+      option.value = backend;
+      select.appendChild(option);
+    }
+    const unavailable = configured(serverStatus?.providers || null, backend) === false;
+    option.disabled = unavailable;
+    option.textContent = `${PROVIDERS[backend].label}${unavailable ? ` — ${PROVIDERS[backend].unavailable}` : ''}`;
+  }
+  select.value = selected;
+}
+
 function syncNotebookDefaultsRow(panel: NotebookPanel): void {
   const row = panel.contentHeader.node.querySelector('[data-nbinlineai-notebook-defaults]') as HTMLElement | null;
   if (!row) return;
@@ -936,14 +708,8 @@ function syncNotebookDefaultsRow(panel: NotebookPanel): void {
   const effective = resolvedFor(panel);
   const provider = row.querySelector('[data-nbinlineai-notebook-provider]') as HTMLSelectElement;
   const fallback = defaultProvider(preferredBackend(), serverStatus?.providers || null);
-  provider.options[0].textContent = `Provider: User default (${fallback === 'openai_api' ? 'OpenAI' : 'Anthropic'})`;
-  provider.value = defaults.backend || '';
-  for (const option of Array.from(provider.options).slice(1)) {
-    const backend = option.value as Backend;
-    const usable = configured(serverStatus?.providers || null, backend);
-    option.disabled = usable === false;
-    option.textContent = `${backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'}${usable === false ? ' — API key required' : ''}`;
-  }
+  provider.options[0].textContent = `Provider: User default (${PROVIDERS[fallback].shortLabel})`;
+  syncProviderSelect(provider, defaults.backend || '', defaults.backend || fallback);
   provider.disabled = !serverStatus;
   const model = row.querySelector('[data-nbinlineai-notebook-model-select]') as HTMLSelectElement;
   const custom = row.querySelector('[data-nbinlineai-notebook-model]') as HTMLInputElement;
@@ -961,7 +727,7 @@ function syncNotebookDefaultsRow(panel: NotebookPanel): void {
   if (!(model.dataset.customActive === 'true' && choice === DEFAULT_MODEL && model.value === CUSTOM_MODEL)) model.value = choice;
   custom.hidden = model.value !== CUSTOM_MODEL;
   if (document.activeElement !== custom) custom.value = model.value === CUSTOM_MODEL ? defaults.model || '' : '';
-  model.disabled = !serverStatus || configured(serverStatus.providers, effective.backend) === false;
+  model.disabled = !serverStatus || (configured(serverStatus.providers, effective.backend) === false && effective.backend !== SUBSCRIPTION_BACKEND);
   custom.disabled = model.disabled;
   const style = row.querySelector('[data-nbinlineai-notebook-prompt-mode]') as HTMLSelectElement;
   style.options[0].textContent = `Style: User default (${promptModeLabel(currentPromptMode())})`;
@@ -992,7 +758,11 @@ function createNotebookDefaultsRow(panel: NotebookPanel): Widget {
   const keep = document.createElement('input'); keep.type = 'checkbox'; keep.dataset.nbinlineaiNotebookKeepAnswers = ''; keep.setAttribute('aria-label', 'Keep completed AI answers in this notebook');
   keepLabel.append(keep, document.createTextNode('Keep AI answers'));
   row.append(title, provider, model, custom, style, effort, keepLabel);
-  provider.addEventListener('change', () => { setNotebookDefaults(panel, { backend: provider.value as Backend || undefined, model: undefined, reasoningEffort: undefined }); model.dataset.customActive = 'false'; });
+  provider.addEventListener('change', () => {
+    if (provider.value && !isBackend(provider.value)) return;
+    setNotebookDefaults(panel, { backend: provider.value as Backend || undefined, model: undefined, reasoningEffort: undefined });
+    model.dataset.customActive = 'false';
+  });
   model.addEventListener('change', () => {
     if (model.value === CUSTOM_MODEL) { model.dataset.customActive = 'true'; custom.hidden = false; custom.focus(); }
     else { model.dataset.customActive = 'false'; setNotebookDefaults(panel, { model: model.value === DEFAULT_MODEL ? undefined : model.value, reasoningEffort: undefined }); }
@@ -1130,7 +900,7 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const provider = document.createElement('select');
   provider.dataset.nbinlineaiProvider = '';
   provider.setAttribute('aria-label', 'Cell AI provider override');
-  for (const backend of backends) { const option = document.createElement('option'); option.value = backend; option.textContent = backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'; provider.appendChild(option); }
+  for (const backend of API_BACKENDS) { const option = document.createElement('option'); option.value = backend; option.textContent = backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'; provider.appendChild(option); }
   const modelSelect = document.createElement('select');
   modelSelect.dataset.nbinlineaiModelSelect = '';
   modelSelect.setAttribute('aria-label', 'Cell AI model override');
@@ -1151,15 +921,27 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   inherit.addEventListener('click', () => { const cell = getCell(panel, id); if (cell) clearCellOverrides(cell); editor.hidden = true; toggle.setAttribute('aria-expanded', 'false'); decorate(panel); });
   provider.addEventListener('change', () => {
     const cell = getCell(panel, id);
-    if (cell) patchCellOverrides(cell, { backend: provider.value as Backend, model: undefined, reasoningEffort: undefined });
+    if (cell && isBackend(provider.value)) patchCellOverrides(cell, { backend: provider.value, model: undefined, reasoningEffort: undefined });
     modelSelect.dataset.customActive = 'false'; decorate(panel);
   });
   modelSelect.addEventListener('change', () => {
     const cell = getCell(panel, id); if (!cell) return;
     if (modelSelect.value === CUSTOM_MODEL) { modelSelect.dataset.customActive = 'true'; modelInput.hidden = false; modelInput.focus(); }
-    else { modelSelect.dataset.customActive = 'false'; patchCellOverrides(cell, { backend: provider.value as Backend, model: modelSelect.value === DEFAULT_MODEL ? undefined : modelSelect.value, reasoningEffort: undefined }); decorate(panel); }
+    else {
+      modelSelect.dataset.customActive = 'false';
+      const backend = isBackend(provider.value) ? provider.value : resolvedFor(panel, cell).backend;
+      patchCellOverrides(cell, { backend, model: modelSelect.value === DEFAULT_MODEL ? undefined : modelSelect.value, reasoningEffort: undefined });
+      decorate(panel);
+    }
   });
-  modelInput.addEventListener('input', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { backend: provider.value as Backend, model: modelInput.value.trim() || undefined, reasoningEffort: undefined }); decorate(panel); });
+  modelInput.addEventListener('input', () => {
+    const cell = getCell(panel, id);
+    if (cell) {
+      const backend = isBackend(provider.value) ? provider.value : resolvedFor(panel, cell).backend;
+      patchCellOverrides(cell, { backend, model: modelInput.value.trim() || undefined, reasoningEffort: undefined });
+    }
+    decorate(panel);
+  });
   style.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }); decorate(panel); });
   effort.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { reasoningEffort: effort.value || undefined }); decorate(panel); });
   editor.append(provider, modelSelect, modelInput, style, effort, inherit);
@@ -1195,23 +977,20 @@ function decorate(panel: NotebookPanel): void {
     if (controls.parentElement !== cellControls) cellControls.appendChild(controls);
     const effective = resolvedFor(panel, cell);
     const selectedProvider = controls.querySelector('[data-nbinlineai-provider]') as HTMLSelectElement;
-    selectedProvider.value = effective.backend;
-    const availableCount = backends.filter(backend => configured(serverStatus?.providers || null, backend)).length;
-    for (const option of Array.from(selectedProvider.options)) {
-      const backend = option.value as Backend;
-      const usable = configured(serverStatus?.providers || null, backend);
-      option.disabled = usable === false;
-      option.textContent = `${backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'}${usable === false ? ' — API key required' : ''}`;
-    }
-    selectedProvider.disabled = !serverStatus || availableCount === 0;
+    syncProviderSelect(selectedProvider, effective.backend, effective.backend);
+    const anyApiConfigured = API_BACKENDS.some(backend => configured(serverStatus?.providers || null, backend) === true);
+    selectedProvider.disabled = !serverStatus || !hasSelectableProvider(serverStatus.providers, serverStatus.subscription_capable === true);
     syncModelControls(controls, effective.backend, meta.model || '');
     const selectedAvailability = configured(serverStatus?.providers || null, effective.backend);
+    const subscriptionIssue = effective.backend === SUBSCRIPTION_BACKEND && selectedAvailability === true
+      ? subscriptionSelectionIssue(serverStatus, effective.model, effective.reasoningEffort) : null;
     const modelSelect = controls.querySelector('[data-nbinlineai-model-select]') as HTMLSelectElement;
     const notebookResolved = resolvedFor(panel);
     modelSelect.options[0].textContent = meta.backend && meta.backend !== notebookResolved.backend ? 'Provider default model' : `Notebook default model${notebookResolved.model ? ` (${notebookResolved.model})` : ''}`;
     const customInput = controls.querySelector('[data-nbinlineai-model]') as HTMLInputElement;
-    modelSelect.disabled = selectedAvailability !== true;
-    customInput.disabled = selectedAvailability !== true;
+    const modelEditable = selectedAvailability === true || (serverStatus && effective.backend === SUBSCRIPTION_BACKEND);
+    modelSelect.disabled = !modelEditable;
+    customInput.disabled = !modelEditable;
     const styleSelect = controls.querySelector('[data-nbinlineai-prompt-mode]') as HTMLSelectElement;
     styleSelect.options[0].textContent = `Notebook default (${promptModeLabel(resolvedFor(panel).promptMode)})`;
     styleSelect.value = meta.promptMode || '';
@@ -1222,7 +1001,8 @@ function decorate(panel: NotebookPanel): void {
     effortSelect.title = effective.reasoningEffort && !supportedEffort(effective.reasoningEffort, serverStatus?.model_capabilities?.[effective.backend]?.[effective.model || serverStatus?.providers?.[effective.backend]?.default_model || '']?.efforts)
       ? 'This effort is not supported by the selected model; Model default will be used.' : 'Reasoning effort for this model';
     const summary = controls.querySelector('[data-nbinlineai-override-summary]') as HTMLElement;
-    const parts = [meta.backend && (meta.backend === 'openai_api' ? 'OpenAI' : 'Anthropic'), meta.model, meta.promptMode && promptModeLabel(meta.promptMode), meta.reasoningEffort].filter(Boolean);
+    const parts = [meta.backend && (PROVIDERS[meta.backend]?.shortLabel || meta.backend), meta.model,
+      meta.promptMode && promptModeLabel(meta.promptMode), meta.reasoningEffort].filter(Boolean);
     summary.textContent = hasOverride(meta) ? `Override: ${parts.join(' · ')}` : '';
     const toggle = controls.querySelector('[data-nbinlineai-override]') as HTMLButtonElement;
     toggle.textContent = hasOverride(meta) ? 'Override (active)' : 'Override';
@@ -1235,7 +1015,7 @@ function decorate(panel: NotebookPanel): void {
     const keepInherit = controls.querySelector('[data-nbinlineai-keep-inherit]') as HTMLButtonElement;
     keepInherit.hidden = meta.keepAnswer === undefined;
     const protectedCompleted = protectedAnswer(panel, cell);
-    runButton.disabled = running || selectedAvailability === false || protectedCompleted;
+    runButton.disabled = running || selectedAvailability === false || !!subscriptionIssue || protectedCompleted;
     runButton.title = protectedCompleted ? 'Completed answer kept. Uncheck Keep answer to run again.' : 'Run AI prompt (Shift+Enter)';
     cancelButton.disabled = !running;
     const label = controls.querySelector('.nbinlineai-status') as HTMLElement;
@@ -1243,15 +1023,16 @@ function decorate(panel: NotebookPanel): void {
     starters.hidden = !!cell.sharedModel.getSource().trim();
     const key = runKey(panel, cell.id);
     let current = statuses.get(key);
-    if (selectedAvailability === true && current?.state === 'error' && current.text.startsWith('API key required.')) {
+    if (selectedAvailability === true && current?.state === 'error' &&
+        (current.text.startsWith('API key required.') || current.text.startsWith('ChatGPT subscription unavailable.') ||
+         current.text.startsWith('Selected ChatGPT '))) {
       statuses.delete(key);
       current = undefined;
     }
     const availabilityNotice = selectedAvailability === false
-      ? availableCount === 0 ? 'No API key configured. Choose Configure AI.' : 'API key required. Choose Configure AI or another provider.'
-      : '';
-    label.dataset.state = serverStatusError ? 'error' : selectedAvailability === false ? 'error' : current?.state || 'idle';
-    label.title = serverStatusError || selectedAvailability === false ? '' : current?.tooltip || '';
+      ? unavailableMessage(effective.backend, anyApiConfigured) : subscriptionIssue || '';
+    label.dataset.state = serverStatusError || availabilityNotice ? 'error' : current?.state || 'idle';
+    label.title = serverStatusError || availabilityNotice ? '' : current?.tooltip || '';
     label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice ||
       (current?.state === 'done' && current.text.includes('context trimmed') ? current.text : '') ||
       (protectedCompleted ? 'Answer kept' : '') || current?.text || (serverStatus ? '' : 'Checking AI providers…');
@@ -1321,7 +1102,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];
         });
         contextControls.set(panel, context);
-        const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Add or remove API keys', onClick: () => { void configureProviders(tracker); } });
+        const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Set up ChatGPT or API keys', onClick: () => { void configureProviders(tracker); } });
         panel.toolbar.addItem('nbinlineai-configure', configureButton);
         const insertButton = new ToolbarButton({ icon: addIcon, label: 'AI Prompt', tooltip: 'Insert AI Prompt Cell', onClick: () => insertPrompt(panel) });
         if (!panel.toolbar.insertAfter('cellType', 'nbinlineai-insert', insertButton)) {

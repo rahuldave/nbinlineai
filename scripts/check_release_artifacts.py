@@ -7,8 +7,12 @@ import json
 import re
 import tarfile
 import zipfile
+from email import policy
+from email.parser import BytesParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+
+import tomllib
 
 FORBIDDEN_PARTS = {
     ".git", ".venv", "node_modules", "internal_docs", "test-results",
@@ -24,6 +28,7 @@ SOURCE_REQUIRED = {
     "docs/tools.md", "docs/examples.md",
     "pyproject.toml", "package.json", "yarn.lock",
     "src/index.ts", "src/context.ts", "src/contextControls.ts", "src/frontendActions.ts",
+    "src/configureAI.ts", "src/subscriptionSetup.ts",
     "src/frontendCellEdits.ts", "src/insertTools.ts",
     "src/insertToolsProtocol.ts", "style/index.css", "schema/plugin.json",
     "nbinlineai/__init__.py", "nbinlineai/handlers.py", "nbinlineai/tools.py",
@@ -31,6 +36,8 @@ SOURCE_REQUIRED = {
     "nbinlineai/fastcore_tools.py", "nbinlineai/source_tools.py", "nbinlineai/inspection_tools.py",
     "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
+    "nbinlineai/backend_registry.py", "nbinlineai/notebook_scope.py",
+    "nbinlineai/subscription_settings.py", "nbinlineai/subscription_runtime.py",
     "nbinlineai/kernel_insert_tools.py",
     "nbinlineai/_search.py", "nbinlineai/_search_worker.py", "nbinlineai/_documents.py",
     "nbinlineai/labextension/package.json", "examples/quickstart.ipynb",
@@ -41,6 +48,8 @@ WHEEL_REQUIRED_SUFFIXES = {
     "nbinlineai/fastcore_tools.py", "nbinlineai/source_tools.py", "nbinlineai/inspection_tools.py",
     "nbinlineai/notebook_tools.py", "nbinlineai/execution_tools.py", "nbinlineai/_tool_helpers.py",
     "nbinlineai/context_budget.py", "nbinlineai/context_selection.py", "nbinlineai/prompt_focus.py",
+    "nbinlineai/backend_registry.py", "nbinlineai/notebook_scope.py",
+    "nbinlineai/subscription_settings.py", "nbinlineai/subscription_runtime.py",
     "nbinlineai/kernel_insert_tools.py",
     "nbinlineai/_search.py", "nbinlineai/_search_worker.py", "nbinlineai/_documents.py",
     "share/jupyter/labextensions/nbinlineai/package.json",
@@ -121,6 +130,13 @@ def _check_server_discovery(raw: bytes, origin: str) -> None:
         raise SystemExit(f"{origin} missing JupyterLab pip server discovery metadata")
 
 
+def _check_subscription_dependency(requirements: list[str], origin: str) -> None:
+    """The release must declare its tested bundled Codex runtime version."""
+    if not any(re.match(r"(?i)^openai-codex\s*==\s*0\.156\.1(?:\s*;|$)", item)
+               for item in requirements):
+        raise SystemExit(f"{origin} missing pinned openai-codex==0.156.1 dependency")
+
+
 def _check_forbidden(names: list[str]) -> None:
     bad = []
     for name in names:
@@ -137,6 +153,11 @@ def check_sdist(path: Path) -> dict[str, set[str]]:
     with tarfile.open(path, "r:gz") as archive:
         names = [member.name for member in archive.getmembers() if member.isfile()]
         relative = {"/".join(Path(name).parts[1:]): name for name in names}
+        pyproject = archive.extractfile(relative["pyproject.toml"]) if "pyproject.toml" in relative else None
+        if pyproject is None:
+            raise SystemExit("Source archive missing pyproject.toml")
+        project = tomllib.loads(pyproject.read().decode("utf-8")).get("project", {})
+        _check_subscription_dependency(project.get("dependencies", []), "Source archive")
         doc_images: dict[str, set[str]] = {}
         for suffix in ("package.json", "nbinlineai/labextension/package.json"):
             if suffix in relative:
@@ -167,6 +188,11 @@ def check_sdist(path: Path) -> dict[str, set[str]]:
 def check_wheel(path: Path, source_doc_images: dict[str, set[str]]) -> None:
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
+        metadata = next((name for name in names if name.endswith(".dist-info/METADATA")), None)
+        if metadata is None:
+            raise SystemExit("Wheel missing package metadata")
+        headers = BytesParser(policy=policy.default).parsebytes(archive.read(metadata), headersonly=True)
+        _check_subscription_dependency(headers.get_all("Requires-Dist", []), "Wheel")
         manifest = next((name for name in names if name.endswith("share/jupyter/labextensions/nbinlineai/package.json")), None)
         if manifest is not None:
             _check_server_discovery(archive.read(manifest), "Wheel labextension manifest")

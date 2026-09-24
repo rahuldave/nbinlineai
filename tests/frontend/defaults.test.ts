@@ -49,3 +49,12 @@ test('explicit Model default cancels an inherited notebook effort', () => {
   assert.equal(cell.reasoningEffort, 'default');
   assert.equal(supportedEffort(cell.reasoningEffort, ['low', 'medium', 'high']), '');
 });
+
+test('saved ChatGPT connection and model stay pinned while disconnected', () => {
+  const saved = { backend: 'openai_codex_subscription' as const, model: 'gpt-6-sol' };
+  const disconnected = { ...availability, openai_codex_subscription: { configured: false } };
+  assert.deepEqual(resolveAI({}, saved, user, disconnected), {
+    backend: 'openai_codex_subscription', model: 'gpt-6-sol', promptMode: 'compact', reasoningEffort: ''
+  });
+  assert.equal(resolveAI({ backend: 'anthropic_api' }, saved, user, disconnected).model, 'user-claude');
+});

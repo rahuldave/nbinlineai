@@ -1,0 +1,78 @@
+<div id="nbai-config-preview" aria-label="Configure AI design preview">
+  <style>
+    #nbai-config-preview { --nb-bg:light-dark(#fff,#252525); --nb-text:light-dark(#242424,#eee); --nb-muted:light-dark(#5c5c5c,#bcbcbc); --nb-border:light-dark(#d5d5d5,#555); --nb-panel:light-dark(#f6f6f6,#303030); --nb-blue:light-dark(#1565c0,#6eb2ff); color:var(--nb-text); font:14px/1.5 system-ui,sans-serif; }
+    #nbai-config-preview * {box-sizing:border-box}
+    #nbai-config-preview .nb-window {background:var(--nb-bg); border:1px solid var(--nb-border); max-width:650px; margin:auto; box-shadow:0 3px 15px #00000018;}
+    #nbai-config-preview header {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--nb-border)}
+    #nbai-config-preview h2 {font:500 18px/1.4 system-ui,sans-serif;margin:0}
+    #nbai-config-preview .nb-preview {font-size:12px;color:var(--nb-muted)}
+    #nbai-config-preview .nb-content {padding:18px 20px;display:grid;gap:18px}
+    #nbai-config-preview label {display:grid;gap:6px;font-weight:500}
+    #nbai-config-preview select,#nbai-config-preview input {font:inherit;padding:7px 9px;background:var(--nb-bg);color:var(--nb-text);border:1px solid var(--nb-border);border-radius:2px;min-width:0;width:100%}
+    #nbai-config-preview button {font:inherit;background:var(--nb-panel);color:var(--nb-text);border:1px solid var(--nb-border);border-radius:2px;padding:7px 12px}
+    #nbai-config-preview button.nb-primary {background:var(--nb-blue);color:light-dark(#fff,#14263d);border-color:var(--nb-blue)}
+    #nbai-config-preview button:disabled {opacity:.55}
+    #nbai-config-preview .nb-row {display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+    #nbai-config-preview .nb-detail {color:var(--nb-muted);font-weight:400;font-size:13px}
+    #nbai-config-preview .nb-state {display:grid;gap:9px;padding:14px;background:var(--nb-panel);border-left:3px solid var(--nb-blue)}
+    #nbai-config-preview .nb-paths {display:grid;grid-template-columns:135px minmax(0,1fr);gap:7px 14px}
+    #nbai-config-preview .nb-paths span {overflow-wrap:anywhere}
+    #nbai-config-preview .nb-paths .nb-label {color:var(--nb-muted)}
+    #nbai-config-preview footer {border-top:1px solid var(--nb-border);padding:12px 20px;display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+    #nbai-config-preview [hidden] {display:none!important}
+    #nbai-config-preview details {font-size:13px}
+    #nbai-config-preview summary {color:var(--nb-muted)}
+    #nbai-config-preview .nb-feedback {color:var(--nb-muted);font-size:13px;min-height:1.5em}
+    @media(max-width:440px){#nbai-config-preview .nb-paths {grid-template-columns:1fr;gap:3px}#nbai-config-preview .nb-paths .nb-label:not(:first-child){margin-top:8px}#nbai-config-preview header,#nbai-config-preview .nb-content {padding:14px}}
+    @media(pointer:coarse){#nbai-config-preview button,#nbai-config-preview select {min-height:44px}#nbai-config-preview select,#nbai-config-preview input {font-size:16px}}
+  </style>
+  <section class="nb-window">
+    <header><h2>Configure AI</h2><span class="nb-preview">Design preview</span></header>
+    <div class="nb-content">
+      <label>Connection<select class="cursor-interaction" id="nb-connection"><option value="chatgpt">ChatGPT subscription</option><option value="openai">OpenAI API</option><option value="anthropic">Anthropic API</option></select></label>
+      <div class="nb-state" aria-live="polite">
+        <strong id="nb-status">Connect your ChatGPT account</strong>
+        <span class="nb-detail" id="nb-billing">Uses your ChatGPT subscription allowance.</span>
+        <div class="nb-row"><button class="nb-primary cursor-interaction" type="button" id="nb-connect">Sign in with ChatGPT</button><span class="nb-detail" id="nb-note">No API key needed</span></div>
+        <span class="nb-detail" id="nb-model">Models become available after sign-in.</span>
+      </div>
+      <div class="nb-paths" aria-label="Notebook and project locations">
+        <span class="nb-label">Working folder</span><span>course/week2/</span>
+        <span class="nb-label">JupyterLab root</span><span>course/</span>
+      </div>
+      <label id="nb-scope-field">ChatGPT file access<select class="cursor-interaction" id="nb-scope"><option value="course">course/ — JupyterLab project folder</option><option value="notebook">course/week2/ — this notebook's folder</option></select><span class="nb-detail">Applies to direct ChatGPT operations. Python keeps its normal permissions.</span></label>
+      <details><summary class="cursor-interaction">File access and usage</summary><p>The working folder is this notebook's directory. The selected access folder restricts direct ChatGPT file operations. Enabled notebook tools execute separately in Python with your permissions.</p><p id="nb-usage">Usage limits are shared across your account. Additional ChatGPT credits may apply. API access is a separate choice.</p><p>Each notebook has its own conversation and tools. Your ChatGPT sign-in is shared.</p></details>
+      <div class="nb-feedback" id="nb-feedback" aria-live="polite">Preview only — no account or notebook changes.</div>
+    </div>
+    <footer><button class="cursor-interaction" type="button" id="nb-reset">Reset preview</button><button class="nb-primary cursor-interaction" type="button" id="nb-use" disabled>Use for this notebook</button></footer>
+  </section>
+  <script>
+    (()=>{
+      const root=document.getElementById('nbai-config-preview');
+      const get=id=>root.querySelector('#'+id);
+      const state={connection:'chatgpt',stage:'signed-out',locations:true};
+      const labels={chatgpt:'ChatGPT subscription',openai:'OpenAI API',anthropic:'Anthropic API'};
+      function render(){
+        const subscription=state.connection==='chatgpt';
+        const connected=state.stage==='connected';
+        get('nb-connection').value=state.connection;
+        get('nb-status').textContent=state.stage==='limited'?'Usage limit reached':connected?(subscription?'ChatGPT connected':'API key configured'):(subscription?'Connect your ChatGPT account':'Connect '+labels[state.connection]);
+        get('nb-billing').textContent=subscription?"Uses your ChatGPT subscription allowance.":'Usage is billed separately by the API provider.';
+        get('nb-connect').textContent=state.stage==='limited'?'Check availability':connected?'Disconnect':subscription?'Sign in with ChatGPT':'Configure API key';
+        get('nb-note').textContent=subscription?(connected?'Subscription connection':state.stage==='limited'?'No automatic API fallback':'No API key needed'):'Keys are stored on the Jupyter server';
+        get('nb-model').textContent=connected?'Model choices come from this connection.':state.stage==='limited'?'Wait for your allowance to reset, or choose another connection.':'Models become available after connection.';
+        get('nb-use').disabled=!connected;
+        get('nb-usage').textContent=subscription?'Usage limits are shared across your account. Additional ChatGPT credits may apply. API access is a separate choice.':'Each request uses this provider’s API billing. Your ChatGPT subscription does not cover API usage.';
+        root.querySelector('.nb-paths').hidden=!state.locations;
+        get('nb-scope-field').hidden=!subscription;
+      }
+      get('nb-connection').addEventListener('change',e=>{state.connection=e.target.value;state.stage='signed-out';get('nb-feedback').textContent='Preview only — no account or notebook changes.';render()});
+      get('nb-connect').addEventListener('click',()=>{state.stage=state.stage==='connected'?'signed-out':'connected';get('nb-feedback').textContent='Simulated connection state — no sign-in was started.';render()});
+      get('nb-use').addEventListener('click',()=>{get('nb-feedback').textContent='Preview: this notebook would use '+labels[state.connection]+'.'});
+      get('nb-scope').addEventListener('change',()=>{get('nb-feedback').textContent='Preview: direct ChatGPT file access would be limited to '+(get('nb-scope').value==='course'?'course/':'course/week2/')+'.'});
+      get('nb-reset').addEventListener('click',()=>{state.connection='chatgpt';state.stage='signed-out';get('nb-scope').value='course';get('nb-feedback').textContent='Preview only — no account or notebook changes.';render()});
+      render();
+      if(globalThis.Tweak){const tweak=new Tweak({container:root,onChange:render});tweak.addSelect(state,'stage',{label:'Connection state',options:[{label:'Signed out',value:'signed-out'},{label:'Connected',value:'connected'},{label:'Usage limit reached',value:'limited'}]});tweak.addToggle(state,'locations',{label:'Show notebook and project folders'});}
+    })();
+  </script>
+</div>
