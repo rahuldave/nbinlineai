@@ -257,7 +257,7 @@ notebooks were changed during inspection.
 
 Both native dependencies were introduced directly by nbinlineai **0.1.11**:
 `rgapi` implements `search_files` / `search_notebooks`, and `exhash` implements
-`document_outline` / `read_section`. They are independent Answer.AI packages
+`document_outline` / `read_document_section`. They are independent Answer.AI packages
 identified in the dialoghelper research, not dependencies introduced by Jupyter
 AI. At investigation time, [rgapi 0.1.30](https://pypi.org/project/rgapi/0.1.30/#files)
 and [exhash 0.4.16](https://pypi.org/project/exhash/0.4.16/#files) had macOS ARM

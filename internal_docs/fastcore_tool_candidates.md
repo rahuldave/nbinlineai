@@ -20,6 +20,66 @@ Research reviewed **2026-09-23**. The pinned upstream analysis below predates th
 
 The rest of this document records the **earlier buildability assessment**, including references to missing tools at that point in time. Use the matrix and [current tools reference](../docs/tools.md) for implemented behavior.
 
+## Non-Rust replacement assessment after the 0.1.11 install report
+
+Reviewed **2026-09-23**. This is an assessment, **not an implemented dependency
+change**. The published package still requires rgapi and exhash. Their missing
+macOS ARM Python 3.14 wheels caused the source-build delay reproduced in the
+[compatibility investigation](jupyter_ai_compatibility.md#matched-python-314-follow-up).
+
+Both packages are Jeremy Howard / Answer.AI projects. Verified public consumers
+include [dialoghelper's standard tools](https://github.com/AnswerDotAI/dialoghelper/blob/6b4f4c16532c3f4fbc36281aa0c1d0f3b63c4210/dialoghelper/stdtools.py)
+and [llmdojo's startup imports](https://github.com/AnswerDotAI/llmdojo/blob/main/claude/startup.py)
+for both packages, plus [ipyai's kernel bridge](https://github.com/AnswerDotAI/ipyai/blob/main/ipyai/kernel_bridge.py)
+for exhash. Pyskills' README lists both discoverable skills; this is an integration
+example, not evidence that installing pyskills installs either package. The
+verified consumers are concentrated in Answer.AI's tooling; this search does not
+establish a complete user count or the absence of other users.
+
+| Package | Upstream purpose | What nbinlineai actually uses | Candidate replacement |
+| --- | --- | --- | --- |
+| [rgapi](https://github.com/AnswerDotAI/rgapi) | Parallel file discovery and text search using ripgrep's Rust libraries; ignore rules, regexes, streaming/async results, and cell-aware notebook searches. | Only `rg` and `nbrg`, behind `search_files` and `search_notebooks`. | Python directory walking, literal/regex matching and JSON notebook reads; [pathspec](https://python-path-specification.readthedocs.io/en/latest/readme.html) for Git-style ignore matching. |
+| [exhash](https://github.com/AnswerDotAI/exhash) | Line/hash-addressed edits, previews, notebook edits, and navigable Markdown/code section trees. | Only `open_doc`, outline formatting, `at` and `view`, behind `document_outline` and `read_document_section`. | [markdown-it-py](https://markdown-it-py.readthedocs.io/en/latest/using.html) heading tokens/source-line maps, Python `ast` definition spans, and our own digest-checked section addresses. |
+
+The existing checked-edit tools, `view_file_hashes` and `file_replace_checked`,
+already use Python's `hashlib.sha256`; replacing exhash does not require replacing
+those editors. Fastcore's documentation and ordinary file editing helpers remain
+useful independently.
+
+Replacement must preserve the relevant boundaries, not just the happy-path text:
+
+- Search currently has a 1.5-second deadline, 1 MB file bound, depth/result limits,
+  partial-result notices, hidden/ignore filtering and saved notebook cell IDs.
+  Python `re` has different syntax/performance from Rust regex. A time check
+  between files cannot interrupt one pathological match; retaining a hard bound
+  requires process isolation or another bounded matcher. A pathspec wrapper must
+  implement nested ignore precedence rather than assume one root pattern list
+  duplicates ripgrep.
+- Document navigation currently excludes headings inside code fences, retains
+  hierarchy and link numbering, and checks copied section addresses for stale
+  content. Python `ast` covers Python definitions only. Exhash also outlines
+  JavaScript, TypeScript/TSX, Rust, Zig and Swift via tree-sitter; a Markdown/Python
+  replacement would need explicit fallback behavior or optional parsers for those
+  languages. It is not an equivalent replacement for every exhash API.
+- `toolslm.read_md` looked promising in an older pyskills example, but toolslm
+  **0.3.48 removed `read_md` and `md_hier` in favor of exhash**. See its
+  [pinned changelog](https://github.com/AnswerDotAI/toolslm/blob/67b3d6262535fc12629fca8b82bb455d07563d07/CHANGELOG.md).
+  Do not add the current toolslm package expecting those modules to exist.
+
+PyPI metadata checked on this date confirms universal `py3-none-any` wheels for
+pathspec **1.1.1**, markdown-it-py **4.2.0**, and its only base dependency mdurl
+**0.1.2**. Use the base packages: pathspec's optional re2/hyperscan accelerators
+and markdown-it-py's optional comparison extras are unnecessary. These candidate
+packages were not installed in the user's course environment or added to the
+project lockfile.
+
+Recommendation: implement Python-backed search and Markdown/Python navigation as
+the default, retaining native acceleration or additional-language parsing only
+as explicit optional features if needed. Keep the public tool names and stale
+content checks. This addresses the two source builds without pretending that
+the whole dependency graph becomes Rust-free: direct `remold` still pulls in
+`ast-grep-py` (and LibCST), which need a separate packaging/optional-feature decision.
+
 ## Upstream sources inspected
 
 These are source snapshots, not promises that every dependency is installed in a notebook kernel:
