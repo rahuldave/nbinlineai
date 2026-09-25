@@ -14,10 +14,27 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
 
 ## Project constraints
 
+- Use the installed Gest workflow via `.agents/skills/gtw/SKILL.md` for
+  substantial work. Project invariants in this file take precedence over
+  generic templates. See [the project workflow](internal_docs/workflow.md).
+- `main` is the default branch. `codex/agentic-notebook-experiments` is a
+  persistent integration branch. Create temporary `codex/*` topic branches
+  from the selected integration target and submit PRs back to that target.
+  Both targets require PRs, CI and independent adversarial review. Never
+  interpret the experiment policy as permission for direct development pushes.
+  A later experiment-to-main promotion needs its own scope and authorization;
+  preserve the experimental branch after that PR.
+- Record reviewed base/head commits and finding dispositions. Self-review and
+  passing tests do not replace independent review. Native Gest maintains its
+  graphs; do not generate separate graph exports.
+- Experimental merges publish source only. Keep Git installation working;
+  no version bump, tag, PyPI upload or website deployment follows merely from
+  merging an experimental PR. A requested release follows the release contract.
+
 - Keep the ongoing notebook-agent experiments on the long-running
   `codex/agentic-notebook-experiments` branch. This includes identified-cell
   execution handoffs, one-kernel RLM/Python 3.14 work, and later multi-kernel
-  research. Continue that branch across tasks unless the user explicitly
+  research. Use it as the integration target across tasks unless the user explicitly
   directs otherwise; do not silently move experimental work onto `main`.
   Keep the branch buildable as a Git-source `uv` dependency and update its
   installation instructions in [Development](docs/development.md) when needed.

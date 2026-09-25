@@ -1,12 +1,35 @@
 # Developer handoff
 
+**2026-09-25 workflow adoption (topic PR):** The proposed workflow is on
+`codex/adopt-reviewed-workflow`, targeting `codex/agentic-notebook-experiments`
+in [PR #3](https://github.com/rahuldave/nbinlineai/pull/3). It installs the shared
+skills at `ed19dcf3a0de7f2b4ef767491ab402f38639a9dd` from
+[shared PR #45](https://github.com/rahuldave/agent_gest_git_skills/pull/45), preserves
+project instructions, adds source CI alongside the existing runtime matrix, and
+records PR/issue/review/release rules in [Project workflow](workflow.md).
+Shared PR #45 should merge before this adoption. Neither PR is merged merely
+by writing this note. No notebook runtime feature, version or PyPI release is
+changed. Local static checks, 260 Python tests and 58 frontend tests passed;
+remote source/build/package/browser checks are tracked on the PR.
+
+Browser specs import `tests/support/e2e-fixtures.ts`. Its automatic fixture
+records existing sessions before each test and shuts down only newly created
+sessions after the browser context closes; the suite owns its server and uses
+one worker. Retaining every kernel caused reconnect pressure in clean Linux CI.
+When testing startup, REST kernel `idle` alone does not prove the browser's
+connection is ready. Wait for its Idle status before execution, and for native
+`language_info` before saving a baseline for no-dirty assertions. Await a save's
+matching Contents PUT response before reading the saved notebook.
+
+
 **Long-running experimental branch (2026-09-25):** This work lives on
 `codex/agentic-notebook-experiments`, separate from published `main`. The
 branch is intended to stay installable in a user's JupyterLab uv project via
 `uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments`.
 See [Development](../docs/development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project)
 for Node build requirements, environment checks, and commit-pinned updates.
-Continue agentic-notebook experiments here unless the user changes direction.
+Continue agentic-notebook experiments with topic PRs targeting this branch
+unless the user changes direction. See [Project workflow](workflow.md).
 The branch was pushed at `a316494f8c3a6c391f142b97b2bb02ad8aec8b11`.
 An isolated disposable uv project installed directly from that Git branch on
 Python 3.14, built the source distribution's frontend, and locked that exact

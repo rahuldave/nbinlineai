@@ -161,7 +161,10 @@ class HandlerTests(AsyncHTTPTestCase):
         response = self._post({**body, "prompt_instructions": secret * 500})
         assert response.code == 400
         assert secret.encode() not in response.body
-        response = self._post({**body, "reasoning_effort": "unavailable"})
+        # Exercise effort validation without depending on a developer's keys.
+        with patch("nbinlineai.prompt.provider_status",
+                   return_value={"openai_api": {"configured": True}}):
+            response = self._post({**body, "reasoning_effort": "unavailable"})
         assert response.code == 400
         assert b"reasoning_effort" in response.body
 

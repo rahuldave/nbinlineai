@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('shipped bundled-tools notebook imports a read-only tool and returns its real kernel result', async ({ page, request }) => {
   await request.get('/lab');

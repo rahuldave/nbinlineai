@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '../support/e2e-fixtures';
 
 const panel = (page: Page) => page.locator('.jp-NotebookPanel:visible');
 const cells = (page: Page) => panel(page).locator('.jp-Notebook .jp-Cell');

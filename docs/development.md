@@ -125,3 +125,20 @@ After a frontend build and relink, refresh the core notebook screenshots with `u
 The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Example notebooks and their data fixture are installed under `share/doc/nbinlineai/examples/`; keep their relative layout intact. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
 
 See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.
+
+
+## Working on the experimental line
+
+`codex/agentic-notebook-experiments` is a persistent integration branch. Develop
+individual changes on temporary `codex/*` topics created from it, then use
+reviewed pull requests **back to that branch**. The same PR and CI discipline
+applies to `main`. Promoting an experiment to `main` is a separate decision.
+Keep the experimental branch after promotion so future work can continue there.
+
+The project-local Gest skills and the repository's internal workflow notes
+record issue scope, independent adversarial review, verification and cleanup.
+`just lint`, `just typecheck`, `just test`, and `just browser` map existing
+commands; `just browser` rebuilds and relinks first. CI additionally checks
+built archives and fresh wheel installation. Experimental PR merges update
+Git source and do not publish a PyPI release. The source commit in `uv.lock`
+identifies the installed snapshot even while the package version is unchanged.
