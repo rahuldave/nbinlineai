@@ -56,7 +56,7 @@ Choose a style in the notebook's **AI defaults** row:
 
 Notebook defaults are saved with the `.ipynb`. Cells inherit them unless you choose an **Override**; **Use notebook defaults** clears those overrides. The provider menu also has **Notebook default** to clear a cell's provider choice and its old model and effort choices. Reruns use the current effective settings. A run already in progress keeps the choices it started with.
 
-In **Configure AI**, expand the style instructions to edit Compact, Full, or Learning. Each editor starts with our bundled instructions. **Save** stores your custom wording in JupyterLab user settings; **Reset** restores the bundled instructions. Your custom wording applies when that style is selected. It is separate from the notebook's saved style choice.
+In current Git source, open **Configure AI → Defaults** and expand the style instructions to edit Compact, Full, or Learning. PyPI 0.1.14 shows the same controls in one scrolling dialog. Each editor starts with our bundled instructions. **Save** stores your custom wording in JupyterLab user settings; **Reset** restores the bundled instructions. Your custom wording applies when that style is selected. It is separate from the notebook's saved style choice.
 
 In **Learning**, start with a question such as “Help me understand why this loop skips an item.” When the tutor asks a question, insert another AI Prompt cell **below its answer**, write your reply, and run it. Earlier exchanges provide the conversation history. Repeat as you work through the problem. To replace an earlier exchange, turn off Keep answer and rerun that prompt.
 
@@ -94,13 +94,13 @@ Unknown custom model IDs and models without this effort control use Model defaul
 
 ## Installation and connections
 
-In **Configure AI**, choose **ChatGPT subscription**, then **Sign in with ChatGPT**. If browser sign-in cannot reach the server, choose **Use device code**. After the connection reports an available model, choose its effort and click **Use for this notebook**. The dialog's **Connection** picker displays setup for a connection; merely changing it, checking status, or signing in does not change the notebook. **Default connection for new notebooks** saves your preference for future notebooks separately. ChatGPT uses your account allowance, which has limits; additional credits may apply. API requests are billed separately, and switching between them is always explicit. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
+In current Git source, open **Configure AI → Connections & models**, choose **ChatGPT subscription**, then **Sign in with ChatGPT**. For OpenAI or Anthropic API, choose that connection and save its key directly below. PyPI 0.1.14 shows these controls in one scrolling dialog. If browser sign-in cannot reach the server, choose **Use device code**. After the connection reports an available model, choose its effort and click **Use for this notebook**. The **Connection to set up** picker only displays setup; merely changing it, checking status, or signing in does not change the notebook. The **Defaults** tab's **Default connection for new notebooks** saves your preference for future notebooks separately. ChatGPT uses your account allowance, which has limits; additional credits may apply. API requests are billed separately, and switching between them is always explicit. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
 
 For direct ChatGPT operations, **ChatGPT file access** currently shows **Notebook tools only**: built-in file, shell, and browser actions are off. Enabled notebook tools still run in Python with its normal user permissions. The displayed notebook folder supplies location context; it does not change the Python kernel's working directory or confine its tools.
 
 API keys are saved in your user configuration, outside notebooks. On macOS and Linux the default is `~/.config/nbinlineai/credentials.json`; Windows uses its user configuration directory. An absolute `XDG_CONFIG_HOME` changes the location when set. ChatGPT credentials are managed by the runtime, never copied into this key file or notebook metadata. No `.env` file is needed.
 
-![Simulated connected ChatGPT setup with model, effort, usage, and Use for this notebook](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
+![Connections and models tab with simulated ChatGPT setup, model, effort, and Use for this notebook](https://raw.githubusercontent.com/rahuldave/nbinlineai/main/docs/images/configure-ai.png)
 
 Your school or hosted Jupyter service may manage extensions centrally. If Extension Manager is unavailable, ask the administrator to install the package in the Python environment running Jupyter Server and restart that server. For a self-managed environment using `pip`, the equivalent command is:
 

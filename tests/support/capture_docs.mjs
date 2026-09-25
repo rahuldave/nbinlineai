@@ -139,6 +139,7 @@ try {
   await capture(page, 'keep-answer.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt, answer]);
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   let dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await dialog.getByRole('tab', { name: 'Defaults' }).click();
   await dialog.locator('[data-nbinlineai-template-details] > summary').click();
   await dialog.locator('[data-nbinlineai-template-mode="learning"] > summary').click();
   await dialog.locator('[data-nbinlineai-template-details]').screenshot({ path: join(out, 'style-instructions.png') });

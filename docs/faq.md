@@ -18,7 +18,7 @@ In **0.1.8 and earlier**, the controls were at the bottom. A checked Context imm
 
 That cell may have an explicit provider choice saved from an earlier edit or version. The notebook's **AI defaults** apply only to cells that inherit them. Open the cell's **Override** controls and choose **Notebook default** in its provider menu. **Use notebook defaults** clears all of that cell's provider, model, style, and effort overrides at once. Choosing only a cell model does not save a provider override.
 
-**Configure AI → Default connection for new notebooks** sets your preference for future notebooks. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection** picker at the top of Configure AI only chooses which setup details to display.
+In current Git source, **Configure AI → Defaults → Default connection for new notebooks** sets your preference for future notebooks; PyPI 0.1.14 shows the same control in one scrolling dialog. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection to set up** picker on **Connections & models** only chooses which setup details to display.
 
 ### Do JupyterLab's Markdown instructions become part of a new answer?
 

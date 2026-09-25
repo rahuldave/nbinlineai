@@ -8,13 +8,19 @@ title: Install and connect
 
 You need JupyterLab 4.2 or newer and Python 3.12 or newer. Use a ChatGPT subscription or an OpenAI or Anthropic **API key**.
 
+The two-tab layout is in the current Git source. PyPI 0.1.14 has the same controls in one scrolling dialog until the next release.
+
 1. Open JupyterLab's **Extension Manager**, search for **nbinlineai**, and install it.
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
 3. Open a Python notebook. Click **Configure AI** at the far right of the notebook toolbar, beside the kernel name.
-4. In **Configure AI**, choose **ChatGPT subscription** and sign in, or choose an API connection, paste its key, and click **Save**. An API provider should show **Saved on this computer**.
-5. For ChatGPT, choose an available model and effort, then click **Use for this notebook**. For an API connection, use the notebook's **AI defaults** row below its toolbar to choose provider and model. To choose a user preference for notebooks without saved defaults, use **Default connection for new notebooks** in Configure AI. Compact is the starting style; Model default lets the provider choose thinking effort.
+4. In **Configure AI → Connections & models**, choose **ChatGPT subscription** and sign in, or choose an API connection, paste its key directly below, and click **Save**. An API provider should show **Saved on this computer**.
+5. For ChatGPT, choose an available model and effort, then click **Use for this notebook**. For an API connection, use the notebook's **AI defaults** row below its toolbar to choose provider and model. To choose a user preference for notebooks without saved defaults, open the **Defaults** tab and set **Default connection for new notebooks**. Compact is the starting style; Model default lets the provider choose thinking effort.
 
-![Simulated connected ChatGPT setup with model, effort, usage, and Use for this notebook](../images/configure-ai.png)
+The connection picker only changes the setup view; it does not change this notebook or the default for new notebooks.
+
+![Connections & models tab with simulated ChatGPT setup and Use for this notebook](../images/configure-ai.png)
+
+![Defaults tab with the new-notebook connection and response style preferences](../images/configure-ai-defaults.png)
 
 For a project managed by uv, install and launch with:
 

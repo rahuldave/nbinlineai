@@ -9,7 +9,7 @@ title: Models, styles, and effort
 ## Provider and model choices
 
 - An API provider without a configured key is marked **API key required** and cannot be selected. A disconnected ChatGPT selection remains visible with its own unavailable message.
-- In **Configure AI**, **Default connection for new notebooks** sets your user preference. If only one API provider is configured, a notebook without saved AI defaults starts with that available provider unless your preference is ChatGPT. To change an existing notebook, use its **AI defaults** row below the notebook toolbar.
+- In current Git source, **Configure AI → Defaults → Default connection for new notebooks** sets your user preference. PyPI 0.1.14 shows this control in its single scrolling dialog. If only one API provider is configured, a notebook without saved AI defaults starts with that available provider unless your preference is ChatGPT. To change an existing notebook, use its **AI defaults** row below the notebook toolbar.
 - Choose a listed model or **Default**. **Custom model…** is for API connections to enter another model ID supported by that provider; ChatGPT offers only supported models available to the connected account.
 - Bundled model defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A model default you set in JupyterLab's nbinlineai settings takes precedence.
 - API listed models are suggestions, not a live account-access check. ChatGPT lists runtime-supported models available to the connected account and their reasoning efforts; an unavailable saved model or effort is kept and cannot run until you change it.
@@ -37,7 +37,7 @@ The notebook's style choice is saved in its `.ipynb` metadata. A cell uses this 
 
 ## Edit the style instructions
 
-Open **Configure AI** and expand the style-instruction editors. Compact, Full, and Learning start with our bundled instructions. Edit a style's text and click **Save** to use your own wording. **Reset** removes that override and restores the current bundled instructions. Empty instructions are rejected; use Reset instead. Each custom instruction can contain at most 8,000 characters.
+Open **Configure AI → Defaults** and expand the style-instruction editors. In PyPI 0.1.14, they are in the single scrolling dialog. Compact, Full, and Learning start with our bundled instructions. Edit a style's text and click **Save** to use your own wording. **Reset** removes that override and restores the current bundled instructions. Empty instructions are rejected; use Reset instead. Each custom instruction can contain at most 8,000 characters.
 
 Custom instruction text is stored in JupyterLab user settings, outside the notebook. Sharing an `.ipynb` shares its style choice, but not your personal rewritten instructions. A recipient uses their own instructions for that style. Notebook context and tool-handling instructions remain managed by the extension.
 
