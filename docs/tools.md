@@ -4,7 +4,7 @@ title: Tools reference
 
 # Tools reference
 
-Version **0.1.14** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
+Version **0.1.15** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
 
 A new release with frontend changes needs a **JupyterLab server restart** after installation or upgrade, followed by a browser reload. Restart the selected Python kernel and rerun imports too. The older editable-install, Python-only shortcut for the first eight fastcore tools does not apply to this release's live notebook edits. See [setup](manual/setup.md) and [development](development.md).
 
@@ -153,7 +153,7 @@ The alias must also be bound in the kernel namespace when the question runs.
 
 ## Relationship to dialoghelper
 
-The tool selection draws on [Answer.AI's dialoghelper](https://github.com/AnswerDotAI/dialoghelper) and the libraries it surfaces. We reuse fastcore helpers where they fit and reimplement selected capabilities with nbinlineai's own arguments, bounded results, and JupyterLab integration. The following describes the **0.1.14 implementation**, rather than every capability available upstream.
+The tool selection draws on [Answer.AI's dialoghelper](https://github.com/AnswerDotAI/dialoghelper) and the libraries it surfaces. We reuse fastcore helpers where they fit and reimplement selected capabilities with nbinlineai's own arguments, bounded results, and JupyterLab integration. The following describes the **0.1.15 implementation**, rather than every capability available upstream.
 
 | Capability surveyed upstream | Implementation in nbinlineai |
 | --- | --- |
