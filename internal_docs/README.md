@@ -1,5 +1,9 @@
 # Internal documentation index
 
+**Workflow follow-up (2026-09-25):** [Project workflow](workflow.md) records the
+primary-`main` convention, owned worktree cleanup and reviewed skill refresh.
+Issue #4 tracks both branch adoptions and the preview race fix; PyPI is unchanged.
+
 **Experimental development branch:** `codex/agentic-notebook-experiments` is
 the long-running home for notebook-agent execution handoffs, one-kernel RLM
 and Python 3.14 work, and subsequent multi-kernel research. Install and update

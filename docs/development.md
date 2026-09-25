@@ -127,12 +127,22 @@ The same Markdown and image files are installed under `share/doc/nbinlineai/docs
 See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.
 
 
-## Working on the experimental line
+## Branches and worktrees
+
+Keep the primary checkout on `main`. Develop changes in separate topic
+worktrees, using a temporary `codex/*` branch based on the intended integration
+target. Stable fixes and release preparation start from `main` and return there
+through reviewed pull requests.
 
 `codex/agentic-notebook-experiments` is a persistent integration branch. Develop
 individual changes on temporary `codex/*` topics created from it, then use
 reviewed pull requests **back to that branch**. The same PR and CI discipline
 applies to `main`. Promoting an experiment to `main` is a separate decision.
+
+After integration, remove only the completed task's clean worktrees and verified
+merged temporary branches. Preserve the primary checkout, the experimental
+branch, and other tasks' worktrees. Record any unfinished or uncommitted work
+before considering cleanup.
 Keep the experimental branch after promotion so future work can continue there.
 
 The project-local Gest skills and the repository's internal workflow notes

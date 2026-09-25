@@ -1,16 +1,25 @@
 # Developer handoff
 
-**2026-09-25 workflow adoption (topic PR):** The proposed workflow is on
-`codex/adopt-reviewed-workflow`, targeting `codex/agentic-notebook-experiments`
-in [PR #3](https://github.com/rahuldave/nbinlineai/pull/3). It installs the shared
-skills at `ed19dcf3a0de7f2b4ef767491ab402f38639a9dd` from
-[shared PR #45](https://github.com/rahuldave/agent_gest_git_skills/pull/45), preserves
-project instructions, adds source CI alongside the existing runtime matrix, and
-records PR/issue/review/release rules in [Project workflow](workflow.md).
-Shared PR #45 should merge before this adoption. Neither PR is merged merely
-by writing this note. No notebook runtime feature, version or PyPI release is
-changed. Local static checks, 260 Python tests and 58 frontend tests passed;
-remote source/build/package/browser checks are tracked on the PR.
+**2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
+PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
+follow-up, including explicit task-owned worktree cleanup and the preview fix
+below. Installed skills are refreshed to reviewed source commit
+`bc22ef179e345396869309bfac1a596c515b69b4` from shared PR #47; merge that shared
+source PR before these adoptions. The primary checkout stays on `main`, while
+stable and experimental topics use owned worktrees from their respective bases.
+See [Project workflow](workflow.md) for review, provenance, CI and cleanup.
+Version 0.1.14 and PyPI are unchanged; no notebook-agent feature is added.
+
+**2026-09-25 preview race fix (source, unreleased):** Post-merge source run
+`36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
+Trace inspection found that the preview's own silent kernel inspection could
+finish before the kernel manager processed its idle status. The handler now
+yields one event-loop turn before its existing final kernel-identity and idle
+checks. It does not retry: a still-busy or replaced kernel is rejected, and a
+longer status delay can still safely produce HTTP 409. The regression failed on
+the old handler and passes with the fix; all 261 Python tests and four focused
+real-browser runs passed locally. Linux full-suite verification is recorded on
+the follow-up PRs. The isolated server on 8897 stopped; 8888 was untouched.
 
 Browser specs import `tests/support/e2e-fixtures.ts`. Its automatic fixture
 records existing sessions before each test and shuts down only newly created
