@@ -100,6 +100,19 @@ test('prompt executes in the notebook, streams a reply, and reuses its saved pai
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell')).toHaveCount(1);
 });
 
+test('an empty AI answer does not show JupyterLab’s Markdown hint while waiting for text', async ({ page, request }) => {
+  await openNotebook(page, request, [code('value = 4')]);
+  const prompt = await insertPrompt(page, 0, 'E2E_PENDING_ANSWER explain value');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-response-cell');
+  await expect(answer).toBeVisible();
+  await expect(answer).toHaveClass(/nbinlineai-empty-output/);
+  await expect(answer.locator('.jp-MarkdownOutput')).toBeHidden();
+  await expect(answer).toContainText('E2E provider=openai_api');
+  await expect(answer).not.toHaveClass(/nbinlineai-empty-output/);
+  await expect(answer.locator('.jp-MarkdownOutput')).toBeVisible();
+});
+
 test('context stops at prompt and live variable comes from the running kernel', async ({ page, request }) => {
   await openNotebook(page, request, [code('x = 7 # ABOVE_MARKER'), code('print("BELOW_MARKER")')]);
   await page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell').first().click();

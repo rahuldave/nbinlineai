@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.13**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.14**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -13,6 +13,16 @@ These answers describe version **0.1.13**. See the [illustrated user guide](user
 Starting in **0.1.9**, a cell's available Context/Tools controls sit above its own content, aligned with the text/editor. An AI answer has a Context control above its answer text but no Tools switch. An AI question's **Run AI**, **Cancel**, **Keep answer** and **Override** row sits below its Context line, still above its question text. The **AI defaults** and **Context** rows at the top of the notebook set notebook-wide choices; the cell's Override changes only that question.
 
 In **0.1.8 and earlier**, the controls were at the bottom. A checked Context immediately above an AI question could therefore belong to the preceding cell. Update to 0.1.9 for the clearer placement. The current question is labeled **Current question · always included** rather than showing an empty checkbox: its text is always sent.
+
+### Why does a cell still show Anthropic after I choose ChatGPT for the notebook?
+
+That cell may have an explicit provider choice saved from an earlier edit or version. The notebook's **AI defaults** apply only to cells that inherit them. Open the cell's **Override** controls and choose **Notebook default** in its provider menu. **Use notebook defaults** clears all of that cell's provider, model, style, and effort overrides at once. Choosing only a cell model does not save a provider override.
+
+**Configure AI → Default connection for new notebooks** sets your preference for future notebooks. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection** picker at the top of Configure AI only chooses which setup details to display.
+
+### Do JupyterLab's Markdown instructions become part of a new answer?
+
+No. JupyterLab normally shows an instructional placeholder in empty rendered Markdown cells. AI answer cells keep an empty source while waiting for streamed text and hide that placeholder. The answer appears when the first response text arrives. You can still edit an answer using JupyterLab's normal Markdown editor.
 
 ### Does Run All run the AI cells?
 
@@ -265,7 +275,7 @@ that launches JupyterLab. After stopping the server normally, run this in that
 activated environment:
 
 ```bash
-python -m pip install --verbose --upgrade nbinlineai==0.1.13
+python -m pip install --verbose --upgrade nbinlineai==0.1.14
 ```
 
 For a uv project whose server environment is `.venv`, use
@@ -376,7 +386,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.13 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. Version 0.1.14 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -442,7 +452,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.13**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+In version **0.1.14**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -464,7 +474,7 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.13 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Yes. Version 0.1.14 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

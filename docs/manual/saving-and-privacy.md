@@ -17,7 +17,7 @@ Both kinds of AI cell are **standard Markdown cells inside the `.ipynb` file**:
 
 The fields live under `metadata.nbinlineai`. The answer's `promptCellId` links it to the prompt's notebook cell ID. This lets a rerun find and update its existing answer. If you delete the answer cell, the next run creates one again.
 
-Notebook-level choices, including Keep AI answers, live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. An absent cell Keep answer choice inherits the notebook default. API keys live in a private server-side credential file; ChatGPT sign-in is managed by its runtime; custom style instructions live in JupyterLab user settings. None of those credentials or instructions is stored in the notebook.
+Notebook-level choices, including Keep AI answers, live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. An absent cell Keep answer choice inherits the notebook default. The preferred connection for notebooks without saved choices and custom style instructions live in JupyterLab user settings. API keys live in a private server-side credential file; ChatGPT sign-in is managed by its runtime. None of those credentials or instructions is stored in the notebook.
 
 An AI answer is **not** an entry in a code cell's `outputs` array. Consequently, Jupyter's normal code-output clearing does not remove its Markdown text. Delete the answer cell to remove it; delete the prompt separately if you want to remove the whole exchange.
 

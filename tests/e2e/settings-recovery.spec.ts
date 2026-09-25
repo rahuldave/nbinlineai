@@ -52,7 +52,9 @@ test('Configure AI recovers after a temporary settings 404 and keeps a successfu
   await page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').first().click();
   await page.getByRole('button', { name: 'AI Prompt' }).click();
   const prompt = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-prompt-cell');
-  await expect(prompt.locator('select[data-nbinlineai-provider]')).toHaveValue('openai_api');
+  const provider = prompt.locator('select[data-nbinlineai-provider]');
+  await expect(provider).toHaveValue('');
+  await expect(provider.locator('option').first()).toContainText('Notebook default (OpenAI)');
   await expect(prompt.locator('button[data-nbinlineai-run]')).toBeEnabled();
   await page.unroute('**/nbinlineai/status');
 

@@ -58,3 +58,12 @@ test('saved ChatGPT connection and model stay pinned while disconnected', () => 
   });
   assert.equal(resolveAI({ backend: 'anthropic_api' }, saved, user, disconnected).model, 'user-claude');
 });
+
+test('a cell model choice without a provider choice follows a changed notebook connection', () => {
+  const chatgpt = { backend: 'openai_codex_subscription' as const, model: 'gpt-6-sol' };
+  assert.deepEqual(resolveAI({}, chatgpt, user, availability), {
+    backend: 'openai_codex_subscription', model: 'gpt-6-sol', promptMode: 'compact', reasoningEffort: ''
+  });
+  assert.equal(resolveAI({ backend: 'anthropic_api' }, chatgpt, user, availability).backend, 'anthropic_api');
+  assert.equal(resolveAI({ model: 'gpt-6-astra' }, chatgpt, user, availability).backend, 'openai_codex_subscription');
+});

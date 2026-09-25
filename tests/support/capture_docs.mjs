@@ -139,19 +139,6 @@ try {
   await capture(page, 'keep-answer.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt, answer]);
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   let dialog = page.locator('[data-nbinlineai-keys-dialog]');
-  await expect(dialog.locator('[data-nbinlineai-key-status="openai_api"]')).toContainText('Saved');
-  const anthropicRow = dialog.locator('[data-nbinlineai-key-provider="anthropic_api"]');
-  await anthropicRow.scrollIntoViewIfNeeded();
-  const dialogBox = await dialog.boundingBox();
-  const templateBox = await dialog.locator('[data-nbinlineai-template-details]').boundingBox();
-  const anthropicBox = await anthropicRow.boundingBox();
-  await page.screenshot({ path: join(out, 'configure-ai.png'), clip: {
-    x: dialogBox.x,
-    y: Math.max(dialogBox.y, templateBox.y - 5),
-    width: dialogBox.width,
-    height: Math.min(dialogBox.y + dialogBox.height, anthropicBox.y + anthropicBox.height + 5)
-      - Math.max(dialogBox.y, templateBox.y - 5)
-  } });
   await dialog.locator('[data-nbinlineai-template-details] > summary').click();
   await dialog.locator('[data-nbinlineai-template-mode="learning"] > summary').click();
   await dialog.locator('[data-nbinlineai-template-details]').screenshot({ path: join(out, 'style-instructions.png') });
@@ -166,6 +153,11 @@ try {
   await expect(prompt.locator('[data-nbinlineai-keep-inherit]')).toBeVisible();
   await checkContext(page, panel, prompt);
   await capture(page, 'cell-overrides.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt]);
+  await prompt.locator('[data-nbinlineai-provider]').selectOption('');
+  await prompt.locator('[data-nbinlineai-model-select]').selectOption('gpt-6-luna');
+  await prompt.locator('[data-nbinlineai-effort]').selectOption('high');
+  await expect(prompt.locator('[data-nbinlineai-provider]')).toHaveValue('');
+  await capture(page, 'cell-inherits-provider.png', [panel.locator('[data-nbinlineai-notebook-defaults]'), prompt]);
 
   // Two short Socratic turns, both visible in a single notebook.
   panel = await notebook(page, 'Learning together.ipynb', [

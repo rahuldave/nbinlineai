@@ -269,6 +269,7 @@ function decorateCodeCopy(widget: MarkdownCell): void {
 function refreshOutput(panel: NotebookPanel, output: ICellModel): void {
   const widget = panel.content.widgets.find(cell => cell.model === output);
   if (widget instanceof MarkdownCell) {
+    widget.toggleClass('nbinlineai-empty-output', !output.sharedModel.getSource());
     if (!widget.rendered) widget.rendered = true;
     widget.update();
   }
@@ -900,6 +901,8 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   const provider = document.createElement('select');
   provider.dataset.nbinlineaiProvider = '';
   provider.setAttribute('aria-label', 'Cell AI provider override');
+  const inheritProvider = document.createElement('option');
+  inheritProvider.value = ''; inheritProvider.textContent = 'Notebook default'; provider.appendChild(inheritProvider);
   for (const backend of API_BACKENDS) { const option = document.createElement('option'); option.value = backend; option.textContent = backend === 'openai_api' ? 'OpenAI API' : 'Anthropic API'; provider.appendChild(option); }
   const modelSelect = document.createElement('select');
   modelSelect.dataset.nbinlineaiModelSelect = '';
@@ -921,7 +924,9 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   inherit.addEventListener('click', () => { const cell = getCell(panel, id); if (cell) clearCellOverrides(cell); editor.hidden = true; toggle.setAttribute('aria-expanded', 'false'); decorate(panel); });
   provider.addEventListener('change', () => {
     const cell = getCell(panel, id);
-    if (cell && isBackend(provider.value)) patchCellOverrides(cell, { backend: provider.value, model: undefined, reasoningEffort: undefined });
+    if (cell && (provider.value === '' || isBackend(provider.value))) {
+      patchCellOverrides(cell, { backend: provider.value as Backend || undefined, model: undefined, reasoningEffort: undefined });
+    }
     modelSelect.dataset.customActive = 'false'; decorate(panel);
   });
   modelSelect.addEventListener('change', () => {
@@ -929,16 +934,14 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
     if (modelSelect.value === CUSTOM_MODEL) { modelSelect.dataset.customActive = 'true'; modelInput.hidden = false; modelInput.focus(); }
     else {
       modelSelect.dataset.customActive = 'false';
-      const backend = isBackend(provider.value) ? provider.value : resolvedFor(panel, cell).backend;
-      patchCellOverrides(cell, { backend, model: modelSelect.value === DEFAULT_MODEL ? undefined : modelSelect.value, reasoningEffort: undefined });
+      patchCellOverrides(cell, { model: modelSelect.value === DEFAULT_MODEL ? undefined : modelSelect.value, reasoningEffort: undefined });
       decorate(panel);
     }
   });
   modelInput.addEventListener('input', () => {
     const cell = getCell(panel, id);
     if (cell) {
-      const backend = isBackend(provider.value) ? provider.value : resolvedFor(panel, cell).backend;
-      patchCellOverrides(cell, { backend, model: modelInput.value.trim() || undefined, reasoningEffort: undefined });
+      patchCellOverrides(cell, { model: modelInput.value.trim() || undefined, reasoningEffort: undefined });
     }
     decorate(panel);
   });
@@ -966,6 +969,7 @@ function decorate(panel: NotebookPanel): void {
     widget.toggleClass('nbinlineai-output-cell', !!meta.isOutputCell);
     widget.toggleClass('nbinlineai-response-cell', !!meta.isOutputCell);
     if (meta.isOutputCell && widget instanceof MarkdownCell) {
+      widget.toggleClass('nbinlineai-empty-output', !cell.sharedModel.getSource());
       if (!widget.rendered && !(panel.content.activeCell === widget && panel.content.mode === 'edit')) widget.rendered = true;
       decorateCodeCopy(widget);
     }
@@ -977,7 +981,8 @@ function decorate(panel: NotebookPanel): void {
     if (controls.parentElement !== cellControls) cellControls.appendChild(controls);
     const effective = resolvedFor(panel, cell);
     const selectedProvider = controls.querySelector('[data-nbinlineai-provider]') as HTMLSelectElement;
-    syncProviderSelect(selectedProvider, effective.backend, effective.backend);
+    selectedProvider.options[0].textContent = `Notebook default (${PROVIDERS[resolvedFor(panel).backend].shortLabel})`;
+    syncProviderSelect(selectedProvider, meta.backend || '', meta.backend || effective.backend);
     const anyApiConfigured = API_BACKENDS.some(backend => configured(serverStatus?.providers || null, backend) === true);
     selectedProvider.disabled = !serverStatus || !hasSelectableProvider(serverStatus.providers, serverStatus.subscription_capable === true);
     syncModelControls(controls, effective.backend, meta.model || '');

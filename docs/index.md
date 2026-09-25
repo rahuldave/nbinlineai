@@ -6,11 +6,13 @@ title: nbinlineai
 
 **nbinlineai** adds AI prompt cells to JupyterLab. Ask about the code and notes above a cell, refer to live Python values, and let a model call functions you explicitly name. Prompts and answers stay in the notebook as readable Markdown.
 
+**New in 0.1.14:** choose a default connection for notebooks without saved choices, keep cell provider choices inherited unless explicitly overridden, and see a clean waiting answer cell before text streams in.
+
 ## Start here
 
 1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook and use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key.
-3. Choose your notebook's model and style in **AI defaults**.
+2. Open a Python notebook and use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Set **Default connection for new notebooks** there if you want a user preference.
+3. Choose this notebook's connection, model, and style in **AI defaults**. Individual cells inherit them unless overridden.
 4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
 
 For a uv project:
@@ -46,7 +48,12 @@ The [user guide index](user-guide.md) shows the reading order. Open the chapter 
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.13
+## New in version 0.1.14
+
+- Set **Default connection for new notebooks** in Configure AI. Cells now visibly inherit their notebook's connection unless you explicitly choose another provider for that question; selecting only a cell model does not pin the provider.
+- Empty AI answer cells hide JupyterLab's Markdown instruction placeholder while waiting for the first streamed response text.
+
+## Added in version 0.1.13
 
 - Use a ChatGPT subscription for inline questions through a connection owned by the Jupyter server. Sign in through a browser or device code, inspect account models and usage, then choose **Use for this notebook**. No separate Codex installation or API key is needed for this connection.
 - ChatGPT and API billing stay separate. Saved notebook choices remain explicit when a connection or model becomes unavailable; there is no automatic switch to an API provider.

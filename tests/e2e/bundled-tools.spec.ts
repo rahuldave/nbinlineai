@@ -63,13 +63,4 @@ test('shipped bundled-tools notebook imports a read-only tool and returns its re
   const answer = notebook.locator('.nbinlineai-response-cell');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('study_roster_marker');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('built-in found');
-  await generated.scrollIntoViewIfNeeded();
-  const boxes = await Promise.all([generated, prompt, answer].map(locator => locator.boundingBox()));
-  expect(boxes.every(Boolean)).toBe(true);
-  const visible = boxes.filter(box => box !== null);
-  const x = Math.max(0, Math.min(...visible.map(box => box.x)) - 15);
-  const y = Math.max(0, Math.min(...visible.map(box => box.y)) - 15);
-  const right = Math.min(1500, Math.max(...visible.map(box => box.x + box.width)) + 15);
-  const bottom = Math.min(1200, Math.max(...visible.map(box => box.y + box.height)) + 15);
-  await page.screenshot({ path: 'docs/images/bundled-tools.png', clip: { x, y, width: right - x, height: bottom - y } });
 });

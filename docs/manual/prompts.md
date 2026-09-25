@@ -9,7 +9,7 @@ title: Write and run AI questions
 1. Select the cell after which you want to ask a question.
 2. Click **+ AI Prompt** in the notebook toolbar.
 3. Write your prompt, for example: `Explain the code above and suggest a simpler approach.`
-4. Check the **AI defaults** row at the top of the notebook. The cell inherits these settings unless you use its **Override** control.
+4. Check the **AI defaults** row below the notebook toolbar. The cell inherits these settings unless you use its **Override** control.
 5. Press **Shift+Enter** or click **Run AI**.
 
 The answer streams into a separate Markdown cell, normally created immediately below the prompt. **Keep answer** starts on: the first run is allowed, and a completed answer is then protected from accidental repeat requests. Ordinary code cells keep their usual execution behavior.

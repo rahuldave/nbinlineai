@@ -245,6 +245,62 @@ test('cell overrides survive reload, then reset to the current notebook defaults
   for (const field of ['backend', 'model', 'promptMode', 'reasoningEffort']) expect(meta[field]).toBeUndefined();
 });
 
+test('a cell model choice does not pin Anthropic after the notebook switches providers', async ({ page, request }) => {
+  const name = await openNotebook(page, request);
+  const row = defaults(page);
+  await row.locator('[data-nbinlineai-notebook-provider]').selectOption('anthropic_api');
+  const prompt = await addPrompt(page, 'E2E_BASIC inherit a changed provider');
+  await prompt.locator('[data-nbinlineai-override]').click();
+  const provider = prompt.locator('[data-nbinlineai-provider]');
+  await expect(provider).toHaveValue('');
+  await expect(provider.locator('option').first()).toContainText('Notebook default');
+  await prompt.locator('[data-nbinlineai-model-select]').selectOption('claude-haiku-4-5-20251001');
+  await saveNotebook(page);
+  let saved = await savedNotebook(request, name);
+  let meta = saved.cells.find((item: any) => item.metadata?.nbinlineai?.isPromptCell).metadata.nbinlineai;
+  expect(meta.backend).toBeUndefined();
+  expect(meta.model).toBe('claude-haiku-4-5-20251001');
+
+  await row.locator('[data-nbinlineai-notebook-provider]').selectOption('openai_api');
+  await expect(provider).toHaveValue('');
+  await provider.selectOption('anthropic_api');
+  await provider.selectOption('');
+  const body = await postRun(page, prompt);
+  expect(body.backend).toBe('openai_api');
+  expect(body.model).toBeUndefined();
+  await saveNotebook(page);
+  saved = await savedNotebook(request, name);
+  meta = saved.cells.find((item: any) => item.metadata?.nbinlineai?.isPromptCell).metadata.nbinlineai;
+  expect(meta.backend).toBeUndefined();
+  expect(meta.model).toBeUndefined();
+});
+
+test('Configure AI saves the connection default used by new notebooks', async ({ page, request }) => {
+  await openNotebook(page, request);
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  const choice = dialog.locator('[data-nbinlineai-default-backend]');
+  await expect(choice).toBeEnabled();
+  const original = await choice.inputValue();
+  const next = original === 'anthropic_api' ? 'openai_api' : 'anthropic_api';
+  try {
+    await choice.selectOption(next);
+    await expect(dialog.locator('[data-nbinlineai-default-backend-notice]')).toContainText('default for new notebooks');
+    await page.getByRole('button', { name: 'Done' }).click();
+    await openNotebook(page, request);
+    const prompt = await addPrompt(page, 'E2E_BASIC use the configured default');
+    await expect(defaults(page).locator('[data-nbinlineai-notebook-provider]')).toHaveValue(next);
+    await expect(prompt.locator('[data-nbinlineai-provider]')).toHaveValue('');
+    const body = await postRun(page, prompt);
+    expect(body.backend).toBe(next);
+  } finally {
+    if (!await dialog.isVisible()) await page.getByRole('button', { name: 'Configure AI' }).first().click();
+    await choice.selectOption(original);
+    await expect(dialog.locator('[data-nbinlineai-default-backend-notice]')).toContainText('default for new notebooks');
+    await page.getByRole('button', { name: 'Done' }).click();
+  }
+});
+
 test('custom style instructions save, reset, and reconcile an unconfirmed write', async ({ page, request }) => {
   const name = await openNotebook(page, request);
   await defaults(page).locator('[data-nbinlineai-notebook-prompt-mode]').selectOption('compact');

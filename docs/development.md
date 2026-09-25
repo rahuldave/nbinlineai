@@ -78,6 +78,8 @@ The site source is the repository's `docs/` folder. GitHub Pages publishes `main
 - The README uses absolute GitHub image URLs so its images also render on PyPI. Keep it to at most two screenshots.
 - Use the isolated demonstration setup for screenshots. Do not capture personal notebooks, API keys, or login tokens.
 
+After a frontend build and relink, refresh the core notebook screenshots with `uv run --no-sync jlpm exec node tests/support/capture_docs.mjs`. Refresh the simulated connected ChatGPT dialog separately with `NBINLINEAI_CAPTURE_DOCS=1 uv run --no-sync jlpm playwright test tests/e2e/subscription-setup.spec.ts --grep 'capture the simulated connected ChatGPT setup'`. Run these sequentially: each owns an isolated server on port 8897 and refuses an occupied port. The core helper leaves `configure-ai.png` to the dedicated ChatGPT capture.
+
 The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Example notebooks and their data fixture are installed under `share/doc/nbinlineai/examples/`; keep their relative layout intact. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
 
 See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.

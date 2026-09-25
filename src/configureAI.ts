@@ -56,6 +56,27 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   connectionLabel.appendChild(connectionSelect);
   const subscriptionSetup = new SubscriptionSetup(env.subscription);
   body.node.append(connectionLabel, subscriptionSetup.node);
+  const defaultHeading = document.createElement('h3');
+  defaultHeading.textContent = 'Default connection for new notebooks';
+  const defaultSelect = document.createElement('select');
+  defaultSelect.dataset.nbinlineaiDefaultBackend = '';
+  defaultSelect.setAttribute('aria-label', 'Default AI connection for new notebooks');
+  defaultSelect.disabled = true;
+  for (const backend of [SUBSCRIPTION_BACKEND, ...API_BACKENDS]) {
+    const option = document.createElement('option');
+    option.value = backend; option.textContent = PROVIDERS[backend].label; defaultSelect.appendChild(option);
+  }
+  const defaultDescription = document.createElement('p');
+  defaultDescription.textContent = 'Used by new notebooks. Existing notebook defaults and cell overrides stay as saved; change them in the notebook when needed.';
+  const defaultNotice = document.createElement('div');
+  defaultNotice.setAttribute('role', 'status');
+  defaultNotice.dataset.nbinlineaiDefaultBackendNotice = '';
+  body.node.append(defaultHeading, defaultSelect, defaultDescription, defaultNotice);
+  const syncDefaultBackend = () => {
+    const saved = settings?.get('defaultBackend').composite;
+    defaultSelect.value = isBackend(saved) ? saved : 'openai_api';
+    defaultSelect.disabled = !settings;
+  };
   let keyArea: HTMLElement | null = null;
   const syncConnectionDetails = () => {
     const capable = env.getServerStatus()?.subscription_capable === true && env.subscription.capable();
@@ -114,6 +135,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   body.node.append(styleHeading, styleSelect, styleDescription, styleNotice, styleRetry);
   void settingsReady.then(() => {
     settings = state.settings;
+    syncDefaultBackend();
     if (state.settingsError || !settings) {
       styleNotice.textContent = state.settingsError || 'Response style settings are unavailable.';
       styleRetry.hidden = !state.settingRegistry;
@@ -124,6 +146,23 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
     refreshInstructionEditors();
     styleRetry.hidden = !state.settingsWarning;
     styleNotice.textContent = state.settingsWarning || '';
+  });
+  defaultSelect.addEventListener('change', () => {
+    if (!settings || !isBackend(defaultSelect.value)) return;
+    const chosen = defaultSelect.value;
+    const previous = settings.get('defaultBackend').composite;
+    defaultSelect.disabled = true;
+    defaultNotice.textContent = 'Saving default connection…';
+    void settings.set('defaultBackend', chosen).then(() => {
+      syncDefaultBackend();
+      defaultNotice.textContent = settings?.get('defaultBackend').composite === chosen
+        ? `${PROVIDERS[chosen].label} is now your default for new notebooks.`
+        : 'Saved default differs from your choice. Reopen Configure AI to check it.';
+      tracker.forEach(decorate);
+    }).catch(() => {
+      defaultSelect.value = isBackend(previous) ? previous : 'openai_api';
+      defaultNotice.textContent = 'Could not save the default connection. Try again.';
+    }).finally(() => { defaultSelect.disabled = false; });
   });
   styleSelect.addEventListener('change', () => {
     const chosen = normalizePromptMode(styleSelect.value);

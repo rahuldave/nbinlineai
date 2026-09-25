@@ -9,15 +9,19 @@ title: Models, styles, and effort
 ## Provider and model choices
 
 - An API provider without a configured key is marked **API key required** and cannot be selected. A disconnected ChatGPT selection remains visible with its own unavailable message.
-- If only one provider is configured, a notebook without saved AI defaults starts with that provider automatically.
+- In **Configure AI**, **Default connection for new notebooks** sets your user preference. If only one API provider is configured, a notebook without saved AI defaults starts with that available provider unless your preference is ChatGPT. To change an existing notebook, use its **AI defaults** row below the notebook toolbar.
 - Choose a listed model or **Default**. **Custom model…** is for API connections to enter another model ID supported by that provider; ChatGPT offers only supported models available to the connected account.
-- Bundled defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A default you set in JupyterLab's nbinlineai settings takes precedence.
+- Bundled model defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A model default you set in JupyterLab's nbinlineai settings takes precedence.
 - API listed models are suggestions, not a live account-access check. ChatGPT lists runtime-supported models available to the connected account and their reasoning efforts; an unavailable saved model or effort is kept and cannot run until you change it.
 - Notebook defaults are stored in notebook metadata. Inherited cells use those choices without saving separate copies in every prompt.
-- **Override** exposes choices for an individual cell. Returning to notebook defaults removes those overrides. Cells from earlier versions retain their saved provider/model choices until you do this.
+- **Override** exposes choices for an individual cell. Its provider starts at **Notebook default**; selecting a model alone does not pin the cell to the current provider. Choose a provider there only when this question should use a different connection. **Use notebook defaults** removes the cell's provider, model, style, and effort overrides. Cells from earlier versions retain their saved provider/model choices until you do this.
 - A saved provider/model is not silently replaced when a key or ChatGPT connection changes. Changing providers clears the previous provider's model choice. A missing connection produces setup guidance until you restore it or select another provider yourself.
 
 ![Expanded cell overrides, including model, style, effort, and return to notebook defaults](../images/cell-overrides.png)
+
+Here the cell keeps **Notebook default (OpenAI)** for its connection while choosing its own model, style, and effort. If the notebook's connection changes, this cell follows it; review any saved model choice for the new connection.
+
+![A cell inherits the notebook connection while overriding its model, style, and effort](../images/cell-inherits-provider.png)
 
 ## Response styles
 

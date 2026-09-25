@@ -51,7 +51,8 @@ test('provider controls follow key availability and preserve an explicit unavail
   const provider = prompt.locator('select[data-nbinlineai-provider]');
   const model = prompt.locator('select[data-nbinlineai-model-select]');
   const run = prompt.locator('button[data-nbinlineai-run]');
-  await expect(provider).toHaveValue('anthropic_api');
+  await expect(provider).toHaveValue('');
+  await expect(provider.locator('option').first()).toContainText('Notebook default (Anthropic)');
   await expect(provider.locator('option[value="openai_api"]')).toBeDisabled();
   await expect(provider.locator('option[value="openai_api"]')).toContainText('API key required');
   await expect(model.locator('option')).toContainText([
@@ -67,7 +68,7 @@ test('provider controls follow key availability and preserve an explicit unavail
   await expect(openaiRow.locator('[data-nbinlineai-key-status]')).toContainText('Saved');
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(provider.locator('option[value="openai_api"]')).toBeEnabled();
-  await expect(provider).toHaveValue('anthropic_api');
+  await expect(provider).toHaveValue('');
   await expect(model).toHaveValue('claude-haiku-4-5-20251001');
   await provider.selectOption('openai_api');
   await model.selectOption('gpt-6-luna');

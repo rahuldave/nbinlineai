@@ -1,5 +1,53 @@
 # Developer handoff
 
+**0.1.14 release candidate (2026-09-24):** Configure AI now exposes the saved
+`defaultBackend` preference as **Default connection for new notebooks**. The
+connection picker in the dialog remains setup/status; the notebook's **AI
+defaults** row or ChatGPT's **Use for this notebook** sets an existing notebook's
+default. An individual question's provider selector now offers **Notebook
+default** and displays that provider. Choosing only a cell model no longer
+copies the effective provider into the cell's metadata. Existing explicit
+provider overrides remain pinned by design; **Use notebook defaults** or the
+cell provider's **Notebook default** option clears them. This is necessary for
+notebooks whose earlier model selection accidentally persisted Anthropic.
+Empty AI answer cells now hide JupyterLab's rendered Markdown instruction until
+the first response text arrives. The answer source remains empty while waiting;
+editing an answer still uses the native Markdown editor.
+
+**Documentation audit (2026-09-24):** All README/public documentation pages were
+reviewed against the current frontend controls. Setup, prompts, models/styles,
+saving/privacy, troubleshooting, FAQ, site home, architecture, and README now
+distinguish the user preference in Configure AI from an existing notebook's
+**AI defaults** row (immediately below its toolbar) and explicit cell overrides.
+The public guide and README describe version 0.1.14. The simulated ChatGPT Configure AI screenshot was refreshed with
+the new default selector; the cell-override screenshot was refreshed and a new
+inherited-provider example was added. The isolated screenshot helper captured
+thirteen core images, and the subscription screenshot browser test passed 1/1;
+both owned servers stopped. README still uses two images. Local references in
+all **38** README/public/internal Markdown files resolve, including the new
+image. Historical internal design/research remains labeled as such; the handoff
+continues to describe source behavior.
+
+Verification: all **260 Python** and **58 frontend unit tests** passed, as did
+Ruff, TypeScript compilation, `uv lock --check`, and `git diff --check`. The
+production extension was rebuilt and relinked. The full isolated JupyterLab
+browser run passed **72** default tests, with one old inherited-provider
+expectation and two opt-in skips. The corrected expectation passed its focused
+rerun: **all 73 default scenarios passed across the two runs**. The new checks
+cover a saved default for new notebooks, a model-only cell choice, a ChatGPT
+notebook choice with an explicit Anthropic cell override, and the empty answer
+waiting for its first text. The screenshot capture and opt-in simulated ChatGPT
+setup capture each passed. Browser servers stopped; no paid provider was called.
+
+The version is 0.1.14 in Python, npm and the lockfile. Both built archives pass
+strict Twine and archive checks: 183 source files and 92 wheel entries. All 182
+checkout-backed source files and 36 wheel public docs match local bytes; the
+bounded credential scan found no high-confidence patterns. A new Python 3.14
+environment installed 113 compatible packages; the checked wheel passed both
+extension discovery checks and the isolated packaged quickstart UI. The release
+still needs PyPI publication, pushed source/tag, and public verification. The
+user JupyterLab on port 8888 was not touched.
+
 **2026-09-24 subscription release:** The user revised the
 strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md):
 Codex internal inference/recovery requests are permitted after each bounded

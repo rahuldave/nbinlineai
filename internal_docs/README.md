@@ -1,6 +1,10 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-24**, after the complete **0.1.13** ChatGPT subscription release. PyPI archives and public download hashes, a fresh PyPI-index install, pushed main source and annotated tag, and the live documentation site were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-24**, during the **0.1.14** release preparation. Version 0.1.13's PyPI archives and public download hashes, fresh PyPI-index install, pushed main source and annotated tag, and live documentation site were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+
+The [current handoff](developer_handoff.md) records the checked 0.1.14 release
+candidate for connection defaults, per-cell inheritance, and empty answer
+display. The published PyPI version remains 0.1.13 until upload completes.
 
 ## A new task's reading order
 

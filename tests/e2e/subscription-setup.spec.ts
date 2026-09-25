@@ -78,20 +78,59 @@ async function mockSubscription(page: Page) {
   };
 }
 
-async function createNotebook(request: APIRequestContext, name: string, xsrf: string) {
+async function createNotebook(request: APIRequestContext, name: string, xsrf: string,
+  defaults = { backend: 'openai_codex_subscription', model: 'gpt-6-sol' }) {
   const response = await request.put(`/api/contents/${name}`, {
     headers: { 'X-XSRFToken': xsrf },
     data: { type: 'notebook', format: 'json', content: {
       cells: [{ id: 'setup', cell_type: 'code', source: 'value = 1', metadata: {}, outputs: [], execution_count: null }],
       metadata: {
         kernelspec: { display_name: 'Python 3 (ipykernel)', language: 'python', name: 'python3' },
-        nbinlineai: { defaults: { backend: 'openai_codex_subscription', model: 'gpt-6-sol' } }
+        nbinlineai: { defaults }
       },
       nbformat: 4, nbformat_minor: 5
     } }
   });
   expect(response.ok(), await response.text()).toBeTruthy();
 }
+
+test('a ChatGPT notebook choice reaches cells that inherit it while explicit Anthropic cells stay pinned', async ({ page, request }) => {
+  const fake = await mockSubscription(page);
+  fake.setState('connected');
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  expect(xsrf).toBeTruthy();
+  const anthropic = await request.post('/nbinlineai/settings/keys', {
+    headers: { 'X-XSRFToken': xsrf! }, data: { backend: 'anthropic_api', key: 'e2e-no-network-anthropic' }
+  });
+  expect(anthropic.ok(), await anthropic.text()).toBeTruthy();
+  const name = `subscription-inherit-${Date.now()}.ipynb`;
+  await createNotebook(request, name, xsrf!, { backend: 'anthropic_api', model: 'claude-sonnet-5' });
+  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+  const panel = page.locator('.jp-NotebookPanel:visible');
+  await panel.locator('.jp-CodeCell').first().click();
+  await page.getByRole('button', { name: 'AI Prompt' }).click();
+  const prompt = panel.locator('.nbinlineai-prompt-cell');
+  await expect(prompt).toBeVisible();
+  await prompt.locator('[data-nbinlineai-override]').click();
+  const provider = prompt.locator('[data-nbinlineai-provider]');
+  await expect(provider).toHaveValue('');
+  await provider.selectOption('anthropic_api');
+
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await dialog.locator('[data-nbinlineai-connection]').selectOption('openai_codex_subscription');
+  const setup = dialog.locator('[data-nbinlineai-subscription-setup]');
+  await expect(setup.locator('[data-nbinlineai-subscription-action="use"]')).toBeEnabled();
+  await setup.locator('[data-nbinlineai-subscription-action="use"]').click();
+  await expect(panel.locator('[data-nbinlineai-notebook-provider]')).toHaveValue('openai_codex_subscription');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(provider).toHaveValue('anthropic_api');
+  await provider.selectOption('');
+  await expect(provider).toHaveValue('');
+  await expect(provider.locator('option').first()).toContainText('ChatGPT');
+  await expect(prompt.locator('[data-nbinlineai-model-select] option').first()).toContainText('gpt-6-sol');
+});
 
 test('ChatGPT setup keeps sign-in and status read-only until explicit notebook use', async ({ page, request }) => {
   const fake = await mockSubscription(page);
@@ -220,6 +259,10 @@ if (process.env.NBINLINEAI_CAPTURE_DOCS === '1') {
     await expect(setup).toContainText('Demo connection (simulated)');
     await expect(setup).toContainText('Usage information is unavailable');
     await expect(setup.locator('[data-nbinlineai-subscription-action="use"]')).toBeEnabled();
+    const defaultConnection = dialog.locator('[data-nbinlineai-default-backend]');
+    await expect(defaultConnection).toBeEnabled();
+    await defaultConnection.selectOption('openai_codex_subscription');
+    await expect(dialog.locator('[data-nbinlineai-default-backend-notice]')).toContainText('default for new notebooks');
     await setup.locator('details').last().evaluate(element => { (element as HTMLDetailsElement).open = true; });
     await expect(setup.locator('[data-nbinlineai-subscription-scope]')).toHaveCount(0);
     await expect(setup.locator('[data-nbinlineai-subscription-scope-static]')).toBeVisible();

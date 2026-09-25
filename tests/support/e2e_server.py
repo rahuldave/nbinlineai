@@ -160,6 +160,8 @@ async def fake_complete(
         )]))
     if "E2E_ERROR" in transcript:
         raise RuntimeError("E2E synthetic provider failure")
+    if "E2E_PENDING_ANSWER" in current_user:
+        await asyncio.sleep(4)
     if "E2E_SLOW" in transcript:
         await asyncio.sleep(30)
     if "E2E_LEARNING_FIRST" in latest:

@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes version 0.1.13's API and ChatGPT subscription connections, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes version 0.1.14's API and ChatGPT subscription connections, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Notebook host and connection routes
 
@@ -36,14 +36,14 @@ The frontend is a prebuilt JupyterLab 4.2+ extension bundled in the Python packa
 
 There is no new notebook cell type or cell magic. A prompt is a standard Markdown cell with `metadata.nbinlineai.isPromptCell`. Its answer is another Markdown cell with `isOutputCell`, `promptCellId`, and run status. The answer text lives in `source`, not in a code cell's `outputs` array.
 
-This keeps the notebook readable without the extension. The stored link lets a rerun replace the paired answer. Copy buttons are frontend decoration and do not alter the saved Markdown. The notebook does not contain a separate structured transcript of tool calls.
+This keeps the notebook readable without the extension. The stored link lets a rerun replace the paired answer. While an answer waits for its first streamed text, its empty source stays empty and the frontend hides JupyterLab's rendered Markdown placeholder. Copy buttons are frontend decoration and do not alter the saved Markdown. The notebook does not contain a separate structured transcript of tool calls.
 
 Editing a completed answer changes the source that later requests use as history. Keep answer prevents regenerating that answer; it does not exclude it from context. The extension does not maintain a dependency graph, automatically invalidate answers below an edit, or mark them stale.
 
 ## One prompt request
 
 1. The frontend resolves **Keep answer** from an explicit cell value, then the notebook default, then `true`. A completed, nonempty paired answer is protected when this is on; protected execution makes no model request.
-2. It resolves cell overrides over notebook defaults over user preferences. When its queued turn starts, it snapshots the actual prompt ID, all live cell models in order, the context policy, notebook session ID and effective settings.
+2. It resolves cell overrides over notebook defaults over user preferences. An absent cell provider follows the notebook provider even when that cell has a model override; an explicit legacy cell provider stays pinned until reset. When its queued turn starts, it snapshots the actual prompt ID, all live cell models in order, the context policy, notebook session ID and effective settings.
 3. The server validates the request and resolves the session to its existing Python kernel.
 4. Tool declarations in ordinary Markdown and AI questions above are combined with those in the current question, before context selection. The kernel inspects those functions afresh. Variable references are read and substituted only in the current question.
 5. The server accounts for tools, the expanded question, instructions and bounded cell landmarks, then fills the remaining character budget from selected eligible source and complete earlier AI pairs, nearest first. It sends selected material in chronological order.
@@ -190,7 +190,7 @@ The tool result combines captured standard output with the return value's repres
 
 ### Bundled tools
 
-Version 0.1.13 exposes **51** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
+Version 0.1.14 exposes **51** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
 
 Kernel-side tools inspect live Python state or saved files, search source, parse documents, make checked text edits, or start bounded subprocesses. Saved-notebook tools require a `.ipynb` file on disk and cannot see unsaved frontend edits. Relative file paths use the **selected kernel's cwd**, which may differ from both the notebook folder and the Jupyter server cwd. Paths are locations, not a sandbox. `search_files` and `search_notebooks` use bounded Python source matching with nested `.gitignore`, `.ignore`, and `.rgignore` rules; regex matching has a hard timeout. `document_outline` reads Markdown headings or Python definitions and issues SHA-256-bound section addresses, which become stale after any file change. Other language outlines are deferred. `source_doc` parses `.py` source without import; `show_doc` with an explicit module imports and runs module initialization. `trace_function` invokes a live function; `run_python` and `run_shell` start separate processes, run with kernel-user permissions, and have 1–20 second timeouts. Their effects are real and are not undone on cancellation. The source and document parsers apply result, file-size, traversal, and time bounds.
 
@@ -234,7 +234,7 @@ The interface does not provide general browser execution, arbitrary Jupyter comm
 | ChatGPT sign-in | Runtime-owned per-user account state, separate from API keys and notebook metadata. |
 | ChatGPT file-access preference | Private per-user extension settings; no browser-supplied filesystem root. Direct native file actions are disabled in this release. |
 
-Effective notebook defaults are captured on first AI use, once a provider is configured. Merely opening an ordinary notebook does not create AI settings. Later cells inherit notebook defaults; legacy explicit cell choices remain overrides until reset.
+Effective notebook defaults are captured on first AI use, once a provider is configured. Merely opening an ordinary notebook does not create AI settings. Configure AI's **Default connection for new notebooks** saves the user preference; its top **Connection** picker only changes the setup view. An existing notebook's **AI defaults** row or ChatGPT's **Use for this notebook** changes that notebook. Later cells inherit notebook defaults; legacy explicit cell choices remain overrides until reset. A cell's **Notebook default** provider option clears its provider, model, and effort overrides, while **Use notebook defaults** also clears its style override.
 
 For Keep answer, a missing cell value means inheritance; an explicit `true` or `false` remains an override even if the notebook default changes. Existing explicit choices from 0.1.4 are preserved. Resetting model/style overrides does not reset the Keep answer choice.
 

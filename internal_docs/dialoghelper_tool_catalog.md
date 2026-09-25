@@ -4,11 +4,11 @@
 
 ## How to read this assessment
 
-**September 23 follow-up:** [Fastcore tools and next candidates](fastcore_tool_candidates.md) now starts with the 0.1.11 implementation matrix for 55 curated tools, then preserves the earlier pinned survey and buildability reasoning. This catalog is historical; use the [current tools reference](../docs/tools.md) for callable contracts.
+**September 23 follow-up:** [Fastcore tools and next candidates](fastcore_tool_candidates.md#0112-implementation-matrix) now starts with the 0.1.12 implementation matrix for 51 curated tools, then preserves the earlier pinned survey and buildability reasoning. This catalog is historical; use the [current tools reference](../docs/tools.md) for callable contracts.
 
 ### What actually shipped (updated 2026-09-23)
 
-The table below preserves the original survey baseline. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 added `insert_code`**, for eleven at that point. Version 0.1.11 expands this to 55 tools and adds `tool_catalog` plus groups; see the [implementation matrix](fastcore_tool_candidates.md#0111-implementation-matrix).
+The table below preserves the original survey baseline. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 added `insert_code`**, for eleven at that point. Version 0.1.11 expanded this to 55 tools and added `tool_catalog` plus groups; the [current implementation matrix](fastcore_tool_candidates.md#0112-implementation-matrix) records the 0.1.12 reduction to 51.
 
 | Research capability | Shipped nbinlineai equivalent | Execution and scope |
 | --- | --- | --- |
