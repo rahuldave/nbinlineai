@@ -149,8 +149,11 @@ Execute code through the normal JupyterLab executor and bound kernel. Preserve
 native output rendering, execution counts, error handling and the live Python
 namespace. Insertion plus raw `exec(source)` in a hidden tool is not equivalent.
 
-Pass a bounded representation of that run's stdout/stderr, text results, error
-status and truncation/omission information to its successor. Support native
+Record that run's status and a bounded representation of stdout/stderr, text
+results and truncation/omission information. Only successful code execution
+permits a successor prompt and transfers this result to it. On code error,
+retain the error details in the failed step's visible result and stop the chain;
+do not create a model request to interpret the error in this version. Support native
 output updates/clears consistently or document a tested bounded textual
 representation. Rich outputs remain visible in the code cell; this slice does
 not promise image interpretation. Label result material as execution data, not
