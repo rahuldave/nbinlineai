@@ -7,6 +7,14 @@ branch is intended to stay installable in a user's JupyterLab uv project via
 See [Development](../docs/development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project)
 for Node build requirements, environment checks, and commit-pinned updates.
 Continue agentic-notebook experiments here unless the user changes direction.
+The branch was pushed at `a316494f8c3a6c391f142b97b2bb02ad8aec8b11`.
+An isolated disposable uv project installed directly from that Git branch on
+Python 3.14, built the source distribution's frontend, and locked that exact
+commit. In its own environment, `jupyter labextension list` reported
+`nbinlineai v0.1.14 enabled OK`, and `jupyter server extension list` reported
+`nbinlineai 0.1.14 enabled OK`. No Jupyter server was started and port 8888
+was untouched. The branch has no new runtime feature yet; `0.1.14` is its
+unchanged package version, not a new PyPI release.
 
 **2026-09-25 research only:** [Notebook execution handoffs](notebook_execution_handoffs.md)
 collects Solveit, Jupyter AI/MCP, RLM, Jupyter kernel, and Python 3.14 prior

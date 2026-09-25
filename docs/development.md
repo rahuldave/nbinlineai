@@ -43,8 +43,10 @@ uv sync
 
 Then restart your Jupyter server. Commit the consuming project's
 `pyproject.toml` and `uv.lock` if you want to reproduce its chosen branch
-commit. Branch installs remain experimental and are separate from releases
-published on PyPI.
+commit. `jupyter labextension list` shows the package's version, which may
+still read `0.1.14` on this branch; check `uv.lock` to see the Git commit.
+Branch installs remain experimental and are separate from releases published
+on PyPI.
 
 ## Set up from source
 
