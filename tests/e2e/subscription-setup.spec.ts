@@ -147,7 +147,7 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   // The kernel fills Jupyter's language_info after notebook startup. Save that
   // native metadata before measuring whether sign-in touches the notebook.
   await expect.poll(async () => {
-    await page.keyboard.press('Meta+s');
+    await page.keyboard.press('ControlOrMeta+s');
     const saved = await request.get(`/api/contents/${name}?content=1`);
     return saved.ok() ? (await saved.json()).content.metadata?.language_info?.name : null;
   }, { timeout: 30_000, intervals: [500, 1000, 1000] }).toBe('python');
@@ -208,7 +208,7 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   await expect(panel.locator('[data-nbinlineai-notebook-model-select]')).toHaveValue('gpt-6-luna');
   await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(1);
   await page.getByRole('button', { name: 'Done' }).click();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const saved = await request.get(`/api/contents/${name}?content=1`);
   const savedNotebook = (await saved.json()).content;

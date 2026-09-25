@@ -220,7 +220,7 @@ test('insert_tools binds the executing code cell despite focus movement and pers
   expect(await runQuestion(page, 0)).toContain('Result: 4');
   expect(promptPosts).toBe(1);
 
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;
@@ -250,7 +250,7 @@ test('native Run All waits for two helper insertions in order before the next AI
   await expect(notebook.locator('.nbinlineai-prompt-cell').first().locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   await expect(notebook.locator('.nbinlineai-response-cell').first()).toContainText('Result: 4');
   expect(promptPosts).toBe(1);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;

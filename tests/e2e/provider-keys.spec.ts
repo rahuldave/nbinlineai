@@ -87,7 +87,7 @@ test('Configure AI saves, replaces, reopens, and removes provider keys without n
   await expect(prompt.locator('button[data-nbinlineai-run]')).toBeDisabled();
   await expect(prompt.locator('.nbinlineai-status')).toContainText('Configure AI');
   expect(promptPosts).toBe(0);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   let notebookText = '';
   await expect.poll(async () => {

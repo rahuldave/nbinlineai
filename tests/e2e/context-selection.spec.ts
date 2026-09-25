@@ -81,7 +81,7 @@ async function savedNotebook(request: APIRequestContext, name: string) {
 }
 
 async function save(page: Page) {
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
 }
 

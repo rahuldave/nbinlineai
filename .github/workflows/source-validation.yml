@@ -76,7 +76,7 @@ jobs:
       - name: Install Chromium for the isolated browser suite
         run: uv run --no-sync jlpm playwright install --with-deps chromium
       - name: Run deterministic browser suite on an owned server
-        run: uv run --no-sync jlpm test:e2e
+        run: uv run --no-sync jlpm test:e2e --max-failures=5
       - name: Preserve browser failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

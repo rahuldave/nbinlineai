@@ -69,7 +69,7 @@ test('model picker sends defaults, listed choices, and a persisted custom ID', a
   await prompt.locator('button[data-nbinlineai-run]').click();
   expect((await sent).postDataJSON().model).toBe('student-custom-model');
   await expect(answer).toContainText('model=student-custom-model');
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const saved = await request.get(`/api/contents/${name}?content=1`);
     if (!saved.ok()) return null;

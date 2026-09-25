@@ -35,7 +35,7 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   await expect(prompt).toBeVisible();
   // Kernel startup may add Jupyter-owned metadata. Save that baseline, then
   // verify a fresh open and status refresh leave every AI metadata field alone.
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const beforeReloadResponse = await request.get(`/api/contents/${name}?content=1`);
   expect(beforeReloadResponse.ok()).toBeTruthy();
@@ -48,7 +48,7 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   });
   await page.reload();
   await expect(prompt).toBeVisible();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const baselineResponse = await request.get(`/api/contents/${name}?content=1`);
   expect(baselineResponse.ok()).toBeTruthy();
@@ -91,7 +91,7 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   await model.fill('gpt-6-luna');
   await expect(provider).toHaveValue('openai_codex_subscription');
   await expect(prompt.locator('[data-nbinlineai-run]')).toBeDisabled();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const saved = await request.get(`/api/contents/${name}?content=1`);
     if (!saved.ok()) return null;

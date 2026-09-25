@@ -81,7 +81,7 @@ test('prompt executes in the notebook, streams a reply, and reuses its saved pai
   await expect(answer).toContainText('E2E provider=openai_api');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('E2E provider=openai_api');
 
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   let body: any;
   await expect.poll(async () => {
@@ -166,7 +166,7 @@ test('a later AI prompt sees the edited saved answer, not the original response'
   const secondAnswer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').last();
   await expect(secondAnswer).toContainText('CORRECTED_HISTORY_ANSWER');
   await expect(secondAnswer).not.toContainText('ORIGINAL_HISTORY_ANSWER');
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const saved = await request.get(`/api/contents/${name}?content=1`);
   const content = (await saved.json()).content;
@@ -237,7 +237,7 @@ test('prompt endpoint 404 shows guidance without saving the HTML error page', as
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/server|restart|unavailable/i);
   await expect(page.locator('body')).not.toContainText('E2E_RAW_HTML_SHOULD_NOT_APPEAR');
   await page.screenshot({ path: 'test-results/nbinlineai-safe-404.png', fullPage: true });
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;
