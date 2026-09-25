@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.14"
+version = "0.1.15"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.12"
