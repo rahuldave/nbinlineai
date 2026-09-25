@@ -17,14 +17,24 @@ insufficient. Native `language_info` must settle before saving a no-dirty
 baseline, and saved-content assertions should await the matching Contents PUT.
 **2026-09-25 preview race fix (source, unreleased):** Post-merge source run
 `36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
-Trace inspection found that the preview's own silent kernel inspection could
-finish before the kernel manager processed its idle status. The handler now
-yields one event-loop turn before its existing final kernel-identity and idle
-checks. It does not retry: a still-busy or replaced kernel is rejected, and a
-longer status delay can still safely produce HTTP 409. The regression failed on
-the old handler and passes with the fix; all 261 Python tests and four focused
-real-browser runs passed locally. Linux full-suite verification is recorded on
-the follow-up PRs. The isolated server on 8897 stopped; 8888 was untouched.
+The failed question inherits a tool declaration even though its text is
+excluded, so preview performs silent kernel inspection. The dispatcher's IOPub
+client can receive idle before the server manager receives the same status.
+A proposed one-turn yield was rejected in independent review because it does
+not establish delivery ordering.
+
+Preview inspection now observes manager activity before sending its request,
+waits at most 0.5 seconds for the manager's busy-to-idle transition, and rejects
+observed foreign execution, including queued activity before returning. The
+handler retains its final kernel-identity and idle checks. Timeout fails closed;
+observer and receive-task cleanup cover success, errors and cancellation.
+This handles delayed inspection status; it does not provide an atomic snapshot
+against another client's execution after the final check or still-undelivered
+activity. Tests cover delayed manager idle, foreign activity, timeout,
+cancellation and the real inherited-tool context path. All 266 Python tests,
+Ruff and the focused real-browser scenario passed locally. Full Linux checks
+are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888
+was untouched. Version 0.1.14 and PyPI are unchanged.
 
 **0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The

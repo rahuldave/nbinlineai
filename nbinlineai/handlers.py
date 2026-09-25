@@ -282,11 +282,6 @@ class ContextPreviewHandler(APIHandler):
                                 subscription_runtime=self.subscription_manager,
                                 subscription_scope=subscription_scope), timeout=7
             )
-            # The preview's own silent inspection has received its IOPub idle
-            # message, but the kernel manager may process that status on the
-            # next event-loop turn. Yield once, then enforce the same final
-            # identity and idle checks for any intervening notebook execution.
-            await asyncio.sleep(0)
             current_id, current_kernel = await self.dispatcher.resolve(body["session_id"])
             if current_id != kernel_id or current_kernel is not kernel:
                 raise HTTPError(409, "Notebook kernel changed; refresh the context preview")

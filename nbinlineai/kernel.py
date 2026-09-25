@@ -6,12 +6,14 @@ import json
 import re
 import textwrap
 import uuid
+from queue import Empty
 
 from tornado.web import HTTPError
 
 IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 MARKER = "__NBINLINEAI_RESULT__:"
 MAX_RESULT_CHARS = 4000
+PREVIEW_STATUS_TIMEOUT = 0.5
 
 
 def _payload_code(operation: str, payload: dict) -> str:
@@ -93,6 +95,65 @@ class KernelDispatcher:
         lock = self._locks.get(kernel_id)
         return getattr(kernel, "execution_state", None) == "idle" and not (lock and lock.locked())
 
+    @staticmethod
+    def _foreign_execution(msg: dict, msg_id: str) -> bool:
+        if msg.get("parent_header", {}).get("msg_id") == msg_id:
+            return False
+        return msg.get("msg_type") == "execute_input" or (
+            msg.get("msg_type") == "status" and
+            msg.get("content", {}).get("execution_state") == "busy"
+        )
+
+    async def _await_preview_status(self, client, kernel, msg_id: str, manager_idle: asyncio.Event):
+        """Wait for the server manager status to catch up after inspection."""
+        deadline = asyncio.get_running_loop().time() + PREVIEW_STATUS_TIMEOUT
+        idle_task = asyncio.create_task(manager_idle.wait())
+        message_task = None
+        try:
+            while not idle_task.done():
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+                message_task = asyncio.create_task(client.get_iopub_msg(timeout=remaining))
+                done, _ = await asyncio.wait(
+                    (idle_task, message_task), timeout=remaining, return_when=asyncio.FIRST_COMPLETED,
+                )
+                if message_task in done:
+                    try:
+                        message = message_task.result()
+                    except (Empty, asyncio.QueueEmpty, TimeoutError) as exc:
+                        raise ValueError(
+                            "Kernel is busy; refresh the context preview when it is idle"
+                        ) from exc
+                    if self._foreign_execution(message, msg_id):
+                        raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+                if not done:
+                    raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+                if not message_task.done():
+                    message_task.cancel()
+                    await asyncio.gather(message_task, return_exceptions=True)
+                message_task = None
+            # A manager transition may already have been observed when this
+            # coroutine starts. Still inspect IOPub messages queued after our
+            # own idle, including a foreign execution that finished quickly.
+            for _ in range(32):
+                try:
+                    msg = await client.get_iopub_msg(timeout=0)
+                except (Empty, asyncio.QueueEmpty):
+                    break
+                if self._foreign_execution(msg, msg_id):
+                    raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+            else:
+                raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+            if getattr(kernel, "execution_state", None) != "idle":
+                raise ValueError("Kernel is busy; refresh the context preview when it is idle")
+        finally:
+            idle_task.cancel()
+            if message_task is not None:
+                message_task.cancel()
+            pending = (idle_task, message_task) if message_task is not None else (idle_task,)
+            await asyncio.gather(*pending, return_exceptions=True)
+
     async def resolve(self, session_id: str):
         if not isinstance(session_id, str) or not session_id:
             raise HTTPError(400, "session_id is required")
@@ -131,7 +192,21 @@ class KernelDispatcher:
             client.start_channels()
             msg_id = None
             busy = False
+            manager_idle = asyncio.Event() if require_idle else None
+            manager_busy = False
+            observing_state = False
+
+            def observe_execution_state(change):
+                nonlocal manager_busy
+                if change["new"] == "busy":
+                    manager_busy = True
+                elif change["new"] == "idle" and manager_busy:
+                    manager_idle.set()
+
             try:
+                if require_idle:
+                    kernel.observe(observe_execution_state, names="execution_state")
+                    observing_state = True
                 msg_id = client.execute(_payload_code(operation, payload), silent=True, store_history=False,
                                         allow_stdin=False, stop_on_error=True)
                 output = None
@@ -139,6 +214,8 @@ class KernelDispatcher:
                     while True:
                         msg = await client.get_iopub_msg(timeout=timeout)
                         if msg.get("parent_header", {}).get("msg_id") != msg_id:
+                            if require_idle and self._foreign_execution(msg, msg_id):
+                                raise ValueError("Kernel is busy; refresh the context preview when it is idle")
                             continue
                         kind = msg.get("msg_type")
                         content = msg.get("content", {})
@@ -159,6 +236,8 @@ class KernelDispatcher:
                             if reply.get("content", {}).get("status") != "ok":
                                 raise RuntimeError("Kernel execution failed")
                             break
+                    if require_idle:
+                        await self._await_preview_status(client, kernel, msg_id, manager_idle)
                 if output is None:
                     raise RuntimeError("Kernel did not return an introspection result")
                 return output
@@ -171,7 +250,11 @@ class KernelDispatcher:
                     await kernel.interrupt_kernel()
                 raise
             finally:
-                client.stop_channels()
+                try:
+                    if observing_state:
+                        kernel.unobserve(observe_execution_state, names="execution_state")
+                finally:
+                    client.stop_channels()
 
     async def inspect(self, kernel_id: str, kernel, variables: list[str], functions: list[str]):
         names = list(dict.fromkeys([*variables, *functions]))
