@@ -22,6 +22,17 @@ for connection defaults, per-cell inheritance, and empty answer display.
 4. [Bundled tools and frontend interface](bundled_tools.md): shipped tools, server/browser request-reply, Python/browser comm, limits and lifecycle.
 5. [Release records](releasing.md): tested and published versions, hashes, and deployment results.
 
+## Approved experimental design
+
+- [Notebook execution handoff spec](notebook_execution_handoff_spec.md): approved
+  same-notebook contract for `add_code_cell_and_execute`, `prompt_and_run` and
+  `run_and_prompt`; queued terminal handoffs, stable IDs and actual run results.
+- [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
+  experimental topic worktree and PR instructions; primary checkout stays on `main`.
+
+These documents are available on both persistent branches for discovery. They
+do not add runtime functionality; implementation targets the experimental branch.
+
 ## Context-selection implementation references
 
 - [Feature brief and recommended semantics](context_selection_next_feature.md)
