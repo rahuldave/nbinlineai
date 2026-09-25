@@ -24,6 +24,11 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
   interpret the experiment policy as permission for direct development pushes.
   A later experiment-to-main promotion needs its own scope and authorization;
   preserve the experimental branch after that PR.
+- Keep the primary checkout on `main`. Do development in owned topic worktrees:
+  base stable fixes and release preparation on `main`, and notebook-agent
+  experiments on `codex/agentic-notebook-experiments`. Record the worktree path,
+  branch, ownership and selected PR base. Retire completed worktrees only after
+  checking their changes, integration and dependents; preserve unrelated tasks.
 - Record reviewed base/head commits and finding dispositions. Self-review and
   passing tests do not replace independent review. Native Gest maintains its
   graphs; do not generate separate graph exports.

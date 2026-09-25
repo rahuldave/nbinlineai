@@ -1,16 +1,35 @@
 # Developer handoff
 
-**2026-09-25 workflow adoption (topic PR):** The proposed workflow is on
-`codex/adopt-reviewed-workflow`, targeting `codex/agentic-notebook-experiments`
-in [PR #3](https://github.com/rahuldave/nbinlineai/pull/3). It installs the shared
-skills at `ed19dcf3a0de7f2b4ef767491ab402f38639a9dd` from
-[shared PR #45](https://github.com/rahuldave/agent_gest_git_skills/pull/45), preserves
-project instructions, adds source CI alongside the existing runtime matrix, and
-records PR/issue/review/release rules in [Project workflow](workflow.md).
-Shared PR #45 should merge before this adoption. Neither PR is merged merely
-by writing this note. No notebook runtime feature, version or PyPI release is
-changed. Local static checks, 260 Python tests and 58 frontend tests passed;
-remote source/build/package/browser checks are tracked on the PR.
+**2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
+PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
+follow-up, including explicit task-owned worktree cleanup and the preview fix
+below. Installed skills are refreshed to reviewed source commit
+`bc22ef179e345396869309bfac1a596c515b69b4` from shared PR #47; merge that shared
+source PR before these adoptions. The primary checkout stays on `main`, while
+stable and experimental topics use owned worktrees from their respective bases.
+See [Project workflow](workflow.md) for review, provenance, CI and cleanup.
+Version 0.1.14 and PyPI are unchanged; no notebook-agent feature is added.
+
+**2026-09-25 preview race fix (source, unreleased):** Post-merge source run
+`36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
+The failed question inherits a tool declaration even though its text is
+excluded, so preview performs silent kernel inspection. The dispatcher's IOPub
+client can receive idle before the server manager receives the same status.
+A proposed one-turn yield was rejected in independent review because it does
+not establish delivery ordering.
+
+Preview inspection now observes manager activity before sending its request,
+waits at most 0.5 seconds for the manager's busy-to-idle transition, and rejects
+observed foreign execution, including queued activity before returning. The
+handler retains its final kernel-identity and idle checks. Timeout fails closed;
+observer and receive-task cleanup cover success, errors and cancellation.
+This handles delayed inspection status; it does not provide an atomic snapshot
+against another client's execution after the final check or still-undelivered
+activity. Tests cover delayed manager idle, foreign activity, timeout,
+cancellation and the real inherited-tool context path. All 266 Python tests,
+Ruff and the focused real-browser scenario passed locally. Full Linux checks
+are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888
+was untouched. Version 0.1.14 and PyPI are unchanged.
 
 Browser specs import `tests/support/e2e-fixtures.ts`. Its automatic fixture
 records existing sessions before each test and shuts down only newly created
