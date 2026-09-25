@@ -1,10 +1,9 @@
 # Internal documentation index
 
-Last reviewed: **2026-09-24**, during the **0.1.14** release preparation. Version 0.1.13's PyPI archives and public download hashes, fresh PyPI-index install, pushed main source and annotated tag, and live documentation site were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
-The [current handoff](developer_handoff.md) records the checked 0.1.14 release
-candidate for connection defaults, per-cell inheritance, and empty answer
-display. The published PyPI version remains 0.1.13 until upload completes.
+The [current handoff](developer_handoff.md) records the published 0.1.14 fixes
+for connection defaults, per-cell inheritance, and empty answer display.
 
 ## A new task's reading order
 
@@ -42,4 +41,4 @@ The brief and task prompt preserve the original design contract. Context selecti
 | [MVP implementation](mvp_implementation.md) | Historical implementation/test log through 0.1.5; use current handoff and release records for present behavior. |
 | [Response style followups](response_style_followups.md) | Historical 0.1.4 design; subsequent releases completed Keep defaults, native Run All, examples and tools. |
 
-Public documentation: the [manual index](../docs/user-guide.md) links eight chapters, including [Context selection](../docs/manual/context-selection.md); the [FAQ](../docs/faq.md), [tools reference](../docs/tools.md), [examples](../docs/examples.md), [architecture](../docs/architecture.md), and [development guide](../docs/development.md) remain separate. This documentation-only split is published and verified on the website; the immutable PyPI 0.1.13 archives retain the earlier single-page guide. Update public instructions whenever a shipped feature changes; keep future proposals clearly labeled here.
+Public documentation: the [manual index](../docs/user-guide.md) links eight chapters, including [Context selection](../docs/manual/context-selection.md); the [FAQ](../docs/faq.md), [tools reference](../docs/tools.md), [examples](../docs/examples.md), [architecture](../docs/architecture.md), and [development guide](../docs/development.md) remain separate. The split manual and refreshed screenshots are included in 0.1.14 and verified on the website. Update public instructions whenever a shipped feature changes; keep future proposals clearly labeled here.

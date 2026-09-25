@@ -1,6 +1,6 @@
 # Developer handoff
 
-**0.1.14 release candidate (2026-09-24):** Configure AI now exposes the saved
+**0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The
 connection picker in the dialog remains setup/status; the notebook's **AI
 defaults** row or ChatGPT's **Use for this notebook** sets an existing notebook's
@@ -44,9 +44,12 @@ strict Twine and archive checks: 183 source files and 92 wheel entries. All 182
 checkout-backed source files and 36 wheel public docs match local bytes; the
 bounded credential scan found no high-confidence patterns. A new Python 3.14
 environment installed 113 compatible packages; the checked wheel passed both
-extension discovery checks and the isolated packaged quickstart UI. The release
-still needs PyPI publication, pushed source/tag, and public verification. The
-user JupyterLab on port 8888 was not touched.
+extension discovery checks and the isolated packaged quickstart UI. Both files
+were uploaded to PyPI and public downloads matched the local hashes; a separate
+no-cache install from the public index passed package/dependency and extension
+discovery checks. Compatibility CI passed 14/14 jobs. The source Pages deployment
+succeeded; all 15 public pages returned HTTP 200 and all 18 public images matched
+local SHA-256 hashes. The user JupyterLab on port 8888 was not touched.
 
 **2026-09-24 subscription release:** The user revised the
 strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md):
