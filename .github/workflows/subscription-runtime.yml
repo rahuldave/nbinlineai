@@ -1,9 +1,9 @@
 name: Subscription runtime compatibility
 
 on:
-  pull_request:
+  pull_request: {}
   push:
-    branches: [main, codex/chatgpt-subscription-0-1-13]
+    branches: [main, codex/agentic-notebook-experiments]
   workflow_dispatch:
 
 permissions:
