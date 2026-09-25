@@ -39,7 +39,8 @@ GitHub does not interpret their PR closing keywords as it does for default-base
 PRs. Update issue status after merge against its stated acceptance scope; do not
 close a release or initiative issue merely because one slice reached the experiment.
 
-The installed bundle comes from `rahuldave/agent_gest_git_skills`. Exact revision
+The installed bundle comes from `rahuldave/agent_gest_git_skills`, reviewed at
+`ed19dcf3a0de7f2b4ef767491ab402f38639a9dd` in shared PR #45. Exact revision
 and managed file hashes are recorded in `.agents/gest-git-install.json`. Refresh
 intentionally from a reviewed source commit; preserve local settings and project
 instructions. The shared source PR must be accepted before merging an adoption
@@ -53,8 +54,11 @@ check, **Python, frontend, package, and browser**, runs lock/static checks, Pyth
 and frontend tests, type checking, build/relink, distribution validation, clean
 wheel installation and the deterministic browser suite sequentially. Existing
 subscription runtime compatibility CI retains its platform matrix; its stable
-**Runtime compatibility** gate requires every matrix job to pass. Both gates
-apply to both integration targets. See the workflow files for exact commands.
+**Runtime compatibility** gate requires every matrix job to pass. The experiment requires both gates. During rollout, `main` requires the
+existing 14 runtime matrix checks, which its current workflow already emits;
+the broader source gate can become required there when this workflow is
+separately promoted. The new workflows run against any PR base when included
+in that PR. See the workflow files for exact commands.
 
 The clean wheel step checks package/extension discovery. It does not substitute
 for verifying a Git-source installation when source packaging changes. Keep the
@@ -86,3 +90,21 @@ the experiment even if it was the head of a promotion PR.
 
 Before handoff, verify owned test processes exited, remove owned scratch files,
 and report PR/review/check state and publication state separately.
+
+
+## Protection rollout (2026-09-25)
+
+Active repository rulesets require PRs, resolved review threads, successful
+checks, and an up-to-date base, and prevent force pushes or deletion of persistent
+branches. There are no bypass actors. Required approval count is zero because
+independent agent evidence under the author account is not a second GitHub
+approver; independent adversarial review and the user's merge decision remain
+explicit workflow requirements.
+
+- Notebook mainline ruleset: `24000314`; existing 14 runtime checks.
+- Notebook experiment ruleset: `24000315`; source gate and runtime aggregate.
+- Shared skill repository mainline ruleset: `24000310`; `verify-skill-package`.
+
+Inspect live rules before integration if repository policy changes. The rulesets
+are active before these PRs merge; the experiment's bootstrap PR supplies its
+new workflow files and therefore reports the required checks.

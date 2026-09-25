@@ -1,5 +1,18 @@
 # Developer handoff
 
+**2026-09-25 workflow adoption (topic PR):** The proposed workflow is on
+`codex/adopt-reviewed-workflow`, targeting `codex/agentic-notebook-experiments`
+in [PR #3](https://github.com/rahuldave/nbinlineai/pull/3). It installs the shared
+skills at `ed19dcf3a0de7f2b4ef767491ab402f38639a9dd` from
+[shared PR #45](https://github.com/rahuldave/agent_gest_git_skills/pull/45), preserves
+project instructions, adds source CI alongside the existing runtime matrix, and
+records PR/issue/review/release rules in [Project workflow](workflow.md).
+Shared PR #45 should merge before this adoption. Neither PR is merged merely
+by writing this note. No notebook runtime feature, version or PyPI release is
+changed. Local static checks, 260 Python tests and 58 frontend tests passed;
+remote source/build/package/browser checks are tracked on the PR.
+
+
 **Long-running experimental branch (2026-09-25):** This work lives on
 `codex/agentic-notebook-experiments`, separate from published `main`. The
 branch is intended to stay installable in a user's JupyterLab uv project via
