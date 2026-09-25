@@ -1,5 +1,27 @@
 # Developer handoff
 
+**2026-09-25 Configure AI tabs (source proposal, unreleased):** The Configure
+AI dialog now opens on **Connections & models**, with the connection picker,
+ChatGPT setup, and OpenAI/Anthropic key controls together. **Defaults** holds
+the new-notebook connection preference, response style, and style-instruction
+editors. Switching tabs or picking a connection only changes what setup is
+shown; existing notebook choices still use its **AI defaults** row or ChatGPT's
+**Use for this notebook**. The tab strip supports mouse and arrow/Home/End keys,
+and its temporary keyboard listener is removed when the dialog closes. The
+topic worktree is `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch
+`codex/oyrmsltk-configure-tabs`, based on main `fc229d323` after rebase (the
+original starting base was `2018551c`); main's primary checkout remains
+untouched. The new browser tab test failed on the old dialog
+and passed after implementation. The focused isolated browser suite passed
+18/18; after an independent review suggestion, the panel-focus change passed
+its isolated browser rerun. The Python suite passed 266/266, frontend unit
+tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The
+simulated screenshots now show both tabs. README, the public site home and user
+guide, and configuration-related manual/FAQ pages distinguish this Git-source
+layout from PyPI 0.1.14. Review and CI are required before
+integration; PyPI remains 0.1.14, with packaging and release work reserved
+for a later accumulated drop.
+
 **2026-09-25 mainline workflow adoption:** The user selected `main` for the
 primary checkout, with stable and experimental changes developed in topic
 worktrees based on their respective integration branches. This focused adoption

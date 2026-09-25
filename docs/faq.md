@@ -18,7 +18,7 @@ In **0.1.8 and earlier**, the controls were at the bottom. A checked Context imm
 
 That cell may have an explicit provider choice saved from an earlier edit or version. The notebook's **AI defaults** apply only to cells that inherit them. Open the cell's **Override** controls and choose **Notebook default** in its provider menu. **Use notebook defaults** clears all of that cell's provider, model, style, and effort overrides at once. Choosing only a cell model does not save a provider override.
 
-**Configure AI → Default connection for new notebooks** sets your preference for future notebooks. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection** picker at the top of Configure AI only chooses which setup details to display.
+In current Git source, **Configure AI → Defaults → Default connection for new notebooks** sets your preference for future notebooks; PyPI 0.1.14 shows the same control in one scrolling dialog. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection to set up** picker on **Connections & models** only chooses which setup details to display.
 
 ### Do JupyterLab's Markdown instructions become part of a new answer?
 
@@ -292,7 +292,7 @@ distinguishes successful tests from the still-unconfirmed shutdown report.
 
 ### Do I need an API key or a separate Codex installation for ChatGPT?
 
-No. Choose **ChatGPT subscription** in **Configure AI**, sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
+No. In current Git source, open **Configure AI → Connections & models** and choose **ChatGPT subscription**; PyPI 0.1.14 shows the same setup in one scrolling dialog. Sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
 
 If browser sign-in is blocked or cannot return to the server, choose **Use device code**. Open the displayed verification link in your usual browser profile, enter the code from Configure AI, complete sign-in there, and return to the notebook. **Check connection** refreshes a status that has not yet changed; **Cancel sign-in** stops a pending attempt. A normal browser profile, such as Safari, may work when an automated browser shows a challenge, but it is not a guarantee.
 
