@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('inherited fastcore tools document a live function and edit a file in the notebook kernel', async ({ page, request }) => {
   await request.get('/lab');

@@ -1,4 +1,4 @@
-import { APIRequestContext, expect, test, Page } from '@playwright/test';
+import { APIRequestContext, expect, test, Page } from '../support/e2e-fixtures';
 
 type ConnectionState = 'signed_out' | 'connecting' | 'connected' | 'expired' | 'limited';
 const models = [

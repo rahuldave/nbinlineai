@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
 type Cell = { id: string; cell_type: 'code' | 'markdown'; source: string; metadata: object;
   outputs?: object[]; execution_count?: number | null };

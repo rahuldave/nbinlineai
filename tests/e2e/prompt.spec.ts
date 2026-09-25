@@ -1,4 +1,4 @@
-import { expect, test, type Page, type APIRequestContext } from '@playwright/test';
+import { expect, test, type Page, type APIRequestContext } from '../support/e2e-fixtures';
 
 test.beforeEach(async ({ request }) => {
   await request.get('/lab');

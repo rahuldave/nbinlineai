@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('Configure AI saves, replaces, reopens, and removes provider keys without notebook leakage', async ({ page, request }) => {
   await request.get('/lab');

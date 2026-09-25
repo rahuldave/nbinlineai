@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('provider controls follow key availability and preserve an explicit unavailable choice', async ({ page, request }) => {
   await request.get('/lab');

@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '../support/e2e-fixtures';
 
 type Cell = {
   id: string;
@@ -72,6 +72,8 @@ async function waitKernelIdle(page: Page) {
     const kernel = await page.request.get(`/api/kernels/${session.kernel.id}`);
     return kernel.ok() && (await kernel.json()).execution_state === 'idle';
   }, { timeout: 30_000 }).toBeTruthy();
+  // The REST kernel can be idle before this browser finishes its connection.
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
 }
 
 async function savedNotebook(request: APIRequestContext, name: string) {

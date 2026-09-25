@@ -12,6 +12,15 @@ by writing this note. No notebook runtime feature, version or PyPI release is
 changed. Local static checks, 260 Python tests and 58 frontend tests passed;
 remote source/build/package/browser checks are tracked on the PR.
 
+Browser specs import `tests/support/e2e-fixtures.ts`. Its automatic fixture
+records existing sessions before each test and shuts down only newly created
+sessions after the browser context closes; the suite owns its server and uses
+one worker. Retaining every kernel caused reconnect pressure in clean Linux CI.
+When testing startup, REST kernel `idle` alone does not prove the browser's
+connection is ready. Wait for its Idle status before execution, and for native
+`language_info` before saving a baseline for no-dirty assertions. Await a save's
+matching Contents PUT response before reading the saved notebook.
+
 
 **Long-running experimental branch (2026-09-25):** This work lives on
 `codex/agentic-notebook-experiments`, separate from published `main`. The

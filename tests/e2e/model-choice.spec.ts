@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('model picker sends defaults, listed choices, and a persisted custom ID', async ({ page, request }) => {
   await request.get('/lab');

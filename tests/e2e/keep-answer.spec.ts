@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('Keep answer blocks a completed rerun, then an explicit opt-out uses current defaults after reload', async ({ page, request }) => {
   await request.get('/lab');
