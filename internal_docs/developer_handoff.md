@@ -1,25 +1,18 @@
 # Developer handoff
 
-**0.1.15 release candidate (2026-09-25):** The separate release worktree is
-`/Users/rahul/Projects/nbinlineai-release-0.1.15` on
-`codex/release-0-1-15`, based on main merge `a5066dfd`. Python, npm and the
-uv lockfile now say 0.1.15; the README and site present the two-tab Configure
-AI layout as the release interface. The clean-wheel checker derives its
-expected version from `pyproject.toml`, waits for extension status after Lab
-starts, and checks the installed tabs and defaults. Local verification passed
-272 Python tests, 58 frontend unit tests, TypeScript, Ruff, lockfile and
-documentation links. The full isolated browser run passed 71, failed three
-older context/tool scenarios, and skipped two opt-in captures; all three failed
-cases passed on an isolated focused rerun, covering all 74 default scenarios
-across the two runs. The final wheel and source archive passed strict Twine and
-archive checks; all 187 checkout-backed source files match, all 92 wheel RECORD
-entries validate, and a bounded credential-pattern scan found no matches. A
-clean Python 3.14 install with 113 packages passed both extension discoveries,
-status version and the packaged quickstart UI, including both tabs. CI/review,
-source merge, PyPI publication, tag and live Pages verification remain release
-gates. PyPI still serves 0.1.14 at this point.
+**0.1.15 published (2026-09-25):** The two-tab Configure AI source merged by
+PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate
+release worktree is `/Users/rahul/Projects/nbinlineai-release-0.1.15`, now on
+`codex/release-0-1-15-record` for the publication record; the primary checkout
+is on `main`. Python, npm, and the uv lockfile say 0.1.15. README and the live
+site describe the tabs; GitHub Pages deployment `36193258731` passed. The
+published annotated `v0.1.15` tag peels to `9a435c54`. Both PyPI downloads
+match the checked local hashes, and a fresh public Python 3.14 install passed
+dependency consistency and both extension discoveries. PR #13's rerun passed
+all 74 default browser checks and 272 Python tests; the independent reviewer
+found no blocking issues. Full evidence is in [the release record](releasing.md).
 
-**2026-09-25 Configure AI tabs (merged source, pending release):** The Configure
+**2026-09-25 Configure AI tabs (released in 0.1.15):** The Configure
 AI dialog now opens on **Connections & models**, with the connection picker,
 ChatGPT setup, and OpenAI/Anthropic key controls together. **Defaults** holds
 the new-notebook connection preference, response style, and style-instruction
@@ -35,11 +28,11 @@ and passed after implementation. The focused isolated browser suite passed
 18/18; after an independent review suggestion, the panel-focus change passed
 its isolated browser rerun. The Python suite passed 266/266, frontend unit
 tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The
-simulated screenshots now show both tabs. README, the public site home and user
-guide, and configuration-related manual/FAQ pages distinguish this Git-source
-layout from PyPI 0.1.14. Independent review found no blockers and PR #12's
-source and runtime compatibility CI passed; it merged into main as `a5066dfd`.
-The user then requested a 0.1.15 release for this feature.
+simulated screenshots now show both tabs. At the feature-PR stage, README and
+configuration-related public pages distinguished this Git-source layout from
+PyPI 0.1.14; release PR #13 updated them for 0.1.15. Independent review found
+no blockers and PR #12's source and runtime compatibility CI passed; it merged
+into main as `a5066dfd`. The user then requested the 0.1.15 release.
 
 **2026-09-25 mainline workflow adoption:** The user selected `main` for the
 primary checkout, with stable and experimental changes developed in topic
