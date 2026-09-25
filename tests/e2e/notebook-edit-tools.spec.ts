@@ -51,6 +51,16 @@ async function savedCells(request: APIRequestContext, name: string): Promise<any
   return (await response.json()).content.cells;
 }
 
+async function saveNotebook(page: Page, name: string): Promise<void> {
+  // Reading Contents while Jupyter writes the file can see an empty notebook.
+  const saved = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `/api/contents/${name}` &&
+    response.request().method() === 'PUT');
+  await page.keyboard.press('ControlOrMeta+s');
+  const response = await saved;
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
 test.beforeEach(async ({ request }) => {
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
@@ -77,7 +87,7 @@ test('searches unsaved source, clears stale code output and rejects stale or AI 
   await expect(target.locator('.cm-content')).toContainText('UNSAVED_MARKER = 11');
   await expect(target.locator('.jp-OutputArea-output')).toHaveCount(0);
   expect((await savedCells(request, name)).find(cell => cell.id === 'target').source).toBe('OLD_SAVED_MARKER = 1');
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => (await savedCells(request, name)).find(cell => cell.id === 'target'))
     .toMatchObject({ source: 'UNSAVED_MARKER = 11', execution_count: null, outputs: [] });
   await page.reload();
@@ -110,7 +120,7 @@ test('split, merge, copy, move and delete change only ordinary live cells, and K
   await expect(question.locator('.nbinlineai-status')).toContainText(/Answer kept|Done/);
   expect(posts).toBe(1);
   expect(await getLive()).toEqual(beforeKeep);
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => {
     const cells = await savedCells(request, name);
     const ordinary = cells.filter(cell => ['a', 'b', 'c', 'd', 'e'].includes(cell.id) ||
@@ -134,7 +144,7 @@ test('line insert, range replacement and literal replacement use current source'
   expect(response).toContain('Updated cell target');
   await expect(page.locator('.jp-NotebookPanel:visible .jp-CodeCell').last().locator('.cm-line'))
     .toHaveText(['first', 'replaced', 'tail']);
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => (await savedCells(request, name)).find(cell => cell.id === 'target')?.source)
     .toBe('first\nreplaced\ntail');
 });
