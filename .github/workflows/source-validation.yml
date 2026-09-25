@@ -16,8 +16,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Python, frontend, package, and browser
+  classify:
+    runs-on: ubuntu-24.04
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: classify
+        name: Classify the complete base-to-head change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/docs_ci.py classify --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  internal-docs:
+    needs: classify
+    if: needs.classify.outputs.docs_only == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local links in internal Markdown
+        run: python3 scripts/docs_ci.py check-docs
+
+  validate-full:
+    needs: classify
+    if: needs.classify.outputs.docs_only != 'true'
+    name: Full source validation
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
@@ -84,3 +110,21 @@ jobs:
           name: browser-failure-diagnostics
           path: test-results/
           if-no-files-found: ignore
+
+  validate:
+    name: Python, frontend, package, and browser
+    if: always()
+    needs: [classify, internal-docs, validate-full]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require the selected validation path to succeed
+        env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          DOCS_ONLY: ${{ needs.classify.outputs.docs_only }}
+          DOCS_RESULT: ${{ needs.internal-docs.result }}
+          FULL_RESULT: ${{ needs.validate-full.result }}
+        run: >-
+          python3 scripts/docs_ci.py gate --kind source
+          --classify "$CLASSIFY_RESULT" --docs-only "$DOCS_ONLY"
+          --docs "$DOCS_RESULT" --full "$FULL_RESULT"
