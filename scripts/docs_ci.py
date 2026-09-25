@@ -65,10 +65,71 @@ def docs_only(base: str, head: str) -> bool:
     return True
 
 
-_LINK = re.compile(r"!?(?:\[[^\]]*\])\((<[^>]+>|[^\s)]+)(?:\s+['\"][^'\"]*['\"])?\)")
-_REFERENCE = re.compile(r"^\s*\[[^\]]+\]:\s*(<[^>]+>|\S+)", re.MULTILINE)
+_REFERENCE = re.compile(r"^ {0,3}\[([^\]]+)\]:[ \t]*(.*)$", re.MULTILINE)
 _FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 _INLINE_CODE = re.compile(r"(`+)(?:(?!\1).)*?\1")
+
+
+def _destination(text: str, start: int, *, inline: bool) -> tuple[str, int] | None:
+    """Read a Markdown destination, including escapes and balanced parentheses."""
+    if start >= len(text):
+        return None
+    chars = []
+    angle = text[start] == "<"
+    index = start + int(angle)
+    depth = 0
+    while index < len(text):
+        char = text[index]
+        if char == "\\" and index + 1 < len(text):
+            chars.append(text[index + 1])
+            index += 2
+            continue
+        if angle:
+            if char == ">":
+                return "".join(chars), index + 1
+            if char in "\n\r<":
+                return None
+        else:
+            if char == "(" and inline:
+                depth += 1
+            elif char == ")" and inline:
+                if depth == 0:
+                    break
+                depth -= 1
+            elif char.isspace():
+                break
+        chars.append(char)
+        index += 1
+    if not chars or depth:
+        return None
+    return "".join(chars), index
+
+
+def _inline_targets(text: str):
+    index = 0
+    while index < len(text):
+        if text[index] != "[" or index > 0 and text[index - 1] == "\\":
+            index += 1
+            continue
+        depth = 1
+        cursor = index + 1
+        while cursor < len(text) and depth:
+            if text[cursor] == "\\":
+                cursor += 2
+                continue
+            if text[cursor] == "[":
+                depth += 1
+            elif text[cursor] == "]":
+                depth -= 1
+            cursor += 1
+        if depth == 0 and cursor < len(text) and text[cursor] == "(":
+            parsed = _destination(text, cursor + 1, inline=True)
+            if parsed:
+                destination, end = parsed
+                rest = text[end:]
+                if rest.startswith(")") or re.match(r"\s+(['\"]).*?\1\s*\)", rest):
+                    yield destination
+        index = max(cursor, index + 1)
 
 
 def _targets(content: str):
@@ -88,10 +149,12 @@ def _targets(content: str):
         else:
             lines.append(_INLINE_CODE.sub("", line))
     prose = "\n".join(lines)
-    for match in _LINK.finditer(prose):
-        yield match.group(1).strip("<>")
+    yield from _inline_targets(prose)
     for match in _REFERENCE.finditer(prose):
-        yield match.group(1).strip("<>")
+        if not match.group(1).startswith("^"):
+            parsed = _destination(match.group(2), 0, inline=False)
+            if parsed:
+                yield parsed[0]
 
 
 def check_docs(root: Path) -> list[str]:
