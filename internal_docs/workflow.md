@@ -86,7 +86,8 @@ crawler.
 
 The full source path runs lock/static checks, Python and frontend tests, type
 checking, build/relink, distribution validation, clean wheel installation and
-the deterministic browser suite sequentially. Full runtime compatibility still
+the deterministic browser suite sequentially, and also validates internal-doc
+links so mixed changes receive that check. Full runtime compatibility still
 requires every platform matrix job to pass. Workflow/helper changes themselves
 take this full path. See the workflow files and their helper tests for the exact
 classification, validation and gate contracts.
@@ -94,7 +95,9 @@ classification, validation and gate contracts.
 The runtime summary also checks completion markers for all 14 expected matrix
 variants. Keep that inventory in `scripts/docs_ci.py` and its focused tests in
 sync with intentional matrix changes; missing or unexpected variants fail the
-gate rather than silently reducing coverage.
+gate rather than silently reducing coverage. Each job uploads only its own
+marker from runner temporary storage; checked-in files cannot seed the result.
+Successful repeat uploads replace the same job's artifact.
 
 The clean wheel step checks package/extension discovery. It does not substitute
 for verifying a Git-source installation when source packaging changes. Keep the

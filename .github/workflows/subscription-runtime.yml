@@ -49,7 +49,7 @@ jobs:
         if: needs.classify.outputs.docs_only == 'false'
         with:
           pattern: runtime-*
-          path: runtime-markers
+          path: ${{ runner.temp }}/runtime-markers
           merge-multiple: true
       - name: Require every platform job to pass
         env:
@@ -58,11 +58,12 @@ jobs:
           DOCS_RESULT: ${{ needs.internal-docs.result }}
           PACKAGED_RESULT: ${{ needs.packaged-runtime.result }}
           MUSL_RESULT: ${{ needs.musl-runtime.result }}
+          MARKERS_ROOT: ${{ runner.temp }}/runtime-markers
         run: >-
           python3 scripts/docs_ci.py gate --kind runtime
           --classify "$CLASSIFY_RESULT" --docs-only "$DOCS_ONLY"
           --docs "$DOCS_RESULT" --full "$PACKAGED_RESULT"
-          --musl "$MUSL_RESULT" --markers runtime-markers
+          --musl "$MUSL_RESULT" --markers "$MARKERS_ROOT"
 
   packaged-runtime:
     needs: classify
@@ -87,13 +88,14 @@ jobs:
       - name: Record completed platform variant
         shell: bash
         run: |
-          mkdir -p runtime-markers
-          touch "runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}"
+          mkdir -p "$RUNNER_TEMP/runtime-markers"
+          touch "$RUNNER_TEMP/runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}"
       - uses: actions/upload-artifact@v4
         with:
           name: runtime-${{ matrix.runner }}-${{ matrix.python }}
-          path: runtime-markers/
+          path: ${{ runner.temp }}/runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}
           if-no-files-found: error
+          overwrite: true
 
   musl-runtime:
     needs: classify
@@ -118,10 +120,11 @@ jobs:
       - name: Record completed Alpine variant
         shell: bash
         run: |
-          mkdir -p runtime-markers
-          touch "runtime-markers/passed-alpine-${{ matrix.runner }}"
+          mkdir -p "$RUNNER_TEMP/runtime-markers"
+          touch "$RUNNER_TEMP/runtime-markers/passed-alpine-${{ matrix.runner }}"
       - uses: actions/upload-artifact@v4
         with:
           name: runtime-alpine-${{ matrix.runner }}
-          path: runtime-markers/
+          path: ${{ runner.temp }}/runtime-markers/passed-alpine-${{ matrix.runner }}
           if-no-files-found: error
+          overwrite: true

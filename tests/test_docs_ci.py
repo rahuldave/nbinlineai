@@ -78,6 +78,42 @@ def test_internal_links_ignore_code_and_allow_fragments(tmp_path):
     assert "missing local link" in docs_ci.check_docs(tmp_path)[0]
 
 
+def test_markdown_destinations_and_footnotes(tmp_path):
+    docs = tmp_path / "internal_docs"
+    docs.mkdir()
+    (docs / "report(v2).md").write_text("report\n")
+    (docs / "with space.md").write_text("space\n")
+    (docs / "a.md").write_text(
+        "[balanced](report(v2).md)\n"
+        "[escaped](report\\(v2\\).md)\n"
+        "[angle](<with space.md>)\n"
+        "[reference]: <with space.md>\n"
+        "[^1]: This is a footnote, not a link.\n"
+    )
+    assert docs_ci.check_docs(tmp_path) == []
+    (docs / "a.md").write_text("[missing](absent(v2).md)\n")
+    assert "absent(v2).md" in docs_ci.check_docs(tmp_path)[0]
+    (docs / "a.md").write_text("[missing]: <absent file.md>\n")
+    assert "absent file.md" in docs_ci.check_docs(tmp_path)[0]
+
+
+def test_runtime_uploads_only_owned_exact_markers():
+    workflow = (MODULE_PATH.parents[1] / ".github/workflows/subscription-runtime.yml").read_text()
+    assert (
+        "path: ${{ runner.temp }}/runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}"
+        in workflow
+    )
+    assert "path: ${{ runner.temp }}/runtime-markers/passed-alpine-${{ matrix.runner }}" in workflow
+    assert "path: runtime-markers/" not in workflow
+    assert "path: ${{ runner.temp }}/runtime-markers\n" in workflow
+
+
+def test_full_source_path_validates_internal_docs():
+    workflow = (MODULE_PATH.parents[1] / ".github/workflows/source-validation.yml").read_text()
+    full = workflow.split("  validate-full:\n", 1)[1].split("  validate:\n", 1)[0]
+    assert "python3 scripts/docs_ci.py check-docs" in full
+
+
 def test_gate_rejects_failures_skips_and_missing_matrix(tmp_path):
     gate = docs_ci.gate
     assert gate("source", "success", "true", "success", "skipped")
