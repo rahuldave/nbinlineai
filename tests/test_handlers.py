@@ -134,6 +134,47 @@ class HandlerTests(AsyncHTTPTestCase):
         assert busy.code == 409
         assert b"Kernel is busy" in busy.body
 
+    def test_preview_waits_one_turn_for_own_inspection_idle_status(self):
+        body = {"snapshot_version": 1, "notebook_cells": [
+            {"id": "p", "cell_type": "markdown", "source": "Question",
+             "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        ], "context_mode": "current-only", "prompt": "Question", "session_id": "s",
+            "prompt_cell_id": "p"}
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+
+        async def own_inspection(*_args, **_kwargs):
+            self.dispatcher.kernel.execution_state = "busy"
+            asyncio.get_running_loop().call_soon(
+                setattr, self.dispatcher.kernel, "execution_state", "idle")
+            return {"type": "context", "selected_cell_ids": []}
+
+        with patch("nbinlineai.handlers.preview_context", side_effect=own_inspection):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 200
+
+        async def external_execution(*_args, **_kwargs):
+            self.dispatcher.kernel.execution_state = "busy"
+            return {"type": "context", "selected_cell_ids": []}
+
+        with patch("nbinlineai.handlers.preview_context", side_effect=external_execution):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 409
+        assert b"Kernel changed or became busy" in response.body
+
+        self.dispatcher.kernel.execution_state = "idle"
+
+        async def changed_kernel(*_args, **_kwargs):
+            self.dispatcher.kernel = type("Kernel", (), {"execution_state": "idle"})()
+            return {"type": "context", "selected_cell_ids": []}
+
+        with patch("nbinlineai.handlers.preview_context", side_effect=changed_kernel):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 409
+        assert b"Notebook kernel changed" in response.body
+
     def test_auth_and_execute_permission(self):
         response = self._post({}, auth=False)
         assert response.code != 200
