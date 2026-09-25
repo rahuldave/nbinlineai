@@ -1,15 +1,33 @@
 name: Subscription runtime compatibility
 
 on:
-  pull_request:
+  pull_request: {}
   push:
-    branches: [main, codex/chatgpt-subscription-0-1-13]
+    branches: [main, codex/agentic-notebook-experiments]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: runtime-compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  compatibility:
+    name: Runtime compatibility
+    if: always()
+    needs: [packaged-runtime, musl-runtime]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every platform job to pass
+        env:
+          PACKAGED_RESULT: ${{ needs.packaged-runtime.result }}
+          MUSL_RESULT: ${{ needs.musl-runtime.result }}
+        run: |
+          test "$PACKAGED_RESULT" = success
+          test "$MUSL_RESULT" = success
+
   packaged-runtime:
     strategy:
       fail-fast: false

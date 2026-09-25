@@ -14,6 +14,35 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
 
 ## Project constraints
 
+- Use the installed Gest workflow via `.agents/skills/gtw/SKILL.md` for
+  substantial work. Project invariants in this file take precedence over
+  generic templates. See [the project workflow](internal_docs/workflow.md).
+- `main` is the default branch. `codex/agentic-notebook-experiments` is a
+  persistent integration branch. Create temporary `codex/*` topic branches
+  from the selected integration target and submit PRs back to that target.
+  Both targets require PRs, CI and independent adversarial review. Never
+  interpret the experiment policy as permission for direct development pushes.
+  A later experiment-to-main promotion needs its own scope and authorization;
+  preserve the experimental branch after that PR.
+- Keep the primary checkout on `main`. Do development in owned topic worktrees:
+  base stable fixes and release preparation on `main`, and notebook-agent
+  experiments on `codex/agentic-notebook-experiments`. Record the worktree path,
+  branch, ownership and selected PR base. Retire completed worktrees only after
+  checking their changes, integration and dependents; preserve unrelated tasks.
+- Record reviewed base/head commits and finding dispositions. Self-review and
+  passing tests do not replace independent review. Native Gest maintains its
+  graphs; do not generate separate graph exports.
+- Experimental merges publish source only. Keep Git installation working;
+  no version bump, tag, PyPI upload or website deployment follows merely from
+  merging an experimental PR. A requested release follows the release contract.
+
+- Keep the ongoing notebook-agent experiments on the long-running
+  `codex/agentic-notebook-experiments` branch. This includes identified-cell
+  execution handoffs, one-kernel RLM/Python 3.14 work, and later multi-kernel
+  research. Use it as the integration target across tasks unless the user explicitly
+  directs otherwise; do not silently move experimental work onto `main`.
+  Keep the branch buildable as a Git-source `uv` dependency and update its
+  installation instructions in [Development](docs/development.md) when needed.
 - Use **uv** and this repository's environment. Use `uv run --no-sync jlpm ...` for the frontend after setup. See [Development](docs/development.md) for bootstrap and commands.
 - **Do not use, stop, restart, or test against the user's JupyterLab on port 8888.** Browser tests own an isolated server on 8897, use temporary notebooks/config/keys, and refuse 8888. Stop only servers you started.
 - Never print or commit `.env`, `.pypirc`, provider keys, credential JSON contents, browser tokens, or personal notebook data. Use deterministic provider tests by default. Live tests incur API charges.

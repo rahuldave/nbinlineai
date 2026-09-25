@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
 const panel = (page: Page) => page.locator('.jp-NotebookPanel:visible');
 const cells = (page: Page) => panel(page).locator('.jp-Notebook .jp-Cell');
@@ -48,11 +48,11 @@ test('empty AI questions offer editable starters without running AI or dirtying 
   await expect(cells(page).nth(1).locator('[data-nbinlineai-starters] button')).toHaveText(labels);
   await expect(cells(page).nth(2).locator('[data-nbinlineai-starters] button')).toHaveText(labels);
   // Kernel startup can update Jupyter's own metadata; save that baseline first.
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   await page.reload();
   await expect(cells(page).nth(1).locator('[data-nbinlineai-starters] button')).toHaveText(labels);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(0);
   expect(await savedSource(request, name, 1)).toBe('');
@@ -78,14 +78,14 @@ test('empty AI questions offer editable starters without running AI or dirtying 
   await expect(first.locator('[data-nbinlineai-starters]')).toBeHidden();
   expect(providerRequests).toBe(0);
 
-  await page.keyboard.press('Meta+z');
+  await page.keyboard.press('ControlOrMeta+z');
   await expect(first.locator('.cm-content')).toHaveText('');
   await expect(first.locator('[data-nbinlineai-starters]')).toBeVisible();
   await starter(page, 1, 'write-code').focus();
   await page.keyboard.press('Enter');
   await expect(first.locator('.cm-content')).toHaveText('Write code to ');
   await expect(first.locator('.cm-content')).toBeFocused();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(() => savedSource(request, name, 1)).toBe('Write code to ');
   await page.reload();
   await expect(cells(page).nth(1).locator('.cm-content')).toHaveText('Write code to ');

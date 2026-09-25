@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('saved unavailable ChatGPT choice survives a model edit without choosing an API', async ({ page, request }) => {
   await request.get('/lab');
@@ -35,8 +35,17 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   await expect(prompt).toBeVisible();
   // Kernel startup may add Jupyter-owned metadata. Save that baseline, then
   // verify a fresh open and status refresh leave every AI metadata field alone.
-  await page.keyboard.press('Meta+s');
-  await expect(page.getByText('Saving completed')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
+  await expect(async () => {
+    const saved = page.waitForResponse(response =>
+      new URL(response.url()).pathname === `/api/contents/${name}` &&
+      response.request().method() === 'PUT');
+    await page.keyboard.press('ControlOrMeta+s');
+    expect((await saved).ok()).toBeTruthy();
+    const response = await request.get(`/api/contents/${name}?content=1`);
+    expect(response.ok()).toBeTruthy();
+    expect((await response.json()).content.metadata.language_info?.name).toBe('python');
+  }).toPass({ timeout: 20_000 });
   const beforeReloadResponse = await request.get(`/api/contents/${name}?content=1`);
   expect(beforeReloadResponse.ok()).toBeTruthy();
   const beforeReload = (await beforeReloadResponse.json()).content;
@@ -48,7 +57,8 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   });
   await page.reload();
   await expect(prompt).toBeVisible();
-  await page.keyboard.press('Meta+s');
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const baselineResponse = await request.get(`/api/contents/${name}?content=1`);
   expect(baselineResponse.ok()).toBeTruthy();
@@ -91,7 +101,7 @@ test('saved unavailable ChatGPT choice survives a model edit without choosing an
   await model.fill('gpt-6-luna');
   await expect(provider).toHaveValue('openai_codex_subscription');
   await expect(prompt.locator('[data-nbinlineai-run]')).toBeDisabled();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const saved = await request.get(`/api/contents/${name}?content=1`);
     if (!saved.ok()) return null;

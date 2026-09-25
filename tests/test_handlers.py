@@ -134,6 +134,51 @@ class HandlerTests(AsyncHTTPTestCase):
         assert busy.code == 409
         assert b"Kernel is busy" in busy.body
 
+    def test_inherited_tool_preview_checks_external_busy_and_kernel_identity(self):
+        body = {"snapshot_version": 1, "notebook_cells": [
+            {"id": "declaration", "cell_type": "markdown", "source": "&`bump`",
+             "context_include": False},
+            {"id": "p", "cell_type": "markdown", "source": "Question",
+             "metadata": {"nbinlineai": {"isPromptCell": True}}},
+        ], "context_mode": "custom", "prompt": "Question", "session_id": "s",
+            "prompt_cell_id": "p"}
+        headers = {"Content-Type": "application/json", "Authorization": "Bearer test"}
+        info = {"bump": {"docstring": "registered", "parameters": {}}}
+
+        async def own_inspection(_kernel_id, _kernel, variables, functions):
+            assert variables == [] and functions == ["bump"]
+            return info
+
+        with patch.object(self.dispatcher, "inspect_preview", side_effect=own_inspection):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 200
+        report = json.loads(response.body)
+        assert report["tools"] == ["bump"]
+        assert "declaration" not in report["selected_cell_ids"]
+
+        async def external_execution(*_args):
+            self.dispatcher.kernel.execution_state = "busy"
+            return info
+
+        with patch.object(self.dispatcher, "inspect_preview", side_effect=external_execution):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 409
+        assert b"Kernel changed or became busy" in response.body
+
+        self.dispatcher.kernel.execution_state = "idle"
+
+        async def changed_kernel(*_args):
+            self.dispatcher.kernel = type("Kernel", (), {"execution_state": "idle"})()
+            return info
+
+        with patch.object(self.dispatcher, "inspect_preview", side_effect=changed_kernel):
+            response = self.fetch("/nbinlineai/context-preview", method="POST",
+                                  body=json.dumps(body), headers=headers)
+        assert response.code == 409
+        assert b"Notebook kernel changed" in response.body
+
     def test_auth_and_execute_permission(self):
         response = self._post({}, auth=False)
         assert response.code != 200
@@ -161,7 +206,10 @@ class HandlerTests(AsyncHTTPTestCase):
         response = self._post({**body, "prompt_instructions": secret * 500})
         assert response.code == 400
         assert secret.encode() not in response.body
-        response = self._post({**body, "reasoning_effort": "unavailable"})
+        # Exercise effort validation without depending on a developer's keys.
+        with patch("nbinlineai.prompt.provider_status",
+                   return_value={"openai_api": {"configured": True}}):
+            response = self._post({**body, "reasoning_effort": "unavailable"})
         assert response.code == 400
         assert b"reasoning_effort" in response.body
 

@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
 type Cell = { id: string; cell_type: 'code' | 'markdown'; source: string; metadata: object; outputs?: object[]; execution_count?: null };
 const code = (id: string, source: string): Cell => ({ id, cell_type: 'code', source, metadata: {}, outputs: [], execution_count: null });
@@ -115,7 +115,7 @@ test('duplicate frontend_action inserts one ordinary Markdown note after its pai
   const order = await notebook.locator('.jp-Cell').evaluateAll(cells => cells.map(cell => cell.textContent || ''));
   expect(order.findIndex(text => text.includes('Live notebook note'))).toBe(order.findIndex(text => text.includes('editable Markdown note below this answer')) + 1);
   expect(order.findIndex(text => text.includes('Live notebook note'))).toBeLessThan(order.findIndex(text => text.includes('next_step')));
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const saved = await request.get(`/api/contents/${name}?content=1`);
     if (!saved.ok()) return false;
@@ -225,7 +225,7 @@ test('insert_code adds one unexecuted ordinary cell after the AI answer during R
   expect(requests).toBe(1);
   const order = await notebook.locator('.jp-Cell').evaluateAll(cells => cells.map(cell => cell.textContent || ''));
   expect(order.findIndex(text => text.includes('new_code_ran = True'))).toBe(order.findIndex(text => text.includes('without running it')) + 1);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect.poll(async () => {
     const saved = await request.get(`/api/contents/${name}?content=1`);
     if (!saved.ok()) return false;

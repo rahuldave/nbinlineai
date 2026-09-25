@@ -1,5 +1,41 @@
 # Developer handoff
 
+**2026-09-25 mainline workflow adoption:** The user selected `main` for the
+primary checkout, with stable and experimental changes developed in topic
+worktrees based on their respective integration branches. This focused adoption
+brings the reviewed workflow and CI from experimental PR #3 to mainline without
+promoting notebook-agent research or adding runtime features. Issue #4 tracks
+this adoption and the experimental follow-up. See [Project workflow](workflow.md)
+for review, skill provenance, branch protection rollout and cleanup rules.
+Version 0.1.14 and PyPI remain unchanged; the next stable release is a separate
+task.
+
+Browser specs import `tests/support/e2e-fixtures.ts`. It removes only sessions
+created by that test after browser teardown, on the owned single-worker server.
+Wait for the browser's Idle status before executing code; REST idle alone is
+insufficient. Native `language_info` must settle before saving a no-dirty
+baseline, and saved-content assertions should await the matching Contents PUT.
+**2026-09-25 preview race fix (source, unreleased):** Post-merge source run
+`36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
+The failed question inherits a tool declaration even though its text is
+excluded, so preview performs silent kernel inspection. The dispatcher's IOPub
+client can receive idle before the server manager receives the same status.
+A proposed one-turn yield was rejected in independent review because it does
+not establish delivery ordering.
+
+Preview inspection now observes manager activity before sending its request,
+waits at most 0.5 seconds for the manager's busy-to-idle transition, and rejects
+observed foreign execution, including queued activity before returning. The
+handler retains its final kernel-identity and idle checks. Timeout fails closed;
+observer and receive-task cleanup cover success, errors and cancellation.
+This handles delayed inspection status; it does not provide an atomic snapshot
+against another client's execution after the final check or still-undelivered
+activity. Tests cover delayed manager idle, foreign activity, timeout,
+cancellation and the real inherited-tool context path. All 266 Python tests,
+Ruff and the focused real-browser scenario passed locally. Full Linux checks
+are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888
+was untouched. Version 0.1.14 and PyPI are unchanged.
+
 **0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The
 connection picker in the dialog remains setup/status; the notebook's **AI

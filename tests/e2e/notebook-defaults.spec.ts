@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '../support/e2e-fixtures';
 
 const notebook = (page: Page) => page.locator('.jp-NotebookPanel:visible .jp-Notebook');
 const defaults = (page: Page) => page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-defaults]');
@@ -76,7 +76,7 @@ async function savedNotebook(request: APIRequestContext, name: string) {
 }
 
 async function saveNotebook(page: Page) {
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
 }
 
