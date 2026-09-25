@@ -8,8 +8,6 @@ title: Install and connect
 
 You need JupyterLab 4.2 or newer and Python 3.12 or newer. Use a ChatGPT subscription or an OpenAI or Anthropic **API key**.
 
-The two-tab layout is in the current Git source. PyPI 0.1.14 has the same controls in one scrolling dialog until the next release.
-
 1. Open JupyterLab's **Extension Manager**, search for **nbinlineai**, and install it.
 2. Save your notebooks and **stop and restart the whole Jupyter server**. Refreshing the browser or restarting a notebook kernel is insufficient.
 3. Open a Python notebook. Click **Configure AI** at the far right of the notebook toolbar, beside the kernel name.

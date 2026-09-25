@@ -6,7 +6,7 @@ title: User guide
 
 # User guide
 
-Start with setup, then read the chapters you need. These chapters describe version **0.1.14**, including default connection settings, inherited cell choices, and cleaner waiting answer cells. Configuration instructions also identify the current Git source's unreleased two-tab dialog where it differs. The [FAQ](faq.md) answers common edge cases.
+Start with setup, then read the chapters you need. These chapters describe version **0.1.15**, including Configure AI's two tabs, default connection settings, inherited cell choices, and cleaner waiting answer cells. The [FAQ](faq.md) answers common edge cases.
 
 <span id="contents"></span>
 

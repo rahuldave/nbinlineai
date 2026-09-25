@@ -2,7 +2,7 @@
 
 Write AI prompts directly in JupyterLab notebooks. Connect a ChatGPT subscription or use an OpenAI or Anthropic API key, then choose a model for the notebook and override it in individual prompts when needed. Each answer appears in a paired Markdown cell below its prompt. Prompts, answers, and notebook defaults stay in the notebook when you save and reopen it.
 
-**New in 0.1.14:** set a default connection for notebooks without saved choices, let individual cells inherit the notebook connection, and see a clean answer cell while the first response text arrives.
+**New in 0.1.15:** Configure AI has separate **Connections & models** and **Defaults** tabs. Choose a connection and enter its key together; set new-notebook and response-style preferences on Defaults.
 
 ## User manual
 
@@ -13,7 +13,7 @@ The [user manual](https://rahuldave.com/nbinlineai/user-guide.html) has eight sh
 You need Python 3.12 or newer and JupyterLab 4.2 or newer.
 
 1. **Install:** open **Extension Manager** (the puzzle icon), search for **nbinlineai**, and click **Install**. **Restart the Jupyter server**; refreshing the browser alone is insufficient.
-2. **Configure AI:** open a Python notebook, click **Configure AI**, and either sign in with ChatGPT or save an OpenAI or Anthropic API key. Set **Default connection for new notebooks** there if you want a user preference. ChatGPT needs no separately installed Codex app or command.
+2. **Configure AI:** open a Python notebook, click **Configure AI**, and use **Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults** to set **Default connection for new notebooks** if you want a user preference. ChatGPT needs no separately installed Codex app or command.
 3. **Create an AI cell:** select a cell and click **+ AI Prompt** in the toolbar. Write a question, or choose an editable starter such as **Explain code above**.
 4. **Set notebook defaults:** use the **AI defaults** row at the top of the notebook to choose provider, model, response style, and thinking effort. Compact and Model default effort are the starting choices.
 5. **Run it:** press **Shift+Enter** or click **Run AI**. The answer appears in a paired Markdown cell below the prompt. Use the cell's **Override** control only when it needs different settings.
@@ -56,7 +56,7 @@ Choose a style in the notebook's **AI defaults** row:
 
 Notebook defaults are saved with the `.ipynb`. Cells inherit them unless you choose an **Override**; **Use notebook defaults** clears those overrides. The provider menu also has **Notebook default** to clear a cell's provider choice and its old model and effort choices. Reruns use the current effective settings. A run already in progress keeps the choices it started with.
 
-In current Git source, open **Configure AI → Defaults** and expand the style instructions to edit Compact, Full, or Learning. PyPI 0.1.14 shows the same controls in one scrolling dialog. Each editor starts with our bundled instructions. **Save** stores your custom wording in JupyterLab user settings; **Reset** restores the bundled instructions. Your custom wording applies when that style is selected. It is separate from the notebook's saved style choice.
+Open **Configure AI → Defaults** and expand the style instructions to edit Compact, Full, or Learning. Each editor starts with our bundled instructions. **Save** stores your custom wording in JupyterLab user settings; **Reset** restores the bundled instructions. Your custom wording applies when that style is selected. It is separate from the notebook's saved style choice.
 
 In **Learning**, start with a question such as “Help me understand why this loop skips an item.” When the tutor asks a question, insert another AI Prompt cell **below its answer**, write your reply, and run it. Earlier exchanges provide the conversation history. Repeat as you work through the problem. To replace an earlier exchange, turn off Keep answer and rerun that prompt.
 
@@ -76,7 +76,7 @@ The Context toolbar shows the notebook mode and **Details**. Click an AI questio
 
 The notebook's **AI defaults** row has a model dropdown. Choose a listed model or **Default**. For an API connection, **Custom model…** accepts another model ID supported by that API provider. ChatGPT offers only runtime-supported models available to your account; an unavailable saved ID remains visible but cannot run. Most notebooks can use one model throughout. Individual AI cells expose their own choices under **Override**. Changing providers clears the previous provider's model choice.
 
-API providers without a configured key are marked unavailable. In **Configure AI**, **Default connection for new notebooks** sets your user preference; it does not change a notebook's saved **AI defaults** or a cell's explicit provider choice. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). Select ChatGPT for an existing notebook with **Use for this notebook** or its **AI defaults** row; a disconnected ChatGPT choice never falls back to API billing. Saved provider/model choices remain visible when unavailable. Cells created by older versions can retain an explicit Anthropic choice; choose **Notebook default** in that cell's provider menu or **Use notebook defaults** to make it follow the notebook's ChatGPT choice. Choosing only a cell model does not pin its provider.
+API providers without a configured key are marked unavailable. In **Configure AI → Defaults**, **Default connection for new notebooks** sets your user preference; it does not change a notebook's saved **AI defaults** or a cell's explicit provider choice. If you have only an Anthropic key, a notebook without saved AI defaults starts with Anthropic (and likewise for OpenAI). Select ChatGPT for an existing notebook with **Use for this notebook** or its **AI defaults** row; a disconnected ChatGPT choice never falls back to API billing. Saved provider/model choices remain visible when unavailable. Cells created by older versions can retain an explicit Anthropic choice; choose **Notebook default** in that cell's provider menu or **Use notebook defaults** to make it follow the notebook's ChatGPT choice. Choosing only a cell model does not pin its provider.
 
 | Provider | Bundled default | Other listed choices |
 | --- | --- | --- |
@@ -94,7 +94,7 @@ Unknown custom model IDs and models without this effort control use Model defaul
 
 ## Installation and connections
 
-In current Git source, open **Configure AI → Connections & models**, choose **ChatGPT subscription**, then **Sign in with ChatGPT**. For OpenAI or Anthropic API, choose that connection and save its key directly below. PyPI 0.1.14 shows these controls in one scrolling dialog. If browser sign-in cannot reach the server, choose **Use device code**. After the connection reports an available model, choose its effort and click **Use for this notebook**. The **Connection to set up** picker only displays setup; merely changing it, checking status, or signing in does not change the notebook. The **Defaults** tab's **Default connection for new notebooks** saves your preference for future notebooks separately. ChatGPT uses your account allowance, which has limits; additional credits may apply. API requests are billed separately, and switching between them is always explicit. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
+Open **Configure AI → Connections & models**, choose **ChatGPT subscription**, then **Sign in with ChatGPT**. For OpenAI or Anthropic API, choose that connection and save its key directly below. If browser sign-in cannot reach the server, choose **Use device code**. After the connection reports an available model, choose its effort and click **Use for this notebook**. The **Connection to set up** picker only displays setup; merely changing it, checking status, or signing in does not change the notebook. The **Defaults** tab's **Default connection for new notebooks** saves your preference for future notebooks separately. ChatGPT uses your account allowance, which has limits; additional credits may apply. API requests are billed separately, and switching between them is always explicit. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
 
 For direct ChatGPT operations, **ChatGPT file access** currently shows **Notebook tools only**: built-in file, shell, and browser actions are off. Enabled notebook tools still run in Python with its normal user permissions. The displayed notebook folder supplies location context; it does not change the Python kernel's working directory or confine its tools.
 
@@ -147,7 +147,7 @@ The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/exampl
 
 ### Bundled tools
 
-Version **0.1.14** offers 51 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
+Version **0.1.15** offers 51 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
 
 ```python
 from nbinlineai.tools import search_files, source_doc, tool_catalog, tools_markdown

@@ -4,7 +4,7 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.14**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+These answers describe version **0.1.15**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
 
 ## Running cells and keeping answers
 
@@ -18,7 +18,7 @@ In **0.1.8 and earlier**, the controls were at the bottom. A checked Context imm
 
 That cell may have an explicit provider choice saved from an earlier edit or version. The notebook's **AI defaults** apply only to cells that inherit them. Open the cell's **Override** controls and choose **Notebook default** in its provider menu. **Use notebook defaults** clears all of that cell's provider, model, style, and effort overrides at once. Choosing only a cell model does not save a provider override.
 
-In current Git source, **Configure AI → Defaults → Default connection for new notebooks** sets your preference for future notebooks; PyPI 0.1.14 shows the same control in one scrolling dialog. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection to set up** picker on **Connections & models** only chooses which setup details to display.
+**Configure AI → Defaults → Default connection for new notebooks** sets your preference for future notebooks. It does not rewrite an existing notebook or its cells. To change the current notebook, use its **AI defaults** row or ChatGPT's **Use for this notebook** button. The **Connection to set up** picker on **Connections & models** only chooses which setup details to display.
 
 ### Do JupyterLab's Markdown instructions become part of a new answer?
 
@@ -275,7 +275,7 @@ that launches JupyterLab. After stopping the server normally, run this in that
 activated environment:
 
 ```bash
-python -m pip install --verbose --upgrade nbinlineai==0.1.14
+python -m pip install --verbose --upgrade nbinlineai==0.1.15
 ```
 
 For a uv project whose server environment is `.venv`, use
@@ -292,7 +292,7 @@ distinguishes successful tests from the still-unconfirmed shutdown report.
 
 ### Do I need an API key or a separate Codex installation for ChatGPT?
 
-No. In current Git source, open **Configure AI → Connections & models** and choose **ChatGPT subscription**; PyPI 0.1.14 shows the same setup in one scrolling dialog. Sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
+No. Open **Configure AI → Connections & models** and choose **ChatGPT subscription**. Sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
 
 If browser sign-in is blocked or cannot return to the server, choose **Use device code**. Open the displayed verification link in your usual browser profile, enter the code from Configure AI, complete sign-in there, and return to the notebook. **Check connection** refreshes a status that has not yet changed; **Cancel sign-in** stops a pending attempt. A normal browser profile, such as Safari, may work when an automated browser shows a challenge, but it is not a guarantee.
 
@@ -386,7 +386,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.14 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. Version 0.1.15 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -452,7 +452,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.14**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+In version **0.1.15**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -474,7 +474,7 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.14 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Yes. Version 0.1.15 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

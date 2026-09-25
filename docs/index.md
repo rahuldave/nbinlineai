@@ -6,14 +6,12 @@ title: nbinlineai
 
 **nbinlineai** adds AI prompt cells to JupyterLab. Ask about the code and notes above a cell, refer to live Python values, and let a model call functions you explicitly name. Prompts and answers stay in the notebook as readable Markdown.
 
-**New in 0.1.14:** choose a default connection for notebooks without saved choices, keep cell provider choices inherited unless explicitly overridden, and see a clean waiting answer cell before text streams in.
-
-**In current Git source (unreleased):** Configure AI has **Connections & models** for ChatGPT sign-in and API keys, and **Defaults** for your new-notebook connection, response style, and style instructions. PyPI 0.1.14 shows these controls in one scrolling dialog.
+**New in 0.1.15:** Configure AI has **Connections & models** for ChatGPT sign-in and API keys, and **Defaults** for your new-notebook connection, response style, and style instructions.
 
 ## Start here
 
 1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook. In current Git source, use **Configure AI → Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults → Default connection for new notebooks** if you want a user preference.
+2. Open a Python notebook. Use **Configure AI → Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults → Default connection for new notebooks** if you want a user preference.
 3. Choose this notebook's connection, model, and style in **AI defaults**. Individual cells inherit them unless overridden.
 4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
 
@@ -50,7 +48,11 @@ The [user guide index](user-guide.md) shows the reading order. Open the chapter 
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.14
+## New in version 0.1.15
+
+- Configure AI separates connection setup and keys from user defaults. Select a connection to see its setup; set the default for new notebooks on the other tab.
+
+## Added in version 0.1.14
 
 - Set **Default connection for new notebooks** in Configure AI. Cells now visibly inherit their notebook's connection unless you explicitly choose another provider for that question; selecting only a cell model does not pin the provider.
 - Empty AI answer cells hide JupyterLab's Markdown instruction placeholder while waiting for the first streamed response text.
@@ -102,7 +104,7 @@ Version 0.1.8 adds selectable notebook context.
 ## Notebook conversations
 
 - Set provider, model, style, and effort once per notebook, with optional cell overrides.
-- In current Git source, edit the built-in **Compact**, **Full**, and **Learning** instructions in **Configure AI → Defaults**.
+- Edit the built-in **Compact**, **Full**, and **Learning** instructions in **Configure AI → Defaults**.
 - Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
 - Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
 
