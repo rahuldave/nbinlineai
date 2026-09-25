@@ -14,21 +14,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  classify:
+    runs-on: ubuntu-24.04
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: classify
+        name: Classify the complete base-to-head change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 scripts/docs_ci.py classify --base "$BASE_SHA" --head "$HEAD_SHA"
+
+  internal-docs:
+    needs: classify
+    if: needs.classify.outputs.docs_only == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check local links in internal Markdown
+        run: python3 scripts/docs_ci.py check-docs
+
   compatibility:
     name: Runtime compatibility
     if: always()
-    needs: [packaged-runtime, musl-runtime]
+    needs: [classify, internal-docs, packaged-runtime, musl-runtime]
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        if: needs.classify.outputs.docs_only == 'false'
+        with:
+          pattern: runtime-*
+          path: ${{ runner.temp }}/runtime-markers
+          merge-multiple: true
       - name: Require every platform job to pass
         env:
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          DOCS_ONLY: ${{ needs.classify.outputs.docs_only }}
+          DOCS_RESULT: ${{ needs.internal-docs.result }}
           PACKAGED_RESULT: ${{ needs.packaged-runtime.result }}
           MUSL_RESULT: ${{ needs.musl-runtime.result }}
-        run: |
-          test "$PACKAGED_RESULT" = success
-          test "$MUSL_RESULT" = success
+          MARKERS_ROOT: ${{ runner.temp }}/runtime-markers
+        run: >-
+          python3 scripts/docs_ci.py gate --kind runtime
+          --classify "$CLASSIFY_RESULT" --docs-only "$DOCS_ONLY"
+          --docs "$DOCS_RESULT" --full "$PACKAGED_RESULT"
+          --musl "$MUSL_RESULT" --markers "$MARKERS_ROOT"
 
   packaged-runtime:
+    needs: classify
+    if: needs.classify.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -46,8 +85,21 @@ jobs:
         run: uv run --no-sync python -m pytest tests/test_subscription_runtime.py tests/test_subscription_windows.py -q
       - name: Verify actual empty native-tool inventory
         run: uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
+      - name: Record completed platform variant
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/runtime-markers"
+          touch "$RUNNER_TEMP/runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.runner }}-${{ matrix.python }}
+          path: ${{ runner.temp }}/runtime-markers/passed-${{ matrix.runner }}-${{ matrix.python }}
+          if-no-files-found: error
+          overwrite: true
 
   musl-runtime:
+    needs: classify
+    if: needs.classify.outputs.docs_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -65,3 +117,14 @@ jobs:
             uv run --no-sync python -m pytest tests/test_subscription_runtime.py tests/test_subscription_windows.py -q
             uv run --no-sync python scripts/subscription_tool_inventory_probe.py --scenario answer
           '
+      - name: Record completed Alpine variant
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/runtime-markers"
+          touch "$RUNNER_TEMP/runtime-markers/passed-alpine-${{ matrix.runner }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-alpine-${{ matrix.runner }}
+          path: ${{ runner.temp }}/runtime-markers/passed-alpine-${{ matrix.runner }}
+          if-no-files-found: error
+          overwrite: true
