@@ -38,9 +38,11 @@ are automatic. Serialize Gest operations. GitHub issues preserve durable intent:
 - [Experimental workflow adoption](https://github.com/rahuldave/nbinlineai/issues/1)
   was completed by PR #3.
 - [Mainline workflow and CI follow-up](https://github.com/rahuldave/nbinlineai/issues/4)
-  covers mainline adoption, refreshed experimental skills and the remaining
-  context-preview verification failure. It completes after both targeted PRs
-  are integrated.
+  completed through PRs #5 and #6: mainline adoption, refreshed experimental
+  skills and the context-preview verification fix.
+- [Internal documentation CI](https://github.com/rahuldave/nbinlineai/issues/9)
+  tracks lightweight document validation with the existing required gates on
+  both integration branches.
 - [Notebook-agent initiative](https://github.com/rahuldave/nbinlineai/issues/2)
   remains open for handoff primitives, then one-kernel RLM/Python 3.14 work, then
   possible multiple-kernel research. These are proposals, not shipped features.
@@ -60,17 +62,42 @@ of an unmerged shared revision. Until then this is a reproducible preview.
 
 ## Verification and CI
 
-`Justfile` maps the existing project commands. Source validation runs for any PR
-base and pushes to `main` and the persistent experiment. Its single required
-check, **Python, frontend, package, and browser**, runs lock/static checks, Python
-and frontend tests, type checking, build/relink, distribution validation, clean
-wheel installation and the deterministic browser suite sequentially. Existing
-subscription runtime compatibility CI retains its platform matrix; its stable
-**Runtime compatibility** gate requires every matrix job to pass. The experiment requires both gates. During rollout, `main` requires the
-existing 14 runtime matrix checks, which its current workflow already emits;
-after this mainline adoption merges, update that ruleset to require the same
-source and runtime aggregate gates as the experiment. The new workflows run against any PR base when included
-in that PR. See the workflow files for exact commands.
+`Justfile` maps the existing project commands. Validation runs for any PR base
+and pushes to `main` and the persistent experiment. Both branches require
+**Python, frontend, package, and browser** and **Runtime compatibility**.
+Both checks report even when the change qualifies for documentation validation;
+there are no top-level path filters that leave a required check missing.
+
+Only a confidently classified change wholly within Markdown files under
+`internal_docs/` qualifies for the lightweight path. It validates the documents
+and their local links without building the extension, running the browser suite
+or starting the platform matrix. Mixed changes, public docs, examples/notebooks,
+code, dependencies, packaging and workflow changes take the full path. Manual
+runs and uncertain/empty comparisons do not qualify for a documentation skip.
+Renames and deletions must not hide a changed non-documentation path. A failed
+classification or document check cannot become a successful required gate, and
+an unexpectedly skipped validation job is not passing evidence.
+
+`scripts/docs_ci.py check-docs` checks local filesystem targets of inline and
+reference Markdown links throughout `internal_docs/`, ignoring fenced/inline
+code examples. It does not fetch external URLs or validate heading fragments.
+This is a bounded document check, not a complete Markdown renderer or website
+crawler.
+
+The full source path runs lock/static checks, Python and frontend tests, type
+checking, build/relink, distribution validation, clean wheel installation and
+the deterministic browser suite sequentially, and also validates internal-doc
+links so mixed changes receive that check. Full runtime compatibility still
+requires every platform matrix job to pass. Workflow/helper changes themselves
+take this full path. See the workflow files and their helper tests for the exact
+classification, validation and gate contracts.
+
+The runtime summary also checks completion markers for all 14 expected matrix
+variants. Keep that inventory in `scripts/docs_ci.py` and its focused tests in
+sync with intentional matrix changes; missing or unexpected variants fail the
+gate rather than silently reducing coverage. Each job uploads only its own
+marker from runner temporary storage; checked-in files cannot seed the result.
+Successful repeat uploads replace the same job's artifact.
 
 The clean wheel step checks package/extension discovery. It does not substitute
 for verifying a Git-source installation when source packaging changes. Keep the
@@ -120,7 +147,7 @@ Before handoff, verify owned test processes exited, remove owned scratch files,
 and report PR/review/check state and publication state separately.
 
 
-## Protection rollout (2026-09-25)
+## Protection status (2026-09-25)
 
 Active repository rulesets require PRs, resolved review threads, successful
 checks, and an up-to-date base, and prevent force pushes or deletion of persistent
@@ -129,9 +156,11 @@ independent agent evidence under the author account is not a second GitHub
 approver; independent adversarial review and the user's merge decision remain
 explicit workflow requirements.
 
-- Notebook mainline ruleset: `24000314`; existing 14 runtime checks.
+- Notebook mainline ruleset: `24000314`; source gate and runtime aggregate.
 - Notebook experiment ruleset: `24000315`; source gate and runtime aggregate.
 - Shared skill repository mainline ruleset: `24000310`; `verify-skill-package`.
 
-Inspect live rules before integration if repository policy changes. The experiment already emits both stable gates. The mainline adoption PR
-supplies them before the mainline ruleset is updated after merge.
+The mainline ruleset was updated to the two stable gates after PR #6 merged;
+the experiment uses the same pair. Inspect live rules before integration if
+repository policy changes. Documentation-aware validation preserves these
+required check names and does not change branch protection.
