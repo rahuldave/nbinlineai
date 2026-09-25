@@ -1,5 +1,31 @@
 # Developer handoff
 
+**2026-09-25 mainline workflow adoption:** The user selected `main` for the
+primary checkout, with stable and experimental changes developed in topic
+worktrees based on their respective integration branches. This focused adoption
+brings the reviewed workflow and CI from experimental PR #3 to mainline without
+promoting notebook-agent research or adding runtime features. Issue #4 tracks
+this adoption and the experimental follow-up. See [Project workflow](workflow.md)
+for review, skill provenance, branch protection rollout and cleanup rules.
+Version 0.1.14 and PyPI remain unchanged; the next stable release is a separate
+task.
+
+Browser specs import `tests/support/e2e-fixtures.ts`. It removes only sessions
+created by that test after browser teardown, on the owned single-worker server.
+Wait for the browser's Idle status before executing code; REST idle alone is
+insufficient. Native `language_info` must settle before saving a no-dirty
+baseline, and saved-content assertions should await the matching Contents PUT.
+**2026-09-25 preview race fix (source, unreleased):** Post-merge source run
+`36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
+Trace inspection found that the preview's own silent kernel inspection could
+finish before the kernel manager processed its idle status. The handler now
+yields one event-loop turn before its existing final kernel-identity and idle
+checks. It does not retry: a still-busy or replaced kernel is rejected, and a
+longer status delay can still safely produce HTTP 409. The regression failed on
+the old handler and passes with the fix; all 261 Python tests and four focused
+real-browser runs passed locally. Linux full-suite verification is recorded on
+the follow-up PRs. The isolated server on 8897 stopped; 8888 was untouched.
+
 **0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The
 connection picker in the dialog remains setup/status; the notebook's **AI

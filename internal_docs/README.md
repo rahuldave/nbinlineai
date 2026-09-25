@@ -1,5 +1,9 @@
 # Internal documentation index
 
+[Project workflow](workflow.md) describes stable and experimental PR targets,
+the primary checkout on `main`, owned topic worktrees, installed skills, CI and
+safe cleanup. Workflow follow-up is tracked in issue #4.
+
 Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
 The [current handoff](developer_handoff.md) records the published 0.1.14 fixes

@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '../support/e2e-fixtures';
 
 test.beforeEach(async ({ request }) => {
   await request.get('/lab');
@@ -111,7 +111,7 @@ test('saved response style controls requests, server instructions, and learning 
 
   await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-prompt-mode]').selectOption('learning');
   await setMode(page, 'learning');
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   await page.reload();
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
@@ -164,7 +164,7 @@ test('fenced code copy works in compact and full modes without changing notebook
 
   await runAndCaptureMode(page, prompt, 'compact');
   await expect(copy).toHaveCount(1);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const saved = await request.get(`/api/contents/${name}?content=1`);
   expect(saved.ok()).toBeTruthy();
@@ -192,7 +192,7 @@ test('fenced code copy works in compact and full modes without changing notebook
 
   const followUp = await addPromptAfter(page, 2, 'E2E_BASIC inspect the previous AI answer');
   await runAndCaptureMode(page, followUp, 'full');
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const finalSaved = await request.get(`/api/contents/${name}?content=1`);
   const finalNotebook = await finalSaved.json();

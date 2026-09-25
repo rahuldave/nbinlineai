@@ -1,0 +1,86 @@
+name: Source validation
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+      - codex/agentic-notebook-experiments
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Python, frontend, package, and browser
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      NBINLINEAI_E2E_PORT: '8897'
+      NBINLINEAI_E2E_LIVE: '0'
+      NBINLINEAI_E2E_SUBSCRIPTION: '0'
+      NBINLINEAI_CAPTURE_DOCS: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - name: Install Python and locked development dependencies
+        run: |
+          uv python install 3.12
+          uv sync --frozen --python 3.12 --group dev --no-install-project
+      - name: Install locked frontend dependencies
+        run: uv run --no-sync jlpm install --immutable
+      - name: Build and link the frontend
+        run: |
+          uv run --no-sync jlpm build:prod
+          uv sync --frozen --python 3.12 --group dev
+          uv run --no-sync jupyter-builder develop . --overwrite
+      - name: Validate lockfile, Python, frontend, and types
+        run: |
+          uv lock --check
+          uv run --no-sync ruff check nbinlineai tests scripts
+          uv run --no-sync python -m pytest
+          uv run --no-sync jlpm test:unit
+          uv run --no-sync jlpm exec tsc --noEmit
+      - name: Build and inspect distribution artifacts
+        run: |
+          uv build --out-dir "$RUNNER_TEMP/nbinlineai-dist"
+          uvx twine check --strict "$RUNNER_TEMP"/nbinlineai-dist/*
+          uv run --no-sync python scripts/check_release_artifacts.py "$RUNNER_TEMP/nbinlineai-dist"
+      - name: Install built wheel in a fresh environment
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/nbinlineai-clean"
+          uv pip install --python "$RUNNER_TEMP/nbinlineai-clean/bin/python" "$RUNNER_TEMP"/nbinlineai-dist/*.whl
+          uv pip check --python "$RUNNER_TEMP/nbinlineai-clean/bin/python"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/nbinlineai-clean/bin/python" -I -c 'import importlib.metadata as m, pathlib, sys; import nbinlineai; p = pathlib.Path(nbinlineai.__file__).resolve(); assert p.is_relative_to(pathlib.Path(sys.prefix).resolve()); assert m.version("nbinlineai"); assert (pathlib.Path(sys.prefix) / "share/jupyter/labextensions/nbinlineai/package.json").is_file(); assert (pathlib.Path(sys.prefix) / "etc/jupyter/jupyter_server_config.d/nbinlineai.json").is_file()'
+          "$RUNNER_TEMP/nbinlineai-clean/bin/python" -I - <<'PYTHON'
+          import re, subprocess, sys
+          from pathlib import Path
+          jupyter = str(Path(sys.prefix) / "bin/jupyter")
+          for arguments in (["labextension", "list"], ["server", "extension", "list"]):
+              result = subprocess.run([jupyter, *arguments], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+              output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+              print(output)
+              assert re.search(r"nbinlineai[^\n]*\benabled\b", output), "nbinlineai must be enabled"
+              assert re.search(r"nbinlineai[^\n]*\bOK\b", output), "nbinlineai must validate successfully"
+          PYTHON
+      - name: Install Chromium for the isolated browser suite
+        run: uv run --no-sync jlpm playwright install --with-deps chromium
+      - name: Run deterministic browser suite on an owned server
+        run: uv run --no-sync jlpm test:e2e --max-failures=5
+      - name: Preserve browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-diagnostics
+          path: test-results/
+          if-no-files-found: ignore

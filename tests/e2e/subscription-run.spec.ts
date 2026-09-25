@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
 test.skip(process.env.NBINLINEAI_E2E_SUBSCRIPTION !== '1',
   'Run with the isolated fake ChatGPT manager, never a real account');

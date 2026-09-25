@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('Keep answer blocks a completed rerun, then an explicit opt-out uses current defaults after reload', async ({ page, request }) => {
   await request.get('/lab');
@@ -67,7 +67,7 @@ test('Keep answer blocks a completed rerun, then an explicit opt-out uses curren
   expect(body).toMatchObject({ backend: 'openai_api', model: 'gpt-6-luna', prompt_mode: 'full', reasoning_effort: 'high' });
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   await expect(notebook.locator('.nbinlineai-response-cell')).toHaveCount(1);
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   const saved = await request.get(`/api/contents/${name}?content=1`);
   const content = (await saved.json()).content;
@@ -136,7 +136,7 @@ test('notebook Keep answers default and cell on/off overrides persist and can re
   await cellKeep.uncheck();
   await expect(run).toBeEnabled();
 
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   let saved = (await (await request.get(`/api/contents/${name}?content=1`)).json()).content;
   expect(saved.metadata.nbinlineai.defaults.keepAnswers).toBe(true);
@@ -153,7 +153,7 @@ test('notebook Keep answers default and cell on/off overrides persist and can re
   await notebookKeep.uncheck();
   await expect(cellKeep).not.toBeChecked();
   await expect(run).toBeEnabled();
-  await page.keyboard.press('Meta+s');
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByText('Saving completed')).toBeVisible();
   saved = (await (await request.get(`/api/contents/${name}?content=1`)).json()).content;
   expect(saved.metadata.nbinlineai.defaults.keepAnswers).toBe(false);

@@ -6,6 +6,48 @@ title: Development
 
 Students can install the prebuilt package without this setup. Contributors need Python 3.12+, Node.js 22.12+ (or 20.19+), uv, and JupyterLab 4.2 or newer.
 
+## Install the ongoing experimental branch in a JupyterLab project
+
+Notebook-agent execution experiments live on the long-running
+[`codex/agentic-notebook-experiments` branch](https://github.com/rahuldave/nbinlineai/tree/codex/agentic-notebook-experiments).
+From the directory of the **uv project that starts your Jupyter server**, run:
+
+```bash
+uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments
+uv run jupyter labextension list
+uv run jupyter server extension list
+uv run jupyter lab
+```
+
+If the directory has no `pyproject.toml`, create a uv project there first with
+`uv init`. The `uv add` command also replaces a prior PyPI `nbinlineai`
+dependency in that project with the Git source. It installs JupyterLab as a
+dependency of nbinlineai. Run JupyterLab through the same uv project so that
+its server sees both the Python and frontend extensions. If a Jupyter server
+is already running, restart that server after installation; refreshing the
+browser or restarting only a notebook kernel will not load the new server
+extension.
+
+This Git install builds the Python package and its prebuilt JupyterLab
+frontend **from source**. Have Node.js 22.12+ (or 20.19+) available for the
+frontend build. It does not require `jupyter labextension install`, which is
+the source-extension route, and it does not select the published PyPI package.
+
+`uv.lock` pins the exact Git commit it installed. After new commits are pushed
+to the branch, update that one dependency in your JupyterLab project with:
+
+```bash
+uv lock --upgrade-package nbinlineai
+uv sync
+```
+
+Then restart your Jupyter server. Commit the consuming project's
+`pyproject.toml` and `uv.lock` if you want to reproduce its chosen branch
+commit. `jupyter labextension list` shows the package's version, which may
+still read `0.1.14` on this branch; check `uv.lock` to see the Git commit.
+Branch installs remain experimental and are separate from releases published
+on PyPI.
+
 ## Set up from source
 
 ```bash
@@ -83,3 +125,30 @@ After a frontend build and relink, refresh the core notebook screenshots with `u
 The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Example notebooks and their data fixture are installed under `share/doc/nbinlineai/examples/`; keep their relative layout intact. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
 
 See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.
+
+
+## Branches and worktrees
+
+Keep the primary checkout on `main`. Develop changes in separate topic
+worktrees, using a temporary `codex/*` branch based on the intended integration
+target. Stable fixes and release preparation start from `main` and return there
+through reviewed pull requests.
+
+`codex/agentic-notebook-experiments` is a persistent integration branch. Develop
+individual changes on temporary `codex/*` topics created from it, then use
+reviewed pull requests **back to that branch**. The same PR and CI discipline
+applies to `main`. Promoting an experiment to `main` is a separate decision.
+
+After integration, remove only the completed task's clean worktrees and verified
+merged temporary branches. Preserve the primary checkout, the experimental
+branch, and other tasks' worktrees. Record any unfinished or uncommitted work
+before considering cleanup.
+Keep the experimental branch after promotion so future work can continue there.
+
+The project-local Gest skills and the repository's internal workflow notes
+record issue scope, independent adversarial review, verification and cleanup.
+`just lint`, `just typecheck`, `just test`, and `just browser` map existing
+commands; `just browser` rebuilds and relinks first. CI additionally checks
+built archives and fresh wheel installation. Experimental PR merges update
+Git source and do not publish a PyPI release. The source commit in `uv.lock`
+identifies the installed snapshot even while the package version is unchanged.

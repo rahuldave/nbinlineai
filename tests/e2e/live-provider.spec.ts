@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 for (const provider of ['openai_api', 'anthropic_api'] as const) {
   test(`${provider} answers one short prompt using a real Python kernel`, async ({ page, request }) => {

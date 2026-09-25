@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/e2e-fixtures';
 
 test('Configure AI recovers after a temporary settings 404 and keeps a successful save visible', async ({ page, request }) => {
   await page.route('**/nbinlineai/settings/keys', async route => {
