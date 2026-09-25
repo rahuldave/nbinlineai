@@ -1,5 +1,25 @@
 # Developer handoff
 
+**Long-running experimental branch (2026-09-25):** This work lives on
+`codex/agentic-notebook-experiments`, separate from published `main`. The
+branch is intended to stay installable in a user's JupyterLab uv project via
+`uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments`.
+See [Development](../docs/development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project)
+for Node build requirements, environment checks, and commit-pinned updates.
+Continue agentic-notebook experiments here unless the user changes direction.
+
+**2026-09-25 research only:** [Notebook execution handoffs](notebook_execution_handoffs.md)
+collects Solveit, Jupyter AI/MCP, RLM, Jupyter kernel, and Python 3.14 prior
+art. It proposes separately addressable prompt → code and code → prompt
+handoffs within one live notebook/kernel, composed only after each boundary
+is clear. No execution-handoff behavior, release, or public documentation
+changed.
+The follow-on [one-kernel RLM and Python 3.14 note](one_kernel_rlm_python314.md)
+distinguishes an RLM algorithm from its execution venue, maps the main shell,
+background work, server-owned model loop, Jupyter subshell, and Python 3.14
+subinterpreter options, and defers multiple kernels until these one-kernel
+semantics are understood. No RLM or concurrency behavior has shipped.
+
 **0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The
 connection picker in the dialog remains setup/status; the notebook's **AI

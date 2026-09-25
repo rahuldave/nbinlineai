@@ -14,6 +14,13 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
 
 ## Project constraints
 
+- Keep the ongoing notebook-agent experiments on the long-running
+  `codex/agentic-notebook-experiments` branch. This includes identified-cell
+  execution handoffs, one-kernel RLM/Python 3.14 work, and later multi-kernel
+  research. Continue that branch across tasks unless the user explicitly
+  directs otherwise; do not silently move experimental work onto `main`.
+  Keep the branch buildable as a Git-source `uv` dependency and update its
+  installation instructions in [Development](docs/development.md) when needed.
 - Use **uv** and this repository's environment. Use `uv run --no-sync jlpm ...` for the frontend after setup. See [Development](docs/development.md) for bootstrap and commands.
 - **Do not use, stop, restart, or test against the user's JupyterLab on port 8888.** Browser tests own an isolated server on 8897, use temporary notebooks/config/keys, and refuse 8888. Stop only servers you started.
 - Never print or commit `.env`, `.pypirc`, provider keys, credential JSON contents, browser tokens, or personal notebook data. Use deterministic provider tests by default. Live tests incur API charges.

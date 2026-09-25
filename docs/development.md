@@ -6,6 +6,46 @@ title: Development
 
 Students can install the prebuilt package without this setup. Contributors need Python 3.12+, Node.js 22.12+ (or 20.19+), uv, and JupyterLab 4.2 or newer.
 
+## Install the ongoing experimental branch in a JupyterLab project
+
+Notebook-agent execution experiments live on the long-running
+[`codex/agentic-notebook-experiments` branch](https://github.com/rahuldave/nbinlineai/tree/codex/agentic-notebook-experiments).
+From the directory of the **uv project that starts your Jupyter server**, run:
+
+```bash
+uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments
+uv run jupyter labextension list
+uv run jupyter server extension list
+uv run jupyter lab
+```
+
+If the directory has no `pyproject.toml`, create a uv project there first with
+`uv init`. The `uv add` command also replaces a prior PyPI `nbinlineai`
+dependency in that project with the Git source. It installs JupyterLab as a
+dependency of nbinlineai. Run JupyterLab through the same uv project so that
+its server sees both the Python and frontend extensions. If a Jupyter server
+is already running, restart that server after installation; refreshing the
+browser or restarting only a notebook kernel will not load the new server
+extension.
+
+This Git install builds the Python package and its prebuilt JupyterLab
+frontend **from source**. Have Node.js 22.12+ (or 20.19+) available for the
+frontend build. It does not require `jupyter labextension install`, which is
+the source-extension route, and it does not select the published PyPI package.
+
+`uv.lock` pins the exact Git commit it installed. After new commits are pushed
+to the branch, update that one dependency in your JupyterLab project with:
+
+```bash
+uv lock --upgrade-package nbinlineai
+uv sync
+```
+
+Then restart your Jupyter server. Commit the consuming project's
+`pyproject.toml` and `uv.lock` if you want to reproduce its chosen branch
+commit. Branch installs remain experimental and are separate from releases
+published on PyPI.
+
 ## Set up from source
 
 ```bash
