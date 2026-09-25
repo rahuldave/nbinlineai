@@ -16,8 +16,9 @@ and passed after implementation. The focused isolated browser suite passed
 18/18; after an independent review suggestion, the panel-focus change passed
 its isolated browser rerun. The Python suite passed 266/266, frontend unit
 tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The
-simulated screenshots now show both tabs. README and public docs distinguish
-this Git-source layout from PyPI 0.1.14. Review and CI are required before
+simulated screenshots now show both tabs. README, the public site home and user
+guide, and configuration-related manual/FAQ pages distinguish this Git-source
+layout from PyPI 0.1.14. Review and CI are required before
 integration; PyPI remains 0.1.14, with packaging and release work reserved
 for a later accumulated drop.
 

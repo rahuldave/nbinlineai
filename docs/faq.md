@@ -292,7 +292,7 @@ distinguishes successful tests from the still-unconfirmed shutdown report.
 
 ### Do I need an API key or a separate Codex installation for ChatGPT?
 
-No. Choose **ChatGPT subscription** in **Configure AI**, sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
+No. In current Git source, open **Configure AI → Connections & models** and choose **ChatGPT subscription**; PyPI 0.1.14 shows the same setup in one scrolling dialog. Sign in through the browser or use the displayed device code, select an available model and effort, and click **Use for this notebook**. The package supplies its own runtime on supported platforms. Opening setup or signing in does not edit the notebook; Use for this notebook is the explicit save action. OpenAI and Anthropic API keys remain separate connections with separate billing.
 
 If browser sign-in is blocked or cannot return to the server, choose **Use device code**. Open the displayed verification link in your usual browser profile, enter the code from Configure AI, complete sign-in there, and return to the notebook. **Check connection** refreshes a status that has not yet changed; **Cancel sign-in** stops a pending attempt. A normal browser profile, such as Safari, may work when an automated browser shows a challenge, but it is not a guarantee.
 

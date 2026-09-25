@@ -8,10 +8,12 @@ title: nbinlineai
 
 **New in 0.1.14:** choose a default connection for notebooks without saved choices, keep cell provider choices inherited unless explicitly overridden, and see a clean waiting answer cell before text streams in.
 
+**In current Git source (unreleased):** Configure AI has **Connections & models** for ChatGPT sign-in and API keys, and **Defaults** for your new-notebook connection, response style, and style instructions. PyPI 0.1.14 shows these controls in one scrolling dialog.
+
 ## Start here
 
 1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook and use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Set **Default connection for new notebooks** there if you want a user preference.
+2. Open a Python notebook. In current Git source, use **Configure AI → Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults → Default connection for new notebooks** if you want a user preference.
 3. Choose this notebook's connection, model, and style in **AI defaults**. Individual cells inherit them unless overridden.
 4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
 
@@ -100,7 +102,7 @@ Version 0.1.8 adds selectable notebook context.
 ## Notebook conversations
 
 - Set provider, model, style, and effort once per notebook, with optional cell overrides.
-- Edit the built-in **Compact**, **Full**, and **Learning** instructions in Configure AI.
+- In current Git source, edit the built-in **Compact**, **Full**, and **Learning** instructions in **Configure AI → Defaults**.
 - Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
 - Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
 
