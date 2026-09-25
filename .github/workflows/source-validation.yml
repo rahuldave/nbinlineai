@@ -68,3 +68,10 @@ jobs:
         run: uv run --no-sync jlpm playwright install --with-deps chromium
       - name: Run deterministic browser suite on an owned server
         run: uv run --no-sync jlpm test:e2e
+      - name: Preserve browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-diagnostics
+          path: test-results/
+          if-no-files-found: ignore

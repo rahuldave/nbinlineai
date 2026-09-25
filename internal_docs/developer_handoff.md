@@ -6,7 +6,8 @@ branch is intended to stay installable in a user's JupyterLab uv project via
 `uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments`.
 See [Development](../docs/development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project)
 for Node build requirements, environment checks, and commit-pinned updates.
-Continue agentic-notebook experiments here unless the user changes direction.
+Continue agentic-notebook experiments with topic PRs targeting this branch
+unless the user changes direction. See [Project workflow](workflow.md).
 The branch was pushed at `a316494f8c3a6c391f142b97b2bb02ad8aec8b11`.
 An isolated disposable uv project installed directly from that Git branch on
 Python 3.14, built the source distribution's frontend, and locked that exact
