@@ -2,9 +2,10 @@
 
 **0.1.15 published (2026-09-25):** The two-tab Configure AI source merged by
 PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate
-release worktree is `/Users/rahul/Projects/nbinlineai-release-0.1.15`, now on
-`codex/release-0-1-15-record` for the publication record; the primary checkout
-is on `main`. Python, npm, and the uv lockfile say 0.1.15. README and the live
+release used `/Users/rahul/Projects/nbinlineai-release-0.1.15` on
+`codex/release-0-1-15-record` for the publication record. That temporary
+worktree was retired after PR #14 merged; the primary checkout remains on
+`main`. Python, npm, and the uv lockfile say 0.1.15. README and the live
 site describe the tabs; GitHub Pages deployment `36193258731` passed. The
 published annotated `v0.1.15` tag peels to `9a435c54`. Both PyPI downloads
 match the checked local hashes, and a fresh public Python 3.14 install passed
@@ -20,10 +21,11 @@ editors. Switching tabs or picking a connection only changes what setup is
 shown; existing notebook choices still use its **AI defaults** row or ChatGPT's
 **Use for this notebook**. The tab strip supports mouse and arrow/Home/End keys,
 and its temporary keyboard listener is removed when the dialog closes. The
-topic worktree is `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch
+topic worktree was `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch
 `codex/oyrmsltk-configure-tabs`, based on main `fc229d323` after rebase (the
 original starting base was `2018551c`); the primary checkout was fast-forwarded
-to the reviewed merge afterward. The new browser tab test failed on the old dialog
+to the reviewed merge afterward, and the temporary worktree was retired after
+the release. The new browser tab test failed on the old dialog
 and passed after implementation. The focused isolated browser suite passed
 18/18; after an independent review suggestion, the panel-focus change passed
 its isolated browser rerun. The Python suite passed 266/266, frontend unit
