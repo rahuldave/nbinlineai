@@ -6,7 +6,7 @@ title: nbinlineai
 
 **nbinlineai** adds AI prompt cells to JupyterLab. Ask about the code and notes above a cell, refer to live Python values, and let a model call functions you explicitly name. Prompts and answers stay in the notebook as readable Markdown.
 
-**New in 0.1.15:** Configure AI has **Connections & models** for ChatGPT sign-in and API keys, and **Defaults** for your new-notebook connection, response style, and style instructions.
+**Website revision 0.1.16:** Read [the new prior-art article](prior-art.md) about Solveit and ai-jup. The installable package remains **0.1.15**; this revision changes documentation only.
 
 ## Start here
 
@@ -46,9 +46,14 @@ The [user guide index](user-guide.md) shows the reading order. Open the chapter 
 | [Examples guide](examples.md) | Try task walkthroughs and downloadable teaching notebooks. |
 | [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
+| [Prior art](prior-art.md) | How Solveit's interactive workflow and Hamel Husain's ai-jup inspired this extension. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.15
+## Website revision 0.1.16
+
+- Added [Prior art](prior-art.md), explaining Solveit's problem-solving approach, dialog controls, tools, and influence on Hamel Husain's ai-jup and nbinlineai.
+
+## New in package version 0.1.15
 
 - Configure AI separates connection setup and keys from user defaults. Select a connection to see its setup; set the default for new notebooks on the other tab.
 
