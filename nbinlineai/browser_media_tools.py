@@ -19,10 +19,18 @@ def cancel_operation(operation_id: str) -> BrowserReceipt:
 
 
 def save_media(media: dict, save_to: str = 'auto') -> BrowserReceipt:
-    """Save an owned in-memory media result to a new server-root-relative file."""
-    if not isinstance(media, dict) or not isinstance(media.get('media_id'), str):
-        raise TypeError('media must be a live media descriptor')
-    return request_browser_operation('save_media', {'media_id': media['media_id'], 'save_to': save_to})
+    """Save an owned memory result or exact saved-file reference to a new file."""
+    if not isinstance(save_to, str) or not save_to:
+        raise ValueError('save_to must name a destination; None is invalid for save_media')
+    if not isinstance(media, dict):
+        raise TypeError('media must be a memory or saved-file MediaRef')
+    if isinstance(media.get('media_id'), str):
+        reference = {'media_id': media['media_id']}
+    elif isinstance(media.get('path'), str) and isinstance(media.get('sha256'), str):
+        reference = {'path': media['path'], 'sha256': media['sha256']}
+    else:
+        raise TypeError('media must contain a media_id or exact path and sha256')
+    return request_browser_operation('save_media', {'media': reference, 'save_to': save_to})
 
 
 def release_media(media_id: str) -> BrowserReceipt:

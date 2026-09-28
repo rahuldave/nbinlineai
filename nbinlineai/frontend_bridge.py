@@ -105,7 +105,12 @@ def normalize_action(
         if name == 'save_media':
             if 'media' not in arguments or not isinstance(arguments['media'], dict):
                 raise ValueError('media must be a descriptor')
-            _text(arguments['media'].get('media_id'), 'media_id', 100)
+            media = arguments['media']
+            if isinstance(media.get('media_id'), str):
+                _text(media['media_id'], 'media_id', 100)
+            else:
+                _text(media.get('path'), 'path', 500)
+                _text(media.get('sha256'), 'sha256', 64)
             _text(arguments.get('save_to', 'auto'), 'save_to', 500)
         return arguments
     if name == "list_cells":

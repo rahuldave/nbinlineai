@@ -1,7 +1,7 @@
 /** Execution-bound comm dispatch for nonblocking Python browser receipts. */
 import { INotebookCellExecutor, NotebookPanel } from '@jupyterlab/notebook';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
-import { BrowserOperationContext, BrowserOperationRequest, BrowserOperationStatus, browserCapabilityFacts, observedMediaPermissions } from './browserMediaClient';
+import { BrowserMediaError, BrowserOperationContext, BrowserOperationRequest, BrowserOperationStatus, browserCapabilityFacts, observedMediaPermissions } from './browserMediaClient';
 
 const TARGET = 'nbinlineai.browser_media.v1';
 interface Origin { panel: NotebookPanel; model: INotebookCellExecutor.IRunCellOptions['notebook']; cellId: string; kernel: Kernel.IKernelConnection; }
@@ -45,7 +45,10 @@ class BrowserCommBridge {
     if (!origin || !validRequest(request) || request.execute_request_id !== parentId ||
         request.source_cell_id !== origin.cellId || origin.panel.isDisposed ||
         origin.panel.content.model !== origin.model ||
-        origin.panel.sessionContext.session?.kernel !== origin.kernel) return;
+        origin.panel.sessionContext.session?.kernel !== origin.kernel) {
+      comm.close();
+      return;
+    }
     const context = mediaContext(origin.panel, origin.kernel);
     let sentStatus = '';
     const send = async (state: BrowserOperationStatus, final = false, withBytes = true): Promise<void> => {
@@ -74,7 +77,9 @@ class BrowserCommBridge {
     };
     try {
       if (request.name === 'browser_capabilities') {
-        const state: BrowserOperationStatus = { operation_id: request.request_id, status: 'completed',
+        const created = await context.create(request);
+        await context.transition(created.operation_id, 'completed', { checked: true });
+        const state: BrowserOperationStatus = { operation_id: created.operation_id, status: 'completed',
           result: { secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
             limits: { image_max_side: 4096, image_max_pixels: 16000000,
               batch_max_items: 12, batch_max_decoded_pixels: 32000000,
@@ -86,20 +91,35 @@ class BrowserCommBridge {
         await send(state, true, false); return;
       }
       if (request.name === 'operation_status') {
-        const snapshot = await context.status(String(request.arguments.operation_id));
-        await send({ operation_id: request.request_id, status: 'completed',
+        const targetId = String(request.arguments.operation_id);
+        const snapshot = await context.status(targetId);
+        await send({ operation_id: targetId, status: 'completed',
           result: snapshot as unknown as Record<string, unknown> }, true, false); return;
       }
       if (request.name === 'cancel_operation') {
         await send(await context.cancel(String(request.arguments.operation_id)), true, false); return;
       }
       if (request.name === 'save_media') {
-        const media = await context.save(String(request.arguments.media_id), String(request.arguments.save_to ?? 'auto'), request.request_id);
-        await send({ operation_id: request.request_id, status: 'completed', media }, true, false); return;
+        const reference = request.arguments.media as { media_id: string } | { path: string; sha256: string };
+        const saveTo = request.arguments.save_to;
+        if (typeof saveTo !== 'string' || !saveTo) throw new Error('save_to must name a destination');
+        const saved = await context.save(reference, saveTo, request.request_id);
+        await send({ operation_id: saved.operation_id, status: 'completed', media: saved.media }, true, false); return;
       }
       if (request.name === 'release_media') {
-        await context.release(String(request.arguments.media_id));
-        await send({ operation_id: request.request_id, status: 'completed', result: { released: true } }, true, false); return;
+        const created = await context.create(request);
+        try {
+          await context.release(String(request.arguments.media_id));
+          await context.transition(created.operation_id, 'completed', { released: true });
+          await send({ operation_id: created.operation_id, status: 'completed', result: { released: true } }, true, false);
+        } catch (error) {
+          const failed = await context.transition(created.operation_id, 'failed', undefined, {
+            code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+            message: error instanceof Error ? error.message.slice(0, 300) : 'Media release failed'
+          });
+          await send(failed, true, false);
+        }
+        return;
       }
       const state = await context.start(request);
       if (state.status === 'completed' || state.status === 'failed') { await send(state, true); return; }
@@ -128,7 +148,8 @@ class BrowserCommBridge {
       context.addCleanup(() => { window.clearInterval(timer); window.clearTimeout(deadline); comm.close(); });
     } catch (error) {
       await send({ operation_id: request.request_id, status: 'failed', error: {
-        code: 'unsupported', message: error instanceof Error ? error.message.slice(0, 300) : 'Browser operation failed'
+        code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+        message: error instanceof Error ? error.message.slice(0, 300) : 'Browser operation failed'
       } }, true);
     }
   }

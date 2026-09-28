@@ -18,6 +18,9 @@ export interface BrowserOperationStatus {
   error?: { code: string; message: string };
 }
 export type { BrowserCapabilityFact } from './browserMediaCapabilities';
+export class BrowserMediaError extends Error {
+  constructor(readonly code: string, message: string) { super(message); }
+}
 export interface BrowserSource {
   sourceId: string;
   kind: 'camera' | 'microphone' | 'screen' | 'canvas';
@@ -40,6 +43,7 @@ export function registerBrowserOperation(name: string, handler: BrowserOperation
 export function browserCapabilityFacts(): ReturnType<typeof boundedCapabilityFacts> {
   return boundedCapabilityFacts(Array.from(handlers, ([name, entry]) => [name, entry.capability()]));
 }
+export function hasBrowserOperation(name: string): boolean { return handlers.has(name); }
 export async function observedMediaPermissions(): Promise<Record<string, string>> {
   const states: Record<string, string> = {};
   if (!navigator.permissions?.query) return states;
@@ -77,9 +81,11 @@ export class BrowserOperationContext {
   private ownerSecret: string | undefined;
   private readyPromise: Promise<void> | undefined;
   private readonly controllers = new Map<string, AbortController>();
+  private readonly dispatched = new Set<string>();
   private readonly operationCleanup = new Map<string, Set<() => void>>();
   private readonly mediaCleanup = new Map<string, Set<() => void>>();
   private readonly sources = new Map<string, BrowserSource>();
+  private readonly sourceListeners = new Map<string, Array<[MediaStreamTrack, () => void]>>();
   private readonly onDispose = new Set<() => void>();
   private readonly listeners = new Set<(operation: BrowserOperationStatus) => void>();
   private lease: number | undefined;
@@ -107,7 +113,8 @@ export class BrowserOperationContext {
       body: JSON.stringify({ ...this.identity(), ...body })
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data?.error?.message || `Browser operation failed (${response.status}).`);
+    if (!response.ok) throw new BrowserMediaError(data?.error?.code || 'unsupported',
+      data?.error?.message || `Browser operation failed (${response.status}).`);
     if (command !== 'close') this.identity();
     return data;
   }
@@ -156,15 +163,16 @@ export class BrowserOperationContext {
   }
   async cancel(operationId: string): Promise<BrowserOperationStatus> {
     this.controllers.get(operationId)?.abort();
-    this.operationCleanup.get(operationId)?.forEach(cleanup => cleanup());
+    this.operationCleanup.get(operationId)?.forEach(cleanup => { try { cleanup(); } catch { /* continue cancellation */ } });
     this.operationCleanup.delete(operationId);
     const updated = await this.command('cancel', { operation_id: operationId });
     this.emit(updated);
     return updated;
   }
-  async save(mediaId: string, saveTo = 'auto', requestId = randomId()): Promise<Record<string, unknown>> {
-    const result = await this.command('save', { media_id: mediaId, save_to: saveTo, request_id: requestId });
-    return result.media;
+  async save(reference: { media_id: string } | { path: string; sha256: string },
+    saveTo = 'auto', requestId = randomId()): Promise<{ media: Record<string, unknown>; operation_id: string }> {
+    const result = await this.command('save', { media: reference, save_to: saveTo, request_id: requestId });
+    return result;
   }
   async release(mediaId: string): Promise<void> {
     await this.command('release', { media_id: mediaId });
@@ -193,7 +201,8 @@ export class BrowserOperationContext {
         signal: controller.signal
       });
       const status = await response.json();
-      if (!response.ok) throw new Error(status?.error?.message || 'Media upload failed.');
+      if (!response.ok) throw new BrowserMediaError(status?.error?.code || 'unsupported',
+        status?.error?.message || 'Media upload failed.');
       this.emit(status);
       return status;
     } finally { /* the operation owns cancellation until it reaches a terminal state */ }
@@ -211,7 +220,7 @@ export class BrowserOperationContext {
     const response = await fetch(endpoint(`nbinlineai/browser-media-bytes/${encodeURIComponent(mediaId)}`), {
       credentials: 'same-origin', headers: requestHeaders
     });
-    if (!response.ok) throw new Error('Media result expired or is unavailable.');
+    if (!response.ok) throw new BrowserMediaError('stale_target', 'Media result expired or is unavailable.');
     return response;
   }
   async fetchReference(reference: { media_id: string } | { path: string; sha256: string }): Promise<{ data: ArrayBuffer; mimeType: string; sha256: string }> {
@@ -225,7 +234,7 @@ export class BrowserOperationContext {
       method: 'POST', credentials: 'same-origin', headers: headers(this.ownerSecret),
       body: JSON.stringify({ ...this.identity(), media: reference })
     });
-    if (!response.ok) throw new Error('Saved media changed or is unavailable.');
+    if (!response.ok) throw new BrowserMediaError('stale_target', 'Saved media changed or is unavailable.');
     return { data: await response.arrayBuffer(), mimeType: response.headers.get('Content-Type') || '',
       sha256: response.headers.get('X-NBInlineAI-SHA256') || '' };
   }
@@ -236,10 +245,11 @@ export class BrowserOperationContext {
   emit(status: BrowserOperationStatus): void {
     if (['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) {
       this.controllers.delete(status.operation_id);
-      this.operationCleanup.get(status.operation_id)?.forEach(cleanup => cleanup());
+      this.dispatched.delete(status.operation_id);
+      this.operationCleanup.get(status.operation_id)?.forEach(cleanup => { try { cleanup(); } catch { /* continue cleanup */ } });
       this.operationCleanup.delete(status.operation_id);
     }
-    this.listeners.forEach(listener => listener(status));
+    this.listeners.forEach(listener => { try { listener(status); } catch { /* keep other status listeners live */ } });
   }
   operationSignal(operationId: string): AbortSignal {
     const controller = this.controllers.get(operationId);
@@ -258,11 +268,16 @@ export class BrowserOperationContext {
   }
   registerSource(source: Omit<BrowserSource, 'sourceId' | 'state'>): BrowserSource {
     this.identity();
+    if (this.sources.size >= 16) throw new Error('Too many live browser sources.');
     const registered: BrowserSource = { ...source, sourceId: randomId(), state: 'live' };
     this.sources.set(registered.sourceId, registered);
-    for (const track of registered.tracks) track.addEventListener('ended', () => {
-      void this.endSource(registered.sourceId, 'source_ended');
-    }, { once: true });
+    const listeners: Array<[MediaStreamTrack, () => void]> = [];
+    for (const track of registered.tracks) {
+      const ended = (): void => { void this.endSource(registered.sourceId, 'source_ended'); };
+      track.addEventListener('ended', ended, { once: true });
+      listeners.push([track, ended]);
+    }
+    this.sourceListeners.set(registered.sourceId, listeners);
     return registered;
   }
   source(sourceId: string): BrowserSource {
@@ -275,6 +290,9 @@ export class BrowserOperationContext {
     const source = this.sources.get(sourceId);
     if (!source || source.state === 'stopped') return;
     source.state = 'stopped';
+    this.sources.delete(sourceId);
+    this.sourceListeners.get(sourceId)?.forEach(([track, listener]) => track.removeEventListener('ended', listener));
+    this.sourceListeners.delete(sourceId);
     source.tracks.forEach(track => track.stop());
     await source.onEnded(reason);
   }
@@ -285,9 +303,13 @@ export class BrowserOperationContext {
     if (!entry.capability().available) throw new Error(entry.capability().reason || 'Browser operation is unavailable.');
     const status = await this.create(request);
     this.emit(status);
+    if (this.dispatched.has(status.operation_id) ||
+        ['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) return status;
+    this.dispatched.add(status.operation_id);
     void entry.handler(this, request, status).catch(async error => {
       try { this.emit(await this.transition(status.operation_id, 'failed', undefined, {
-        code: 'unsupported', message: error instanceof Error ? error.message.slice(0, 400) : 'Browser operation failed'
+        code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+        message: error instanceof Error ? error.message.slice(0, 400) : 'Browser operation failed'
       })); } catch { /* the owner may already have closed */ }
     });
     return status;
@@ -299,11 +321,11 @@ export class BrowserOperationContext {
     if (this.lease !== undefined) window.clearInterval(this.lease);
     this.controllers.forEach(controller => controller.abort());
     await Promise.allSettled(Array.from(this.sources, ([sourceId]) => this.endSource(sourceId, 'cancelled')));
-    this.operationCleanup.forEach(cleanups => cleanups.forEach(cleanup => cleanup()));
+    this.operationCleanup.forEach(cleanups => cleanups.forEach(cleanup => { try { cleanup(); } catch { /* continue teardown */ } }));
     this.operationCleanup.clear();
-    this.mediaCleanup.forEach(cleanups => cleanups.forEach(cleanup => cleanup()));
+    this.mediaCleanup.forEach(cleanups => cleanups.forEach(cleanup => { try { cleanup(); } catch { /* continue teardown */ } }));
     this.mediaCleanup.clear();
-    this.onDispose.forEach(cleanup => cleanup());
+    this.onDispose.forEach(cleanup => { try { cleanup(); } catch { /* continue teardown */ } });
     await closing;
     // The lease is the fallback if pagehide prevents a final authenticated request.
   }

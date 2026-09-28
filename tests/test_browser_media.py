@@ -3,6 +3,9 @@
 import hashlib
 import io
 import json
+import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from PIL import Image
@@ -121,6 +124,8 @@ def test_batch_upload_and_directory_save(tmp_path):
     assert registry.upload_part(browser, op.id, 0, first, 'image/png', hashlib.sha256(first).hexdigest())['status'] == 'running'
     assert registry.upload_part(browser, op.id, 0, first, 'image/png', hashlib.sha256(first).hexdigest())['result']['media_count'] == 1
     with pytest.raises(MediaError, match='changed'):
+        registry.upload_part(browser, op.id, 0, first, 'image/jpeg', hashlib.sha256(first).hexdigest())
+    with pytest.raises(MediaError, match='changed'):
         registry.upload_part(browser, op.id, 0, second, 'image/png', hashlib.sha256(second).hexdigest())
     registry.upload_part(browser, op.id, 1, second, 'image/png', hashlib.sha256(second).hexdigest())
     done = registry.finish_batch(browser, op.id, 'frames')
@@ -229,3 +234,163 @@ def test_exact_saved_media_ref_and_symlink_rejection(tmp_path):
     (tmp_path / 'linked.png').symlink_to(outside)
     with pytest.raises(MediaError, match='unavailable'):
         registry.resolve_ref(browser, {'path': 'linked.png', 'sha256': reference['sha256']})
+
+
+def test_saved_file_ref_copy_release_and_exact_dedup(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = png()
+    (tmp_path / 'original.png').write_bytes(data)
+    reference = {'path': 'original.png', 'sha256': hashlib.sha256(data).hexdigest()}
+    first = registry.save_media(browser, reference, request_id='same')
+    assert first == registry.save_media(browser, reference, request_id='same')
+    assert len(list(tmp_path.rglob('capture-*.png'))) == 1
+    second = registry.save_media(browser, reference, request_id='different')
+    assert second['path'] != first['path']
+    assert registry.media[first['media_id']].path == first['path']
+    registry.release_media(browser, first['media_id'])
+    assert (tmp_path / first['path']).read_bytes() == data
+    assert (tmp_path / second['path']).read_bytes() == data
+    with pytest.raises(MediaError, match='different arguments'):
+        registry.save_media(browser, reference, 'other.png', request_id='same')
+
+
+def test_concurrent_save_request_publishes_once_and_owner_loss_cancels(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = png()
+    (tmp_path / 'source.png').write_bytes(data)
+    reference = {'path': 'source.png', 'sha256': hashlib.sha256(data).hexdigest()}
+    entered = threading.Event()
+    resume = threading.Event()
+    real_save = registry._save
+
+    def stalled(*args, **kwargs):
+        entered.set()
+        assert resume.wait(3)
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', stalled)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(registry.save_media, browser, reference, 'auto', 'one')
+        assert entered.wait(3)
+        second = pool.submit(registry.save_media, browser, reference, 'auto', 'one')
+        resume.set()
+        assert first.result(timeout=3) == second.result(timeout=3)
+    assert len(list(tmp_path.rglob('capture-*.png'))) == 1
+
+    entered.clear()
+    resume.clear()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(registry.save_media, browser, reference, 'auto', 'two')
+        assert entered.wait(3)
+        registry.expire_owner(browser)
+        resume.set()
+        with pytest.raises(MediaError, match='cancelled'):
+            pending.result(timeout=3)
+    assert len(list(tmp_path.rglob('capture-*.png'))) == 1
+
+
+def test_batch_cancel_during_save_cannot_complete_or_leave_file(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    op = registry.create(browser, 'batch-cancel-race', 'extract_frames', {})
+    registry.begin_batch(browser, op.id, 1)
+    data = png()
+    registry.upload_part(browser, op.id, 0, data, 'image/png', hashlib.sha256(data).hexdigest())
+    entered = threading.Event()
+    resume = threading.Event()
+    real_save = registry._save
+
+    def stalled(*args, **kwargs):
+        entered.set()
+        assert resume.wait(3)
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', stalled)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(registry.finish_batch, browser, op.id, 'frames')
+        assert entered.wait(3)
+        assert registry.cancel(browser, op.id)['status'] == 'cancelled'
+        resume.set()
+        with pytest.raises(MediaError, match='cancelled'):
+            pending.result(timeout=3)
+    assert op.status == 'cancelled'
+    assert not list(tmp_path.rglob('*.png'))
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='FIFO needs POSIX')
+def test_saved_media_ref_rejects_fifo_without_blocking(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    os.mkfifo(tmp_path / 'pipe.png')
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(registry.resolve_ref, browser, {'path': 'pipe.png', 'sha256': '0' * 64})
+        with pytest.raises(MediaError, match='regular file'):
+            result.result(timeout=2)
+
+
+def test_rollback_preserves_replaced_file(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = png()
+    media = Media('rollback', browser, data, 'image/png', hashlib.sha256(data).hexdigest(), 2000.0)
+    path = registry._save(browser, media, 'frames/part-01.png')
+    replacement = tmp_path / 'replacement.png'
+    replacement.write_bytes(b'replacement')
+    os.replace(replacement, tmp_path / path)
+    registry._unlink_saved(path)
+    assert (tmp_path / path).read_bytes() == b'replacement'
+
+
+def test_auto_directory_freezes_per_request_across_notebook_rename(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    before = registry.create(browser, 'before', 'capture', {})
+    registry.bind('session', 'kernel', 'renamed/new.ipynb', 'model', 'client', browser.secret)
+    after = registry.create(browser, 'after', 'capture', {})
+    data = png()
+    digest = hashlib.sha256(data).hexdigest()
+    first = registry.upload(browser, before.id, data, 'image/png', digest, save_to='auto')
+    second = registry.upload(browser, after.id, data, 'image/png', digest, save_to='auto')
+    assert first['media']['path'].startswith('folder/media/')
+    assert second['media']['path'].startswith('renamed/media/')
+
+    source = tmp_path / 'source.png'
+    source.write_bytes(data)
+    reference = {'path': source.name, 'sha256': digest}
+    saved = registry.save_media(browser, reference, request_id='file-before')
+    registry.bind('session', 'kernel', 'later/moved.ipynb', 'model', 'client', browser.secret)
+    assert registry.save_media(browser, reference, request_id='file-before') == saved
+    newest = registry.save_media(browser, reference, request_id='file-after')
+    assert saved['path'].startswith('renamed/media/')
+    assert newest['path'].startswith('later/media/')
+
+
+def test_batch_rollback_uses_original_directory_after_symlink_swap(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    op = registry.create(browser, 'batch-swap', 'extract_frames', {})
+    registry.begin_batch(browser, op.id, 2)
+    data = png()
+    for index in range(2):
+        registry.upload_part(browser, op.id, index, data, 'image/png', hashlib.sha256(data).hexdigest())
+    outside = tmp_path.parent / f'{tmp_path.name}-victim'
+    outside.mkdir()
+    (outside / 'part-01.png').write_bytes(b'victim')
+    real_save = registry._save
+    calls = [0]
+
+    def swap_after_first(*args, **kwargs):
+        calls[0] += 1
+        if calls[0] == 2:
+            (tmp_path / 'frames').rename(tmp_path / 'frames-original')
+            (tmp_path / 'frames').symlink_to(outside, target_is_directory=True)
+            raise MediaError('path_conflict', 'Destination already exists')
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', swap_after_first)
+    with pytest.raises(MediaError, match='exists'):
+        registry.finish_batch(browser, op.id, 'frames')
+    assert not (tmp_path / 'frames-original' / 'part-01.png').exists()
+    assert (outside / 'part-01.png').read_bytes() == b'victim'

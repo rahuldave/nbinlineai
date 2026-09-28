@@ -1,6 +1,7 @@
 """Authenticated Jupyter Server HTTP endpoints for prompt cells."""
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -324,6 +325,7 @@ class BrowserMediaHandler(APIHandler):
         self.dispatcher = dispatcher
         self.media_registry = media_registry
 
+
     async def _owner(self, body, *, create=False):
         if not isinstance(body, dict):
             raise MediaError('invalid_argument', 'Expected a JSON object')
@@ -379,9 +381,15 @@ class BrowserMediaHandler(APIHandler):
             elif command == 'cancel':
                 self.finish(registry.cancel(owner, body.get('operation_id')))
             elif command == 'save':
-                descriptor = await asyncio.to_thread(registry.save_media, owner, body.get('media_id'),
-                                                     body.get('save_to'), body.get('request_id'))
-                self.finish({'media': descriptor})
+                reference = body.get('media', body.get('media_id'))
+                save_to = body.get('save_to')
+                if not isinstance(save_to, str) or not save_to:
+                    raise MediaError('invalid_argument', 'save_to must name a destination')
+                op = registry.create(owner, body.get('request_id'), 'save_media',
+                                     {'media': reference, 'save_to': save_to})
+                descriptor = await asyncio.to_thread(registry.save_media, owner,
+                                                     reference, save_to, body.get('request_id'))
+                self.finish({'media': descriptor, 'operation_id': op.id})
             elif command == 'release':
                 registry.release_media(owner, body.get('media_id'))
                 self.finish({'released': True})
@@ -394,6 +402,16 @@ class BrowserMediaHandler(APIHandler):
             self._error(exc)
 
 
+class BrowserMediaFixtureModeHandler(APIHandler):
+    """Enable the private fixture only in the disposable E2E server process."""
+
+    @authenticated
+    async def get(self):
+        if os.getenv('NBINLINEAI_E2E_MEDIA_FIXTURE') != '1':
+            raise HTTPError(404)
+        self.finish({'enabled': True})
+
+
 @stream_request_body
 class BrowserMediaBytesHandler(BrowserMediaHandler):
     """Raw binary ingress/egress, separate from action and model text envelopes."""
@@ -401,22 +419,46 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
     async def prepare(self):
         self._upload = bytearray()
         self._reserved_bytes = 0
+        await super().prepare()
         if self.request.method == 'POST':
+            if not self.current_user:
+                raise HTTPError(403, 'Browser media upload requires authentication')
+            allowed = self.authorizer.is_authorized(self, self.current_user, 'execute', 'kernels')
+            if inspect.isawaitable(allowed):
+                allowed = await allowed
+            if not allowed:
+                raise HTTPError(403, 'Browser media upload requires kernel authorization')
+            _require_single_user_server(self)
+            try:
+                owner = await self._byte_owner()
+                self.media_registry.operation(owner, self.path_args[0])
+            except MediaError as exc:
+                raise HTTPError(409, str(exc)) from exc
             length = self.request.headers.get('Content-Length')
             if length and int(length) > MAX_UPLOAD_BYTES:
                 raise HTTPError(413, 'Upload exceeds 50 MiB')
-        await super().prepare()
 
     def data_received(self, chunk):
         if (len(self._upload) + len(chunk) > MAX_UPLOAD_BYTES or
-                self.media_registry.inflight_bytes + len(chunk) > MAX_SERVER_BYTES):
+                sum(len(media.data) for media in self.media_registry.media.values()) +
+                self.media_registry.inflight_bytes + self.media_registry.reserved_save_bytes +
+                len(chunk) > MAX_SERVER_BYTES):
             raise HTTPError(413, 'Browser media upload limit exceeded')
         self._upload.extend(chunk)
         self._reserved_bytes += len(chunk)
         self.media_registry.inflight_bytes += len(chunk)
 
+    def _release_reservation(self):
+        reserved = getattr(self, '_reserved_bytes', 0)
+        self._reserved_bytes = 0
+        self.media_registry.inflight_bytes -= reserved
+
+    def on_connection_close(self):
+        self._release_reservation()
+        super().on_connection_close()
+
     def on_finish(self):
-        self.media_registry.inflight_bytes -= getattr(self, '_reserved_bytes', 0)
+        self._release_reservation()
         super().on_finish()
 
     async def _byte_owner(self):
@@ -457,13 +499,20 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
                 media = self.media_registry.media_ref(owner, op.media_id)
                 try:
                     path = await asyncio.to_thread(self.media_registry._save, owner, media,
-                                                   save_to, lambda: op.status == 'saving')
-                    if op.status != 'saving':
-                        (self.media_registry.root / path).unlink(missing_ok=True)
+                                                   save_to, lambda: not op.cancelled.is_set() and
+                                                   not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set())
+                    with self.media_registry._state_lock:
+                        active = (op.status == 'saving' and not op.cancelled.is_set() and
+                                  owner in self.media_registry.owner_cancelled and
+                                  self.media_registry.media.get(media.id) is media)
+                        if active:
+                            media.path = path
+                            op.status = 'completed'
+                            op.updated = self.media_registry._now()
+                            self.media_registry._forget_saved(path)
+                    if not active:
+                        self.media_registry._unlink_saved(path)
                         raise MediaError('cancelled', 'Save was cancelled')
-                    media.path = path
-                    op.status = 'completed'
-                    op.updated = self.media_registry._now()
                     status = self.media_registry.status(owner, operation_id)
                 except Exception as exc:
                     self.media_registry.media.pop(media.id, None)
@@ -713,6 +762,7 @@ def setup_handlers(web_app, *, subscription_manager=None):
         "subscription_manager": subscription_manager,
     }
     media_routes = [] if media_registry is None else [
+        (url_path_join(base_url, 'nbinlineai', 'browser-media-fixture-mode'), BrowserMediaFixtureModeHandler),
         (url_path_join(base_url, "nbinlineai", "browser-media", r"([a-z]+)"), BrowserMediaHandler,
          {"dispatcher": dispatcher, "media_registry": media_registry}),
         (url_path_join(base_url, "nbinlineai", "browser-media-bytes", r"([^/]+)"), BrowserMediaBytesHandler,

@@ -10,6 +10,7 @@ import ast
 import asyncio
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -59,6 +60,21 @@ async def fake_complete(
             )]))
         return Completion(model=model, message=Msg("assistant", [Text(
             "MEDIA_CAPABILITIES " + results[-1].text[:3000]
+        )]))
+    if "E2E_MEDIA_SAVE_DESCRIPTOR" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            match = re.search(r"sha256=([0-9a-f]{64})", current_user)
+            if not match:
+                raise ValueError("E2E media test needs an exact source hash")
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="media-save-descriptor", name="save_media",
+                arguments={"media": {"path": "source.png", "sha256": match.group(1)},
+                           "save_to": "auto"}
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "SAVED_MEDIA_DESCRIPTOR " + results[-1].text[:3000]
         )]))
     cell_edit_sequences = {
         "E2E_CELL_EDIT_SOURCE": [
@@ -423,6 +439,7 @@ def main() -> None:
         os.environ["JUPYTER_DATA_DIR"] = str(base / "data")
         os.environ["XDG_CONFIG_HOME"] = str(base / "xdg")
         os.environ["IPYTHONDIR"] = str(base / "ipython")
+        os.environ["NBINLINEAI_E2E_MEDIA_FIXTURE"] = "1"
         live = os.environ.get("NBINLINEAI_E2E_LIVE") == "1"
         if not live:
             # Blank overrides prevent the test server from reading a developer's

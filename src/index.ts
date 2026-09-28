@@ -22,7 +22,7 @@ import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
 import { runTrackedStandardCell } from './insertTools';
 import { mediaContext } from './browserMediaComm';
-import { browserCapabilityFacts, observedMediaPermissions } from './browserMediaClient';
+import { BrowserMediaError, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
 import { installBrowserMediaStatus } from './browserMediaStatus';
 import '../style/index.css';
 
@@ -535,12 +535,16 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
           throw new Error('The originating notebook, prompt, answer, or kernel changed. Notebook action cancelled.');
         }
         let result;
-        if (['browser_capabilities', 'operation_status', 'cancel_operation', 'save_media', 'release_media'].includes(event.name)) {
+        if (['browser_capabilities', 'operation_status', 'cancel_operation', 'save_media', 'release_media'].includes(event.name) ||
+            hasBrowserOperation(event.name)) {
           try {
             const args = event.arguments as Record<string, any>;
             const media = mediaContext(panel, panel.sessionContext.session!.kernel!);
             let value: unknown;
-            if (event.name === 'browser_capabilities') value = {
+            if (event.name === 'browser_capabilities') {
+              const created = await media.create({ request_id: event.request_id, name: event.name, arguments: {} });
+              await media.transition(created.operation_id, 'completed', { checked: true });
+              value = { operation_id: created.operation_id,
               secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
               limits: { image_max_side: 4096, image_max_pixels: 16000000,
                 batch_max_items: 12, batch_max_decoded_pixels: 32000000,
@@ -549,16 +553,36 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
                 owner_lease_seconds: 90, permission_seconds: 120,
                 recording_saved_seconds: 300, recording_saved_bytes: 52428800,
                 recording_memory_seconds: 60, recording_memory_bytes: 16777216 }
-            };
+              };
+            }
             else if (event.name === 'operation_status') value = await media.status(args.operation_id);
             else if (event.name === 'cancel_operation') value = await media.cancel(args.operation_id);
-            else if (event.name === 'save_media') value = await media.save(args.media.media_id, args.save_to ?? 'auto', event.request_id);
-            else { await media.release(args.media_id); value = { released: true }; }
+            else if (event.name === 'save_media') value = await media.save(args.media,
+              args.save_to === undefined ? 'auto' : args.save_to, event.request_id);
+            else if (event.name === 'release_media') {
+              const created = await media.create({ request_id: event.request_id, name: event.name,
+                arguments: { media_id: args.media_id } });
+              try {
+                await media.release(args.media_id);
+                await media.transition(created.operation_id, 'completed', { released: true });
+              } catch (error) {
+                await media.transition(created.operation_id, 'failed', undefined, {
+                  code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+                  message: error instanceof Error ? error.message.slice(0, 300) : 'Media release failed'
+                });
+                throw error;
+              }
+              value = { operation_id: created.operation_id, released: true };
+            } else value = await media.start({ request_id: event.request_id, name: event.name,
+              arguments: args });
             const encoded = JSON.stringify(value);
             result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
               truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'
             }) };
-          } catch (error) { result = { ok: false, text: error instanceof Error ? error.message.slice(0, 500) : 'Browser operation failed.' }; }
+          } catch (error) { result = { ok: false, text: JSON.stringify({
+            code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+            message: error instanceof Error ? error.message.slice(0, 500) : 'Browser operation failed.'
+          }) }; }
         } else result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
         status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
@@ -1104,7 +1128,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
     if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
         new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
-      void import('./browserMediaTestFixture');
+      void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })
+        .then(response => response.ok ? response.json() : null)
+        .then(value => { if (value?.enabled === true) return import('./browserMediaTestFixture'); });
     }
     notebookTracker = tracker;
     settingRegistry = registry;

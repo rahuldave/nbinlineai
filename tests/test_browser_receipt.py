@@ -4,9 +4,11 @@ import asyncio
 import hashlib
 import io
 
+import pytest
 from PIL import Image
 
 from nbinlineai import browser_receipt
+from nbinlineai.browser_media_tools import save_media
 
 
 def png(color):
@@ -14,6 +16,11 @@ def png(color):
     stream = io.BytesIO()
     image.save(stream, format='PNG')
     return stream.getvalue()
+
+
+def test_explicit_save_rejects_none_before_opening_browser_comm():
+    with pytest.raises(ValueError, match='None is invalid'):
+        save_media({'media_id': 'known'}, save_to=None)
 
 
 class FakeComm:
