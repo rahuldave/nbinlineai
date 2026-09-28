@@ -1,10 +1,10 @@
 /** Execution-bound comm dispatch for nonblocking Python browser receipts. */
 import { INotebookCellExecutor, NotebookPanel } from '@jupyterlab/notebook';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
-import { BrowserOperationContext, BrowserOperationRequest, BrowserOperationStatus, browserCapabilityFacts } from './browserMediaClient';
+import { BrowserOperationContext, BrowserOperationRequest, BrowserOperationStatus, browserCapabilityFacts, observedMediaPermissions } from './browserMediaClient';
 
 const TARGET = 'nbinlineai.browser_media.v1';
-interface Origin { panel: NotebookPanel; cellId: string; kernel: Kernel.IKernelConnection; }
+interface Origin { panel: NotebookPanel; model: INotebookCellExecutor.IRunCellOptions['notebook']; cellId: string; kernel: Kernel.IKernelConnection; }
 const contexts = new WeakMap<NotebookPanel, BrowserOperationContext>();
 export function mediaContext(panel: NotebookPanel, kernel: Kernel.IKernelConnection): BrowserOperationContext {
   let context = contexts.get(panel);
@@ -29,7 +29,7 @@ class BrowserCommBridge {
       if (args.direction !== 'send' || args.msg.header.msg_type !== 'execute_request' ||
           args.msg.metadata.cellId !== options.cell.model.id) return;
       id = args.msg.header.msg_id;
-      this.origins.set(id, { panel, cellId: options.cell.model.id, kernel: this.kernel });
+      this.origins.set(id, { panel, model: options.notebook, cellId: options.cell.model.id, kernel: this.kernel });
       this.kernel.anyMessage.disconnect(onMessage);
     };
     this.kernel.anyMessage.connect(onMessage);
@@ -44,58 +44,88 @@ class BrowserCommBridge {
     const origin = typeof parentId === 'string' ? this.origins.get(parentId) : undefined;
     if (!origin || !validRequest(request) || request.execute_request_id !== parentId ||
         request.source_cell_id !== origin.cellId || origin.panel.isDisposed ||
+        origin.panel.content.model !== origin.model ||
         origin.panel.sessionContext.session?.kernel !== origin.kernel) return;
     const context = mediaContext(origin.panel, origin.kernel);
     let sentStatus = '';
-    const send = async (state: BrowserOperationStatus, final = false): Promise<void> => {
-      const marker = JSON.stringify(state);
+    const send = async (state: BrowserOperationStatus, final = false, withBytes = true): Promise<void> => {
+      const marker = JSON.stringify([state, final]);
       if (marker === sentStatus) return;
       sentStatus = marker;
       let buffers: ArrayBuffer[] = [];
-      if (final && state.status === 'completed' && typeof state.media?.media_id === 'string') {
-        try { buffers = [await context.fetchMedia(state.media.media_id)]; }
+      if (final && withBytes && state.status === 'completed' && state.media) {
+        try {
+          let descriptors = Array.isArray(state.media) ? [...state.media] : [state.media];
+          let cursor = state.next_media_cursor;
+          while (typeof cursor === 'number') {
+            const page = await context.mediaPage(state.operation_id, cursor);
+            descriptors = descriptors.concat(page.media);
+            cursor = page.next_media_cursor ?? undefined;
+          }
+          if (descriptors.length > 12) throw new Error('Media batch exceeds 12 items');
+          buffers = await Promise.all(descriptors.map(item => context.fetchMedia(String(item.media_id))));
+          if (Array.isArray(state.media)) state = { ...state, media: descriptors, next_media_cursor: undefined };
+        }
         catch (error) { state = { ...state, status: 'failed', error: { code: 'stale_target', message: String(error).slice(0, 300) } }; }
       }
-      await comm.send(state as unknown as { [key: string]: any }, {}, buffers).done;
-      if (final) comm.close();
+      // A comm_msg future can wait for a kernel reply while that kernel is busy.
+      // Queue the message and let Python close the channel after delivery.
+      void comm.send(state as unknown as { [key: string]: any }, {}, buffers).done.catch(() => undefined);
     };
     try {
       if (request.name === 'browser_capabilities') {
         const state: BrowserOperationStatus = { operation_id: request.request_id, status: 'completed',
-          result: { secure_context: window.isSecureContext, operations: browserCapabilityFacts(),
+          result: { secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
             limits: { image_max_side: 4096, image_max_pixels: 16000000,
-              notebook_media_bytes: 104857600, media_idle_seconds: 600,
+              batch_max_items: 12, batch_max_decoded_pixels: 32000000,
+              notebook_media_bytes: 104857600, server_media_bytes: 268435456,
+              upload_max_bytes: 52428800, media_idle_seconds: 600,
               owner_lease_seconds: 90, permission_seconds: 120,
               recording_saved_seconds: 300, recording_saved_bytes: 52428800,
               recording_memory_seconds: 60, recording_memory_bytes: 16777216 } } };
-        await send(state, true); return;
+        await send(state, true, false); return;
       }
       if (request.name === 'operation_status') {
-        const state = await context.status(String(request.arguments.operation_id));
-        await send(state, true); return;
+        const snapshot = await context.status(String(request.arguments.operation_id));
+        await send({ operation_id: request.request_id, status: 'completed',
+          result: snapshot as unknown as Record<string, unknown> }, true, false); return;
       }
       if (request.name === 'cancel_operation') {
-        await send(await context.cancel(String(request.arguments.operation_id)), true); return;
+        await send(await context.cancel(String(request.arguments.operation_id)), true, false); return;
       }
       if (request.name === 'save_media') {
-        const media = await context.save(String(request.arguments.media_id), String(request.arguments.save_to ?? 'auto'));
-        await send({ operation_id: request.request_id, status: 'completed', media }, true); return;
+        const media = await context.save(String(request.arguments.media_id), String(request.arguments.save_to ?? 'auto'), request.request_id);
+        await send({ operation_id: request.request_id, status: 'completed', media }, true, false); return;
       }
       if (request.name === 'release_media') {
         await context.release(String(request.arguments.media_id));
-        await send({ operation_id: request.request_id, status: 'completed', result: { released: true } }, true); return;
+        await send({ operation_id: request.request_id, status: 'completed', result: { released: true } }, true, false); return;
       }
       const state = await context.start(request);
-      await send(state);
       if (state.status === 'completed' || state.status === 'failed') { await send(state, true); return; }
+      await send(state);
+      let polling = false;
+      const deadline = window.setTimeout(() => {
+        window.clearInterval(timer);
+        void send({ operation_id: state.operation_id, status: 'expired', error: {
+          code: 'timeout', message: 'Browser receipt delivery timed out.'
+        } }, true, false);
+      }, 8 * 60_000);
       const timer = window.setInterval(() => {
+        if (polling) return;
+        polling = true;
         void context.status(state.operation_id).then(current => {
           const final = ['completed', 'failed', 'cancelled', 'expired'].includes(current.status);
           void send(current, final);
-          if (final) window.clearInterval(timer);
-        }).catch(() => window.clearInterval(timer));
+          if (final) { window.clearInterval(timer); window.clearTimeout(deadline); }
+        }).catch(error => {
+          window.clearInterval(timer); window.clearTimeout(deadline);
+          void send({ operation_id: state.operation_id, status: 'expired', error: {
+            code: 'stale_target', message: error instanceof Error ? error.message.slice(0, 300) : 'Browser owner lost'
+          } }, true, false);
+        }).finally(() => { polling = false; });
       }, 1000);
-      context.addCleanup(() => { window.clearInterval(timer); comm.close(); });
+      context.addCleanup(() => { window.clearInterval(timer); window.clearTimeout(deadline); comm.close(); });
     } catch (error) {
       await send({ operation_id: request.request_id, status: 'failed', error: {
         code: 'unsupported', message: error instanceof Error ? error.message.slice(0, 300) : 'Browser operation failed'

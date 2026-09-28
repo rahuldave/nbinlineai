@@ -22,7 +22,7 @@ import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
 import { runTrackedStandardCell } from './insertTools';
 import { mediaContext } from './browserMediaComm';
-import { browserCapabilityFacts } from './browserMediaClient';
+import { browserCapabilityFacts, observedMediaPermissions } from './browserMediaClient';
 import { installBrowserMediaStatus } from './browserMediaStatus';
 import '../style/index.css';
 
@@ -541,16 +541,18 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
             const media = mediaContext(panel, panel.sessionContext.session!.kernel!);
             let value: unknown;
             if (event.name === 'browser_capabilities') value = {
-              secure_context: window.isSecureContext, operations: browserCapabilityFacts(),
+              secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
               limits: { image_max_side: 4096, image_max_pixels: 16000000,
-                notebook_media_bytes: 104857600, media_idle_seconds: 600,
+                batch_max_items: 12, batch_max_decoded_pixels: 32000000,
+                notebook_media_bytes: 104857600, server_media_bytes: 268435456,
+                upload_max_bytes: 52428800, media_idle_seconds: 600,
                 owner_lease_seconds: 90, permission_seconds: 120,
                 recording_saved_seconds: 300, recording_saved_bytes: 52428800,
                 recording_memory_seconds: 60, recording_memory_bytes: 16777216 }
             };
             else if (event.name === 'operation_status') value = await media.status(args.operation_id);
             else if (event.name === 'cancel_operation') value = await media.cancel(args.operation_id);
-            else if (event.name === 'save_media') value = await media.save(args.media.media_id, args.save_to ?? 'auto');
+            else if (event.name === 'save_media') value = await media.save(args.media.media_id, args.save_to ?? 'auto', event.request_id);
             else { await media.release(args.media_id); value = { released: true }; }
             const encoded = JSON.stringify(value);
             result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
@@ -1100,6 +1102,10 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
+        new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
+      void import('./browserMediaTestFixture');
+    }
     notebookTracker = tracker;
     settingRegistry = registry;
     if (registry) settingsReady = registry.load(plugin.id).then(bindResponseSettings).catch(error => {
@@ -1128,8 +1134,12 @@ const plugin: JupyterFrontEndPlugin<void> = {
       if (boundModel) panelsByModel.set(boundModel, panel);
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
-        const mediaKernel = panel.sessionContext.session?.kernel;
-        if (mediaKernel) installBrowserMediaStatus(panel, mediaContext(panel, mediaKernel));
+        const bindMediaStatus = () => {
+          const mediaKernel = panel.sessionContext.session?.kernel;
+          if (mediaKernel) installBrowserMediaStatus(panel, mediaContext(panel, mediaKernel));
+        };
+        bindMediaStatus();
+        panel.sessionContext.kernelChanged.connect(bindMediaStatus);
         const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
           const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
           return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];

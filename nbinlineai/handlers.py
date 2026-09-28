@@ -14,9 +14,9 @@ from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 from tornado.ioloop import PeriodicCallback
 from tornado.iostream import StreamClosedError
-from tornado.web import HTTPError, authenticated
+from tornado.web import HTTPError, authenticated, stream_request_body
 
-from .browser_media import MediaError, MediaRegistry
+from .browser_media import MAX_SERVER_BYTES, MAX_UPLOAD_BYTES, MediaError, MediaRegistry
 from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, provider_status
 from .credentials import CredentialStore
 from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
@@ -365,13 +365,23 @@ class BrowserMediaHandler(APIHandler):
                 self.finish(registry.status(owner, op.id))
             elif command == 'status':
                 self.finish(registry.status(owner, body.get('operation_id')))
+            elif command == 'mediapage':
+                self.finish(registry.media_page(owner, body.get('operation_id'), body.get('cursor', 0)))
             elif command == 'transition':
                 self.finish(registry.transition(owner, body.get('operation_id'),
                                                 body.get('status'), body.get('result'), body.get('error')))
+            elif command == 'beginbatch':
+                self.finish(registry.begin_batch(owner, body.get('operation_id'), body.get('total')))
+            elif command == 'finishbatch':
+                status = await asyncio.to_thread(registry.finish_batch, owner, body.get('operation_id'),
+                                                 body.get('save_to'))
+                self.finish(status)
             elif command == 'cancel':
                 self.finish(registry.cancel(owner, body.get('operation_id')))
             elif command == 'save':
-                self.finish({'media': registry.save_media(owner, body.get('media_id'), body.get('save_to'))})
+                descriptor = await asyncio.to_thread(registry.save_media, owner, body.get('media_id'),
+                                                     body.get('save_to'), body.get('request_id'))
+                self.finish({'media': descriptor})
             elif command == 'release':
                 registry.release_media(owner, body.get('media_id'))
                 self.finish({'released': True})
@@ -384,8 +394,30 @@ class BrowserMediaHandler(APIHandler):
             self._error(exc)
 
 
+@stream_request_body
 class BrowserMediaBytesHandler(BrowserMediaHandler):
     """Raw binary ingress/egress, separate from action and model text envelopes."""
+
+    async def prepare(self):
+        self._upload = bytearray()
+        self._reserved_bytes = 0
+        if self.request.method == 'POST':
+            length = self.request.headers.get('Content-Length')
+            if length and int(length) > MAX_UPLOAD_BYTES:
+                raise HTTPError(413, 'Upload exceeds 50 MiB')
+        await super().prepare()
+
+    def data_received(self, chunk):
+        if (len(self._upload) + len(chunk) > MAX_UPLOAD_BYTES or
+                self.media_registry.inflight_bytes + len(chunk) > MAX_SERVER_BYTES):
+            raise HTTPError(413, 'Browser media upload limit exceeded')
+        self._upload.extend(chunk)
+        self._reserved_bytes += len(chunk)
+        self.media_registry.inflight_bytes += len(chunk)
+
+    def on_finish(self):
+        self.media_registry.inflight_bytes -= getattr(self, '_reserved_bytes', 0)
+        super().on_finish()
 
     async def _byte_owner(self):
         return await self._owner({
@@ -400,7 +432,7 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
         _require_single_user_server(self)
         try:
             owner = await self._byte_owner()
-            raw = self.request.body
+            raw = bytes(self._upload)
             if len(raw) > 50 * 1024 * 1024:
                 raise MediaError('limit_exceeded', 'Upload exceeds 50 MiB')
             metadata_header = self.request.headers.get('X-NBInlineAI-Metadata', '{}')
@@ -409,10 +441,40 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
             metadata = json.loads(metadata_header)
             save_to_header = self.request.headers.get('X-NBInlineAI-Save-To')
             save_to = json.loads(save_to_header) if save_to_header is not None else None
-            self.finish(self.media_registry.upload(
+            batch_index = self.request.headers.get('X-NBInlineAI-Batch-Index')
+            if batch_index is not None:
+                self.finish(self.media_registry.upload_part(
+                    owner, operation_id, int(batch_index), raw,
+                    self.request.headers.get('Content-Type', ''),
+                    self.request.headers.get('X-NBInlineAI-SHA256', ''), metadata=metadata))
+                return
+            status = self.media_registry.upload(
                 owner, operation_id, raw, self.request.headers.get('Content-Type', ''),
                 self.request.headers.get('X-NBInlineAI-SHA256', ''), metadata=metadata,
-                save_to=save_to))
+                save_to=save_to, defer_save=save_to is not None)
+            if save_to is not None and status['status'] == 'saving':
+                op = self.media_registry.operation(owner, operation_id)
+                media = self.media_registry.media_ref(owner, op.media_id)
+                try:
+                    path = await asyncio.to_thread(self.media_registry._save, owner, media,
+                                                   save_to, lambda: op.status == 'saving')
+                    if op.status != 'saving':
+                        (self.media_registry.root / path).unlink(missing_ok=True)
+                        raise MediaError('cancelled', 'Save was cancelled')
+                    media.path = path
+                    op.status = 'completed'
+                    op.updated = self.media_registry._now()
+                    status = self.media_registry.status(owner, operation_id)
+                except Exception as exc:
+                    self.media_registry.media.pop(media.id, None)
+                    op.media_id = None
+                    if op.status == 'saving':
+                        op.status = 'failed'
+                        op.error = {'code': exc.code if isinstance(exc, MediaError) else 'save_failed',
+                                    'message': str(exc)[:300] if isinstance(exc, MediaError) else 'Media could not be saved'}
+                        op.updated = self.media_registry._now()
+                    raise
+            self.finish(status)
         except (ValueError, TypeError) as exc:
             self._error(exc if isinstance(exc, MediaError) else MediaError('invalid_argument', 'Invalid upload metadata'))
 
@@ -427,6 +489,26 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
             self.set_header('X-NBInlineAI-SHA256', media.sha256)
             self.set_header('Cache-Control', 'no-store')
             self.finish(media.data)
+        except MediaError as exc:
+            self._error(exc)
+
+
+class BrowserMediaFileHandler(BrowserMediaHandler):
+    """Read an exact saved MediaRef after root and SHA checks."""
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self):
+        _require_single_user_server(self)
+        try:
+            body = self.get_json_body()
+            owner = await self._owner(body)
+            data, mime_type, digest = await asyncio.to_thread(self.media_registry.resolve_ref,
+                                                               owner, body.get('media'))
+            self.set_header('Content-Type', mime_type)
+            self.set_header('X-NBInlineAI-SHA256', digest)
+            self.set_header('Cache-Control', 'no-store')
+            self.finish(data)
         except MediaError as exc:
             self._error(exc)
 
@@ -634,6 +716,8 @@ def setup_handlers(web_app, *, subscription_manager=None):
         (url_path_join(base_url, "nbinlineai", "browser-media", r"([a-z]+)"), BrowserMediaHandler,
          {"dispatcher": dispatcher, "media_registry": media_registry}),
         (url_path_join(base_url, "nbinlineai", "browser-media-bytes", r"([^/]+)"), BrowserMediaBytesHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+        (url_path_join(base_url, "nbinlineai", "browser-media-file"), BrowserMediaFileHandler,
          {"dispatcher": dispatcher, "media_registry": media_registry}),
     ]
     web_app.add_handlers(r".*$", [

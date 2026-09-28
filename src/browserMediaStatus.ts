@@ -3,8 +3,11 @@ import { NotebookPanel } from '@jupyterlab/notebook';
 import { Widget } from '@lumino/widgets';
 import { BrowserOperationContext, BrowserOperationStatus } from './browserMediaClient';
 
+const installed = new WeakMap<NotebookPanel, Widget>();
 export function installBrowserMediaStatus(panel: NotebookPanel, context: BrowserOperationContext): void {
+  installed.get(panel)?.dispose();
   const widget = new Widget();
+  installed.set(panel, widget);
   widget.addClass('nbinlineai-media-status');
   widget.node.setAttribute('aria-live', 'polite');
   widget.node.hidden = true;
@@ -37,5 +40,6 @@ export function installBrowserMediaStatus(panel: NotebookPanel, context: Browser
   };
   const disconnect = context.onStatus(item => { records.set(item.operation_id, item); render(); });
   panel.contentHeader.addWidget(widget);
-  panel.disposed.connect(() => { disconnect(); widget.dispose(); });
+  widget.disposed.connect(() => disconnect());
+  panel.disposed.connect(() => widget.dispose());
 }

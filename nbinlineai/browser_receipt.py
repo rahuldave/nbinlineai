@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import uuid
 from dataclasses import dataclass, field
@@ -28,9 +29,9 @@ class BrowserReceipt:
     """Mutable result that updates from browser messages without blocking a cell."""
 
     operation_id: str | None = None
-    status: str = 'requested'
+    status: str = 'running'
     result: Any = None
-    media: dict[str, Any] | None = None
+    media: dict[str, Any] | list[dict[str, Any]] | None = None
     error: dict[str, str] | None = None
     _comm: Any = field(default=None, repr=False)
 
@@ -83,7 +84,7 @@ def request_browser_operation(name: str, arguments: dict[str, Any]) -> BrowserRe
         if isinstance(status, str):
             receipt.status = status
         media = data.get('media')
-        if isinstance(media, dict):
+        if isinstance(media, (dict, list)):
             receipt.media = media
         error = data.get('error')
         if isinstance(error, dict):
@@ -93,23 +94,34 @@ def request_browser_operation(name: str, arguments: dict[str, Any]) -> BrowserRe
             receipt.result = result
         buffers = message.get('buffers', [])
         if buffers and receipt.media:
-            raw = bytes(buffers[0])
-            mime = receipt.media.get('mime_type', '')
+            descriptors = receipt.media if isinstance(receipt.media, list) else [receipt.media]
             try:
-                if isinstance(mime, str) and mime.startswith('image/') and mime != 'image/svg+xml':
-                    from PIL import Image
-                    image = Image.open(io.BytesIO(raw))
-                    image.load()
-                    receipt.result = image
-                elif mime == 'image/svg+xml':
-                    receipt.result = raw.decode('utf-8')
-                elif isinstance(mime, str) and mime.startswith(('audio/', 'video/')):
-                    receipt.result = MediaClip(raw, mime, receipt.media.get('duration_seconds'))
-                else:
-                    receipt.result = raw
+                if len(buffers) != len(descriptors):
+                    raise ValueError('Media buffer count did not match descriptors')
+                decoded = []
+                for descriptor, buffer in zip(descriptors, buffers, strict=True):
+                    if not isinstance(descriptor, dict):
+                        raise TypeError('Invalid media descriptor')
+                    raw = bytes(buffer)
+                    if (descriptor.get('bytes') != len(raw) or
+                            hashlib.sha256(raw).hexdigest() != descriptor.get('sha256')):
+                        raise ValueError('Media bytes did not match the descriptor')
+                    mime = descriptor.get('mime_type', '')
+                    if isinstance(mime, str) and mime.startswith('image/') and mime != 'image/svg+xml':
+                        from PIL import Image
+                        image = Image.open(io.BytesIO(raw))
+                        image.load()
+                        decoded.append(image)
+                    elif mime == 'image/svg+xml':
+                        decoded.append(raw.decode('utf-8'))
+                    elif isinstance(mime, str) and mime.startswith(('audio/', 'video/')):
+                        decoded.append(MediaClip(raw, mime, descriptor.get('duration_seconds')))
+                    else:
+                        decoded.append(raw)
+                receipt.result = decoded if isinstance(receipt.media, list) else decoded[0]
             except Exception as exc:  # noqa: BLE001 - a bad encoded result is a failed receipt
                 receipt.status = 'failed'
-                receipt.error = {'code': 'invalid_argument', 'message': f'Media could not be decoded: {exc}'[:500]}
+                receipt.error = {'code': 'stale_target', 'message': f'Media could not be decoded: {exc}'[:500]}
         if receipt.status in {'completed', 'failed', 'cancelled', 'expired'}:
             comm.close()
             receipt._comm = None
