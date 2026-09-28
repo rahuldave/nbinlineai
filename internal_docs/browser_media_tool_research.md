@@ -1,6 +1,10 @@
 # Browser, app and local-media tool candidates
 
 **Research and recommendations, 2026-09-28. No feature implementation or release.**
+The [proposed API spec](browser_media_tool_spec.md) and
+[post-merge implementation prompt](browser_media_tool_task_prompt.md) turn this
+survey into a concrete contract. The spec takes precedence over alternatives
+discussed in this research.
 Internal documentation belongs on main; the runtime targets below are separate
 decisions. The user requested a fresh dialoghelper survey, local screenshot and
 video possibilities, and explicit dependencies on the concurrently developed
@@ -15,10 +19,20 @@ finishes and optionally starting a successor AI question. Browser recording,
 permission prompts and asynchronous replies need their own lifetimes, but that
 alone does not make them notebook-execution handoffs.
 
-Start with **browser-local artifacts, output export, local capture and download**.
-Keep **sending an artifact to the model** as a separate operation. This gives
-useful tools for material that must stay on the user's computer, while leaving
-a clear path to later agent workflows.
+**User-selected scope:** assume the Jupyter server runs on the user's computer
+and saves into a user folder. Use ordinary authenticated Jupyter/server file
+operations for durable media. No extra browser extensions, CDP installation,
+browser-only durable artifact store or browser filesystem picker is required.
+The existing nbinlineai JupyterLab extension supplies the browser UI.
+
+Start with **output export, camera photos/video, microphone recording and saving
+to the local Jupyter folder**. Keep **sending media to the model** as a separate
+operation. Use portable browser APIs and test desktop and mobile browsers;
+do not silently reduce the user's requirement to Chromium or desktop-only.
+Screen sharing and system-audio capture have a different compatibility envelope;
+the user accepts those gaps if clearly documented. Their APIs are included with
+capability detection and explicit unsupported outcomes. The research below
+preserves upstream extension details as prior art, not as a proposed dependency.
 
 ## Evidence and scope
 
@@ -87,7 +101,7 @@ be built with the generic page bridge, but no named video playback/recording or
 iframe-app helper was found in the inspected modules and notebook sources.
 ([Screenshot script](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/screenshot.js#L1-L23).)
 
-### Other browser tabs: a separate installed component
+### Other browser tabs: upstream prior art, excluded from this effort
 
 `solvecdp.JsCDP.connect` passes a dialoghelper channel to a CDP client. The
 Chrome extension supplies tab creation/selection/attachment/closure and forwards
@@ -108,6 +122,11 @@ can be browser-local while the file contents subsequently leave the browser.
 This is not a general binary upload API.
 ([Directory/file bridge](https://github.com/AnswerDotAI/fastcdp-chrome/blob/ac469b36ba14f205f3de2d41af708bb0441ae5f1/content.js#L27-L68).)
 
+The user excludes extensions from our design. Consequently arbitrary external
+tab inspection/clicking is not a tool candidate here. App interaction is limited
+to JupyterLab-owned widgets and cooperating embedded apps. The upstream CDP and
+directory-handle code is retained only to explain what Solveit's examples use.
+
 ## Candidate tools and implementation targets
 
 Names are illustrative, not approved API signatures. **Main** means a new
@@ -118,18 +137,17 @@ does not mean the capability exists now or authorizes a release.
 | --- | --- | --- | --- |
 | `read_notebook_view`, `read_selection` | Read selected text/cell IDs, visible range and compact UI state from the originating notebook, not whichever tab later gains focus | None; new bounded frontend actions | Main |
 | `read_output(cell_id, output_ref)` | Inspect existing text/HTML/table output with explicit MIME filtering and a source/run reference; never imply that it executes code | None for an existing output snapshot | Main |
-| `export_output`, `export_canvas` | Save an existing plot/image/SVG or origin-clean canvas; preserve original image data where available | None; browser artifact support | Main |
-| `capture_notebook_region` | Capture a rendered cell/output or visible notebook region; bind model/cell/render state and report offscreen or unsupported content | None; renderer or user-approved display capture | Main |
-| `request_screen_share`, `capture_frame`, `stop_share` | User chooses a tab, window or screen; capture locally and expose a visible stop control | None; permission UI and capture lifecycle | Main |
-| `record_start`, `record_stop`, `record_status` | Bounded screen/canvas video recording, optional audio; return an operation ID rather than holding one tool call open | None for manual start/stop/retrieval; new persistent operation owner | Main |
-| `camera_preview`, `camera_snapshot`, `record_camera`, `record_microphone` | User-authorized local preview, camera stills/video or bounded microphone recording | None; device permission/lifecycle support | Main, optional later slices |
+| `export_output`, `export_canvas` | Save an existing plot/image/SVG or origin-clean canvas to the local Jupyter folder; preserve original image data where available | None; server save support | Main |
+| `capture_notebook_region` | Capture a rendered cell/output or visible notebook region; fidelity/offscreen limits require a defined renderer and browser checks | None; supported-renderer contract | Main, after known image/canvas export |
+| `setup_share`, `start_share`, `capture_screen`, `stop_share` | Keep dialoghelper names where available; user chooses an available display surface; support varies across browsers/devices | None; permission UI and capture lifecycle | Main, with explicit capability gaps |
+| `record_start`, `record_stop`, `record_status` | Bounded camera video or microphone audio recording; return an operation ID and save the completed file in the local Jupyter folder | None for manual start/stop/retrieval; operation lifecycle | Main |
+| `camera_preview`, `camera_snapshot`, `record_camera`, `record_microphone` | User-authorized preview, camera stills, camera video with optional microphone audio, or microphone-only recording | None; device permission/lifecycle support | Main core candidates |
 | `extract_frames`, `crop_artifact`, `annotate_artifact` | Locally select timestamps, crop/redact stills, or annotate before saving/sharing; create a derivative and retain source provenance | None; local media processing and bounds | Main |
-| `choose_local_file`, `save_local_artifact` | Pick files into browser storage and save/download captures on the user's computer; explicit server upload is a different action | None; file UI and artifact store | Main |
-| `read_clipboard`, `copy_artifact` | Explicit paste/copy of selected text or supported images; bounded content with browser permission checks | None; separate user action where required | Main, optional |
+| `choose_file` and capture/output `path` arguments | Select existing Jupyter files or use a standard file input; save media through the local server and return its relative path | None; ordinary file UI and authenticated server save | Main core candidates |
+| `read_clipboard`, `copy_artifact` | Explicit user paste/copy with standard controls; programmatic rich clipboard access varies and must not be required | None; separate user action where required | Main only with portable interaction |
 | `open_app_panel`, `read_app_state`, `call_app` | Registered visualization/form/app inside JupyterLab; typed state/actions through an owned widget or cooperating iframe | None for state and browser-only actions; new app registry/channel | Main foundation |
 | `subscribe_app_events`, `read_events` | Bounded event queue for selections, slider changes, capture completion or app results; poll/read later without executing notebook code | None; lifetime, backpressure and teardown contract | Main foundation |
 | `attach_artifact_to_prompt` | User selects the exact image/derived frames a model may see | None intrinsically; requires new multimodal transports and budgeting | Main, separate substantial feature |
-| Optional `browser_attach`, `browser_inspect`, `browser_click`, `browser_screenshot` | Control a selected external tab through a separately installed/permissioned extension or browser connector | None intrinsically; new connector and authentication/target contract | Main-based integration project if selected; not a small built-in tool addition |
 | `run_cell_then_capture_then_prompt` | Execute identified code, wait for its actual render/result, capture that result and start a successor AI question | **Yes**: native execution handoffs; also render readiness, artifact and image-model support | Experimental branch |
 | `on_app_event_run_and_prompt` | A browser event schedules identified Python work and a later AI turn; repeated observe/act loops have shared budgets | **Yes** for notebook execution; a new event-to-chain adapter is also needed | Experimental branch, after the current handoff slice |
 
@@ -154,7 +172,7 @@ proposed tools we could build, independently of notebook execution handoffs:
 | Inspect microphone signal | Local level meter, waveform or frequency summary, useful for checking setup or a sound experiment without speech transcription |
 | Play/pause/seek local media | Preview a selected audio/video file, choose a timestamp or segment, and control volume without model transfer |
 | Extract a video frame or sample frames | A timestamped still/contact sheet from a chosen local file or authorized stream; cap frame count and resolution |
-| Record a screen or canvas | Capture a walkthrough or visualization animation, using browser-supported formats and a visible stop button |
+| Record a screen or canvas where supported | Capture a walkthrough or visualization animation; report browser/platform gaps without requiring an extension |
 | Crop/redact/annotate and export | Produce a local derivative for a report or selectively disclose it later; original and derivative have separate IDs |
 
 Camera/microphone access comes from `getUserMedia`; recording from
@@ -168,10 +186,39 @@ engine would need its own model/runtime and performance evaluation.
 [Web Audio](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API),
 [signal analysis](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode).)
 
-All of these are main candidates as explicit, user-controlled operations. A
+The portable camera/microphone operations are main candidates. A
 workflow such as “watch the camera, run this analysis cell after each capture,
 then ask the AI what to do next” is a separate experimental composition with
 sampling limits, queue ownership, cancellation and explicit media disclosure.
+
+### Camera video: the simple path
+
+`getUserMedia` obtains the camera stream and, when requested, a microphone
+track. `MediaRecorder` records it. The user sees a preview plus start/stop
+controls; a bounded-duration tool can also stop automatically. On completion,
+save the recording to the local Jupyter folder and return the file path, actual
+MIME type and completion status. Saving uses the server, so it does not need a
+browser filesystem API or an installed browser extension.
+
+Both APIs are widely available in current browsers. Recording containers/codecs
+are not identical: select a supported format using `isTypeSupported` or the
+browser's default, and preserve the actual MIME type and correct extension.
+Do not promise an identical MP4 encoding in every browser. Later conversion to
+a common format could run on the local server if needed; it is not a prerequisite
+for capture and save. Recording failures still need reporting even after a
+positive format-support check.
+([Camera/microphone](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia),
+[MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder),
+[format detection](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static).)
+
+“All browsers” is a portability requirement, not a claim that every historical
+version, embedded webview or platform exposes every API. The user includes mobile:
+verify current desktop Chrome/Edge/Firefox/Safari, Android Chrome/Firefox and
+iOS/iPadOS Safari, plus other mobile browsers where available. Missing hardware
+or declined permission is a normal user-visible outcome. Screen capture is not
+currently a Baseline API, and system/tab audio varies further; report these
+accepted gaps explicitly.
+([Display capture compatibility](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia).)
 
 ## Browser constraints that affect the contracts
 
@@ -202,40 +249,41 @@ sampling limits, queue ownership, cancellation and explicit media disclosure.
   integration, not a workaround hidden inside a screenshot tool.
   ([Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy),
   [messaging](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage).)
-- **Saving and clipboard are user-facing operations.** The save picker has
-  limited browser availability and requires activation; provide a supported
-  download alternative. Clipboard access also has browser-specific permission
-  and activation rules. A scripted DOM click is not equivalent to user consent.
-  ([Save picker](https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker),
+- **Portable saving uses the local server.** Do not depend on
+  `showSaveFilePicker` or an origin-private filesystem. Standard file inputs
+  cover user-selected imports. Clipboard APIs have browser-specific permission
+  and activation rules; ordinary user copy/paste remains the portable fallback.
+  ([Save picker limitations](https://developer.mozilla.org/en-US/docs/Web/API/Window/showSaveFilePicker),
   [clipboard](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API).)
 
-## Keeping material on the user's computer
+## Saving in the user's Jupyter folder
 
-The proposed artifact contract must distinguish three destinations:
+The selected deployment assumes Jupyter runs on the user's computer, with files
+saved under its configured user folder. A phone/tablet browser can connect to
+that server; saving then means the computer's folder, not phone-only storage.
+Mobile camera/microphone access requires a secure origin: an HTTP LAN address
+does not inherit the server computer's localhost exception. The simple
+flow is **browser capture → authenticated Jupyter/server save → file path and
+preview**. Jupyter's Contents API already defines file creation/update with a
+path and content representation. Use it for suitably bounded files; whether
+larger recordings need bounded chunk uploads is an implementation decision.
+Do not hold a notebook cell open to write a file through Python when the server
+can accept the save independently of the busy kernel.
+([Jupyter Server Contents API](https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html#put--api-contents-path).)
 
-| Destination | What it means | Suitable for strict device-local capture? |
-| --- | --- | --- |
-| Browser memory/storage or a user-selected local download | Pixels/recording stay in the client; tools return only an opaque ID and bounded non-content status | Yes, with a deliberately local data path |
-| Jupyter server/kernel filesystem or saved notebook | Bytes go to the Jupyter host; that host may be remote | Only when that host is the intended local destination |
-| Model attachment | Bytes/derived frames go to the configured model service | No for a remote model; it is a separate disclosure decision |
+Temporary browser buffers and an operation ID are sufficient for an active
+recording; no separate durable browser storage system is required. A completed
+save returns a relative path, MIME type, byte count and relevant duration or
+dimensions. Acknowledge success only after the file is saved; define collision,
+cancel/failure and incomplete-upload behavior. The destination stays within the
+configured user folder. Preview can load the saved media from that local server.
 
-For strict local mode, do not put base64 images, transcripts, OCR, thumbnails or
-file contents in tool-result text. Do not insert the media into ordinary notebook
-outputs/attachments and then call it local-only: saving that notebook can send it
-to a remote Jupyter server. Keep the capture in a browser-owned client artifact
-store, preview it locally, and make local download and model attachment distinct
-actions. A model may arrange a local capture without receiving its pixels; it
-cannot visually reason about pixels it has not been given. Previously existing
-notebook outputs may already reside on the server, regardless of how we export
-them afterward.
-
-An artifact descriptor could carry an opaque ID, MIME type, dimensions/duration,
-size, origin target, capture time, retention mode and allowed destinations.
-Avoid leaking sensitive filenames/window titles through that descriptor. Browser
-storage is not a permanent export: quotas, deletion and retention need handling.
-The origin-private filesystem is isolated from the visible user filesystem and
-is affected by storage management; use a user-visible save/export for durable
-files. ([OPFS](https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system).)
+Saving locally must not automatically attach the file to a model request.
+Return bounded status/path metadata rather than media bytes in the tool result;
+image/audio/video attachment is a separately selected action with transport
+support. A model can arrange a recording without receiving its pixels or sound.
+If a deployment later uses a remote Jupyter server, this assumption changes and
+must be revisited; supporting a separate browser-only mode is outside this scope.
 
 ## What nbinlineai already has and what must be added
 
@@ -249,7 +297,7 @@ or an indefinite wait for a user chooser.
 [server bridge](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/frontend_bridge.py#L70-L275),
 [context](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/src/context.ts#L12-L45).)
 
-Add explicit browser-owned operation/artifact IDs for user interaction and
+Add explicit operation IDs for user interaction and
 recording. A tool can request an operation, return pending status and let the
 user complete it later; cancellation, expiry, tab closure and duplicate replies
 need defined behavior. These IDs supplement notebook cell IDs: a canvas, media
@@ -278,30 +326,35 @@ continuation feature. ([Existing transports](bundled_tools.md).)
 
 ## Suggested delivery order
 
-1. **Main: local artifact foundation.** Bound IDs, local preview, cleanup,
-   download, existing image/canvas output export and explicit destinations.
-2. **Main: local screen capture.** User share/stop controls and still frames;
-   add region selection/redaction and bounded recording in subsequent slices.
+1. **Main: local-server capture/save foundation.** Bound operation IDs, preview,
+   existing image output discovery/export and authenticated saves in the user's
+   Jupyter folder. No browser-only durable artifact store or extra extension.
+2. **Main: camera and microphone.** Camera stills and video with optional
+   microphone audio, microphone-only recording, start/stop and bounded duration.
+   Select supported formats across the desktop/mobile matrix in the spec.
 3. **Main: typed app interfaces.** Read notebook view/output text, registered
-   app state/actions and a bounded event queue. Avoid making arbitrary page
+   app state/actions/canvases and a bounded event queue. Avoid making arbitrary page
    JavaScript evaluation the default model tool surface.
 4. **Main, separate design: image-aware model input.** Explicitly attach chosen
    artifacts only after both transport and budget contracts are defined. Full
    video-model input need not precede useful still frames or local recordings.
-5. **Optional separate main integration: external-browser connector.** Adopt an
-   extension/CDP approach only if controlling other apps is selected as a goal;
-   it needs its own installation and target/permission UX.
+5. **Main: other browser capabilities with explicit gaps.** Screen capture and
+   recording, supported rendered-region capture and portable clipboard controls
+   follow the spec's capability contract. No external-browser extension/CDP
+   connector is planned.
 6. **Experiment: compose with execution handoffs.** Run → render → capture →
    prompt, or app event → native code → successor prompt. Depend on the reviewed
    handoff interface and add explicit render/event adapters and chain limits.
 
 Later implementation acceptance should include two notebook tabs, target edits,
 closed surfaces, chooser denial/timeout, stop/restart, duplicate messages, media
-bounds and backend differences. For local-only mode, test that pixels never
-enter server requests, notebook saves or provider payloads, including preview
-and error paths. Test a remote-server arrangement rather than assuming browser
-and kernel share a filesystem. This research does not authorize those features
-or paid provider tests; it supplies a menu for choosing the next scope.
+bounds, save completion/failure and backend differences. Verify actual camera
+and microphone recording on the supported real browsers, including Safari;
+automated browser engines alone do not establish device/codec compatibility.
+Media is expected to reach the local server but must not enter provider payloads
+without the separate attachment action, including preview and error paths.
+This research does not authorize feature implementation or paid provider tests;
+it supplies a menu for choosing the next scope.
 
 Tracking: notebook-agent initiative [#2](https://github.com/rahuldave/nbinlineai/issues/2),
 research task `trvoxvks`. The [older dialoghelper catalog](dialoghelper_tool_catalog.md)

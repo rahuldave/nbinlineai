@@ -48,7 +48,9 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 | Document | Status and purpose |
 | --- | --- |
-| [Browser, app and local-media tools](browser_media_tool_research.md) | September 28 dialoghelper/Chrome-extension survey, local screenshots/video, browser API candidates and explicit main-versus-execution-handoff dependencies. Research only. |
+| [Browser, app and local-media tools](browser_media_tool_research.md) | September 28 dialoghelper survey; camera/video/audio, local Jupyter-folder saves, no extra browser extensions, desktop/mobile gaps and main-versus-handoff dependencies. |
+| [Browser and media API spec](browser_media_tool_spec.md) | Proposed callable APIs, dialoghelper naming, camera video, local saves, app events, image attachment, ownership and verification; no runtime implementation. |
+| [Browser/media implementation task prompt](browser_media_tool_task_prompt.md) | Copyable post-merge prompt for main-based implementation worktrees; separates experimental execution compositions. |
 | [Notebook execution handoff research](notebook_execution_handoffs.md) | September 25 Solveit/Jupyter execution and cell-identity research, preserved from the experiment. The approved handoff spec resolves its initial open choices. |
 | [One-kernel RLM and Python 3.14 research](one_kernel_rlm_python314.md) | September 25 follow-on investigation of REPLs, interpreters and event loops; future work after handoff primitives, before multiple kernels. |
 | [ChatGPT subscription runtime gate](chatgpt_subscription_gate.md) | Pinned runtime isolation evidence, the superseded strict one-request gate, local live acceptance, and cross-platform CI results for 0.1.13. |
