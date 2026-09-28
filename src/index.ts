@@ -25,10 +25,10 @@ import { mediaContext } from './browserMediaComm';
 import { BrowserMediaError, BrowserOperationStatus, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
 import { boundedMediaErrorText } from './browserMediaCapabilities';
 import { installBrowserMediaStatus } from './browserMediaStatus';
-import './browserNotebookOutputs';
-import './browserNotebookViews';
-import './browserNotebookCanvas';
-import './browserNotebookRegion';
+import { registerBrowserNotebookOutputs } from './browserNotebookOutputs';
+import { registerBrowserNotebookViews } from './browserNotebookViews';
+import { registerBrowserNotebookCanvas } from './browserNotebookCanvas';
+import { registerBrowserNotebookRegion } from './browserNotebookRegion';
 import './browserMediaCapture';
 import '../style/index.css';
 
@@ -1139,6 +1139,10 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    registerBrowserNotebookOutputs();
+    registerBrowserNotebookViews();
+    registerBrowserNotebookCanvas();
+    registerBrowserNotebookRegion();
     if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
         new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
       void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })

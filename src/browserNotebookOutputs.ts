@@ -226,6 +226,10 @@ export async function exportOutput(context: BrowserOperationContext, operation: 
     destination === undefined ? null : destination as string | null);
 }
 
+let outputOperationsRegistered = false;
+export function registerBrowserNotebookOutputs(): void {
+if (outputOperationsRegistered) return;
+outputOperationsRegistered = true;
 registerBrowserOperation('list_outputs', async (context, request, operation) => {
   const cellId = string(request.arguments.cell_id, 'cell_id', 200);
   const cursor = string(request.arguments.cursor ?? '', 'cursor', 100, true);
@@ -238,3 +242,4 @@ registerBrowserOperation('read_output', async (context, request, operation) => {
 registerBrowserOperation('export_output', async (context, request, operation) => {
   await exportOutput(context, operation, request.arguments);
 }, () => ({ available: true, formats: ['image/png', 'image/jpeg', 'image/svg+xml'] }));
+}

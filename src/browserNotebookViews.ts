@@ -46,6 +46,10 @@ export function readSelection(context: BrowserOperationContext, maxChars: number
   while (length > 0 && JSON.stringify(result(length)).length > 3200) length = Math.floor(length * 0.75);
   return result(length);
 }
+let viewOperationsRegistered = false;
+export function registerBrowserNotebookViews(): void {
+if (viewOperationsRegistered) return;
+viewOperationsRegistered = true;
 registerBrowserOperation('read_notebook_view', async (context, _request, operation) => {
   await context.transition(operation.operation_id, 'completed', readNotebookView(context));
 }, () => ({ available: true }));
@@ -54,3 +58,4 @@ registerBrowserOperation('read_selection', async (context, request, operation) =
   if (typeof requested !== 'number') throw new BrowserMediaError('invalid_argument', 'max_chars must be an integer.');
   await context.transition(operation.operation_id, 'completed', readSelection(context, requested));
 }, () => ({ available: true }));
+}

@@ -199,6 +199,10 @@ async function capture(context: BrowserOperationContext, operation: BrowserOpera
   canvasRegistry(context).resolve(ref);
   await context.upload(operation.operation_id, bytes, 'image/png', hash, {}, saveTo);
 }
+let canvasOperationsRegistered = false;
+export function registerBrowserNotebookCanvas(): void {
+if (canvasOperationsRegistered) return;
+canvasOperationsRegistered = true;
 registerBrowserOperation('list_canvases', async (context, request, operation) => {
   const args = request.arguments;
   const ref = outputLedger(context).resolve(String(args.cell_id), String(args.output_id),
@@ -248,3 +252,4 @@ registerBrowserOperation('start_canvas', async (context, request, operation) => 
   }
 }, () => ({ available: typeof HTMLCanvasElement !== 'undefined' &&
   typeof HTMLCanvasElement.prototype.captureStream === 'function' }));
+}

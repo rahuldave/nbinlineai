@@ -138,6 +138,11 @@ export async function captureNotebookRegion(context: BrowserOperationContext,
       save === undefined ? null : save as string | null);
   } finally { surfaces.forEach(item => item.dispose?.()); disconnect(); }
 }
+let regionOperationRegistered = false;
+export function registerBrowserNotebookRegion(): void {
+if (regionOperationRegistered) return;
+regionOperationRegistered = true;
 registerBrowserOperation('capture_notebook_region', async (context, request, operation) => {
   await captureNotebookRegion(context, operation, request.arguments);
 }, () => ({ available: true, formats: ['image/png'] }));
+}
