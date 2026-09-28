@@ -66,6 +66,7 @@ normalize in demo_project/analysis.py without importing the file.
 That second example assumes the saved file and function exist. For a multi-tool task, import and declare each tool the question needs; a reference to `show_doc` alone does not also offer `source_doc`.
 
 For a runnable path through every shipped tool, use the catalog notebooks below.
+The six tool-catalog notebooks are new **source examples**; they are not in the unchanged PyPI 0.1.15 archive. Open or copy them from the GitHub source repository after this change merges, or from a Git checkout. They demonstrate the existing tools and do not imply a new package release.
 Their sections and stable demonstration cell IDs are linked from each row of the
 [function index](tools.md#function-index). The inspection, saved-file, saved-notebook,
 and process notebooks call safe tools against disposable inputs. The live-notebook

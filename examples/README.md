@@ -2,6 +2,11 @@
 
 Copy this `examples/` directory into a JupyterLab project, keeping `data/` beside the notebooks. It is also included in the package at `share/doc/nbinlineai/examples/` inside the installed Python environment, and in the [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples). Open a copy in JupyterLab, configure your own provider key, and choose any available model. The notebooks contain no keys or prewritten AI answers.
 
+The six `tool-catalog-*.ipynb` notebooks are new source examples after the
+published 0.1.15 package. They are available in this repository; the unchanged
+PyPI 0.1.15 archive does not include them. They demonstrate existing tools and
+do not mark a new package release.
+
 | Notebook | What to try |
 | --- | --- |
 | `context-selection.ipynb` | Compare seven Context modes, save Custom text choices, and switch declaration cells on/off with separate Tools controls (0.1.8). |

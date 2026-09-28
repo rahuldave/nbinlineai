@@ -112,8 +112,8 @@ def row_has_exact_link(row: str, entry: dict) -> bool:
     """Keep a notebook section and cell ID attached to the correct tool row."""
     url = ("https://github.com/rahuldave/nbinlineai/blob/main/examples/"
            + entry["notebook"])
-    expected = f"[Notebook: § `{entry['section']}`, cell `{entry['cell_id']}`]({url})"
-    return row.count("[Notebook:") == 1 and expected in row
+    expected = f"[Notebook example: § `{entry['section']}`, cell `{entry['cell_id']}`]({url})"
+    return row.count("[Notebook example:") == 1 and expected in row
 
 
 def _markdown(cell_id: str, source: str, ai: dict | None = None) -> dict:
