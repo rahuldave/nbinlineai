@@ -36,6 +36,16 @@ export function recordingHandle(context: BrowserOperationContext, operationId: s
   return handle;
 }
 
+/** Server-retained recorder result, usable for repeat Stop after bytes are released. */
+export function isCompletedRecording(status: BrowserOperationStatus, operationId: string): boolean {
+  const result = status.result;
+  return status.operation_id === operationId && status.status === 'completed' &&
+    result?.recording === true && typeof result.source_id === 'string' && !!result.source_id &&
+    typeof result.mime_type === 'string' && /^(audio|video)\//.test(result.mime_type) &&
+    typeof result.audio === 'boolean' && typeof result.video === 'boolean' &&
+    typeof result.max_duration_seconds === 'number';
+}
+
 export function activeRecordingForSource(context: BrowserOperationContext, sourceId: string): RecordingHandle | null {
   const handle = active.get(context);
   return handle?.sourceId === sourceId ? handle : null;
@@ -223,7 +233,7 @@ export async function startRecordedOperation(context: BrowserOperationContext,
       if (error instanceof BrowserMediaError) throw error;
       throw new BrowserMediaError('unsupported', 'This browser could not start recording.');
     }
-    await context.transition(operation.operation_id, 'running', { source_id: source.sourceId,
+    await context.transition(operation.operation_id, 'running', { recording: true, source_id: source.sourceId,
       mime_type: mime, audio, video, max_duration_seconds: duration });
     timer = window.setTimeout(() => {
       void stopRecordingHandle(context, operation.operation_id, 'duration').catch(() => undefined);

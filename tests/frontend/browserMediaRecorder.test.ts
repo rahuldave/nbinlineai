@@ -1,7 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { BrowserOperationContext } from '../../src/browserMediaClient';
-import { recordingSourceEnded, registerRecordingHandle, stopRecordingHandle } from '../../src/browserMediaRecorder';
+import { isCompletedRecording, recordingSourceEnded, registerRecordingHandle, stopRecordingHandle } from '../../src/browserMediaRecorder';
+
+test('repeat Stop recognizes a completed recording, not an unrelated completed operation', () => {
+  const recording = { operation_id: 'recording', status: 'completed' as const, result: {
+    recording: true, source_id: 'camera', mime_type: 'video/webm', audio: false, video: true,
+    max_duration_seconds: 30 } };
+  assert.equal(isCompletedRecording(recording, 'recording'), true);
+  assert.equal(isCompletedRecording(recording, 'another-operation'), false);
+  assert.equal(isCompletedRecording({ ...recording, result: {
+    source_id: 'camera', mime_type: 'video/webm', audio: false, video: true,
+    max_duration_seconds: 30 } }, 'recording'), false);
+  assert.equal(isCompletedRecording({ operation_id: 'devices', status: 'completed', result: {
+    devices: [], next_cursor: '', omitted_count: 0 } }, 'devices'), false);
+});
 
 test('source-ended and repeated Stop share one finalization; cancellation discards', async () => {
   const context = {} as BrowserOperationContext;

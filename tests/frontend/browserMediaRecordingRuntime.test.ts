@@ -60,6 +60,7 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     await startRecordedOperation(context, { operation_id: 'recording', status: 'running' }, source, null, 30);
     await stopRecordingHandle(context, 'recording', 'user');
     assert.deepEqual(calls.map(call => call[0]), ['claim', 'transition', 'upload']);
+    assert.equal((calls[1][3] as { recording: boolean }).recording, true);
     assert.equal(calls[1][3] && (calls[1][3] as { mime_type: string }).mime_type, 'audio/webm;codecs=opus');
     assert.equal(calls[2][3], 'audio/webm;codecs=opus');
     assert.equal((calls[2][4] as { stop_reason: string }).stop_reason, 'user');

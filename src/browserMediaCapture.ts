@@ -3,7 +3,7 @@ import { Widget } from '@lumino/widgets';
 import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, BrowserSource,
   registerBrowserOperation } from './browserMediaClient';
 import { sha256Bytes } from './browserMediaHash';
-import { recordingHandle, recordingSourceEnded,
+import { isCompletedRecording, recordingHandle, recordingSourceEnded,
   startRecordedOperation, stopRecordingHandle } from './browserMediaRecorder';
 
 interface CaptureUi {
@@ -433,6 +433,8 @@ registerBrowserOperation('stop_recording', async (context, request, operation) =
   const target = String(request.arguments.operation_id);
   const before = await context.status(target);
   if (before.status === 'completed') {
+    if (!isCompletedRecording(before, target))
+      throw new BrowserMediaError('stale_target', 'The target is not a completed recording.');
     await context.transition(operation.operation_id, 'completed', { target_operation_id: target,
       target_status: 'completed', already_stopped: true });
     return;
