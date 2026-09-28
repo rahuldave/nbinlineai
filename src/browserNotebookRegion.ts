@@ -3,6 +3,7 @@ import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus,
   registerBrowserOperation } from './browserMediaClient';
 import { materializedOutput } from './browserNotebookCanvas';
 import { OutputRef, outputLedger } from './browserNotebookOutputs';
+import { sha256Bytes } from './browserMediaHash';
 
 interface Surface { ref: OutputRef; node: HTMLElement; element: HTMLImageElement | HTMLCanvasElement;
   rect: DOMRect; dispose?: () => void; }
@@ -65,10 +66,6 @@ async function surface(context: BrowserOperationContext, ref: OutputRef, frame: 
     : element.getBoundingClientRect();
   if (!visible(rect, frame)) { dispose?.(); fail('unsupported', `Cell ${ref.cell_id} output is not fully visible.`); }
   return { ref, node, element, rect, dispose };
-}
-async function hash(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
-  return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
 }
 function png(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
@@ -135,7 +132,7 @@ export async function captureNotebookRegion(context: BrowserOperationContext,
     if (bytes.byteLength > 50 * 1024 * 1024)
       fail('limit_exceeded', 'Region still exceeds the encoded media limit.');
     stillCurrent(context, surfaces);
-    const digest = await hash(bytes);
+    const digest = await sha256Bytes(bytes);
     stillCurrent(context, surfaces);
     await context.upload(operation.operation_id, bytes, 'image/png', digest, {},
       save === undefined ? null : save as string | null);

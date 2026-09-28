@@ -3,6 +3,7 @@ import type { ICodeCellModel } from '@jupyterlab/cells';
 import type { IOutputModel } from '@jupyterlab/rendermime';
 import { BrowserMediaError, BrowserOperationContext,
   BrowserOperationStatus, registerBrowserOperation } from './browserMediaClient';
+import { sha256Bytes } from './browserMediaHash';
 
 export interface OutputRef {
   cell_id: string;
@@ -202,10 +203,6 @@ function encoded(output: IOutputModel, mime: string): Uint8Array {
   try { return Uint8Array.from(atob(raw.replace(/\s/g, '')), character => character.charCodeAt(0)); }
   catch { return fail('unsupported', 'The existing raster output is not valid base64.'); }
 }
-async function sha256(bytes: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
-  return Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, '0')).join('');
-}
 export async function exportOutput(context: BrowserOperationContext, operation: BrowserOperationStatus,
   arguments_: Record<string, unknown>): Promise<void> {
   const { cellId, outputId, revision } = requiredRef(arguments_);
@@ -223,7 +220,7 @@ export async function exportOutput(context: BrowserOperationContext, operation: 
   });
   context.addOperationCleanup(operation.operation_id, disconnect);
   // Recheck after asynchronous digest, before bytes leave the browser.
-  const hash = await sha256(bytes);
+  const hash = await sha256Bytes(bytes);
   outputLedger(context).resolve(cellId, outputId, revision);
   await context.upload(operation.operation_id, bytes, mime, hash, {},
     destination === undefined ? null : destination as string | null);

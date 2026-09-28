@@ -4,6 +4,7 @@ import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, Bro
   registerBrowserOperation } from './browserMediaClient';
 import { OutputRef, outputLedger } from './browserNotebookOutputs';
 import { recordingSourceEnded } from './browserMediaRecorder';
+import { sha256Bytes } from './browserMediaHash';
 
 export interface CanvasRef extends Pick<OutputRef, 'cell_id' | 'output_id' | 'revision'> {
   canvas_id: string;
@@ -69,10 +70,6 @@ function stockHtml(context: BrowserOperationContext, ref: Pick<OutputRef, 'cell_
   if (!materialized) return null;
   if (materialized.mime !== 'text/html' || !materialized.node.querySelector('.jp-RenderedHTMLCommon')) return null;
   return materialized;
-}
-function bytesHash(bytes: Uint8Array): Promise<string> {
-  return crypto.subtle.digest('SHA-256', bytes as BufferSource).then(buffer =>
-    Array.from(new Uint8Array(buffer), value => value.toString(16).padStart(2, '0')).join(''));
 }
 function png(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
@@ -198,7 +195,7 @@ async function capture(context: BrowserOperationContext, operation: BrowserOpera
   if (bytes.byteLength > 50 * 1024 * 1024)
     fail('limit_exceeded', 'Canvas still exceeds the encoded media limit.');
   canvasRegistry(context).resolve(ref);
-  const hash = await bytesHash(bytes);
+  const hash = await sha256Bytes(bytes);
   canvasRegistry(context).resolve(ref);
   await context.upload(operation.operation_id, bytes, 'image/png', hash, {}, saveTo);
 }
