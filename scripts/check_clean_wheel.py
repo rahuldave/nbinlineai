@@ -1,6 +1,6 @@
 """Check a built wheel in the existing disposable Python 3.14 environment.
 
-Run only after building and inspecting the final 0.1.14 wheel. This script never
+Run only after building and inspecting the final wheel. This script never
 imports nbinlineai from the checkout and owns only its temporary port-8897 server.
 """
 
@@ -19,7 +19,10 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import tomllib
+
 ROOT = Path(__file__).resolve().parents[1]
+VERSION = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 PORT = 8897
 
 
@@ -70,13 +73,13 @@ def _stop(process: subprocess.Popen) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Isolated installed-wheel and quickstart UI check")
-    parser.add_argument("wheel", type=Path, help="Final inspected 0.1.14 wheel")
+    parser.add_argument("wheel", type=Path, help=f"Final inspected {VERSION} wheel")
     parser.add_argument("--info", type=Path,
-                        default=Path("/tmp/nbinlineai-0114-clean-info.json"))
+                        default=Path(f"/tmp/nbinlineai-{VERSION.replace('.', '')}-clean-info.json"))
     args = parser.parse_args()
     wheel = args.wheel.resolve(strict=True)
-    if not wheel.name.startswith("nbinlineai-0.1.14-") or wheel.suffix != ".whl":
-        raise SystemExit("Expected a built nbinlineai 0.1.14 wheel")
+    if not wheel.name.startswith(f"nbinlineai-{VERSION}-") or wheel.suffix != ".whl":
+        raise SystemExit(f"Expected a built nbinlineai {VERSION} wheel")
     info = json.loads(args.info.read_text(encoding="utf-8"))
     base = Path(info["base"]).resolve(strict=True)
     python = Path(info["python"]).absolute()
@@ -101,17 +104,17 @@ def main() -> None:
     # index package or allow a source-tree editable install during this check.
     subprocess.run([uv, "pip", "install", "--python", str(python), "--no-deps",
                     "--offline", "--reinstall", str(wheel)], check=True)
-    with tempfile.TemporaryDirectory(prefix="nbinlineai-0114-wheel-") as directory:
+    with tempfile.TemporaryDirectory(prefix=f"nbinlineai-{VERSION.replace('.', '')}-wheel-") as directory:
         scratch = Path(directory)
         for name in ("root", "config", "runtime", "data", "xdg", "ipython"):
             (scratch / name).mkdir()
         env = _clean_env(venv, scratch)
-        check = """
+        check = f"""
 import importlib.metadata as metadata
 import nbinlineai
 from pathlib import Path
 import sys
-assert metadata.version('nbinlineai') == '0.1.14'
+assert metadata.version('nbinlineai') == {VERSION!r}
 assert metadata.version('openai-codex') == '0.156.1'
 package = Path(nbinlineai.__file__).resolve()
 assert package.is_relative_to(Path(sys.prefix).resolve())
@@ -159,10 +162,20 @@ main()
                     time.sleep(0.5)
                 else:
                     raise RuntimeError("Installed-wheel JupyterLab did not become ready")
-                with urlopen(f"http://127.0.0.1:{PORT}/nbinlineai/status", timeout=10) as response:
-                    status = json.load(response)
-                    if response.status != 200 or status.get("version") != "0.1.14":
-                        raise RuntimeError("Installed-wheel status did not report 0.1.14")
+                status_deadline = time.monotonic() + 120
+                while time.monotonic() < status_deadline:
+                    if process.poll() is not None:
+                        raise RuntimeError("Installed-wheel JupyterLab stopped before extension status was ready")
+                    try:
+                        with urlopen(f"http://127.0.0.1:{PORT}/nbinlineai/status", timeout=5) as response:
+                            status = json.load(response)
+                            if response.status != 200 or status.get("version") != VERSION:
+                                raise RuntimeError(f"Installed-wheel status did not report {VERSION}")
+                            break
+                    except (OSError, URLError):
+                        time.sleep(0.5)
+                else:
+                    raise RuntimeError("Installed-wheel extension status did not become ready")
                 browser_env = os.environ.copy()
                 for name in tuple(browser_env):
                     if (name.startswith(("CODEX_", "OPENAI_", "ANTHROPIC_"))
@@ -174,7 +187,7 @@ main()
                     raise RuntimeError("Installed-wheel quickstart UI check failed")
             finally:
                 _stop(process)
-    print("Installed 0.1.14 wheel, both extensions, and isolated quickstart UI passed")
+    print(f"Installed {VERSION} wheel, both extensions, and isolated quickstart UI passed")
 
 
 if __name__ == "__main__":

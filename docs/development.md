@@ -44,10 +44,10 @@ uv sync
 
 Then restart your Jupyter server. Commit the consuming project's
 `pyproject.toml` and `uv.lock` if you want to reproduce its chosen branch
-commit. `jupyter labextension list` shows the package's version, which may
-still read `0.1.14` on this branch; check `uv.lock` to see the Git commit.
-Branch installs remain experimental and are separate from releases published
-on PyPI.
+commit. `jupyter labextension list` shows version `0.1.15` on this branch;
+check `uv.lock` to identify the exact Git commit. The published PyPI 0.1.15
+package does not include the experimental execution handoffs. Branch installs
+remain experimental and are separate from releases published on PyPI.
 
 ## Set up from source
 
@@ -129,6 +129,17 @@ See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-
 
 
 ## Branches and worktrees
+
+Approved pre-work research, specifications and task prompts live on `main`.
+Implementation handoffs and branch-specific notes follow the code branch they
+describe. In an experimental worktree, read approved pre-work from a recorded
+`main` commit, then keep implementation notes on the experimental branch.
+Author changes in owned topic worktrees and submit reviewed pull requests to
+the appropriate target; keep the primary checkout on `main`. The repository's
+[documentation workflow](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/workflow.md#documentation-by-branch)
+describes the branch mapping. Public docs, examples and code documentation
+follow the code they describe so packaged instructions match the installed
+version.
 
 Keep the primary checkout on `main`. Develop changes in separate topic
 worktrees, using a temporary `codex/*` branch based on the intended integration

@@ -41,6 +41,7 @@
     ".agents/skills/gis/references/tag_dependency_workflow.md": "8ba10ef60d6e69afa002b4a6880e85b53e577158e2f9358edce174653cb9204f",
     ".agents/skills/gor/SKILL.md": "d752fcc08ad2597b8ddf90dbfc4a2617ca3ce73050cefa5b27ea54e7ad3ac9e2",
     ".agents/skills/gor/references/tag_dependency_workflow.md": "8ba10ef60d6e69afa002b4a6880e85b53e577158e2f9358edce174653cb9204f",
+    ".agents/skills/gor/references/integration_delivery_workflow.md": "d4eac37cec521608b028cb4bf537782d5a8b9eb9241e642cb8fd10ede03766d7",
     ".agents/skills/gpa/SKILL.md": "5be24632aaf474a3be1676353b74f8ac4782212755e808869f312e0c981b9673",
     ".agents/skills/gpa/references/tag_dependency_workflow.md": "8ba10ef60d6e69afa002b4a6880e85b53e577158e2f9358edce174653cb9204f",
     ".agents/skills/gpa/references/integration_delivery_workflow.md": "d4eac37cec521608b028cb4bf537782d5a8b9eb9241e642cb8fd10ede03766d7",
@@ -121,7 +122,6 @@
     ".claude/hooks/session-start.sh": "af4610672dc21fb4be357237eca95c2c15032b42a438a2221e05a6d34c352b79",
     ".codex/hooks/gitbutler-snapshot.sh": "701735471dbdfd2485dd329b93eefbd7ec0fc2e91c24691628349fcde942e606",
     ".codex/hooks/raw-git-write-guard.sh": "2b3f93faa8f6392f5472dd6d570088ca143730d4b106102e64ccefe324383e69",
-    ".codex/hooks/session-start.sh": "51d99af5857e3e058a213f5f7e7140d9df18d6224c980fa63846777af2270014",
-    ".agents/skills/gor/references/integration_delivery_workflow.md": "d4eac37cec521608b028cb4bf537782d5a8b9eb9241e642cb8fd10ede03766d7"
+    ".codex/hooks/session-start.sh": "51d99af5857e3e058a213f5f7e7140d9df18d6224c980fa63846777af2270014"
   }
 }

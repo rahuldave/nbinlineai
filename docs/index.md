@@ -6,12 +6,12 @@ title: nbinlineai
 
 **nbinlineai** adds AI prompt cells to JupyterLab. Ask about the code and notes above a cell, refer to live Python values, and let a model call functions you explicitly name. Prompts and answers stay in the notebook as readable Markdown.
 
-**New in 0.1.14:** choose a default connection for notebooks without saved choices, keep cell provider choices inherited unless explicitly overridden, and see a clean waiting answer cell before text streams in.
+**Website revision 0.1.16:** Read [the new prior-art article](prior-art.md) about Solveit and ai-jup. The installable package remains **0.1.15**; this revision changes documentation only.
 
 ## Start here
 
 1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook and use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Set **Default connection for new notebooks** there if you want a user preference.
+2. Open a Python notebook. Use **Configure AI → Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults → Default connection for new notebooks** if you want a user preference.
 3. Choose this notebook's connection, model, and style in **AI defaults**. Individual cells inherit them unless overridden.
 4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
 
@@ -46,9 +46,18 @@ The [user guide index](user-guide.md) shows the reading order. Open the chapter 
 | [Examples guide](examples.md) | Try task walkthroughs and downloadable teaching notebooks. |
 | [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
 | [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
+| [Prior art](prior-art.md) | How Solveit's interactive workflow and Hamel Husain's ai-jup inspired this extension. |
 | [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
 
-## New in version 0.1.14
+## Website revision 0.1.16
+
+- Added [Prior art](prior-art.md), explaining Solveit's problem-solving approach, dialog controls, tools, and influence on Hamel Husain's ai-jup and nbinlineai.
+
+## New in package version 0.1.15
+
+- Configure AI separates connection setup and keys from user defaults. Select a connection to see its setup; set the default for new notebooks on the other tab.
+
+## Added in version 0.1.14
 
 - Set **Default connection for new notebooks** in Configure AI. Cells now visibly inherit their notebook's connection unless you explicitly choose another provider for that question; selecting only a cell model does not pin the provider.
 - Empty AI answer cells hide JupyterLab's Markdown instruction placeholder while waiting for the first streamed response text.
@@ -100,7 +109,7 @@ Version 0.1.8 adds selectable notebook context.
 ## Notebook conversations
 
 - Set provider, model, style, and effort once per notebook, with optional cell overrides.
-- Edit the built-in **Compact**, **Full**, and **Learning** instructions in Configure AI.
+- Edit the built-in **Compact**, **Full**, and **Learning** instructions in **Configure AI → Defaults**.
 - Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
 - Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
 

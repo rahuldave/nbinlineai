@@ -42,9 +42,62 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   const body = new Widget();
   body.node.className = 'nbinlineai-keys-dialog';
   body.node.dataset.nbinlineaiKeysDialog = '';
+  const tabs = document.createElement('div');
+  tabs.className = 'nbinlineai-dialog-tabs';
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', 'Configure AI sections');
+  const connectionPanel = document.createElement('section');
+  connectionPanel.id = 'nbinlineai-connections-panel';
+  connectionPanel.className = 'nbinlineai-dialog-panel';
+  connectionPanel.setAttribute('role', 'tabpanel');
+  connectionPanel.tabIndex = 0;
+  const defaultsPanel = document.createElement('section');
+  defaultsPanel.id = 'nbinlineai-defaults-panel';
+  defaultsPanel.className = 'nbinlineai-dialog-panel';
+  defaultsPanel.setAttribute('role', 'tabpanel');
+  defaultsPanel.tabIndex = 0;
+  const connectionTab = document.createElement('button');
+  connectionTab.type = 'button';
+  connectionTab.id = 'nbinlineai-connections-tab';
+  connectionTab.textContent = 'Connections & models';
+  connectionTab.setAttribute('role', 'tab');
+  connectionTab.setAttribute('aria-controls', connectionPanel.id);
+  connectionPanel.setAttribute('aria-labelledby', connectionTab.id);
+  const defaultsTab = document.createElement('button');
+  defaultsTab.type = 'button';
+  defaultsTab.id = 'nbinlineai-defaults-tab';
+  defaultsTab.textContent = 'Defaults';
+  defaultsTab.setAttribute('role', 'tab');
+  defaultsTab.setAttribute('aria-controls', defaultsPanel.id);
+  defaultsPanel.setAttribute('aria-labelledby', defaultsTab.id);
+  const showTab = (selected: HTMLButtonElement, focus = false) => {
+    for (const [tab, panel] of [[connectionTab, connectionPanel], [defaultsTab, defaultsPanel]] as const) {
+      const active = tab === selected;
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      panel.hidden = !active;
+    }
+    if (focus) selected.focus();
+  };
+  connectionTab.addEventListener('click', () => showTab(connectionTab));
+  defaultsTab.addEventListener('click', () => showTab(defaultsTab));
+  const onTabKeydown = (event: KeyboardEvent) => {
+    const target = event.target;
+    if (target !== connectionTab && target !== defaultsTab) return;
+    const next = event.key === 'ArrowRight' || event.key === 'ArrowLeft'
+      ? target === connectionTab ? defaultsTab : connectionTab
+      : event.key === 'Home' ? connectionTab : event.key === 'End' ? defaultsTab : null;
+    if (!next) return;
+    event.preventDefault();
+    event.stopPropagation();
+    showTab(next, true);
+  };
+  tabs.append(connectionTab, defaultsTab);
+  body.node.append(tabs, connectionPanel, defaultsPanel);
+  showTab(connectionTab);
   const connectionLabel = document.createElement('label');
   connectionLabel.className = 'nbinlineai-connection-selector';
-  connectionLabel.textContent = 'Connection';
+  connectionLabel.textContent = 'Connection to set up';
   const connectionSelect = document.createElement('select');
   connectionSelect.dataset.nbinlineaiConnection = '';
   for (const backend of [SUBSCRIPTION_BACKEND, ...API_BACKENDS]) {
@@ -55,7 +108,10 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   connectionSelect.value = isBackend(initial) ? initial : 'openai_api';
   connectionLabel.appendChild(connectionSelect);
   const subscriptionSetup = new SubscriptionSetup(env.subscription);
-  body.node.append(connectionLabel, subscriptionSetup.node);
+  const connectionHint = document.createElement('p');
+  connectionHint.className = 'nbinlineai-connection-hint';
+  connectionHint.textContent = 'Switching connections here only shows setup. To change this notebook, use AI defaults below its toolbar, or ChatGPT’s Use for this notebook.';
+  connectionPanel.append(connectionLabel, connectionHint, subscriptionSetup.node);
   const defaultHeading = document.createElement('h3');
   defaultHeading.textContent = 'Default connection for new notebooks';
   const defaultSelect = document.createElement('select');
@@ -71,7 +127,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   const defaultNotice = document.createElement('div');
   defaultNotice.setAttribute('role', 'status');
   defaultNotice.dataset.nbinlineaiDefaultBackendNotice = '';
-  body.node.append(defaultHeading, defaultSelect, defaultDescription, defaultNotice);
+  defaultsPanel.append(defaultHeading, defaultSelect, defaultDescription, defaultNotice);
   const syncDefaultBackend = () => {
     const saved = settings?.get('defaultBackend').composite;
     defaultSelect.value = isBackend(saved) ? saved : 'openai_api';
@@ -81,6 +137,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   const syncConnectionDetails = () => {
     const capable = env.getServerStatus()?.subscription_capable === true && env.subscription.capable();
     connectionLabel.hidden = !capable;
+    connectionHint.hidden = !capable;
     subscriptionSetup.setVisible(capable && connectionSelect.value === SUBSCRIPTION_BACKEND);
     if (keyArea) {
       keyArea.hidden = capable && connectionSelect.value === SUBSCRIPTION_BACKEND;
@@ -132,7 +189,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       styleNotice.textContent = state.settingsError || state.settingsWarning || 'Could not reload response style settings. Choose Retry.';
     }).finally(() => { styleRetry.disabled = false; });
   });
-  body.node.append(styleHeading, styleSelect, styleDescription, styleNotice, styleRetry);
+  defaultsPanel.append(styleHeading, styleSelect, styleDescription, styleNotice, styleRetry);
   void settingsReady.then(() => {
     settings = state.settings;
     syncDefaultBackend();
@@ -203,7 +260,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   const templateInfo = document.createElement('p');
   templateInfo.textContent = 'Edit the instructions behind each response style. Reset uses the current server default. Custom instructions apply to future runs and reruns.';
   templateDetails.appendChild(templateInfo);
-  body.node.appendChild(templateDetails);
+  defaultsPanel.appendChild(templateDetails);
   const templateRows = new Map<PromptMode, { textarea: HTMLTextAreaElement; label: HTMLElement; save: HTMLButtonElement; reset: HTMLButtonElement }>();
   refreshInstructionEditors = () => {
     for (const [mode, row] of templateRows) {
@@ -289,7 +346,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   keysHeading.textContent = 'API keys';
   keyArea = document.createElement('section');
   keyArea.className = 'nbinlineai-api-key-area';
-  body.node.appendChild(keyArea);
+  connectionPanel.appendChild(keyArea);
   keyArea.appendChild(keysHeading);
   const intro = document.createElement('p');
   intro.textContent = 'Add your own API key for each provider you want to use. Saved keys stay on the computer running JupyterLab, outside notebooks, and are reused across your local Jupyter environments. Removing a saved key removes it for those environments too.';
@@ -424,9 +481,12 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   updateRows();
   syncConnectionDetails();
   void loadKeys();
+  // JupyterLab handles arrow keys before they reach dialog controls.
+  document.addEventListener('keydown', onTabKeydown, true);
   try {
     await showDialog({ title: 'Configure AI', body, buttons: [Dialog.okButton({ label: 'Done' })] });
   } finally {
+    document.removeEventListener('keydown', onTabKeydown, true);
     subscriptionSetup.dispose();
     for (const row of rows.values()) row.input.value = '';
   }

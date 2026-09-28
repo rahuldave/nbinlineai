@@ -16,6 +16,20 @@ No version bump, tag, package upload or site deployment followed the merge.
 Gest iteration `srtuoxrt`, parent `tutortnk`, and leaves `oloxqsoz`, `twqntstm`
 and `ksoqwvzp` track the work under issue #2, which remains open.
 
+Keep `codex/agentic-notebook-experiments` as the persistent integration branch.
+The current handoffs serialize execution on one notebook kernel; later sidecar,
+Python 3.14, concurrency and multi-kernel experiments belong on new topic PRs
+targeting this branch. See [Development](../docs/development.md) for Git-source
+installation. Promoting source to `main` requires a separate decision and must
+preserve this experimental branch.
+
+PR [#25](https://github.com/rahuldave/nbinlineai/pull/25) brought current
+`main` through `47be176` into this branch at merge commit `532d5a3` without
+promoting the handoffs to `main`. Its reviewed topic head `eece770` passed 279
+Python tests, 69 frontend tests, 87 deterministic browser cases with two
+expected opt-in skips, and the runtime compatibility matrix. The mainline
+documentation policy from PR #24 now applies to this branch too.
+
 The three opt-in helpers are `add_code_cell_and_execute` (new or identified
 existing code), `prompt_and_run` (a separate AI question that must choose code)
 and `run_and_prompt` (code first, then a separate question with that run's
@@ -72,6 +86,84 @@ stable and experimental topics use owned worktrees from their respective bases.
 See [Project workflow](workflow.md) for review, provenance, CI and cleanup.
 Version 0.1.14 and PyPI are unchanged; no notebook-agent feature is added.
 
+**2026-09-25 JupyterLite exploration (preserved 2026-09-28):** See the
+[JupyterLite feasibility study](jupyterlite_feasibility.md). The published 0.1.15
+frontend loaded in JupyterLite 0.8.4 Notebook and Lab; a same-origin embedded
+Notebook executed Python 3.14.2 through Pyodide. AI remains unavailable because
+the static site has no nbinlineai server routes. This is research on `main`,
+not a runtime port or release. The study recommends a Notebook-first browser
+adapter experiment and separates browser execution from model hosting.
+
+**2026-09-28 documentation policy:** Approved pre-work research, specs and task
+prompts are maintained on `main`. Implementation-specific internal handoffs
+follow their code branch; the experiment's handoff is not a statement of
+mainline or PyPI behavior. Release records accompany their release PR to
+`main`. See [the workflow](workflow.md#documentation-by-branch) for revision
+pinning, draft handling and unavailable or behind primary checkouts. Public
+docs and examples follow their implementation branch. Record each document's
+branch, commit and delivery status.
+
+The [execution research](notebook_execution_handoffs.md) and
+[one-kernel RLM/Python 3.14 research](one_kernel_rlm_python314.md) were preserved
+from experimental commit `a316494` with provenance in each document. The
+[approved handoff spec](notebook_execution_handoff_spec.md) and
+[task prompt](notebook_execution_handoff_task_prompt.md) use `main` as their
+approved pre-work source. The resulting implementation handoff belongs on the
+experimental branch until that code is promoted. This policy adds no notebook
+behavior on `main`; inspect the chosen implementation checkout for actual
+features. Version/PyPI remain 0.1.15.
+
+**0.1.15 published (2026-09-25):** The two-tab Configure AI source merged by
+PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate
+release used `/Users/rahul/Projects/nbinlineai-release-0.1.15` on
+`codex/release-0-1-15-record` for the publication record. That temporary
+worktree was retired after PR #14 merged; the primary checkout remains on
+`main`. Python, npm, and the uv lockfile say 0.1.15. README and the live
+site describe the tabs; GitHub Pages deployment `36193258731` passed. The
+published annotated `v0.1.15` tag peels to `9a435c54`. Both PyPI downloads
+match the checked local hashes, and a fresh public Python 3.14 install passed
+dependency consistency and both extension discoveries. PR #13's rerun passed
+all 74 default browser checks and 272 Python tests; the independent reviewer
+found no blocking issues. Full evidence is in [the release record](releasing.md).
+
+**2026-09-25 Configure AI tabs (released in 0.1.15):** The Configure
+AI dialog now opens on **Connections & models**, with the connection picker,
+ChatGPT setup, and OpenAI/Anthropic key controls together. **Defaults** holds
+the new-notebook connection preference, response style, and style-instruction
+editors. Switching tabs or picking a connection only changes what setup is
+shown; existing notebook choices still use its **AI defaults** row or ChatGPT's
+**Use for this notebook**. The tab strip supports mouse and arrow/Home/End keys,
+and its temporary keyboard listener is removed when the dialog closes. The
+topic worktree was `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch
+`codex/oyrmsltk-configure-tabs`, based on main `fc229d323` after rebase (the
+original starting base was `2018551c`); the primary checkout was fast-forwarded
+to the reviewed merge afterward, and the temporary worktree was retired after
+the release. The new browser tab test failed on the old dialog
+and passed after implementation. The focused isolated browser suite passed
+18/18; after an independent review suggestion, the panel-focus change passed
+its isolated browser rerun. The Python suite passed 266/266, frontend unit
+tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The
+simulated screenshots now show both tabs. At the feature-PR stage, README and
+configuration-related public pages distinguished this Git-source layout from
+PyPI 0.1.14; release PR #13 updated them for 0.1.15. Independent review found
+no blockers and PR #12's source and runtime compatibility CI passed; it merged
+into main as `a5066dfd`. The user then requested the 0.1.15 release.
+
+**2026-09-25 mainline workflow adoption:** The user selected `main` for the
+primary checkout, with stable and experimental changes developed in topic
+worktrees based on their respective integration branches. This focused adoption
+brings the reviewed workflow and CI from experimental PR #3 to mainline without
+promoting notebook-agent research or adding runtime features. Issue #4 tracks
+this adoption and the experimental follow-up. See [Project workflow](workflow.md)
+for review, skill provenance, branch protection rollout and cleanup rules.
+Version 0.1.14 and PyPI remain unchanged; the next stable release is a separate
+task.
+
+Browser specs import `tests/support/e2e-fixtures.ts`. It removes only sessions
+created by that test after browser teardown, on the owned single-worker server.
+Wait for the browser's Idle status before executing code; REST idle alone is
+insufficient. Native `language_info` must settle before saving a no-dirty
+baseline, and saved-content assertions should await the matching Contents PUT.
 **2026-09-25 preview race fix (source, unreleased):** Post-merge source run
 `36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
 The failed question inherits a tool declaration even though its text is
@@ -92,45 +184,6 @@ cancellation and the real inherited-tool context path. All 266 Python tests,
 Ruff and the focused real-browser scenario passed locally. Full Linux checks
 are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888
 was untouched. Version 0.1.14 and PyPI are unchanged.
-
-Browser specs import `tests/support/e2e-fixtures.ts`. Its automatic fixture
-records existing sessions before each test and shuts down only newly created
-sessions after the browser context closes; the suite owns its server and uses
-one worker. Retaining every kernel caused reconnect pressure in clean Linux CI.
-When testing startup, REST kernel `idle` alone does not prove the browser's
-connection is ready. Wait for its Idle status before execution, and for native
-`language_info` before saving a baseline for no-dirty assertions. Await a save's
-matching Contents PUT response before reading the saved notebook.
-
-
-**Long-running experimental branch (2026-09-25):** This work lives on
-`codex/agentic-notebook-experiments`, separate from published `main`. The
-branch is intended to stay installable in a user's JupyterLab uv project via
-`uv add git+https://github.com/rahuldave/nbinlineai.git --branch codex/agentic-notebook-experiments`.
-See [Development](../docs/development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project)
-for Node build requirements, environment checks, and commit-pinned updates.
-Continue agentic-notebook experiments with topic PRs targeting this branch
-unless the user changes direction. See [Project workflow](workflow.md).
-The branch was pushed at `a316494f8c3a6c391f142b97b2bb02ad8aec8b11`.
-An isolated disposable uv project installed directly from that Git branch on
-Python 3.14, built the source distribution's frontend, and locked that exact
-commit. In its own environment, `jupyter labextension list` reported
-`nbinlineai v0.1.14 enabled OK`, and `jupyter server extension list` reported
-`nbinlineai 0.1.14 enabled OK`. No Jupyter server was started and port 8888
-was untouched. The branch has no new runtime feature yet; `0.1.14` is its
-unchanged package version, not a new PyPI release.
-
-**2026-09-25 research only:** [Notebook execution handoffs](notebook_execution_handoffs.md)
-collects Solveit, Jupyter AI/MCP, RLM, Jupyter kernel, and Python 3.14 prior
-art. It proposes separately addressable prompt → code and code → prompt
-handoffs within one live notebook/kernel, composed only after each boundary
-is clear. No execution-handoff behavior, release, or public documentation
-changed.
-The follow-on [one-kernel RLM and Python 3.14 note](one_kernel_rlm_python314.md)
-distinguishes an RLM algorithm from its execution venue, maps the main shell,
-background work, server-owned model loop, Jupyter subshell, and Python 3.14
-subinterpreter options, and defers multiple kernels until these one-kernel
-semantics are understood. No RLM or concurrency behavior has shipped.
 
 **0.1.14 published (2026-09-24):** Configure AI now exposes the saved
 `defaultBackend` preference as **Default connection for new notebooks**. The

@@ -259,10 +259,13 @@ if (process.env.NBINLINEAI_CAPTURE_DOCS === '1') {
     await expect(setup).toContainText('Demo connection (simulated)');
     await expect(setup).toContainText('Usage information is unavailable');
     await expect(setup.locator('[data-nbinlineai-subscription-action="use"]')).toBeEnabled();
+    await dialog.getByRole('tab', { name: 'Defaults' }).click();
     const defaultConnection = dialog.locator('[data-nbinlineai-default-backend]');
     await expect(defaultConnection).toBeEnabled();
     await defaultConnection.selectOption('openai_codex_subscription');
     await expect(dialog.locator('[data-nbinlineai-default-backend-notice]')).toContainText('default for new notebooks');
+    await page.locator('.jp-Dialog-content').screenshot({ path: 'docs/images/configure-ai-defaults.png' });
+    await dialog.getByRole('tab', { name: 'Connections & models' }).click();
     await setup.locator('details').last().evaluate(element => { (element as HTMLDetailsElement).open = true; });
     await expect(setup.locator('[data-nbinlineai-subscription-scope]')).toHaveCount(0);
     await expect(setup.locator('[data-nbinlineai-subscription-scope-static]')).toBeVisible();

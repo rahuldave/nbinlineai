@@ -25,7 +25,7 @@ Someone opening the saved notebook without nbinlineai can still read the Markdow
 
 ## Where keys are stored
 
-**Configure AI** saves keys in a private per-user JSON file on the computer running Jupyter Server:
+**Configure AI → Connections & models** saves API keys in a private per-user JSON file on the computer running Jupyter Server:
 
 - macOS/Linux: `~/.config/nbinlineai/credentials.json` by default.
 - An absolute `XDG_CONFIG_HOME` changes that to `$XDG_CONFIG_HOME/nbinlineai/credentials.json`.
