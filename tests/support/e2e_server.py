@@ -42,6 +42,14 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    if "E2E_CATALOG_LIST_CELLS" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="catalog-list-cells", name="list_cells", arguments={"start": 0, "limit": 20}
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(results[-1].text)]))
     cell_edit_sequences = {
         "E2E_CELL_EDIT_SOURCE": [
             ("find_cells", {"query": "UNSAVED_MARKER", "cell_type": "code"}),
