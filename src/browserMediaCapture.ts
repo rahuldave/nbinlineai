@@ -147,8 +147,7 @@ function registerStream(context: BrowserOperationContext, kind: BrowserSource['k
   const source = context.registerSource({ kind, tracks: stream.getTracks(),
     actions: kind === 'microphone' ? ['record', 'levels'] : ['capture', 'record'],
     onEnded: async reason => {
-      await recordingSourceEnded(context, sourceId, reason);
-      removeSource(context, sourceId);
+      await recordingSourceEnded(context, sourceId, reason, () => removeSource(context, sourceId));
     } });
   sourceId = source.sourceId;
   showSource(context, source, stream);

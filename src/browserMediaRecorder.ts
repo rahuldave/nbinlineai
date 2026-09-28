@@ -68,11 +68,13 @@ export function discardRecordingHandle(context: BrowserOperationContext, operati
 
 /** Families call this from registerSource(...).onEnded, including canvas invalidation. */
 export async function recordingSourceEnded(context: BrowserOperationContext, sourceId: string,
-  reason: 'source_ended' | 'cancelled'): Promise<void> {
-  const handle = active.get(context);
-  if (!handle || handle.sourceId !== sourceId) return;
-  if (reason === 'cancelled') discardRecordingHandle(context, handle.operationId);
-  else await stopRecordingHandle(context, handle.operationId, 'source_ended');
+  reason: 'source_ended' | 'cancelled', cleanup?: () => void): Promise<void> {
+  try {
+    const handle = active.get(context);
+    if (!handle || handle.sourceId !== sourceId) return;
+    if (reason === 'cancelled') discardRecordingHandle(context, handle.operationId);
+    else await stopRecordingHandle(context, handle.operationId, 'source_ended');
+  } finally { cleanup?.(); }
 }
 
 function recorderMime(hasVideo: boolean, hasAudio: boolean): string | undefined {
@@ -124,11 +126,22 @@ export async function startRecordedOperation(context: BrowserOperationContext,
   };
   if (mime) validateMime();
   await context.claimRecording(operation.operation_id);
+  let signal: AbortSignal;
+  try { signal = context.operationSignal(operation.operation_id); }
+  catch { throw new BrowserMediaError('cancelled', 'Recording ended during admission.'); }
+  if (signal.aborted || !context.isCurrent())
+    throw new BrowserMediaError('cancelled', 'Recording ended during admission.');
+  const admitted = await context.status(operation.operation_id);
+  if (admitted.status !== 'running' || signal.aborted || !context.isCurrent())
+    throw new BrowserMediaError('cancelled', 'Recording ended during admission.');
+  if (source.state !== 'live' || source.tracks.some(track => track.readyState !== 'live'))
+    throw new BrowserMediaError('source_stopped', 'The source ended during recorder admission.');
   const maxBytes = saveTo === null ? RECORDING_MEMORY_BYTES : RECORDING_SAVED_BYTES;
   const pieces: Blob[] = [];
   let byteCount = 0;
   let discarded = false;
   let oversized = false;
+  let stopRequested = false;
   let stopReason: RecordingStopReason = 'user';
   const started = performance.now();
   let timer: number | undefined;
@@ -149,12 +162,14 @@ export async function startRecordedOperation(context: BrowserOperationContext,
     },
     discard: () => {
       discarded = true;
+      stopRequested = true;
       clear();
       pieces.length = 0;
       if (recorder.state !== 'inactive') recorder.stop();
     },
     finalize: async reason => {
       stopReason = reason;
+      stopRequested = true;
       clear();
       if (recorder.state !== 'inactive') recorder.stop();
       let watchdog: number | undefined;
@@ -189,24 +204,29 @@ export async function startRecordedOperation(context: BrowserOperationContext,
       void stopRecordingHandle(context, operation.operation_id, 'size').catch(() => undefined);
     });
   };
-  recorder.onerror = () => fail(new BrowserMediaError('unsupported', 'Browser media encoding failed.'));
-  recorder.onstop = () => finish();
-  registerRecordingHandle(context, handle);
-  const signal = context.operationSignal(operation.operation_id);
-  context.addOperationCleanup(operation.operation_id, () => {
-    if (signal.aborted) discardRecordingHandle(context, operation.operation_id);
-  });
-  try { recorder.start(1000); mime = recorder.mimeType || mime; validateMime(); }
-  catch (error) {
-    discardRecordingHandle(context, operation.operation_id);
-    if (error instanceof BrowserMediaError) throw error;
-    throw new BrowserMediaError('unsupported', 'This browser could not start recording.');
-  }
+  const unexpectedStop = (message: string): void => {
+    fail(new BrowserMediaError('unsupported', message));
+    void stopRecordingHandle(context, operation.operation_id, 'user').catch(() => undefined);
+  };
+  recorder.onerror = () => unexpectedStop('Browser media encoding failed.');
+  recorder.onstop = () => {
+    if (stopRequested) finish();
+    else unexpectedStop('Browser recorder stopped before the requested limit or Stop.');
+  };
   try {
+    registerRecordingHandle(context, handle);
+    context.addOperationCleanup(operation.operation_id, () => {
+      if (signal.aborted) discardRecordingHandle(context, operation.operation_id);
+    });
+    try { recorder.start(1000); mime = recorder.mimeType || mime; validateMime(); }
+    catch (error) {
+      if (error instanceof BrowserMediaError) throw error;
+      throw new BrowserMediaError('unsupported', 'This browser could not start recording.');
+    }
     await context.transition(operation.operation_id, 'running', { source_id: source.sourceId,
       mime_type: mime, audio, video, max_duration_seconds: duration });
+    timer = window.setTimeout(() => {
+      void stopRecordingHandle(context, operation.operation_id, 'duration').catch(() => undefined);
+    }, Math.max(0, duration * 1000 - (performance.now() - started)));
   } catch (error) { discardRecordingHandle(context, operation.operation_id); throw error; }
-  timer = window.setTimeout(() => {
-    void stopRecordingHandle(context, operation.operation_id, 'duration').catch(() => undefined);
-  }, Math.max(0, duration * 1000 - (performance.now() - started)));
 }
