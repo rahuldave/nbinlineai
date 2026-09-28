@@ -130,6 +130,36 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
 
         self.io_loop.run_sync(check)
 
+    def test_streamed_save_uses_operation_directory_across_later_renames(self):
+        async def check():
+            self.dispatcher.sessions.paths['session'] = 'folder-b/renamed.ipynb'
+            created = await self._command('create', {
+                'request_id': 'frozen-upload', 'name': 'capture_camera', 'arguments': {}
+            })
+            assert created.code == 200
+            operation_id = json.loads(created.body)['operation_id']
+            assert self.registry.operations[operation_id].notebook_path == 'folder-b/renamed.ipynb'
+            assert self.owner.notebook_path == 'fixture.ipynb'
+
+            self.dispatcher.sessions.paths['session'] = 'folder-c/later.ipynb'
+            encoded = io.BytesIO()
+            Image.new('RGB', (2, 2), 'green').save(encoded, format='PNG')
+            png = encoded.getvalue()
+            response = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url(f'/nbinlineai/browser-media-bytes/{operation_id}'), method='POST',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'X-NBInlineAI-Session': 'session', 'X-NBInlineAI-Client': 'client',
+                         'X-NBInlineAI-Model': 'model', 'X-NBInlineAI-SHA256': hashlib.sha256(png).hexdigest(),
+                         'X-NBInlineAI-Save-To': json.dumps('auto'), 'Content-Type': 'image/png'},
+                body=png), raise_error=False)
+            assert response.code == 200, response.body
+            path = json.loads(response.body)['media']['path']
+            assert path.startswith('folder-b/')
+            assert (Path(self._root.name) / path).read_bytes() == png
+            assert not list((Path(self._root.name) / 'folder-c').glob('*.png'))
+
+        self.io_loop.run_sync(check)
+
     def test_admission_precedes_streamed_body_and_disconnection_releases_reservation(self):
         async def check():
             denied = await self._partial(auth=False)
