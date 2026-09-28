@@ -21,6 +21,13 @@ test('exact byte inspection rejects disguised and oversized raster sources befor
     (error: any) => error.code === 'limit_exceeded');
   assert.throws(() => inspectEncodedMedia(new TextEncoder().encode('<svg></svg>'), 'image/svg+xml'),
     (error: any) => error.code === 'unsupported');
+  const wav = new Uint8Array(16);
+  wav.set(new TextEncoder().encode('RIFF'), 0);
+  wav.set(new TextEncoder().encode('WAVE'), 8);
+  assert.deepEqual(inspectEncodedMedia(wav, 'audio/x-wav'),
+    { kind: 'audio', mimeType: 'audio/x-wav', width: 0, height: 0 });
+  assert.throws(() => inspectEncodedMedia(wav, 'application/json'),
+    (error: any) => error.code === 'unsupported');
 });
 
 test('SHA-256 works without secure-origin WebCrypto and exact references reject changed bytes', async () => {
@@ -83,4 +90,74 @@ test('working surfaces obey per-context and tab-wide pixel budgets', () => {
   } finally { releases.forEach(release => release()); }
   const release = reserveMediaWorkingPixels(a as never, 1, 1);
   release();
+});
+
+test('one verified video lease seeks a frame and aborts another seek without leaking its URL', async () => {
+  const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
+  const digest = await sha256Bytes(bytes);
+  class Video extends EventTarget {
+    src = '';
+    controls = false;
+    preload = '';
+    duration = 2;
+    videoWidth = 16;
+    videoHeight = 16;
+    readyState = 2;
+    blockSeek = false;
+    private position = 0;
+    get currentTime(): number { return this.position; }
+    set currentTime(value: number) {
+      this.position = value;
+      if (!this.blockSeek) queueMicrotask(() => this.dispatchEvent(new Event('seeked')));
+    }
+    canPlayType(mime: string): string { return mime === 'video/webm' ? 'maybe' : ''; }
+    load(): void { if (this.src) queueMicrotask(() => this.dispatchEvent(new Event('loadeddata'))); }
+    pause(): void { /* no playback in this decoder contract test */ }
+    removeAttribute(name: string): void { if (name === 'src') this.src = ''; }
+  }
+  const video = new Video();
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, 'createImageBitmap');
+  const originalCreate = Object.getOwnPropertyDescriptor(URL, 'createObjectURL');
+  const originalRevoke = Object.getOwnPropertyDescriptor(URL, 'revokeObjectURL');
+  let revoked = 0;
+  let closed = 0;
+  Object.defineProperty(globalThis, 'document', { configurable: true,
+    value: { createElement: () => video } });
+  Object.defineProperty(globalThis, 'window', { configurable: true,
+    value: { setTimeout, clearTimeout } });
+  Object.defineProperty(globalThis, 'createImageBitmap', { configurable: true,
+    value: async () => ({ width: 16, height: 16, close: () => { closed++; } }) });
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:verified' });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => { revoked++; } });
+  const context = { isCurrent: () => true, fetchReference: async () => ({
+    data: bytes.buffer, mimeType: 'video/webm', sha256: digest
+  }) };
+  try {
+    const lease = await loadPlaybackMedia(context as never, { media_id: 'clip' }, { preview: true });
+    assert.equal(lease.kind, 'video');
+    if (lease.kind !== 'video') return;
+    const frame = await lease.frameAt(0.5);
+    assert.equal(frame.actualSeconds, 0.5);
+    assert.equal(frame.width, 16);
+    frame.release();
+    video.blockSeek = true;
+    const controller = new AbortController();
+    const pending = lease.frameAt(1, controller.signal);
+    controller.abort();
+    await assert.rejects(pending, (error: any) => error.code === 'cancelled');
+    lease.release(); lease.release();
+    assert.equal(closed, 1);
+    assert.equal(revoked, 1);
+  } finally {
+    for (const [target, key, descriptor] of [
+      [globalThis, 'document', originalDocument], [globalThis, 'window', originalWindow],
+      [globalThis, 'createImageBitmap', originalBitmap],
+      [URL, 'createObjectURL', originalCreate], [URL, 'revokeObjectURL', originalRevoke]
+    ] as const) {
+      if (descriptor) Object.defineProperty(target, key, descriptor);
+      else Reflect.deleteProperty(target, key);
+    }
+  }
 });

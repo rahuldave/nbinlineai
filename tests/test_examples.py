@@ -29,6 +29,7 @@ EXAMPLES = [
     "tool-catalog-web.ipynb",
     "tool-catalog-processes.ipynb",
     "browser-media-foundation.ipynb",
+    "browser-media-playback.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -48,6 +49,24 @@ HEADLESS_UI_CELLS = {
     ("browser-media-foundation.ipynb", "media-release-call"): "release_media(",
     ("browser-media-foundation.ipynb", "media-release-inspect"): "released.status",
     ("browser-media-foundation.ipynb", "media-cleanup"): "saved.media",
+    ("browser-media-playback.ipynb", "playback-choose-call"): "choose_file(",
+    ("browser-media-playback.ipynb", "playback-choose-inspect"): "selected.status",
+    ("browser-media-playback.ipynb", "playback-open-call"): "open_media(",
+    ("browser-media-playback.ipynb", "playback-open-inspect"): "opened.status",
+    ("browser-media-playback.ipynb", "playback-play-call"): "play_media(",
+    ("browser-media-playback.ipynb", "playback-play-inspect"): "playing.status",
+    ("browser-media-playback.ipynb", "playback-pause-call"): "pause_media(",
+    ("browser-media-playback.ipynb", "playback-pause-inspect"): "paused.status",
+    ("browser-media-playback.ipynb", "playback-seek-call"): "seek_media(",
+    ("browser-media-playback.ipynb", "playback-seek-inspect"): "seeked.status",
+    ("browser-media-playback.ipynb", "playback-volume-call"): "set_media_volume(",
+    ("browser-media-playback.ipynb", "playback-volume-inspect"): "volume.status",
+    ("browser-media-playback.ipynb", "playback-close-call"): "close_media(",
+    ("browser-media-playback.ipynb", "playback-close-inspect"): "closed.status",
+    ("browser-media-playback.ipynb", "playback-copy-call"): "copy_text(",
+    ("browser-media-playback.ipynb", "playback-copy-inspect"): "copied.status",
+    ("browser-media-playback.ipynb", "playback-paste-call"): "paste_content(",
+    ("browser-media-playback.ipynb", "playback-paste-inspect"): "pasted.status",
 }
 
 
@@ -134,7 +153,8 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
             await kernel.shutdown_kernel(now=True)
 
     with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
-        kernel_cwd = Path(scratch) if relative_path == "browser-media-foundation.ipynb" else ROOT
+        kernel_cwd = Path(scratch) if relative_path in {
+            "browser-media-foundation.ipynb", "browser-media-playback.ipynb"} else ROOT
         outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
