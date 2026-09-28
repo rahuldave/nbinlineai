@@ -1,5 +1,17 @@
 # Developer handoff
 
+**2026-09-28 example notebook pages (mainline topic):**
+`scripts/render_example_notebooks.py` renders each top-level public example
+notebook directly to HTML after the main Quarto site. The Quarto ipynb filter
+in `scripts/quarto_notebook_filter.py` derives page metadata and marks AI
+prompt/answer cells from their saved `metadata.nbinlineai` in memory.
+`docs/examples.md` keeps its walkthrough and notebook descriptions, with links
+to HTML pages. Each page links back to its source `.ipynb` for download. The
+site build checks page coverage, AI styling, local links, and anchors. Rendering
+explicitly disables cell execution. No intermediate `.ipynb`, package change,
+or PyPI release is part of this topic. The implementation travels with its
+mainline PR.
+
 **2026-09-28 Quarto documentation site (mainline source):** The site source in
 `docs/` is a Quarto 1.8.26 website. `.github/workflows/docs-site.yml` renders and
 checks every PR, then deploys the output on `main` pushes through GitHub Pages

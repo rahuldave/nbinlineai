@@ -25,7 +25,9 @@ jobs:
           version: '1.8.26'
       - name: Render documentation
         run: quarto render docs
-      - name: Check pages, tool tables, and local links
+      - name: Render example notebooks to HTML
+        run: python3 scripts/render_example_notebooks.py
+      - name: Check pages, notebook gallery, tool tables, and local links
         run: python3 scripts/check_docs_site.py docs/_site
       - name: Upload site
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

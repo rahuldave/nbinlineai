@@ -19,3 +19,4 @@ dist/
 nbinlineai/labextension/
 .DS_Store
 .gest/
+docs/_site/
