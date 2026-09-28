@@ -3,6 +3,7 @@ import { Widget } from '@lumino/widgets';
 import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, BrowserSource,
   registerBrowserOperation } from './browserMediaClient';
 import { sha256Bytes } from './browserMediaHash';
+import { mediaSourcePage, settingsFor } from './browserMediaCaptureResults';
 import { isCompletedRecording, recordingHandle, recordingSourceEnded,
   startRecordedOperation, stopRecordingHandle } from './browserMediaRecorder';
 
@@ -152,19 +153,6 @@ function registerStream(context: BrowserOperationContext, kind: BrowserSource['k
   sourceId = source.sourceId;
   showSource(context, source, stream);
   return source;
-}
-
-function settingsFor(source: BrowserSource): Record<string, unknown> {
-  const video = source.tracks.find(track => track.kind === 'video');
-  const audio = source.tracks.find(track => track.kind === 'audio');
-  const settings = (video ?? audio)?.getSettings() ?? {};
-  return { source_id: source.sourceId, kind: source.kind,
-    audio: Boolean(audio), video: Boolean(video),
-    ...(settings.deviceId ? { device_id: settings.deviceId } : {}),
-    ...(settings.facingMode ? { facing: settings.facingMode } : {}),
-    ...(settings.width ? { width: settings.width } : {}),
-    ...(settings.height ? { height: settings.height } : {}),
-    ...(settings.displaySurface ? { display_surface: settings.displaySurface } : {}) };
 }
 
 async function openUserMedia(context: BrowserOperationContext, kind: 'camera' | 'microphone',
@@ -358,6 +346,8 @@ registerBrowserOperation('list_media_sources', async (context, request, operatio
   try { devices = await navigator.mediaDevices.enumerateDevices(); }
   catch (error) { throw errorCode(error); }
   const kind = String(request.arguments.kind);
+  if (!['all', 'camera', 'microphone'].includes(kind))
+    throw new BrowserMediaError('invalid_argument', 'Invalid media source kind.');
   const filtered = devices.filter(device => device.kind === 'videoinput' || device.kind === 'audioinput')
     .filter(device => kind === 'all' || (kind === 'camera' ? device.kind === 'videoinput' : device.kind === 'audioinput'));
   const cursor = String(request.arguments.cursor);
@@ -366,20 +356,9 @@ registerBrowserOperation('list_media_sources', async (context, request, operatio
   const start = cursor ? Number(cursor) : 0;
   if (start > filtered.length) throw new BrowserMediaError('stale_target', 'Device list changed; start again.');
   const limit = Number(request.arguments.limit);
-  const page: Array<{ device_id: string; kind: string; label: string }> = [];
-  let next = start; let omitted = 0;
-  while (next < filtered.length && page.length < limit) {
-    const device = filtered[next++];
-    if (device.deviceId.length > 200) { omitted++; continue; }
-    const candidate = { device_id: device.deviceId,
-      kind: device.kind === 'videoinput' ? 'camera' : 'microphone', label: device.label.slice(0, 100) };
-    if (JSON.stringify({ devices: [...page, candidate] }).length > 1100) { next--; break; }
-    page.push(candidate);
-  }
-  await context.transition(operation.operation_id, 'completed', {
-    devices: page, next_cursor: next < filtered.length ? String(next) : '', omitted_count: omitted,
-    labels_may_be_hidden: page.some(device => !device.label)
-  });
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50)
+    throw new BrowserMediaError('invalid_argument', 'Device page limit must be 1 to 50.');
+  await context.transition(operation.operation_id, 'completed', mediaSourcePage(filtered, start, limit));
 }, deviceListCapability);
 
 registerBrowserOperation('start_camera', async (context, request, operation) => {
