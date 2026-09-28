@@ -1,5 +1,66 @@
 # Developer handoff
 
+## 2026-09-28 queued notebook execution handoffs
+
+PR [#21](https://github.com/rahuldave/nbinlineai/pull/21) merged into
+`codex/agentic-notebook-experiments` at
+`c6ac76e17a8bfaab8f82e4c3e27d396e59c8d4c8`. Its owned topic worktree
+was `/Users/rahul/Projects/nbinlineai-execution-handoffs`, branch
+`codex/notebook-execution-handoffs`; the primary checkout stayed on `main`.
+The [approved spec](notebook_execution_handoff_spec.md) and
+[task prompt](notebook_execution_handoff_task_prompt.md) remain pre-work
+documents on `main`. This implementation record belongs with the experimental
+code. Git source contains the helpers; published PyPI 0.1.15 and `main` do not.
+No version bump, tag, package upload or site deployment followed the merge.
+Gest iteration `srtuoxrt`, parent `tutortnk`, and leaves `oloxqsoz`, `twqntstm`
+and `ksoqwvzp` track the work under issue #2, which remains open.
+
+The three opt-in helpers are `add_code_cell_and_execute` (new or identified
+existing code), `prompt_and_run` (a separate AI question that must choose code)
+and `run_and_prompt` (code first, then a separate question with that run's
+bounded result). Model calls use a sole-call terminal group over server
+SSE/action-reply; direct Python calls use the execution-bound
+`nbinlineai.execution_handoff.v1` comm. Both schedule successors after the
+caller finishes through the ordinary per-notebook queue. Each step binds the
+original document, session, kernel, cell ID and source; chains stop at eight
+steps. The code step keeps native execution and outputs. Its successor receives
+up to 8,000 characters of text with the request ID, source digest, truncation
+and rich-output flags; that fixed material enters the 64,000-character host
+submission budget before optional context. No sidecar or nested kernel wait is
+used. See the [tools reference](../docs/tools.md),
+[architecture](../docs/architecture.md) and
+[executable example](../docs/examples.md#try-queued-execution-handoffs-experimental-git-branch).
+
+The deterministic browser fixture imports declared handoff functions into its
+live kernel; declarations alone do not create Python names. A tool-only turn
+leaves a brief paired scheduling answer so Keep protects it from replay. A
+skipped or failed chain shows its status even if that answer is kept. New code
+is placed after the paired answer by default. Source edits before dispatch
+stop execution. A direct Python receipt acknowledges scheduling, not completed
+execution; inspect the notebook before retrying a lost acknowledgement.
+
+Verification at reviewed topic head `ed87a7818d6c3e785271a37c1d529c415c7ed65a`:
+279 Python tests, 69 frontend unit tests, TypeScript, Ruff, lockfile, docs and
+diff checks passed. A rebuilt/relinked isolated JupyterLab and real kernel
+passed all 13 new handoff browser scenarios. The final full-source PR check
+passed 86 deterministic browser cases with two expected opt-in skips, and all
+applicable cross-platform compatibility jobs passed. A disposable Git-source
+Python environment installed the built extension assets. The owned browser
+server on 8897 stopped; port 8888 was untouched. Independent read-only
+adversarial review of the actual base `541fe37938b27f35c285425d90eaa2f14f430de6`
+and head `ed87a7818d6c3e785271a37c1d529c415c7ed65a` found no remaining
+actionable issue after a missing-code-selection path was fixed and covered by a
+browser regression. A very late source edit can still reach native execution
+before mismatch detection; the successor stops and never attributes that
+result as a successful handoff. This timing window remains an experimental
+follow-up. PR #21's post-merge source and runtime push checks were still
+running when this record was drafted; confirm their final status before citing
+the integration gate.
+
+The dated sections below preserve the status at those earlier milestones;
+their 0.1.14 and research-only statements do not supersede the merged handoff
+status above.
+
 **2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
 PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
 follow-up, including explicit task-owned worktree cleanup and the preview fix

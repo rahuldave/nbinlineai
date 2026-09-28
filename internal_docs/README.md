@@ -11,8 +11,8 @@ instructions are in [Development](../docs/development.md#install-the-ongoing-exp
 
 Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
-The [current handoff](developer_handoff.md) records the published 0.1.14 fixes
-for connection defaults, per-cell inheritance, and empty answer display.
+The [current handoff](developer_handoff.md) distinguishes the experimental
+execution handoffs from the published PyPI release and records earlier fixes.
 
 ## A new task's reading order
 
@@ -30,8 +30,12 @@ for connection defaults, per-cell inheritance, and empty answer display.
 - [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-These documents are available on both persistent branches for discovery. They
-do not add runtime functionality; implementation targets the experimental branch.
+The approved spec and prompt are pre-work documents maintained on `main` and
+available here for discovery. The implementation-specific
+[handoff](developer_handoff.md#2026-09-28-queued-notebook-execution-handoffs)
+belongs to this experimental branch. PR #21 merged the runtime, public docs,
+tests and example here at `c6ac76e`; PyPI 0.1.15 and `main` do not contain those
+helpers.
 
 ## Context-selection implementation references
 

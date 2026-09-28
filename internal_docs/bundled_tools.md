@@ -4,6 +4,24 @@ Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7*
 
 **0.1.12 source contract (2026-09-23):** `nbinlineai.tools.TOOL_FUNCTIONS` has 51 curated callables. The four 0.1.11 syntax tools (`ast_search`, `ast_rewrite`, `file_ast_replace`, `python_symbols`) are deferred. `search_files` and `search_notebooks` use bounded Python matching and `pathspec` ignore rules; pathological regexes have a hard timeout. `document_outline` and `read_document_section` use `markdown-it-py` for Markdown and standard-library AST for Python, with SHA-256-bound opaque addresses that become stale after any file change. Other language outlines are deferred. The original eleven and eight fastcore documentation/file tools remain. `TOOL_GROUPS` still names eight setup groups (code: nine tools); `tool_catalog()` lists names without declarations; `tools_markdown()` and `insert_tools()` default to the 19-tool starter group. The same 20 combined tool/variable name limit and two authenticated browser transports apply. See the [current public contracts](../docs/tools.md) and [implementation matrix](fastcore_tool_candidates.md).
 
+**Experimental execution handoffs (PR #21, merged 2026-09-28):** The Git branch
+now has 54 opt-in tools, including `add_code_cell_and_execute`, `prompt_and_run`
+and `run_and_prompt`. These are absent from published PyPI 0.1.15 and `main`.
+A model handoff is the sole call in a terminal tool group: the server validates
+it, asks the originating browser to schedule it, acknowledges the handoff and
+ends that model turn. A direct Python call uses the execution-bound
+`nbinlineai.execution_handoff.v1` comm and returns a mutable scheduling receipt
+without waiting for the successor. Both routes use JupyterLab's ordinary
+per-notebook execution queue; they check stable cell, source, notebook, session
+and kernel identity, and cap a chain at eight steps. A successful code run can
+transfer at most 8,000 characters of text from that exact execution, with
+cell/request IDs, source SHA-256, truncation and rich-output flags, into a new
+ordinary AI question. The result is budgeted before optional notebook context.
+There is no sidecar or nested main-kernel wait. See the
+[approved spec](notebook_execution_handoff_spec.md), [public tools
+reference](../docs/tools.md#live-notebook-cells) and
+[example](../docs/examples.md#try-queued-execution-handoffs-experimental-git-branch).
+
 ## Who owns what?
 
 | Data or action | Owner / execution location | Consequence |
@@ -34,14 +52,24 @@ Special functions are recognized by object identity against `SPECIAL_TOOL_FUNCTI
 
 ## Request/reply protocol
 
-The current implementation has **two transports**, reviewed against source on 2026-09-23:
+The 2026-09-23 baseline had **two transports**; the experimental handoff adds
+an execution-bound comm and a narrow terminal action to these existing paths:
 
 | Caller | Request / reply | Wait behavior | Main implementation |
 | --- | --- | --- | --- |
 | Model calls `list_cells`, `read_cell`, `insert_markdown`, `insert_code` (or composed `url_to_note`) | Server SSE `frontend_action`; authenticated browser POST `nbinlineai/action-reply` | Server awaits up to 45 seconds; no waiting Python tool body | `frontend_bridge.py`, `handlers.py`, `src/frontendActions.ts`, sequential `src/sse.ts` |
 | Python code cell calls `insert_tools` | Jupyter comm target `nbinlineai.insert_tools.v1`; browser comm acknowledgement | Returns a mutable receipt immediately; 30-second acknowledgement timeout | `kernel_insert_tools.py`, `src/insertTools.ts`, `src/insertToolsProtocol.ts` |
 
-These transports do not grant general arbitrary JavaScript access or execute cells on the model's behalf. Both bind mutations to original identities and acknowledge the live model only. Context selection itself needs a model snapshot/preview extension, not a third general-purpose mutation bridge. The authenticated `nbinlineai/context-preview` route now shares the snapshot/selection pipeline with execution. It performs bounded introspection on an existing idle kernel and returns stable included/omitted/partial IDs, with no provider request, offered tool call or notebook mutation.
+The original read/edit actions do not grant arbitrary JavaScript access or
+execute cells. The experimental terminal handoff validates and schedules a
+specific native execution successor; it is not a general browser command
+bridge. Both original paths bind mutations to original identities and
+acknowledge the live model only. Context selection itself needs a model
+snapshot/preview extension, not a general-purpose mutation bridge. The
+authenticated `nbinlineai/context-preview` route shares the snapshot/selection
+pipeline with execution. It performs bounded introspection on an existing idle
+kernel and returns stable included/omitted/partial IDs, with no provider
+request, offered tool call or notebook mutation.
 
 The model-driven interface below is distinct from the direct Python `insert_tools` helper. The latter uses comm target `nbinlineai.insert_tools.v1` with the current execute-request ID, source code-cell ID, and bounded generated Markdown. `src/insertTools.ts` tracks the actual outgoing request from native cell execution, then validates the comm's parent and the original panel/model/kernel before insertion. Multiple helper calls share an insertion tail for their execution; redelivery of the same comm ID does not create another note. Python receives asynchronous acknowledgement in `InsertToolsReceipt`; it does not run or block an event loop to wait. Save normally after insertion. Headless clients cannot perform the browser mutation; `tools_markdown()` remains usable for plain text. See [`nbinlineai/kernel_insert_tools.py`](../nbinlineai/kernel_insert_tools.py) and [`src/insertToolsProtocol.ts`](../src/insertToolsProtocol.ts).
 
@@ -121,7 +149,13 @@ Reviewed [dialoghelper at 118fff2](https://github.com/AnswerDotAI/dialoghelper/t
 
 Namespace/file tools correspond to `names_containing`, `list_dialogs`, `find_msgs`, and `read_msgid`/`view_msg`; the formatter corresponds to `mk_toollist`. The frontend supplies the missing model reads and limited insertion for `url2note`-style behavior. No ipylab dependency is needed: our extension already owns the panel/model, and acknowledged stable-ID actions fit better than current-widget command dispatch.
 
-This paragraph describes the earlier 0.1.6 design baseline. Current source has ordinary live-cell edits, bounded shell subprocesses, and tracing. Still deferred: AI-triggered live-cell execution, images/screenshots, syntax search/rewrite tools, other-notebook live operations, and model-aware token budgeting. See [cell/kernel model](cell_kernel_model_and_context_selection.md) before expanding those contracts.
+This paragraph describes the earlier 0.1.6 design baseline. Experimental
+source now has ordinary live-cell edits, bounded shell subprocesses, tracing
+and the narrowly queued execution handoffs above. Still deferred:
+images/screenshots, syntax search/rewrite tools, other-notebook live operations,
+and model-aware token budgeting. See [cell/kernel
+model](cell_kernel_model_and_context_selection.md) before expanding those
+contracts.
 
 ## Verification
 
