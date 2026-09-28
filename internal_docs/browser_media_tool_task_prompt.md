@@ -113,7 +113,9 @@ Implement **Phase B** screen capture/recording, the remaining notebook view and
 supported rendered-region capture, local media preview/playback and bounded
 frame/image derivatives, and explicit file and clipboard UI. Add passive
 `list_canvases` discovery in supported existing output renderers, returning
-`CanvasRef` identities bound to their output and rendered-view revision; no
+`CanvasRef` identities bound to their output and rendered-view revision.
+Rerender, canvas replacement or output invalidation stops a bound canvas source
+and finalizes its recorder as `source_ended`; never follow the replacement. No
 app registry or widget integration is required. Add `capture_canvas` for an
 origin-clean canvas still; `export_canvas` remains its convenient save form. A canvas `toBlob` still can
 be decoded to PIL; `captureStream()` feeds the bounded recorder for motion.

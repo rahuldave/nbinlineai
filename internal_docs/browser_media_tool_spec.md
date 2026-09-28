@@ -174,7 +174,7 @@ not the action-reply text field or the 64,000-character prompt envelope.
 | --- | --- |
 | `browser_capabilities()` | Report feature availability, secure-context status, observed permission state when available, limits and format candidates. Do not trigger permission or guess permission from a missing API. |
 | `list_media_sources(kind="all", cursor="", limit=10)` | List available camera/microphone devices with opaque device IDs and pagination. Labels can be absent before permission. No implicit permission request. |
-| `operation_status(operation_id)` | Return current state, bounded progress and final file/source/app result when complete. Does not wait for completion. |
+| `operation_status(operation_id)` | Return current state, bounded progress and final media/source result when complete. Does not wait for completion. |
 | `cancel_operation(operation_id)` | Cancel an unfinished job and release its resources. A completed file is retained; cancellation is not deletion. |
 
 Show unsupported tools clearly in help and capability results. If a declared
@@ -238,7 +238,7 @@ tested. The UI must explain missing screen support before asking to record.
 | `list_canvases(cell_id, output_id, revision, cursor="", limit=10)` | Return `CanvasRef` descriptors for canvases exposed by supported rendered-output adapters. No app registration, execution or global DOM search. Unrendered/inaccessible content has an explicit unavailable/unsupported result. |
 | `capture_canvas(canvas, save_to=None, max_size=1280)` | Raster still from an origin-clean canvas addressed by `CanvasRef`, giving a PIL image in Python with optional save. No arbitrary DOM selector. |
 | `export_canvas(canvas, save_to="auto", max_size=1280)` | Saving-oriented convenience alias for `capture_canvas`; supports the same explicit `save_to=None` option. This remains raster export. |
-| `start_canvas(canvas, frame_rate=30)` | Create a video-only source from this bound origin-clean canvas, at a requested 1–60 frames/second. Return `source_id` for `start_recording`; report actual settings/support. No implicit microphone mixing. Stop it with `stop_source` or output/view teardown. |
+| `start_canvas(canvas, frame_rate=30)` | Create a video-only source from this bound origin-clean canvas, at a requested 1–60 frames/second. Return `source_id` for `start_recording`; report actual settings/support. No implicit microphone mixing. Stop it with `stop_source` or whenever its bound output/rendered-view revision becomes stale, including rerender, canvas replacement or teardown. An active recording finalizes with `stop_reason="source_ended"` at its chosen destination; encoding/save errors remain failures. Never follow a replacement canvas automatically. |
 | `capture_notebook_region(cell_ids, save_to=None, max_size=1280)` | Raster capture of supported rendered cells/outputs, in memory or saved. Validate IDs/render revisions; report offscreen/cross-origin/unsupported content. No universal DOM screenshot promise or implicit screen chooser fallback. |
 
 Notebook-source access already has tools; do not duplicate `list_cells` or
@@ -285,7 +285,7 @@ cells or browse other notebooks. Capture/export consumes those existing results.
 | `close_media(preview_id)` | Dispose the preview and temporary URLs without deleting the input media/file. |
 | `extract_frames(media, timestamps, save_to=None)` | Return at most 12 raster frames at explicit timestamps, with actual timestamps, as PIL images in Python or optionally saved files. Accept a memory or file clip; cap aggregate encoded/decoded size and paginate descriptors. |
 | `crop_image(media, x, y, width, height, save_to=None)` | Return a new raster derivative, optionally saved; pixel coordinates, checked bounds, source preserved. |
-| `annotate_image(media, annotations, save_to=None)` | New raster derivative with bounded text/arrows/rectangles or opaque redaction rectangles; at most 50 shapes. Redaction changes derivative pixels. SVG/vector editing requires an app-native action, not silent rasterization. |
+| `annotate_image(media, annotations, save_to=None)` | New raster derivative with bounded text/arrows/rectangles or opaque redaction rectangles; at most 50 shapes. Redaction changes derivative pixels. SVG/vector editing is deferred with app-native actions; do not rasterize silently. |
 | `save_media(media, save_to="auto")` | Persist the referenced memory/file result under a new server path; `None` is invalid for this explicitly saving operation. Existing files are never overwritten. |
 | `release_media(media_id)` | Release managed in-memory bytes/references, revoke dependent previews and return a clear expired result to later requests. Do not delete a saved file or already-delivered Python objects. |
 | `copy_text(text)` | Copy bounded text after required user activation; show a manual copy control when programmatic writing is unavailable. |
@@ -389,7 +389,9 @@ Acceptance requires:
   bytes enter provider payloads without attachment.
 - Canvas stills, animation clips and existing SVG outputs preserve their
   different formats and capabilities. Canvas discovery and capture work without
-  an app registry; stale render views fail explicitly. Memory/file inputs work
+  an app registry; stale render views fail explicitly, and invalidating an
+  active source stops/finalizes its recorder. Test replacement while the view
+  remains open. Memory/file inputs work
   in preview and editing; derivatives preserve sources and obey `save_to`. Test no unintended file or
   sidecar writes for `None`, memory caps/expiry/release, and output export gaps.
 - Two notebooks, two browser clients, focus changes, deleted cells, output
