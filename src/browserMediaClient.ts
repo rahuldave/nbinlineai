@@ -31,16 +31,18 @@ export interface BrowserSource {
 }
 export type BrowserOperationHandler = (context: BrowserOperationContext, request: BrowserOperationRequest,
   operation: BrowserOperationStatus) => Promise<void>;
+export interface BrowserOperationOptions { waitingForUser?: boolean; }
 
-const handlers = new Map<string, { handler: BrowserOperationHandler; capability: () => BrowserCapabilityFact }>();
+const handlers = new Map<string, { handler: BrowserOperationHandler; capability: () => BrowserCapabilityFact;
+  options: BrowserOperationOptions }>();
 const controlNames = new Set(['browser_capabilities', 'operation_status', 'cancel_operation',
   'save_media', 'release_media']);
 /** Register one family operation without changing shared dispatch code. */
 export function registerBrowserOperation(name: string, handler: BrowserOperationHandler,
-  capability: () => BrowserCapabilityFact): void {
+  capability: () => BrowserCapabilityFact, options: BrowserOperationOptions = {}): void {
   if (!/^[a-z][a-z0-9_]{0,39}$/.test(name) || controlNames.has(name) || handlers.has(name) || handlers.size >= 43)
     throw new Error('Invalid, duplicate, or excessive browser operation');
-  handlers.set(name, { handler, capability });
+  handlers.set(name, { handler, capability, options });
 }
 export function browserCapabilityFacts(fileMediaSupported: boolean): ReturnType<typeof boundedCapabilityFacts> {
   const controls: Array<[string, BrowserCapabilityFact]> = [
@@ -403,7 +405,7 @@ export class BrowserOperationContext {
     const entry = handlers.get(request.name);
     if (!entry) throw new Error(`Unsupported browser operation: ${request.name}`);
     if (!entry.capability().available) throw new Error(entry.capability().reason || 'Browser operation is unavailable.');
-    const status = await this.create(request);
+    const status = await this.create(request, entry.options.waitingForUser === true);
     const oldest = Date.now() - 5 * 60_000;
     for (const [id, dispatch] of this.dispatched)
       if (dispatch.terminalAt !== undefined && dispatch.terminalAt < oldest) this.dispatched.delete(id);
