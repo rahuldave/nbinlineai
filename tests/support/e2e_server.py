@@ -42,6 +42,45 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    if "E2E_HANDOFF_PROMPT_RUN_NO_CHOICE" in current_user:
+        return Completion(model=model, message=Msg("assistant", [ToolUse(
+            id="handoff-no-choice", name="prompt_and_run",
+            arguments={"prompt": "E2E_HANDOFF_P1_NO_CHOICE Explain this notebook."},
+        )]))
+    if "E2E_HANDOFF_P1_NO_CHOICE" in current_user:
+        return Completion(model=model, message=Msg("assistant", [Text("No code was selected.")]))
+    if "E2E_HANDOFF_RUN_PROMPT_EXISTING" in current_user:
+        return Completion(model=model, message=Msg("assistant", [ToolUse(
+            id="handoff-existing-result", name="run_and_prompt",
+            arguments={"cell_id": "target", "prompt": "E2E_HANDOFF_RESULT_PROMPT Explain the existing cell output."},
+        )]))
+    handoff_cases = {
+        "E2E_HANDOFF_ADD": ("add_code_cell_and_execute", {
+            "content": "handoff_value = 41\nprint('HANDOFF_ADD_RESULT', handoff_value)",
+        }),
+        "E2E_HANDOFF_EXISTING": ("add_code_cell_and_execute", {"cell_id": "target"}),
+        "E2E_HANDOFF_RUN_PROMPT": ("run_and_prompt", {
+            "content": "handoff_value = 42\nprint('HANDOFF_RESULT', handoff_value)",
+            "prompt": "E2E_HANDOFF_RESULT_PROMPT Explain the exact prior output.",
+        }),
+        "E2E_HANDOFF_PROMPT_RUN": ("prompt_and_run", {
+            "prompt": "E2E_HANDOFF_P1_SELECT Create and execute one code cell.",
+        }),
+        "E2E_HANDOFF_P1_SELECT": ("add_code_cell_and_execute", {
+            "content": "handoff_value = 43\nprint('HANDOFF_P1_RESULT', handoff_value)",
+        }),
+    }
+    for marker, (name, arguments) in handoff_cases.items():
+        if marker in current_user:
+            if name not in schema_names:
+                return Completion(model=model, message=Msg("assistant", [Text(f"MISSING_HANDOFF_SCHEMA {name}")]))
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id=f"handoff-{marker}", name=name, arguments=arguments,
+            )]))
+    if "E2E_HANDOFF_RESULT_PROMPT" in current_user:
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "HANDOFF_P1_RECEIVED " + system_text[-1200:]
+        )]))
     cell_edit_sequences = {
         "E2E_CELL_EDIT_SOURCE": [
             ("find_cells", {"query": "UNSAVED_MARKER", "cell_type": "code"}),

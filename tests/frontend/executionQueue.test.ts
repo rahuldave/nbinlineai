@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { enqueueNotebookCell } from '../../src/executionQueue';
+import { enqueueNotebookCell, scheduleNotebookContinuation } from '../../src/executionQueue';
 
 const deferred = () => {
   let resolve!: (value: boolean) => void;
@@ -72,4 +72,63 @@ test('a second native run joins pending AI without a second request and stops it
   response.resolve(false);
   assert.deepEqual(await Promise.all([firstAI, firstLater, secondBefore, joinedAI, secondLater]), [false, false, true, false, false]);
   assert.deepEqual(calls, ['AI request', 'second earlier code']);
+});
+
+test('terminal handoff runs before later native batch work and coalesces the same source obligation', async () => {
+  const notebook = {};
+  const calls: string[] = [];
+  const first = enqueueNotebookCell(notebook, async () => {
+    calls.push('prompt');
+    scheduleNotebookContinuation(notebook, async () => { calls.push('handoff code'); return true; },
+      { cellId: 'c1', source: 'print(1)' });
+    return true;
+  });
+  const duplicate = enqueueNotebookCell(notebook, async () => { calls.push('duplicate code'); return true; },
+    { cellId: 'c1', source: 'print(1)' });
+  const later = enqueueNotebookCell(notebook, async () => { calls.push('later code'); return true; });
+  assert.deepEqual(await Promise.all([first, duplicate, later]), [true, true, true]);
+  assert.deepEqual(calls, ['prompt', 'handoff code', 'later code']);
+});
+
+test('conflicting same-cell batch obligation fails visibly and stops later work', async () => {
+  const notebook = {};
+  const calls: string[] = [];
+  const first = enqueueNotebookCell(notebook, async () => {
+    scheduleNotebookContinuation(notebook, async () => { calls.push('wrong run'); return true; },
+      { cellId: 'c1', source: 'print(2)' });
+    return true;
+  });
+  const conflict = enqueueNotebookCell(notebook, async () => { calls.push('native run'); return true; },
+    { cellId: 'c1', source: 'print(1)' });
+  await assert.rejects(first, /different source/);
+  assert.equal(await conflict, false);
+  assert.deepEqual(calls, []);
+});
+
+test('failed predecessor never dispatches a scheduled continuation', async () => {
+  const notebook = {};
+  const calls: string[] = [];
+  const predecessor = enqueueNotebookCell(notebook, async () => {
+    scheduleNotebookContinuation(notebook, async () => { calls.push('successor'); return true; }, undefined,
+      () => calls.push('discarded'));
+    return false;
+  });
+  assert.equal(await predecessor, false);
+  assert.deepEqual(calls, ['discarded']);
+});
+
+test('one source execution schedules at most one successor, while a successor may chain onward', async () => {
+  const notebook = {};
+  const calls: string[] = [];
+  const result = await enqueueNotebookCell(notebook, async () => {
+    scheduleNotebookContinuation(notebook, async () => {
+      calls.push('first successor');
+      scheduleNotebookContinuation(notebook, async () => { calls.push('second successor'); return true; });
+      return true;
+    });
+    assert.throws(() => scheduleNotebookContinuation(notebook, async () => true), /already scheduled/);
+    return true;
+  });
+  assert.equal(result, true);
+  assert.deepEqual(calls, ['first successor', 'second successor']);
 });

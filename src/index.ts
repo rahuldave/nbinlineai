@@ -20,7 +20,8 @@ import { enqueueNotebookCell } from './executionQueue';
 import { readEventStream, StreamEvent } from './sse';
 import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
-import { runTrackedStandardCell } from './insertTools';
+import { runTrackedStandardCell, setDirectHandoffHandler } from './insertTools';
+import { ExecutionResult, finishHandoffChain, HandoffOperation, requestExecutionHandoff } from './executionHandoff';
 import '../style/index.css';
 
 interface CellMetadata {
@@ -420,12 +421,16 @@ function configureProviders(tracker: INotebookTracker): Promise<void> {
 function eventText(event: StreamEvent): string {
   return typeof event.text === 'string' ? event.text : '';
 }
-async function executePrompt(panel: NotebookPanel, promptId: string): Promise<boolean> {
+async function executePrompt(panel: NotebookPanel, promptId: string, predecessor?: ExecutionResult, chainId?: string,
+  requireCodeChoice = false): Promise<boolean> {
   if (runs.has(runKey(panel, promptId))) return false;
   const prompt = getCell(panel, promptId);
   const notebook = panel.content.model;
   if (!prompt || !isPrompt(prompt) || !notebook) return false;
-  if (protectedAnswer(panel, prompt)) return true;
+  if (protectedAnswer(panel, prompt)) {
+    if (chainId) { status(panel, promptId, 'skipped', 'Kept answer; no new execution scheduled.'); finishHandoffChain(chainId); return false; }
+    return true;
+  }
   statuses.delete(runKey(panel, promptId));
   const promptText = prompt.sharedModel.getSource().trim();
   if (!promptText) { status(panel, promptId, 'error', 'Write a prompt first.'); return false; }
@@ -468,6 +473,9 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   const controller = new AbortController();
   const run: RunState = { controller, panel, output, text: '', done: false, context: null, contextTrimmed: false };
   const bridge = new NotebookActionBridge(notebook, promptId, output.id);
+  const handoffReplies = new Map<string, { signature: string; receipt: ReturnType<typeof requestExecutionHandoff> }>();
+  let terminalReceipt: ReturnType<typeof requestExecutionHandoff> | null = null;
+  let terminalConfirmed = false;
   let serverRunId: string | null = null;
   runs.set(runKey(panel, promptId), run);
   status(panel, promptId, 'running', 'Preparing context…');
@@ -484,7 +492,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
         snapshot_version: 1, notebook_cells: cells, context_mode: notebookContextMode(panel),
         backend, model: selectedModel, max_tool_steps: maxToolSteps(), prompt_mode: mode,
         ...(instructions ? { prompt_instructions: instructions } : {}),
-        ...(effort ? { reasoning_effort: effort } : {})
+        ...(effort ? { reasoning_effort: effort } : {}),
+        ...(predecessor ? { predecessor_result: predecessor } : {})
       })
     });
     if (!response.ok) {
@@ -531,8 +540,29 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
             getCell(panel, promptId) !== prompt || getCell(panel, output.id) !== output) {
           throw new Error('The originating notebook, prompt, answer, or kernel changed. Notebook action cancelled.');
         }
-        const result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
+        if (terminalReceipt && !handoffReplies.has(event.request_id)) throw new Error('A tool action followed a terminal handoff.');
+        const isHandoff = ['add_code_cell_and_execute', 'prompt_and_run', 'run_and_prompt'].includes(event.name);
+        const cached = handoffReplies.get(event.request_id);
+        const signature = JSON.stringify([event.name, event.arguments]);
+        if (cached) {
+          if (cached.signature !== signature) throw new Error('Handoff request ID was reused with different arguments.');
+          return;
+        }
+        const result = isHandoff ? requestExecutionHandoff({
+          panel, originCellId: promptId, defaultAfterCellId: output.id, chainId,
+          onPrompt: async (id, result, nextChainId, requireSelection) => {
+            const success = await executePrompt(panel, id, result, nextChainId, requireSelection);
+            if (!success && nextChainId) finishHandoffChain(nextChainId);
+            return success;
+          },
+          onStatus: (state, message) => status(panel, promptId, state, message)
+        }, event.name as HandoffOperation, event.arguments as Record<string, unknown>)
+          : bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
+        if (isHandoff) {
+          handoffReplies.set(event.request_id, { signature, receipt: result });
+          if (result.ok) terminalReceipt = result;
+        }
         status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
         const reply = await fetch(serverUrl('nbinlineai/action-reply'), {
           method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
@@ -542,18 +572,33 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
         if (!reply.ok) throw new Error(`The notebook action reply was rejected (${reply.status}).`);
         const acknowledgement = await reply.json() as { accepted?: boolean };
         if (acknowledgement.accepted !== true) throw new Error('The notebook action reply was not acknowledged.');
-        status(panel, promptId, 'running', runningProgressText(result.ok ? 'Notebook action completed; generating…' : `Notebook action failed: ${result.text}`, run.context));
+        status(panel, promptId, 'running', runningProgressText(result.ok ? 'Notebook action completed; generating…' : `Notebook action failed: ${'error' in result ? result.error : 'text' in result ? result.text : ''}`, run.context));
+      } else if (event.type === 'handoff') {
+        if (!terminalReceipt || event.chain_id !== terminalReceipt.chain_id || event.step_id !== terminalReceipt.step_id) {
+          throw new Error('The server did not confirm this terminal handoff.');
+        }
+        terminalConfirmed = true;
       } else if (event.type === 'tool_start') status(panel, promptId, 'running', runningProgressText(`Running ${String(event.name || 'tool')}…`, run.context));
       else if (event.type === 'tool_result') status(panel, promptId, 'running', runningProgressText(`${String(event.name || 'Tool')} completed; generating…`, run.context));
       else if (event.type === 'error') throw new Error(String(event.message || 'AI request failed.'));
       else if (event.type === 'done') run.done = true;
     });
     if (!run.done) throw new Error('The response ended before completion.');
+    if (terminalReceipt && !terminalConfirmed) throw new Error('The terminal handoff was not confirmed.');
+    if (requireCodeChoice && !terminalReceipt) {
+      refreshOutput(panel, output);
+      setMetadata(output, { status: 'done' });
+      status(panel, promptId, 'skipped', 'No code cell was selected; nothing was executed.');
+      return false;
+    }
     refreshOutput(panel, output);
     status(panel, promptId, 'done', completedContextText(run.contextTrimmed),
       run.context ? contextTooltip(run.context, run.contextTrimmed) : undefined);
     return true;
   } catch (error) {
+    for (const item of handoffReplies.values()) {
+      if (item.receipt.ok && item.receipt.chain_id) finishHandoffChain(item.receipt.chain_id);
+    }
     if (controller.signal.aborted) {
       status(panel, promptId, 'cancelled', 'Cancelled');
     } else {
@@ -569,6 +614,7 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
     return false;
   } finally {
     runs.delete(runKey(panel, promptId));
+    if (chainId && !terminalReceipt) finishHandoffChain(chainId);
     decorate(panel);
   }
 }
@@ -958,7 +1004,7 @@ function decorate(panel: NotebookPanel): void {
   for (const key of statuses.keys()) {
     if (!key.startsWith(prefix)) continue;
     const prompt = getCell(panel, key.slice(prefix.length));
-    if (!isPrompt(prompt) || (statuses.get(key)?.state === 'done' && !findOutput(panel, prompt!.id))) statuses.delete(key);
+    if (!prompt || (isPrompt(prompt) && statuses.get(key)?.state === 'done' && !findOutput(panel, prompt.id))) statuses.delete(key);
   }
   syncNotebookDefaultsRow(panel);
   for (const widget of panel.content.widgets) {
@@ -974,7 +1020,17 @@ function decorate(panel: NotebookPanel): void {
       decorateCodeCopy(widget);
     }
     const cellControls = ensureCellControls(widget.node);
-    if (!meta.isPromptCell) { cellControls.querySelector(':scope > .nbinlineai-controls')?.remove(); continue; }
+    if (!meta.isPromptCell) {
+      cellControls.querySelector(':scope > .nbinlineai-controls')?.remove();
+      const handoff = statuses.get(runKey(panel, cell.id));
+      let label = cellControls.querySelector<HTMLElement>(':scope > [data-nbinlineai-handoff-status]');
+      if (cell.type === 'code' && handoff) {
+        if (!label) { label = document.createElement('span'); label.dataset.nbinlineaiHandoffStatus = ''; cellControls.appendChild(label); }
+        label.dataset.state = handoff.state;
+        label.textContent = handoff.text;
+      } else label?.remove();
+      continue;
+    }
     let controls = (cellControls.querySelector(':scope > .nbinlineai-controls') ||
       widget.node.querySelector(':scope > .nbinlineai-controls')) as HTMLElement | null;
     if (!controls) controls = makeControls(panel, cell.id);
@@ -1066,7 +1122,9 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
           return success;
         });
       }
-      return enqueueNotebookCell(options.notebook, () => runTrackedStandardCell(options, panelsByModel.get(options.notebook)));
+      return enqueueNotebookCell(options.notebook, () => runTrackedStandardCell(options, panelsByModel.get(options.notebook)),
+        options.cell.model.type === 'code' ? { cellId: options.cell.model.id, source: options.cell.model.sharedModel.getSource() } : undefined,
+        () => options.onCellExecuted({ cell: options.cell, success: true }));
     }
   })
 };
@@ -1074,6 +1132,15 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    setDirectHandoffHandler((panel, sourceCellId, request, chainId) => ({ ...requestExecutionHandoff({
+      panel, originCellId: sourceCellId, chainId,
+      onPrompt: async (id, result, chainId, requireSelection) => {
+        const success = await executePrompt(panel, id, result, chainId, requireSelection);
+        if (!success && chainId) finishHandoffChain(chainId);
+        return success;
+      },
+      onStatus: (state, message) => status(panel, sourceCellId, state, message)
+    }, request.operation, request.arguments) }));
     notebookTracker = tracker;
     settingRegistry = registry;
     if (registry) settingsReady = registry.load(plugin.id).then(bindResponseSettings).catch(error => {
