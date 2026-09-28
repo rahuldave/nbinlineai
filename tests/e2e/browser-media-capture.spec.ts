@@ -44,6 +44,8 @@ async function syntheticDevices(page: Page): Promise<void> {
   await page.addInitScript(() => {
     let frame: MediaStream | undefined;
     let audio: AudioContext | undefined;
+    const displayRequests: boolean[] = [];
+    Object.defineProperty(window, '__nbinlineaiCaptureDisplayRequests', { value: displayRequests });
     const video = (): MediaStream => {
       if (frame && frame.getVideoTracks().some(track => track.readyState === 'live')) return frame.clone();
       const canvas = document.createElement('canvas');
@@ -80,7 +82,10 @@ async function syntheticDevices(page: Page): Promise<void> {
         }
         return video();
       },
-      getDisplayMedia: async (): Promise<MediaStream> => video()
+      getDisplayMedia: async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
+        displayRequests.push(Boolean(constraints.audio));
+        return video();
+      }
     };
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: media });
   });
@@ -97,7 +102,9 @@ test('deterministic camera still and shared recorder deliver typed Python result
     "print('RECORDING_READY' if recording.status == 'running' and recording.operation_id else recording.status, recording.operation_id)",
     "stopped = stop_recording(recording.operation_id)",
     "print(stopped.status, recording.status, type(recording.result).__name__, recording.media)",
-    'closed = stop_source(camera_id)'
+    'closed = stop_source(camera_id)',
+    'from nbinlineai.tools import record_camera\nconvenience = record_camera(save_to=None, duration=2, audio=False)',
+    'print(convenience.status, type(convenience.result).__name__, convenience.media)'
   ]);
   await runCell(page, 0);
   const ready = await inspectLater(page, 1, 'CAMERA_READY');
@@ -112,6 +119,32 @@ test('deterministic camera still and shared recorder deliver typed Python result
   expect(stopped).toContain('completed');
   expect(stopped).toContain('stop_reason');
   await runCell(page, 8);
+  await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
+  await runCell(page, 9);
+  expect(await inspectLater(page, 10, 'MediaClip')).toContain('completed');
+  await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
+});
+
+test('requested display audio needs a second explicit silent-share click', async ({ page, request }) => {
+  await syntheticDevices(page);
+  await fixtureNotebook(page, request, [
+    'from nbinlineai.tools import start_share, stop_share\nsharing = start_share(audio=True)',
+    'print(sharing.status, sharing.result)',
+    "closed = stop_share(sharing.result['source_id'])"
+  ]);
+  await runCell(page, 0);
+  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
+  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Screen audio was unavailable');
+  await expect(page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share without audio' })).toBeVisible();
+  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share without audio' }).click();
+  const share = await inspectLater(page, 1, 'source_id');
+  expect(share).toContain('completed');
+  expect(share).toContain("'audio': False");
+  expect(await page.evaluate(() =>
+    (window as unknown as { __nbinlineaiCaptureDisplayRequests: boolean[] }).__nbinlineaiCaptureDisplayRequests
+  )).toEqual([true, false]);
+  await runCell(page, 2);
 });
 
 test('deterministic microphone levels and convenience audio recording stay local', async ({ page, request }) => {
@@ -133,7 +166,9 @@ test('deterministic microphone levels and convenience audio recording stay local
   const clip = await inspectLater(page, 5, 'MediaClip');
   expect(clip).toContain('audio/');
   expect(clip).toContain('stop_reason');
+  await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(1);
   await runCell(page, 6);
+  await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
 });
 
 test('screen chooser is activated by the visible Share button and stop is idempotent', async ({ page, request }) => {

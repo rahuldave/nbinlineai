@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { BrowserOperationContext, BrowserSource } from '../../src/browserMediaClient';
-import { startRecordedOperation, stopRecordingHandle } from '../../src/browserMediaRecorder';
+import { recordingHandle, startRecordedOperation, stopRecordingHandle } from '../../src/browserMediaRecorder';
 
 test('the shared recorder claims once and uploads actual MIME with a user stop reason', async () => {
   const oldStream = globalThis.MediaStream;
@@ -14,6 +14,7 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
   }
   class Recorder {
     static preferWebm = true;
+    static emitFinal = true;
     static last: Recorder;
     static isTypeSupported(mime: string): boolean { return Recorder.preferWebm && mime === 'audio/webm;codecs=opus'; }
     mimeType = Recorder.preferWebm ? 'audio/webm;codecs=opus' : '';
@@ -27,7 +28,7 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     resume(): void { this.state = 'recording'; }
     stop(): void {
       this.state = 'inactive';
-      this.ondataavailable?.({ data: new Blob([Recorder.preferWebm ?
+      if (Recorder.emitFinal) this.ondataavailable?.({ data: new Blob([Recorder.preferWebm ?
         new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1]) :
         new Uint8Array([0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 1, 2, 3, 4])]) });
       this.onstop?.();
@@ -119,6 +120,25 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     holdClaim = false;
     await startRecordedOperation(raceContext, { operation_id: 'after-ended-source', status: 'running' }, source, null, 30);
     await stopRecordingHandle(raceContext, 'after-ended-source', 'user');
+
+    await startRecordedOperation(context, { operation_id: 'pause-resume', status: 'running' }, source, null, 30);
+    recordingHandle(context, 'pause-resume').pause();
+    assert.equal(recordingHandle(context, 'pause-resume').state(), 'paused');
+    recordingHandle(context, 'pause-resume').resume();
+    assert.equal(recordingHandle(context, 'pause-resume').state(), 'recording');
+    await stopRecordingHandle(context, 'pause-resume', 'user');
+
+    await startRecordedOperation(context, { operation_id: 'duration-limit', status: 'running' }, source, null, 1);
+    await new Promise(resolve => setTimeout(resolve, 1100));
+    assert.ok(calls.some(call => call[0] === 'upload' && call[1] === 'duration-limit' &&
+      (call[4] as { stop_reason: string }).stop_reason === 'duration'));
+
+    Recorder.emitFinal = false;
+    await startRecordedOperation(context, { operation_id: 'size-limit', status: 'running' }, source, null, 30);
+    Recorder.last.ondataavailable?.({ data: new Blob([new Uint8Array(16 * 1024 * 1024)]) });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.ok(calls.some(call => call[0] === 'upload' && call[1] === 'size-limit' &&
+      (call[4] as { stop_reason: string }).stop_reason === 'size'));
   } finally {
     Object.defineProperty(globalThis, 'MediaStream', { configurable: true, value: oldStream });
     Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: oldRecorder });
