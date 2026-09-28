@@ -62,7 +62,7 @@ test('a completed terminal handoff is kept and does not replay on another run', 
   await prompt.locator('[data-nbinlineai-run]').click();
   await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-OutputArea')).toContainText('HANDOFF_ADD_RESULT 41');
   await expect(notebook.locator('.nbinlineai-response-cell')).toContainText('Handoff scheduled for cell');
-  await prompt.locator('[data-nbinlineai-run]').click();
+  await expect(prompt.locator('[data-nbinlineai-run]')).toBeDisabled();
   await expect(notebook.locator('.jp-CodeCell')).toHaveCount(2);
   await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-InputPrompt')).toContainText('[2]');
 });

@@ -1100,7 +1100,8 @@ function decorate(panel: NotebookPanel): void {
       ? unavailableMessage(effective.backend, anyApiConfigured) : subscriptionIssue || '';
     label.dataset.state = serverStatusError || availabilityNotice ? 'error' : current?.state || 'idle';
     label.title = serverStatusError || availabilityNotice ? '' : current?.tooltip || '';
-    label.textContent = serverStatusError || (current?.state === 'running' ? current.text : '') || availabilityNotice ||
+    label.textContent = serverStatusError || (current?.state === 'running' || current?.state === 'failed' ||
+      current?.state === 'skipped' || current?.state === 'cancelled' ? current.text : '') || availabilityNotice ||
       (current?.state === 'done' && current.text.includes('context trimmed') ? current.text : '') ||
       (protectedCompleted ? 'Answer kept' : '') || current?.text || (serverStatus ? '' : 'Checking AI providers…');
   }
