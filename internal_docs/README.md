@@ -24,14 +24,14 @@ execution handoffs from the published PyPI release and records earlier fixes.
 
 ## Approved experimental design
 
-- [Notebook execution handoff spec](notebook_execution_handoff_spec.md): approved
+- [Notebook execution handoff spec](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_spec.md): approved
   same-notebook contract for `add_code_cell_and_execute`, `prompt_and_run` and
   `run_and_prompt`; queued terminal handoffs, stable IDs and actual run results.
-- [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
+- [Copyable implementation task prompt](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-The approved spec and prompt are pre-work documents maintained on `main` and
-available here for discovery. The implementation-specific
+The links above pin the approved pre-work documents on `main` at `404f0e5`;
+branch-local copies are historical discovery copies. The implementation-specific
 [handoff](developer_handoff.md#2026-09-28-queued-notebook-execution-handoffs)
 belongs to this experimental branch. PR #21 merged the runtime, public docs,
 tests and example here at `c6ac76e`; PyPI 0.1.15 and `main` do not contain those

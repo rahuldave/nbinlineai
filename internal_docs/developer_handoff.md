@@ -7,9 +7,10 @@ PR [#21](https://github.com/rahuldave/nbinlineai/pull/21) merged into
 `c6ac76e17a8bfaab8f82e4c3e27d396e59c8d4c8`. Its owned topic worktree
 was `/Users/rahul/Projects/nbinlineai-execution-handoffs`, branch
 `codex/notebook-execution-handoffs`; the primary checkout stayed on `main`.
-The [approved spec](notebook_execution_handoff_spec.md) and
-[task prompt](notebook_execution_handoff_task_prompt.md) remain pre-work
-documents on `main`. This implementation record belongs with the experimental
+The [approved spec](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_spec.md) and
+[task prompt](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_task_prompt.md) are pinned pre-work
+documents on `main` at `404f0e5`; branch-local copies are historical. This
+implementation record belongs with the experimental
 code. Git source contains the helpers; published PyPI 0.1.15 and `main` do not.
 No version bump, tag, package upload or site deployment followed the merge.
 Gest iteration `srtuoxrt`, parent `tutortnk`, and leaves `oloxqsoz`, `twqntstm`
@@ -35,8 +36,8 @@ The deterministic browser fixture imports declared handoff functions into its
 live kernel; declarations alone do not create Python names. A tool-only turn
 leaves a brief paired scheduling answer so Keep protects it from replay. A
 skipped or failed chain shows its status even if that answer is kept. New code
-is placed after the paired answer by default. Source edits before dispatch
-stop execution. A direct Python receipt acknowledges scheduling, not completed
+is placed after the paired answer by default. Source edits detected by the
+pre-dispatch check stop execution. A direct Python receipt acknowledges scheduling, not completed
 execution; inspect the notebook before retrying a lost acknowledgement.
 
 Verification at reviewed topic head `ed87a7818d6c3e785271a37c1d529c415c7ed65a`:

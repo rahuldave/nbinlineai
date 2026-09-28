@@ -18,7 +18,7 @@ transfer at most 8,000 characters of text from that exact execution, with
 cell/request IDs, source SHA-256, truncation and rich-output flags, into a new
 ordinary AI question. The result is budgeted before optional notebook context.
 There is no sidecar or nested main-kernel wait. See the
-[approved spec](notebook_execution_handoff_spec.md), [public tools
+[approved main spec](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_spec.md), [public tools
 reference](../docs/tools.md#live-notebook-cells) and
 [example](../docs/examples.md#try-queued-execution-handoffs-experimental-git-branch).
 
