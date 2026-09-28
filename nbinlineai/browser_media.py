@@ -458,7 +458,11 @@ class MediaRegistry:
             raise MediaError('stale_target', 'Media hash mismatch')
         if not isinstance(mime_type, str) or not 0 < len(mime_type) <= 100:
             raise MediaError('invalid_argument', 'Invalid MIME type')
-        base_mime = mime_type.split(';', 1)[0].lower()
+        mime_parts = mime_type.split(';', 1)
+        base_mime = mime_parts[0].strip().lower()
+        if '/' not in base_mime:
+            raise MediaError('invalid_argument', 'Invalid MIME type')
+        mime_type = base_mime + (';' + mime_parts[1].strip() if len(mime_parts) > 1 and mime_parts[1].strip() else '')
         if base_mime.startswith(('audio/', 'video/')):
             signatures = {
                 'audio/webm': data.startswith(b'\x1a\x45\xdf\xa3'),
@@ -736,7 +740,7 @@ class MediaRegistry:
         if len(save_to) > 500:
             raise MediaError('limit_exceeded', 'save_to is too long')
         notebook_dir = PurePosixPath(notebook_path or owner.notebook_path).parent
-        base_mime = mime_type.split(';', 1)[0]
+        base_mime = mime_type.split(';', 1)[0].strip().lower()
         recording_suffixes = {
             'audio/webm': ('.weba', '.webm'), 'video/webm': ('.webm',),
             'audio/mp4': ('.m4a', '.mp4'), 'video/mp4': ('.mp4',),
