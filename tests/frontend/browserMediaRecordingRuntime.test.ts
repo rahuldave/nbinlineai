@@ -11,19 +11,22 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     constructor(readonly tracks: unknown[]) { /* test stream */ }
   }
   class Recorder {
-    static isTypeSupported(mime: string): boolean { return mime === 'audio/webm;codecs=opus'; }
-    mimeType = 'audio/webm;codecs=opus';
+    static preferWebm = true;
+    static isTypeSupported(mime: string): boolean { return Recorder.preferWebm && mime === 'audio/webm;codecs=opus'; }
+    mimeType = Recorder.preferWebm ? 'audio/webm;codecs=opus' : '';
     state = 'inactive';
     ondataavailable: ((event: { data: Blob }) => void) | null = null;
     onerror: (() => void) | null = null;
     onstop: (() => void) | null = null;
     constructor(_stream: unknown, _options: unknown) { /* test recorder */ }
-    start(): void { this.state = 'recording'; }
+    start(): void { this.state = 'recording'; if (!Recorder.preferWebm) this.mimeType = 'audio/mp4'; }
     pause(): void { this.state = 'paused'; }
     resume(): void { this.state = 'recording'; }
     stop(): void {
       this.state = 'inactive';
-      this.ondataavailable?.({ data: new Blob([new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1])]) });
+      this.ondataavailable?.({ data: new Blob([Recorder.preferWebm ?
+        new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 1]) :
+        new Uint8Array([0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 1, 2, 3, 4])]) });
       this.onstop?.();
     }
   }
@@ -50,6 +53,12 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     assert.equal(calls[2][3], 'audio/webm;codecs=opus');
     assert.equal((calls[2][4] as { stop_reason: string }).stop_reason, 'user');
     assert.equal(calls[2][5], null);
+    Recorder.preferWebm = false;
+    await startRecordedOperation(context, { operation_id: 'default-encoded', status: 'running' },
+      source, 'voice.m4a', 30);
+    await stopRecordingHandle(context, 'default-encoded', 'duration');
+    assert.equal(calls.at(-1)?.[3], 'audio/mp4');
+    assert.equal((calls.at(-1)?.[4] as { stop_reason: string }).stop_reason, 'duration');
   } finally {
     Object.defineProperty(globalThis, 'MediaStream', { configurable: true, value: oldStream });
     Object.defineProperty(globalThis, 'MediaRecorder', { configurable: true, value: oldRecorder });

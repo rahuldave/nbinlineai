@@ -108,17 +108,20 @@ export async function startRecordedOperation(context: BrowserOperationContext,
   let recorder: MediaRecorder;
   try { recorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined); }
   catch { throw new BrowserMediaError('unsupported', 'This browser cannot encode the selected tracks.'); }
-  const mime = recorder.mimeType || preferred || '';
-  if (!supportedMime(mime, video))
-    throw new BrowserMediaError('unsupported', 'The browser did not provide a supported recording format.');
-  if (saveTo !== null && saveTo !== 'auto') {
-    const extension = saveTo.slice(saveTo.lastIndexOf('.')).toLowerCase();
-    const valid = mime.startsWith('video/webm') ? ['.webm'] :
-      mime.startsWith('audio/webm') ? ['.weba', '.webm'] :
-        mime.startsWith('video/mp4') ? ['.mp4'] : mime.startsWith('audio/mp4') ? ['.m4a', '.mp4'] : ['.ogg'];
-    if (!valid.includes(extension))
-      throw new BrowserMediaError('invalid_argument', `Recording destination must end in ${valid.join(' or ')}.`);
-  }
+  let mime = recorder.mimeType || preferred || '';
+  const validateMime = (): void => {
+    if (!supportedMime(mime, video))
+      throw new BrowserMediaError('unsupported', 'The browser did not provide a supported recording format.');
+    if (saveTo !== null && saveTo !== 'auto') {
+      const extension = saveTo.slice(saveTo.lastIndexOf('.')).toLowerCase();
+      const valid = mime.startsWith('video/webm') ? ['.webm'] :
+        mime.startsWith('audio/webm') ? ['.weba', '.webm'] :
+          mime.startsWith('video/mp4') ? ['.mp4'] : mime.startsWith('audio/mp4') ? ['.m4a', '.mp4'] : ['.ogg'];
+      if (!valid.includes(extension))
+        throw new BrowserMediaError('invalid_argument', `Recording destination must end in ${valid.join(' or ')}.`);
+    }
+  };
+  if (mime) validateMime();
   await context.claimRecording(operation.operation_id);
   const maxBytes = saveTo === null ? RECORDING_MEMORY_BYTES : RECORDING_SAVED_BYTES;
   const pieces: Blob[] = [];
@@ -193,9 +196,10 @@ export async function startRecordedOperation(context: BrowserOperationContext,
   context.addOperationCleanup(operation.operation_id, () => {
     if (signal.aborted) discardRecordingHandle(context, operation.operation_id);
   });
-  try { recorder.start(1000); }
-  catch {
+  try { recorder.start(1000); mime = recorder.mimeType || mime; validateMime(); }
+  catch (error) {
     discardRecordingHandle(context, operation.operation_id);
+    if (error instanceof BrowserMediaError) throw error;
     throw new BrowserMediaError('unsupported', 'This browser could not start recording.');
   }
   try {
