@@ -536,7 +536,8 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
                 try:
                     path = await asyncio.to_thread(self.media_registry._save, owner, media,
                                                    save_to, lambda: not op.cancelled.is_set() and
-                                                   not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set())
+                                                   not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set(),
+                                                   notebook_path=op.notebook_path)
                     with self.media_registry._state_lock:
                         active = (op.status == 'saving' and not op.cancelled.is_set() and
                                   owner in self.media_registry.owner_cancelled and
