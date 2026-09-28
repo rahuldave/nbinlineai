@@ -309,7 +309,7 @@
     "verification": {
       "browser": "tests/e2e/tool-catalog-live.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; exact catalog browser test written, not yet run"
+    "checkpoint_evidence": "Exact catalog notebook and deterministic provider exercised this call in isolated JupyterLab; browser test passed."
   },
   "read_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -320,7 +320,7 @@
     "verification": {
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "find_cells": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -331,7 +331,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "insert_markdown": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -353,7 +353,7 @@
     "verification": {
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "replace_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -364,7 +364,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "cell_str_replace": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -375,7 +375,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "cell_insert_line": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -386,7 +386,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "cell_replace_lines": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -397,7 +397,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "delete_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -408,7 +408,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "move_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -419,7 +419,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "copy_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -430,7 +430,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "split_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -441,7 +441,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "merge_cells": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -452,7 +452,7 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "read_url": {
     "notebook": "tool-catalog-web.ipynb",
@@ -486,7 +486,7 @@
       "unit": "tests/test_frontend_bridge.py",
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
   },
   "run_python": {
     "notebook": "tool-catalog-processes.ipynb",
@@ -564,6 +564,6 @@
       "unit": "tests/test_insert_tools.py",
       "browser": "tests/e2e/inherited-tools.spec.ts"
     },
-    "checkpoint_evidence": "headless skip: execution-bound browser receipt; existing browser test not rerun here"
+    "checkpoint_evidence": "UI receipt demo skipped headlessly; same helper passed in a focused isolated JupyterLab browser regression."
   }
 }

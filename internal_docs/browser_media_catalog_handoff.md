@@ -60,17 +60,22 @@ it does not substitute for real-browser verification of frontend tools.
 ## Verification and remaining integration
 
 Focused source checks for this checkpoint: `uv run --no-sync python -m pytest
--q tests/test_tool_catalog_coverage.py tests/test_examples.py` (isolated kernel,
-no provider/network) and `uv run --no-sync ruff check` on changed Python tests.
-Browser tests and frontend/package builds require the orchestrator's exclusive
-lease and are not claimed here. `tests/e2e/tool-catalog-live.spec.ts` uploads a
+-q tests/test_tool_catalog_coverage.py tests/test_examples.py` (31 passed,
+isolated kernel, no provider/network) and `uv run --no-sync ruff check` on
+changed Python tests (passed). A separate Python 3.12 environment in this
+worktree completed `jlpm install`, `jlpm build:prod`, `uv sync --group dev`, and
+`jupyter-builder develop . --overwrite` before browser verification.
+`tests/e2e/tool-catalog-live.spec.ts` uploads a
 disposable copy of the exact shipped live-catalog notebook to exercise its
 `list_cells` question with a deterministic provider marker inserted only into
-the uploaded copy. That test still requires the shared fake-provider fixture
-change from its owner and execution under the lease. Existing browser suites
-exercise the remaining shipped live edit/insert tools and `insert_tools`; their
-paths are recorded in the coverage mapping, and the catalog owner will rerun
-the affected cases under the lease. The new family owners will hand registered names,
+the uploaded copy. With the shared fixture marker in place, that test passed
+in isolated JupyterLab on port 8897. Seven focused existing browser cases also
+passed: `read_cell`, `url_to_note`, `insert_code`, `insert_tools`,
+`find_cells`/`replace_cell`, structure edits, and line edits. Their test paths
+and each tool's executed-versus-prompt-only status are recorded in the manifest.
+The existing `insert_markdown` browser case was not rerun in this checkpoint;
+public-network and optional tmux/skill prompts were not run. Playwright stopped
+its server and port 8897 was free afterward. The new family owners will hand registered names,
 signatures, notebook sections/cell IDs, capability limitations and tests to the
 catalog owner. The catalog owner then extends the manifest, public tools page,
 example index and browser verification mapping after those implementation

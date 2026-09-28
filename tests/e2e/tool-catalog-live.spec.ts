@@ -30,18 +30,21 @@ test('shipped live catalog lists real cells from its copied notebook', async ({ 
     return sessions.ok() && (await sessions.json()).some((session: any) =>
       session.path === name && session.kernel?.id);
   }).toBeTruthy();
-  const setup = notebook.locator('[data-cell-id="catalog-live-setup"]');
+  const setup = notebook.locator('.jp-CodeCell').first();
   await setup.click();
   await page.keyboard.press('Shift+Enter');
   await expect(setup.locator('.jp-OutputArea')).toContainText('Live notebook tools imported');
 
-  const prompt = notebook.locator('[data-cell-id="catalog-demo-list_cells"]');
+  const prompt = notebook.locator('.nbinlineai-prompt-cell').first();
   await expect(prompt).toContainText('list_cells');
   await prompt.locator('[data-nbinlineai-run]').click();
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const answer = notebook.locator('.nbinlineai-response-cell').first();
   await expect(answer).toContainText('catalog-demo-list_cells');
   await expect(answer).toContainText('catalog-demo-read_cell');
-  await expect(notebook.locator('[data-cell-id="catalog-scratch-replace"] .cm-content'))
-    .toContainText('catalog_marker_replace = 1');
+  const saved = await request.get(`/api/contents/${name}?content=1`);
+  expect(saved.ok()).toBeTruthy();
+  const savedCells = (await saved.json()).content.cells;
+  expect(savedCells.find((cell: any) => cell.id === 'catalog-scratch-replace')?.source)
+    .toContain('catalog_marker_replace = 1');
 });
