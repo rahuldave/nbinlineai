@@ -11,6 +11,7 @@ MAX_REPLY_CHARS = 4_000
 MAX_ERROR_CHARS = 500
 MAX_INSERT_CHARS = 8_000
 MAX_ACTIVE_RUNS = 64
+TERMINAL_ACTIONS = frozenset({"add_code_cell_and_execute", "prompt_and_run", "run_and_prompt"})
 
 
 class BridgeNotFound(LookupError):
@@ -27,7 +28,7 @@ class PendingAction:
 
     request_id: str
     name: str
-    future: asyncio.Future[str]
+    future: asyncio.Future[str | dict[str, Any]]
 
 
 @dataclass
@@ -114,6 +115,32 @@ def normalize_action(
             "after_cell_id": _text(arguments.get("after_cell_id", ""), "after_cell_id", 200,
                                    allow_empty=True),
         }
+    if name in TERMINAL_ACTIONS:
+        allowed = {"content", "cell_id", "after_cell_id", "prompt"}
+        if set(arguments) - allowed:
+            raise ValueError(f"Unexpected {name} argument")
+        result = {}
+        for key in ("content", "cell_id", "after_cell_id", "prompt"):
+            if key in arguments:
+                if key in {"content", "cell_id"} and arguments[key] == "":
+                    continue
+                result[key] = _text(arguments[key], key,
+                                    16_000 if key == "prompt" else 200 if key.endswith("cell_id") else MAX_INSERT_CHARS,
+                                    allow_empty=key == "after_cell_id")
+        if name == "prompt_and_run":
+            if "prompt" not in result or "content" in result or "cell_id" in result:
+                raise ValueError("prompt_and_run requires a prompt and no code target")
+        else:
+            if ("content" in result) == ("cell_id" in result):
+                raise ValueError(f"{name} requires exactly one code source or cell_id")
+            if name == "run_and_prompt" and "prompt" not in result:
+                raise ValueError("run_and_prompt requires a successor prompt")
+            if name == "add_code_cell_and_execute" and "prompt" in result:
+                raise ValueError("add_code_cell_and_execute does not accept a successor prompt")
+            if "cell_id" in result and result.get("after_cell_id"):
+                raise ValueError("after_cell_id is only for newly inserted cells")
+        result.setdefault("after_cell_id", "")
+        return result
     fields = {
         "find_cells": ({"query", "cell_type", "limit"}, {"query"}),
         "replace_cell": ({"cell_id", "expected_source", "new_source"},
@@ -208,7 +235,7 @@ class FrontendBridge:
         self,
         run: PromptRun,  # Active prompt run.
         pending: PendingAction,  # Previously emitted action.
-    ) -> str:  # Browser result for the model.
+    ) -> str | dict[str, Any]:  # Browser result or terminal handoff receipt.
         """Wait for one reply; expire its ID on timeout or cancellation."""
         try:
             return await asyncio.wait_for(pending.future, ACTION_TIMEOUT_SECONDS)
@@ -241,7 +268,20 @@ class FrontendBridge:
         if not isinstance(body.get("ok"), bool):
             raise TypeError("Action reply ok must be a boolean")
         allowed = {"run_id", "request_id", "session_id", "prompt_cell_id", "ok"}
-        if body["ok"] and pending.name in ("insert_markdown", "insert_code"):
+        if pending.name in TERMINAL_ACTIONS:
+            allowed |= {"chain_id", "step_id", "cell_id", "status", "error"}
+            if body["ok"]:
+                if body.get("status", "scheduled") != "scheduled":
+                    raise ValueError("Successful handoff reply must have scheduled status")
+                result = {
+                    "chain_id": _text(body.get("chain_id"), "chain_id", 100),
+                    "step_id": _text(body.get("step_id"), "step_id", 100),
+                    "cell_id": _text(body.get("cell_id"), "cell_id", 200),
+                    "status": _text(body.get("status", "scheduled"), "status", 30),
+                }
+            else:
+                result = f"Error: {_text(body.get('error'), 'error', MAX_ERROR_CHARS)}"
+        elif body["ok"] and pending.name in ("insert_markdown", "insert_code"):
             allowed.add("cell_id")
             cell_id = _text(body.get("cell_id"), "cell_id", 200)
             cell_type = "Markdown" if pending.name == "insert_markdown" else "unexecuted code"

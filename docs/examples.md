@@ -4,7 +4,7 @@ title: Examples guide
 
 # Examples guide
 
-These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.15** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
+These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Published PyPI **0.1.15** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The experimental Git branch reports the same package version and adds queued execution handoffs. The examples below use disposable local data; model questions use your configured provider.
 
 ## Import and share tools
 
@@ -109,6 +109,14 @@ This image uses a simulated provider and sample page content; insertion uses the
 The [Fastcore tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) creates a temporary project and demonstrates saved-file search, static Python source documentation, Markdown/Python document sections, and digest-checked edits. Its setup code works without a provider or network request.
 
 Use `tool_catalog()` to inspect group names without declaring anything. `tools_markdown(group="code")` prints removable declarations for a task-focused group; the default `starter` group has 19 tools. Select at most 20 tool and variable names combined in one AI question. `source_doc(path)` parses source without importing it; `show_doc(name, module="...")` imports a named module explicitly and can run its initialization. Search paths are relative to the selected kernel's current working directory, not necessarily the notebook folder. See the [tools reference](tools.md) for exact signatures and limits.
+
+## Try queued execution handoffs (experimental Git branch)
+
+The [execution handoff notebook](https://github.com/rahuldave/nbinlineai/blob/codex/agentic-notebook-experiments/examples/notebook-execution-handoffs.ipynb) demonstrates three ways to schedule work in the same open notebook and Python kernel. Use the [experimental Git installation](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project); these helpers are absent from the current published PyPI 0.1.15 package.
+
+Import and declare `add_code_cell_and_execute`, `prompt_and_run`, or `run_and_prompt` just like other opt-in AI tools. A running AI question can add code and arrange for native execution after its answer finishes. `run_and_prompt` follows a successful run with a **new AI question** that receives the actual, bounded text result of that run. `prompt_and_run` starts a new question first; that question must explicitly choose or create the code cell to run. A direct Python call returns a scheduling receipt while its code cell finishes; it does not wait inside the kernel for the next cell.
+
+Each step uses a stable cell ID and checks the source and original notebook/kernel again before running. A changed or deleted target, code error, or cancelled predecessor stops the chain. Review new cells and save the notebook to keep them. Keep answer prevents a completed question from repeating its handoff effects on a later Run All.
 
 ## Downloadable notebooks
 

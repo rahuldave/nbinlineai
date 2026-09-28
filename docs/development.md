@@ -10,6 +10,7 @@ Students can install the prebuilt package without this setup. Contributors need 
 
 Notebook-agent execution experiments live on the long-running
 [`codex/agentic-notebook-experiments` branch](https://github.com/rahuldave/nbinlineai/tree/codex/agentic-notebook-experiments).
+Its queued same-notebook handoffs are documented in the [tools reference](tools.md#live-notebook-cells) and [experimental example](examples.md#try-queued-execution-handoffs-experimental-git-branch). They require both the JupyterLab frontend and the package in the selected Python kernel; installing only one side cannot schedule a handoff.
 From the directory of the **uv project that starts your Jupyter server**, run:
 
 ```bash
@@ -43,10 +44,10 @@ uv sync
 
 Then restart your Jupyter server. Commit the consuming project's
 `pyproject.toml` and `uv.lock` if you want to reproduce its chosen branch
-commit. `jupyter labextension list` shows the package's version, which may
-still read `0.1.14` on this branch; check `uv.lock` to see the Git commit.
-Branch installs remain experimental and are separate from releases published
-on PyPI.
+commit. `jupyter labextension list` shows version `0.1.15` on this branch;
+check `uv.lock` to identify the exact Git commit. The published PyPI 0.1.15
+package does not include the experimental execution handoffs. Branch installs
+remain experimental and are separate from releases published on PyPI.
 
 ## Set up from source
 

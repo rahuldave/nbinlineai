@@ -386,7 +386,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.15 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. Published PyPI 0.1.15 has 51 bundled tools in an explicit registry; the experimental Git branch has 54, including the three execution handoffs. `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -474,7 +474,9 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.15 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Published PyPI 0.1.15 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. Those edit tools do not execute code, save the notebook, edit AI question/answer cells, or control another notebook.
+
+The [experimental Git branch](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project) adds `add_code_cell_and_execute`, `prompt_and_run`, and `run_and_prompt`. These explicitly schedule native code execution or a new AI question **after the current turn or Python cell finishes**. An existing code target is named by ID and checked against its current source. `run_and_prompt` passes a bounded result from that particular run to a new question; code errors stop the chain. Scheduling is not saving, so inspect the result and save normally. See the [experimental example](examples.md#try-queued-execution-handoffs-experimental-git-branch).
 
 ### The extension works, but importing the tools fails. Why?
 

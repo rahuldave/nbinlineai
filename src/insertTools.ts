@@ -1,7 +1,12 @@
 /** Execution-bound notebook insertion for the Python insert_tools helper. */
 import { INotebookCellExecutor, NotebookPanel, runCell as runStandardCell } from '@jupyterlab/notebook';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
-import { INSERT_TOOLS_TARGET, parseInsertRequest, insertionIndex } from './insertToolsProtocol';
+import { INSERT_TOOLS_TARGET, EXECUTION_HANDOFF_TARGET, parseExecutionHandoffRequest, parseInsertRequest, insertionIndex, ExecutionHandoffRequest } from './insertToolsProtocol';
+
+export type DirectHandoffHandler = (panel: NotebookPanel, sourceCellId: string, request: ExecutionHandoffRequest,
+  chainId?: string) => Record<string, unknown>;
+let directHandoffHandler: DirectHandoffHandler | null = null;
+export function setDirectHandoffHandler(handler: DirectHandoffHandler): void { directHandoffHandler = handler; }
 
 interface Origin {
   panel: NotebookPanel;
@@ -10,6 +15,8 @@ interface Origin {
   kernel: Kernel.IKernelConnection;
   lastInsertedId?: string;
   seenCommIds: Set<string>;
+  seenRequests: Map<string, { signature: string; receipt: Record<string, unknown> }>;
+  chainId?: string;
 }
 
 class KernelInsertToolsBridge {
@@ -19,9 +26,12 @@ class KernelInsertToolsBridge {
     kernel.registerCommTarget(INSERT_TOOLS_TARGET, (comm, message) => {
       this.onOpen(comm, message);
     });
+    kernel.registerCommTarget(EXECUTION_HANDOFF_TARGET, (comm, message) => {
+      this.onHandoffOpen(comm, message);
+    });
   }
 
-  trackScheduled(options: INotebookCellExecutor.IRunCellOptions, panel: NotebookPanel): () => void {
+  trackScheduled(options: INotebookCellExecutor.IRunCellOptions, panel: NotebookPanel, chainId?: string): () => void {
     let requestId = '';
     const onAnyMessage = (_: Kernel.IKernelConnection, args: Kernel.IAnyMessageArgs): void => {
       const message = args.msg;
@@ -30,7 +40,7 @@ class KernelInsertToolsBridge {
       requestId = message.header.msg_id;
       this.origins.set(requestId, {
         panel, notebook: options.notebook, cellId: options.cell.model.id, kernel: this.kernel,
-        seenCommIds: new Set<string>()
+        seenCommIds: new Set<string>(), seenRequests: new Map(), chainId
       });
       this.kernel.anyMessage.disconnect(onAnyMessage);
     };
@@ -76,6 +86,37 @@ class KernelInsertToolsBridge {
       fail(error instanceof Error ? error.message : 'Could not insert the Markdown cell.');
     }
   }
+
+  private onHandoffOpen(comm: Kernel.IComm, message: KernelMessage.ICommOpenMsg): void {
+    const request = parseExecutionHandoffRequest(message.content.data);
+    const parentId = message.parent_header?.msg_id;
+    const origin = typeof parentId === 'string' ? this.origins.get(parentId) : undefined;
+    if (!origin || origin.seenCommIds.has(comm.commId)) return;
+    origin.seenCommIds.add(comm.commId);
+    const send = (receipt: Record<string, unknown>): void => { void comm.send(receipt as KernelMessage.ICommMsgMsg['content']['data']).done.catch(() => undefined); };
+    if (!request || request.execute_request_id !== parentId || request.source_cell_id !== origin.cellId) {
+      send({ ok: false, request_id: request?.request_id, error: 'Invalid execution handoff request for this code cell.' });
+      return;
+    }
+    if (origin.panel.isDisposed || origin.panel.content.model !== origin.notebook ||
+        origin.panel.sessionContext.session?.kernel !== origin.kernel) {
+      send({ ok: false, request_id: request.request_id, error: 'Originating notebook or kernel changed.' });
+      return;
+    }
+    const signature = JSON.stringify([request.operation, request.arguments]);
+    const previous = origin.seenRequests.get(request.request_id);
+    if (previous) {
+      send(previous.signature === signature ? previous.receipt : { ok: false, request_id: request.request_id,
+        error: 'Request ID was reused with different arguments.' });
+      return;
+    }
+    const receipt = directHandoffHandler
+      ? directHandoffHandler(origin.panel, origin.cellId, request, origin.chainId)
+      : { ok: false, error: 'Execution handoff is unavailable.' };
+    const full = { request_id: request.request_id, ...receipt };
+    origin.seenRequests.set(request.request_id, { signature, receipt: full });
+    send(full);
+  }
 }
 
 const bridges = new WeakMap<Kernel.IKernelConnection, KernelInsertToolsBridge>();
@@ -83,7 +124,8 @@ const bridges = new WeakMap<Kernel.IKernelConnection, KernelInsertToolsBridge>()
 /** Delegate normal execution after binding its outgoing request to a notebook. */
 export function runTrackedStandardCell(
   options: INotebookCellExecutor.IRunCellOptions,
-  panel: NotebookPanel | undefined
+  panel: NotebookPanel | undefined,
+  chainId?: string
 ): Promise<boolean> {
   if (options.cell.model.type !== 'code' || !panel || panel.isDisposed) {
     return runStandardCell(options);
@@ -101,7 +143,7 @@ export function runTrackedStandardCell(
         bridge = new KernelInsertToolsBridge(kernel);
         bridges.set(kernel, bridge);
       }
-      cleanup = bridge.trackScheduled(options, panel);
+      cleanup = bridge.trackScheduled(options, panel, chainId);
     }
   }).finally(() => cleanup?.());
 }

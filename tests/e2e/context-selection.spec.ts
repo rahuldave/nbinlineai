@@ -59,6 +59,17 @@ async function openNotebook(page: Page, request: APIRequestContext, fixture: Cel
     return sessions.ok() && (await sessions.json()).some((s: any) => s.path === name && s.kernel?.id);
   }).toBeTruthy();
   await waitKernelIdle(page);
+  const browserIdle = page.getByRole('button', { name: /Python.*\| Idle$/ });
+  try {
+    await expect(browserIdle).toBeVisible({ timeout: 8_000 });
+  } catch {
+    // A new tab can retain an unconnected kernel status after REST reports idle.
+    // Reload only here, before the test edits this notebook.
+    await page.reload();
+    await expect(cells(page)).toHaveCount(fixture.length);
+    await waitKernelIdle(page);
+    await expect(browserIdle).toBeVisible();
+  }
   return name;
 }
 
@@ -72,8 +83,6 @@ async function waitKernelIdle(page: Page) {
     const kernel = await page.request.get(`/api/kernels/${session.kernel.id}`);
     return kernel.ok() && (await kernel.json()).execution_state === 'idle';
   }, { timeout: 30_000 }).toBeTruthy();
-  // The REST kernel can be idle before this browser finishes its connection.
-  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
 }
 
 async function savedNotebook(request: APIRequestContext, name: string) {
