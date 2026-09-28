@@ -55,6 +55,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
     def get_app(self):
         self._root = tempfile.TemporaryDirectory()
         self.registry = MediaRegistry(self._root.name)
+        self.dispatcher = _Dispatcher()
         self.authorizer = _Authorizer()
         identity = IdentityProvider()
         identity.get_user = lambda handler: ('test-user' if handler.request.headers.get('Authorization') == 'Bearer test'
