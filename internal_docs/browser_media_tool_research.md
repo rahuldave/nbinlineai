@@ -4,7 +4,9 @@
 The [proposed API spec](browser_media_tool_spec.md) and
 [post-merge implementation prompt](browser_media_tool_task_prompt.md) turn this
 survey into a concrete contract. The spec takes precedence over alternatives
-discussed in this research.
+discussed in this research. **Apps are now deferred** into a
+[separate direction note](notebook_app_direction.md); the implementation prompt
+covers media and notebook views first, without an app framework.
 Internal documentation belongs on main; the runtime targets below are separate
 decisions. The user requested a fresh dialoghelper survey, local screenshot and
 video possibilities, and explicit dependencies on the concurrently developed
@@ -139,7 +141,8 @@ does not mean the capability exists now or authorizes a release.
 | --- | --- | --- | --- |
 | `read_notebook_view`, `read_selection` | Read selected text/cell IDs, visible range and compact UI state from the originating notebook, not whichever tab later gains focus | None; new bounded frontend actions | Main |
 | `read_output(cell_id, output_ref)` | Inspect existing text/HTML/table output with explicit MIME filtering and a source/run reference; never imply that it executes code | None for an existing output snapshot | Main |
-| `export_output`, `capture_canvas`, `export_canvas`, `export_app` | Read or save an existing plot/image/SVG or registered origin-clean canvas. Canvas pixels can become a PIL still; app-owned SVG/scene data needs its own registered vector exporter. | None; server save support when requested | Main |
+| `export_output`, `list_canvases`, `capture_canvas`, `export_canvas` | Read or save an existing plot/image/SVG or supported output canvas. Canvas references bind to the output and rendered view; no app registry. | None; server save support when requested | Main |
+| `export_app` | Native SVG/scene data requires a declared app exporter, not recovered canvas vectors | None intrinsically; future app adapter | Deferred app workstream |
 | `capture_notebook_region` | Capture a rendered cell/output or visible notebook region; fidelity/offscreen limits require a defined renderer and browser checks | None; supported-renderer contract | Main, after known image/canvas export |
 | `setup_share`, `start_share`, `capture_screen`, `stop_share` | Keep dialoghelper names where available; user chooses an available display surface; support varies across browsers/devices | None; permission UI and capture lifecycle | Main, with explicit capability gaps |
 | `record_start`, `record_stop`, `record_status` | Bounded camera, screen, canvas video or microphone audio recording; return an operation ID and a saved file by default, or a short encoded clip in memory | None for manual start/stop/retrieval; operation lifecycle | Main |
@@ -147,8 +150,8 @@ does not mean the capability exists now or authorizes a release.
 | `extract_frames`, `crop_artifact`, `annotate_artifact` | Locally select timestamps, crop/redact stills, or annotate before saving/sharing; create a derivative and retain source provenance | None; local media processing and bounds | Main |
 | `choose_file`, `save_media`, `release_media` and capture/output `save_to` arguments | Choose memory (`None`), generated local file (`"auto"`) or explicit server-relative file path; save/release owned memory media deliberately | None; ordinary file UI and authenticated server save | Main core candidates |
 | `read_clipboard`, `copy_artifact` | Explicit user paste/copy with standard controls; programmatic rich clipboard access varies and must not be required | None; separate user action where required | Main only with portable interaction |
-| `open_app_panel`, `read_app_state`, `call_app` | Registered visualization/form/app inside JupyterLab; typed state/actions through an owned widget or cooperating iframe | None for state and browser-only actions; new app registry/channel | Main foundation |
-| `subscribe_app_events`, `read_events` | Bounded event queue for selections, slider changes, capture completion or app results; poll/read later without executing notebook code | None; lifetime, backpressure and teardown contract | Main foundation |
+| `open_app_panel`, `read_app_state`, `call_app` | Registered visualization/form/app inside JupyterLab; typed state/actions through an owned widget or cooperating iframe | None for state and browser-only actions; new app registry/channel | Deferred app workstream |
+| `subscribe_app_events`, `read_events` | Bounded event queue for selections, slider changes, capture completion or app results; poll/read later without executing notebook code | None; lifetime, backpressure and teardown contract | Deferred app workstream |
 | `attach_artifact_to_prompt` | User selects the exact image/derived frames a model may see | None intrinsically; requires new multimodal transports and budgeting | Main, separate substantial feature |
 | `run_cell_then_capture_then_prompt` | Execute identified code, wait for its actual render/result, capture that result and start a successor AI question | **Yes**: native execution handoffs; also render readiness, artifact and image-model support | Experimental branch |
 | `on_app_event_run_and_prompt` | A browser event schedules identified Python work and a later AI turn; repeated observe/act loops have shared budgets | **Yes** for notebook execution; a new event-to-chain adapter is also needed | Experimental branch, after the current handoff slice |
@@ -159,8 +162,9 @@ Nbinlineai does **not** currently ship an app registry or general browser-app
 framework. The proposed app group would add owned interactive HTML/JavaScript
 components and a typed message bridge inside JupyterLab; it does not discover
 arbitrary installed apps, control other browser tabs, or automatically wrap
-ipywidgets. An ipywidget could participate only through a separately written
-adapter that deliberately implements the registration contract.
+ipywidgets. A future ipywidgets/anywidget adapter could expose declared state and actions;
+specialist libraries would supply optional semantic adapters. This app design
+and implementation are deferred. See the [direction note](notebook_app_direction.md).
 Likewise, an event-triggered AI-only call needs explicit prompt scheduling and
 lifecycle design, although it does not inherently require Python execution.
 Put autonomous notebook continuation experiments on the experimental branch;
@@ -362,20 +366,20 @@ continuation feature. ([Existing transports](bundled_tools.md).)
 2. **Main: camera and microphone.** Camera stills and video with optional
    microphone audio, microphone-only recording, start/stop and bounded duration.
    Select supported formats across the desktop/mobile matrix in the spec.
-3. **Main: typed app interfaces.** Read notebook view/output text, registered
-   app state/actions/canvases, native app SVG/scene export and a bounded event
-   queue. Avoid making arbitrary page JavaScript evaluation the default model
-   tool surface.
-4. **Main, separate design: image-aware model input.** Explicitly attach chosen
-   artifacts only after both transport and budget contracts are defined. Full
-   video-model input need not precede useful still frames or local recordings.
-5. **Main: other browser capabilities with explicit gaps.** Screen capture and
-   recording, supported rendered-region capture and portable clipboard controls
-   follow the spec's capability contract. No external-browser extension/CDP
-   connector is planned.
+3. **Main: remaining browser/media tools.** Read notebook view/output text,
+   discover and capture supported existing output canvases, preserve existing
+   SVG, preview/edit media, and add screen capture plus portable clipboard UI.
+   Explain unsupported renderers/platforms. No app framework is needed.
+4. **Main: image-aware model input.** Explicitly attach chosen media using the
+   separate transport and budget contract in the spec. Full video-model input
+   need not precede useful still frames or local recordings.
+5. **Deferred: apps.** Preserve the separate direction note; revisit an app
+   specification and implementation after the other browser/media work. Initial
+   candidates are ipywidgets/anywidget and managed inline JavaScript; specialist
+   adapters remain optional. Do not add this to the current implementation task.
 6. **Experiment: compose with execution handoffs.** Run → render → capture →
-   prompt, or app event → native code → successor prompt. Depend on the reviewed
-   handoff interface and add explicit render/event adapters and chain limits.
+   prompt, or eventual app event → native code → successor prompt. Depend on the
+   reviewed handoff interface and add render/event adapters and chain limits.
 
 Later implementation acceptance should include two notebook tabs, target edits,
 closed surfaces, chooser denial/timeout, stop/restart, duplicate messages, media

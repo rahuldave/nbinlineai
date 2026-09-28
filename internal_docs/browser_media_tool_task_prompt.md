@@ -1,4 +1,4 @@
-# Task prompt: implement browser, app and local-media tools
+# Task prompt: implement browser and local-media tools
 
 Copy the text below into a **new Codex task after specification PR #20 merges**.
 The merged, independently reviewed specification is the implementation
@@ -10,11 +10,13 @@ limits, not shipped functionality.
 
 ---
 
-Implement the approved browser, app and local-media tools for nbinlineai in
+Implement the approved browser and local-media tools for nbinlineai in
 coherent phases. Follow the public operations and schemas in
 `internal_docs/browser_media_tool_spec.md`; do not infer additional operations
 from the research candidate list or silently change the API to fit an existing
-transport.
+transport. Apps are deferred: do not develop an app specification, widget
+adapters, an app registry, inline JavaScript apps or their developer helpers
+as part of this task. The separate direction note is future context only.
 
 ## Establish the documentation and code baselines
 
@@ -109,16 +111,16 @@ local preview or saved file does not transfer media to any model.
 Implement **Phase B** screen capture/recording, the remaining notebook view and
 `read_output` reads (output discovery already belongs to Phase A), and
 supported rendered-region capture, local media preview/playback and bounded
-frame/image derivatives, explicit file and clipboard UI, registered typed
-JupyterLab/cooperating-app state/actions/events, and the scoped developer
-bridge. Add `capture_canvas` for an origin-clean registered canvas still;
-`export_canvas` remains its convenient save form. A canvas `toBlob` still can
+frame/image derivatives, and explicit file and clipboard UI. Add passive
+`list_canvases` discovery in supported existing output renderers, returning
+`CanvasRef` identities bound to their output and rendered-view revision; no
+app registry or widget integration is required. Add `capture_canvas` for an
+origin-clean canvas still; `export_canvas` remains its convenient save form. A canvas `toBlob` still can
 be decoded to PIL; `captureStream()` feeds the bounded recorder for motion.
 Canvas pixels do not recover vector primitives. Preserve existing SVG output
-through `export_output(..., mime="image/svg+xml", save_to=None)` and expose
-app-owned SVG/scene data through registered `export_app(..., format="svg",
-save_to=None)`. SVG returned to Python is text. Neither canvas recording nor
-still capture adds microphone audio automatically. Preserve the spec's
+through `export_output(..., mime="image/svg+xml", save_to=None)`. App-native
+SVG/scene exporters are deferred with apps. SVG returned to Python is text.
+Neither canvas recording nor still capture adds microphone audio automatically. Preserve the spec's
 `setup_share`, `start_share`, `capture_screen`,
 `capture_tool` alias and `stop_share` names; screen recording uses
 `start_recording` with the screen source. Screen operations are in scope with
@@ -127,21 +129,13 @@ explicit `unsupported` results on platforms that lack the needed API. Do not
 claim system audio or arbitrary external-tab inspection. Keep camera/microphone
 and output export usable where screen capture is unavailable.
 
-The app group builds a **new** owned interactive HTML/JavaScript component
-registry and typed message bridge in JupyterLab. Nbinlineai has no general app
-registry/framework today. `open_app` addresses definitions registered through
-that new contract, not arbitrary installed apps or external browser tabs.
-Ipywidgets are not automatically wrapped; any adapter needs deliberate
-registration and tests.
-
 Avoid a generic arbitrary JavaScript or cross-tab browser-control tool. Follow
 dialoghelper's public API patterns where the spec identifies corresponding
 operations, while independently implementing against nbinlineai's existing
 bridge and preserving GPL-3.0-only. Do not copy Solveit private services or
 require its Chrome/CDP extension, another browser extension, a browser-only
-durable store, or a browser filesystem picker. Keep developer script/module
-helpers in an isolated app surface with explicit opt-in; do not expose
-model-generated arbitrary JavaScript as an enabled tool.
+durable store, or a browser filesystem picker. Developer script/module
+helpers and widget/app state/actions/events are outside this task.
 
 **Phase C model image attachment is a separate substantial implementation
 phase within the approved main scope.** Implement `attach_media` for an exact

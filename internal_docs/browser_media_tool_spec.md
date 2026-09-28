@@ -1,4 +1,4 @@
-# Spec: browser, camera, audio and notebook-app tools
+# Spec: browser, camera, audio and local-media tools
 
 **Proposed API contract, 2026-09-28; no implementation or release in PR #20.**
 This spec refines the [source-pinned research](browser_media_tool_research.md).
@@ -6,12 +6,15 @@ It is the normative proposal where the survey lists alternative designs.
 Implementation uses main-based topics and reviewed PRs. The [implementation task
 prompt](browser_media_tool_task_prompt.md) is for use after this spec merges.
 
+**Delivery priority:** implement this media/notebook-view scope first. Apps are
+a separate, deferred workstream; the [direction note](notebook_app_direction.md)
+is not an implementation specification or a prerequisite for these tools.
+
 ## Problem statement
 
 A notebook agent should be able to capture camera photos and video, record
-audio, inspect existing notebook output, interact with cooperating browser apps,
-and save useful media in the user's Jupyter folder. These operations should also
-be callable from notebook Python without monopolizing its execution thread.
+audio, inspect existing notebook output, and save useful media in the user's
+Jupyter folder. These operations should also be callable from notebook Python without monopolizing its execution thread.
 
 The user explicitly selected a local Jupyter server, no extra browser extensions,
 desktop **and mobile** support, and clearly explained screen-capture gaps.
@@ -83,8 +86,9 @@ receipt; the kernel does not execute a waiting tool body.
 - `OutputRef`: stable `cell_id`, opaque `output_id`, `revision`, MIME choices.
   IDs refer to the live model. They expire when output changes, the cell is
   deleted or the bound model/session/kernel changes; an index alone is invalid.
-- `App`: opaque `app_id`, registered actions and event schemas. It identifies a
-  particular owned widget/iframe instance, never whichever app has focus.
+- `CanvasRef`: opaque `canvas_id` plus its `OutputRef` and rendered-view revision.
+  It identifies one supported live output canvas, not an app or DOM selector.
+  It expires on rerender/removal as well as output/model/session/kernel changes.
 - `error`: machine-readable code and short message, with an optional suggested
   alternative. Codes include `unsupported`, `needs_secure_context`,
   `permission_denied`, `device_unavailable`, `stale_target`, `source_stopped`,
@@ -231,9 +235,10 @@ tested. The UI must explain missing screen support before asking to record.
 | `list_outputs(cell_id, cursor="", limit=10)` | Snapshot existing outputs and return `OutputRef` descriptors/MIME types, not media data. |
 | `read_output(cell_id, output_id, revision, mime="text/plain", start=0, max_chars=2000)` | Read bounded existing text/structured table data. No binary-to-base64 reply, no raw script execution and no claim of new execution. |
 | `export_output(cell_id, output_id, revision, save_to=None, mime="")` | Obtain an existing image/SVG or supported data MIME representation in memory or save it. Preserve native bytes/type where possible: raster image to PIL, SVG to markup text. Unsafe HTML/SVG is not executed in a privileged preview. |
-| `capture_canvas(app_id, canvas_id, save_to=None, max_size=1280)` | Raster still from an origin-clean registered canvas, giving a PIL image in Python with optional save. No arbitrary DOM selector. |
-| `export_canvas(app_id, canvas_id, save_to="auto", max_size=1280)` | Saving-oriented convenience alias for `capture_canvas`; supports the same explicit `save_to=None` option. This remains raster export. |
-| `start_canvas(app_id, canvas_id, frame_rate=30)` | Create a video-only source from an owned registered origin-clean canvas, at a requested 1–60 frames/second. Return `source_id` for `start_recording`; report actual settings/support. No implicit microphone mixing. Stop it with `stop_source` or app teardown. |
+| `list_canvases(cell_id, output_id, revision, cursor="", limit=10)` | Return `CanvasRef` descriptors for canvases exposed by supported rendered-output adapters. No app registration, execution or global DOM search. Unrendered/inaccessible content has an explicit unavailable/unsupported result. |
+| `capture_canvas(canvas, save_to=None, max_size=1280)` | Raster still from an origin-clean canvas addressed by `CanvasRef`, giving a PIL image in Python with optional save. No arbitrary DOM selector. |
+| `export_canvas(canvas, save_to="auto", max_size=1280)` | Saving-oriented convenience alias for `capture_canvas`; supports the same explicit `save_to=None` option. This remains raster export. |
+| `start_canvas(canvas, frame_rate=30)` | Create a video-only source from this bound origin-clean canvas, at a requested 1–60 frames/second. Return `source_id` for `start_recording`; report actual settings/support. No implicit microphone mixing. Stop it with `stop_source` or output/view teardown. |
 | `capture_notebook_region(cell_ids, save_to=None, max_size=1280)` | Raster capture of supported rendered cells/outputs, in memory or saved. Validate IDs/render revisions; report offscreen/cross-origin/unsupported content. No universal DOM screenshot promise or implicit screen chooser fallback. |
 
 Notebook-source access already has tools; do not duplicate `list_cells` or
@@ -247,17 +252,19 @@ Here canvas means the browser's HTML `<canvas>`, not a generic editor/document.
 Its exported surface is a bitmap. `toBlob` obtains a still; `captureStream`
 provides video frames to the same recorder used for camera/screen sources.
 Canvas capture itself needs no camera permission or screen chooser, adds no
-microphone, and captures only that drawing surface. The app must register and
-own it; cross-origin-tainted canvases fail, and WebGL renderers may require an
-app-specific render/readback adapter. Background throttling can affect frame
-timing; the requested rate is not a guaranteed rendering rate.
+microphone, and captures only that drawing surface. A supported output renderer
+exposes the canvas through the passive capture adapter; no app registry is
+needed. Cross-origin-tainted canvases fail, and WebGL renderers may require a
+renderer-specific readback adapter. Unsupported widgets/iframes are reported
+explicitly rather than making app integration a capture prerequisite.
+Background throttling can affect frame timing; the requested rate is not a guaranteed rendering rate.
 
-Vector output requires an existing SVG output or an app-owned exporter using
-its retained drawing model. `export_output(..., mime="image/svg+xml")` preserves
-existing SVG; `export_app(app_id, format="svg", save_to=None)` requests native
-SVG from a registered exporter. SVG is markup, not PIL. App-native JSON/PDF is
-available only if that app declares such an exporter. Putting a bitmap inside
-an SVG wrapper is not vector recovery. Automatic tracing is outside this scope.
+Vector output in this scope requires an existing SVG output.
+`export_output(..., mime="image/svg+xml")` preserves it as markup, not PIL.
+Native SVG/scene export from an interactive app requires that app's retained
+drawing model and an exporter; that belongs to the deferred app workstream.
+Putting a bitmap inside an SVG wrapper is not vector recovery. Automatic
+tracing is outside this scope.
 ([Canvas bitmap](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API),
 [still export](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob),
 [canvas video](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream).)
@@ -291,74 +298,7 @@ bounded operation metadata (and a sidecar only when saving is requested). Byte/h
 decode the same codec; preview/extraction checks decoding separately. Codec
 conversion is a possible server follow-up, not an undeclared hard dependency.
 
-## 6. Cooperating browser apps and events
-
-**New proposed infrastructure, not an existing nbinlineai app system.** Here an
-app is a particular interactive HTML/JavaScript component hosted in an owned
-notebook output or JupyterLab panel: for example, a chart with sliders, a form,
-an image annotator or a small simulation. This repository currently has no
-`open_app` registry, app catalog or typed app-action/event framework. The table
-below proposes that contract; it must not be described as wrapping something
-already shipped. An ordinary HTML display is not automatically a controllable
-app: it must expose the state/actions/events described here. Existing Jupyter
-widgets or external sites would need explicit adapters/cooperation, not just an
-`app_id`. Media capture itself does not depend on this new app framework.
-
-The foundational capability is to create an owned interactive surface, address
-it by a stable ID and exchange messages. A reusable named app definition and
-`open_app(app_name)` are an additional layer. This distinction should remain
-visible during API review rather than presupposing an installed app ecosystem.
-
-| API | Contract |
-| --- | --- |
-| `list_apps(cursor="", limit=10)` | List registered app instances and bounded capability/action summaries in this notebook, with pagination. |
-| `open_app(app_name, initial_state=None)` | Open an installed/registered app definition; return its `app_id`. Arbitrary URLs are not app definitions. |
-| `read_app_state(app_id, fields=None)` | Read only schema-declared state, bounded and revision-tagged. |
-| `call_app(app_id, action, arguments=None, expected_revision="")` | Call a registered, schema-validated browser-only action; return its result or operation. No implied Python execution. |
-| `export_app(app_id, format="svg", save_to=None)` | Invoke a declared native exporter, returning SVG text, typed scene data or format bytes in memory or saved. Preserve the app's declared vector/scene content; unsupported formats fail, not raster fallback. |
-| `close_app(app_id)` | Dispose the instance, outstanding app work and subscriptions. |
-| `fire_event(app_id, event, data=None)` | Send a declared one-way app event; acknowledgement means accepted, not a computed response. Name follows dialoghelper. |
-| `event_get(app_id, event, data=None, timeout=15)` | Request one correlated app reply, bounded to 15 seconds; Python still receives an immediate receipt. Name follows dialoghelper, not its blocking behavior. |
-| `subscribe_app_events(app_id, events)` | Create a bounded subscription to declared events; return a `subscription_id`. Never start an AI prompt automatically. |
-| `read_events(subscription_id, cursor="", limit=20)` | Nonblocking paginated read with monotonic cursor and explicit dropped-event count; maximum queue 100 events/64 KiB per subscription. |
-| `unsubscribe_app_events(subscription_id)` | Dispose queue and listeners. |
-
-The extension exposes a developer registration contract for app ID/version,
-state schema, action input/result schemas, event schemas, canvas IDs, native
-export formats/handlers and cleanup. Native exporters use the bounded media
-result channel, not large strings in an ordinary tool reply.
-Owned widgets can implement it directly. A cooperating iframe uses a dedicated
-message channel bound to its exact window and validated origin/schema; it
-receives no server credentials and has no ambient notebook/kernel authority.
-Opaque-origin sandboxed frames need a transferred `MessagePort` and instance
-nonce rather than trusting `origin="null"`. Events are observations, not agent
-instructions. Validate schemas and budgets before returning them to a model.
-
-### Low-level dialoghelper bridge: developer API
-
-Retain familiar names where they are useful to app authors, scoped to an owned
-app surface rather than the JupyterLab document. These are developer helpers,
-not automatically enabled model tools:
-
-| API | Contract |
-| --- | --- |
-| `add_html(content, app_id="")` | Create/update an owned sanitized HTML panel; return app identity. No script execution or arbitrary DOM swapping. |
-| `add_scr(code, app_id)` / `iife(code, app_id)` | Run developer-supplied code in that app's isolated scripting frame; `iife` wraps an async function body. Explicit app scripting opt-in required. |
-| `add_mod(code, app_id)` | Execute a module in the same isolated app surface; no implicit remote/CDN import. |
-| `js_eval(code, app_id, timeout=15)` | Async JavaScript body with explicit `return`, returning JSON through a receipt. |
-| `js_run(code, app_id, timeout=15)` | Callback-style body with one `done(data)` reply; duplicate completion rejected. |
-| `display_response(display, result="")` | Show bounded sanitized Markdown/HTML in an owned visible surface and return only `result` to the model. Media bytes are not inferred from display markup. |
-
-The scripting frame has no access to the parent DOM, cookies, Jupyter tokens or
-kernel, and no arbitrary network permission by default. Script/module policy,
-CSP and teardown are tested. Do not claim a timeout can interrupt arbitrary
-synchronous JavaScript in a DOM-capable frame; untrusted model-generated script
-execution is excluded. Long computation belongs in a terminable worker supplied
-by the app. Existing trusted notebook code remains a separate trust boundary.
-No blocking `Channel.connect`/Solveit `/wsx` relay is imported; the app/event
-contract supplies the needed messaging. Other browser tabs remain inaccessible.
-
-## 7. Explicit model attachment
+## 6. Explicit model attachment
 
 `attach_media(media, question_cell_id, detail="auto")` proposes attaching an
 exact raster image (or extracted frame) from memory or a file to an identified
@@ -422,12 +362,15 @@ implied by this spec merge.
    photos/video and microphone recording. Output references must be obtainable
    in this phase. Direct Python and model-tool entry points share behavior.
 2. **Remaining browser tools:** screen tools with clear platform gaps, media
-   preview/editing, notebook region capture for declared renderers, clipboard,
-   registered apps/events and scoped developer helpers.
+   preview/editing, notebook views, passive canvas discovery/capture, notebook
+   region capture for declared renderers and clipboard.
 3. **Image-aware questions:** explicit attachment and genuine model transport
    support. Full audio/video input remains outside the initial attachment API.
-4. **Later experimental work:** compose media results and app events with native
-   cell handoffs and successor prompts. This needs a separate experimental plan.
+4. **Deferred, separate workstreams:** an apps specification and its
+   implementation are considered after the media work. Neither widget adapters
+   nor inline JavaScript apps are prerequisites for phases 1–3. Composing media
+   results or eventual app events with native cell handoffs and successor
+   prompts needs its own experimental plan.
 
 Acceptance requires:
 
@@ -444,10 +387,11 @@ Acceptance requires:
   stills/encoded memory clips through receipts; model text gets bounded media
   descriptors. Requested saving works while the kernel is busy. No captured
   bytes enter provider payloads without attachment.
-- Canvas stills, animation clips and app-native vectors preserve their different
-  formats and capabilities. Memory/file inputs work in preview and editing;
-  derivatives preserve sources and obey `save_to`. Test no unintended file or
-  sidecar writes for `None`, memory caps/expiry/release, and native export gaps.
+- Canvas stills, animation clips and existing SVG outputs preserve their
+  different formats and capabilities. Canvas discovery and capture work without
+  an app registry; stale render views fail explicitly. Memory/file inputs work
+  in preview and editing; derivatives preserve sources and obey `save_to`. Test no unintended file or
+  sidecar writes for `None`, memory caps/expiry/release, and output export gaps.
 - Two notebooks, two browser clients, focus changes, deleted cells, output
   revisions, kernel replacement, duplicate replies, upload interruption, Stop,
   cancel and reopen cannot redirect or duplicate operations.
