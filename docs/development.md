@@ -85,6 +85,27 @@ The default browser suite substitutes a deterministic API provider, so it does n
 uv run --no-sync jlpm playwright install chromium
 ```
 
+Browser media checks have a separate, opt-in configuration. After rebuilding and
+relinking the frontend, install the pinned Playwright engines into a dedicated
+cache and run each engine separately. Each command starts and stops its own
+isolated server on port 8897; wait for one command to finish before starting the
+next. The regular browser suite and CI still use Chromium only.
+
+```bash
+export PLAYWRIGHT_BROWSERS_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/nbinlineai-media-playwright"
+uv run --no-sync jlpm exec playwright install chromium firefox webkit
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=chromium
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=firefox
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=webkit
+```
+
+This focused configuration selects `browser-media-*.spec.ts` tests. Synthetic
+media fixtures can check browser/server/kernel integration, PNG capture and
+transfer, and operation receipts without provider calls or physical devices.
+They do not verify camera, microphone, screen-sharing, recording hardware or OS
+permission prompts. Playwright WebKit is not a real Safari or iOS/iPadOS run;
+those device and mobile checks remain separate.
+
 The subscription UI has stateful browser tests that intercept only the account routes. To exercise the real Jupyter Server, notebook kernel, declared tools, Run All, Keep and cancellation through a deterministic offline ChatGPT manager, run the focused suite separately after rebuilding and relinking:
 
 ```bash
