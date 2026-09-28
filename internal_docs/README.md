@@ -4,12 +4,12 @@
 the primary checkout on `main`, owned topic worktrees, installed skills, CI and
 safe cleanup.
 
-**Canonical source:** maintain this directory on `main`. Every implementation
-worktree reads it through `/Users/rahul/Projects/nbinlineai/internal_docs/` or a
-recorded committed main snapshot. See [revision selection and documentation
-PRs](workflow.md#canonical-internal-documentation), including dirty/stale
-primary checkouts. Branch-local copies are historical; public docs and code
-remain tied to the implementation branch.
+**Documentation by branch:** approved pre-work specs, research and task prompts
+are read from a recorded `main` revision, normally through
+`/Users/rahul/Projects/nbinlineai/internal_docs/`. Implementation handoffs
+are read from the branch containing that code. See [revision selection and
+documentation PRs](workflow.md#documentation-by-branch), including dirty or
+stale primary checkouts. Public docs and examples also follow their code.
 
 Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
@@ -32,9 +32,9 @@ Configure AI tabs and earlier releases. Verify applicability to your code branch
 - [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-Read and update these documents on main. The copies originally distributed to
-the experiment are historical; future updates do not require branch mirroring.
-They do not add runtime functionality; implementation targets the experiment.
+These pre-work documents are maintained on `main`; record their approved
+revision when implementing them. They do not add runtime functionality. The
+experiment's implementation handoff belongs on its own branch until promotion.
 
 ## Context-selection implementation references
 
