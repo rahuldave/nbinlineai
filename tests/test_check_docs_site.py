@@ -46,6 +46,19 @@ def test_broken_page_anchor_and_asset_fail(tmp_path: Path) -> None:
     assert sum("broken local link" in error for error in errors) == 2
 
 
+def test_same_site_absolute_links_are_checked(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    (site / "index.html").write_text(
+        '<a href="https://rahuldave.com/nbinlineai/notebooks/missing.html#prompt">Prompt</a>',
+        encoding="utf-8",
+    )
+    assert any("broken local link" in error for error in _check(site))
+    page = site / "notebooks" / "missing.html"
+    page.parent.mkdir()
+    page.write_text('<div id="prompt"></div>', encoding="utf-8")
+    assert _check(site) == []
+
+
 def test_gallery_requires_notebook_page_and_ai_styling(tmp_path: Path) -> None:
     site = _site(tmp_path)
     notebook = {"cells": [

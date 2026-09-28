@@ -106,7 +106,11 @@ def check(site: Path, examples: Path | None = None) -> list[str]:
     for path, page in list(pages.items()):
         for reference in page.references:
             url = urlsplit(reference)
-            if url.scheme or url.netloc or reference.startswith("//"):
+            if url.netloc:
+                if (url.scheme != "https" or url.netloc != "rahuldave.com"
+                        or not url.path.startswith("/nbinlineai/")):
+                    continue
+            elif url.scheme or reference.startswith("//"):
                 continue
             target = unquote(url.path)
             if target.startswith("/nbinlineai/"):
