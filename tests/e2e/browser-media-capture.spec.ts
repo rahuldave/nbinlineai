@@ -43,6 +43,7 @@ async function inspectLater(page: Page, index: number, wanted: string): Promise<
 async function syntheticDevices(page: Page): Promise<void> {
   await page.addInitScript(() => {
     let frame: MediaStream | undefined;
+    let audio: AudioContext | undefined;
     const video = (): MediaStream => {
       if (frame && frame.getVideoTracks().some(track => track.readyState === 'live')) return frame.clone();
       const canvas = document.createElement('canvas');
@@ -57,13 +58,26 @@ async function syntheticDevices(page: Page): Promise<void> {
       frame = canvas.captureStream(10);
       return frame.clone();
     };
+    const microphone = (): MediaStream => {
+      audio ??= new AudioContext();
+      const oscillator = audio.createOscillator();
+      oscillator.frequency.value = 440;
+      const output = audio.createMediaStreamDestination();
+      oscillator.connect(output);
+      oscillator.start();
+      void audio.resume();
+      return output.stream;
+    };
     const media = {
       enumerateDevices: async () => [
         { kind: 'videoinput', deviceId: 'synthetic-camera', label: 'Deterministic camera' },
         { kind: 'audioinput', deviceId: 'synthetic-mic', label: 'Deterministic microphone' }
       ],
       getUserMedia: async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
-        if (constraints.audio) throw new DOMException('Synthetic microphone unavailable', 'NotFoundError');
+        if (constraints.audio) {
+          const sound = microphone();
+          return constraints.video ? new MediaStream([...video().getVideoTracks(), ...sound.getAudioTracks()]) : sound;
+        }
         return video();
       },
       getDisplayMedia: async (): Promise<MediaStream> => video()
@@ -98,6 +112,28 @@ test('deterministic camera still and shared recorder deliver typed Python result
   expect(stopped).toContain('completed');
   expect(stopped).toContain('stop_reason');
   await runCell(page, 8);
+});
+
+test('deterministic microphone levels and convenience audio recording stay local', async ({ page, request }) => {
+  await syntheticDevices(page);
+  await fixtureNotebook(page, request, [
+    'from nbinlineai.tools import start_microphone, read_audio_levels, record_microphone, stop_source\nmicrophone = start_microphone()',
+    "print('MIC_READY' if microphone.status == 'completed' and microphone.result else microphone.status, microphone.result)",
+    "microphone_id = microphone.result['source_id']\nlevels = read_audio_levels(microphone_id, window_ms=100)",
+    'print(levels.status, levels.result)',
+    'clip = record_microphone(save_to=None, duration=2)',
+    'print(clip.status, type(clip.result).__name__, clip.media)',
+    'closed = stop_source(microphone_id)'
+  ]);
+  await runCell(page, 0);
+  expect(await inspectLater(page, 1, 'MIC_READY')).toContain('source_id');
+  await runCell(page, 2);
+  expect(await inspectLater(page, 3, 'rms')).toContain('completed');
+  await runCell(page, 4);
+  const clip = await inspectLater(page, 5, 'MediaClip');
+  expect(clip).toContain('audio/');
+  expect(clip).toContain('stop_reason');
+  await runCell(page, 6);
 });
 
 test('screen chooser is activated by the visible Share button and stop is idempotent', async ({ page, request }) => {
