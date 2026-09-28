@@ -13,7 +13,7 @@ class PlaybackState {
   constructor(context: BrowserOperationContext) {
     this.host.className = 'nbinlineai-playback-host';
     this.host.setAttribute('aria-label', 'Notebook media controls');
-    document.body.appendChild(this.host);
+    context.panel.node.appendChild(this.host);
     context.addCleanup(() => this.dispose());
   }
   panel(title: string): { widget: Widget; body: HTMLElement } {
@@ -182,21 +182,49 @@ async function openMedia(context: BrowserOperationContext, request: BrowserOpera
 async function playMedia(context: BrowserOperationContext, request: BrowserOperationRequest,
   operation: BrowserOperationStatus): Promise<void> {
   const playing = clip(context, request.arguments.preview_id);
-  try {
+  const signal = context.operationSignal(operation.operation_id);
+  const ensureLive = () => {
+    if (signal.aborted || !context.isCurrent()) {
+      playing.element.pause();
+      throw new BrowserMediaError(signal.aborted ? 'cancelled' : 'stale_target',
+        'Playback request no longer belongs to the active notebook operation.');
+    }
+  };
+  context.addOperationCleanup(operation.operation_id, () => {
+    if (signal.aborted) playing.element.pause();
+  });
+  const playAndFinish = async () => {
+    ensureLive();
     await playing.element.play();
-    await finish(context, operation.operation_id, { playing: true, seconds: playing.element.currentTime });
+    ensureLive();
+    await context.transition(operation.operation_id, 'running');
+    ensureLive();
+    await context.transition(operation.operation_id, 'completed',
+      { playing: true, seconds: playing.element.currentTime });
+  };
+  try {
+    await playAndFinish();
     return;
   } catch (error) {
+    ensureLive();
     if (!(error instanceof DOMException) || error.name !== 'NotAllowedError') throw operationError(error);
   }
   const shell = state(context).panel('Playback needs a click');
+  let launching = false;
   shell.body.append(button('Play', () => {
-    void playing.element.play().then(() => finish(context, operation.operation_id,
-      { playing: true, seconds: playing.element.currentTime })).catch(error =>
-      context.transition(operation.operation_id, 'failed', undefined, {
-        code: 'unsupported', message: error instanceof Error ? error.message.slice(0, 300) : 'Playback failed.'
-      }).then(() => undefined));
-  }), button('Cancel', () => { void context.cancel(operation.operation_id); }));
+    if (launching || signal.aborted || !context.isCurrent()) return;
+    launching = true;
+    void playAndFinish().catch(async error => {
+      playing.element.pause();
+      if (signal.aborted || !context.isCurrent()) return;
+      try {
+        await context.transition(operation.operation_id, 'failed', undefined, {
+          code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+          message: error instanceof Error ? error.message.slice(0, 300) : 'Playback failed.'
+        });
+      } catch { /* cancellation or owner close may have won */ }
+    });
+  }), button('Cancel', () => { void context.cancel(operation.operation_id).catch(() => undefined); }));
   context.addOperationCleanup(operation.operation_id, () => shell.widget.dispose());
 }
 async function pauseMedia(context: BrowserOperationContext, request: BrowserOperationRequest,
