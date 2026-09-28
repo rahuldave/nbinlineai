@@ -88,11 +88,24 @@ test('duplicate browser starts and release retries run each effect once', async 
   await page.keyboard.press('Shift+Enter');
   await expect.poll(async () => (await page.locator('.nbinlineai-media-status').textContent())
     ?.match(/Media completed/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
-  await cells.nth(1).locator('.cm-content').click();
-  await page.keyboard.press('Shift+Enter');
-  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'handler_runs': 1");
-  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'statuses': ['completed', 'completed', 'completed']");
-  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'same_operation': True");
+  // The UI can show terminal server state before the busy kernel applies queued
+  // comm messages. Inspect on separate kernel turns until Python sees both.
+  let output = '';
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await cells.nth(1).locator('.cm-content').click();
+    await page.keyboard.press('Control+Enter');
+    await expect(cells.nth(1).locator('.jp-InputPrompt')).toContainText(String(attempt + 2));
+    output = await cells.nth(1).locator('.jp-OutputArea').textContent() ?? '';
+    if (output.includes('completed') && output.includes("'handler_runs': 1") &&
+        output.includes("'statuses': ['completed', 'completed', 'completed']")) break;
+    await page.waitForTimeout(250);
+  }
+  expect(output).toContain("'handler_runs': 1");
+  expect(output).toContain("'statuses': ['completed', 'completed', 'completed']");
+  expect(output).toContain("'same_operation': True");
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as { __nbinlineaiFixtureDedup?: { runs: number; staleReplayStatus: string } })
+      .__nbinlineaiFixtureDedup)).toEqual({ runs: 1, staleReplayStatus: 'completed' });
 });
 
 test('declared model tool receives bounded capability JSON through action reply', async ({ page, request }) => {

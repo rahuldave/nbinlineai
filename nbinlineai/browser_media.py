@@ -254,6 +254,18 @@ class MediaRegistry:
         self.leases[owner] = self._now() + OWNER_LEASE_SECONDS
 
     @_locked
+    def close_owner(self, session_id: str, client_id: str, model_id: str, secret: str | None) -> None:
+        """Revoke exactly one old owner without consulting its former live kernel."""
+        if not all(isinstance(value, str) and value for value in
+                   (session_id, client_id, model_id, secret)):
+            raise MediaError('stale_target', 'Browser owner credential is unavailable')
+        owner = self.owners.get((session_id, client_id))
+        if (owner is None or owner.model_id != model_id or
+                not secrets.compare_digest(owner.secret, secret)):
+            raise MediaError('stale_target', 'Browser owner is unavailable')
+        self.expire_owner(owner)
+
+    @_locked
     def create(self, owner: Owner, request_id: str, name: str, arguments: dict[str, Any],
                *, waiting: bool = False) -> Operation:
         self.require(owner)

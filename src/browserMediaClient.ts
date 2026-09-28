@@ -91,7 +91,7 @@ export class BrowserOperationContext {
   private fileMediaAvailable = false;
   private readyPromise: Promise<void> | undefined;
   private readonly controllers = new Map<string, AbortController>();
-  private readonly dispatched = new Map<string, number>();
+  private readonly dispatched = new Map<string, { terminalAt?: number }>();
   private readonly releaseFlights = new Map<string, { promise: Promise<BrowserOperationStatus>; created: number }>();
   private readonly operationCleanup = new Map<string, Set<() => void>>();
   private readonly mediaCleanup = new Map<string, Set<() => void>>();
@@ -118,6 +118,17 @@ export class BrowserOperationContext {
     const sessionId = this.panel.sessionContext.session?.id;
     if (!sessionId) throw new BrowserMediaError('stale_target', 'Notebook session is unavailable.');
     return { session_id: sessionId, client_id: this.clientId, model_id: this.modelId };
+  }
+
+  private async closeOwner(): Promise<void> {
+    if (!this.ownerSecret || !this.originalSessionId) return;
+    // Revocation names the originally minted owner even after Jupyter changes its
+    // session or kernel. It must never use the replacement notebook's identity.
+    await fetch(endpoint('nbinlineai/browser-media/close'), {
+      method: 'POST', credentials: 'same-origin', headers: headers(this.ownerSecret),
+      body: JSON.stringify({ session_id: this.originalSessionId,
+        client_id: this.clientId, model_id: this.modelId })
+    });
   }
 
   isCurrent(): boolean {
@@ -331,6 +342,8 @@ export class BrowserOperationContext {
   }
   emit(status: BrowserOperationStatus): void {
     if (['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) {
+      const dispatch = this.dispatched.get(status.operation_id);
+      if (dispatch && dispatch.terminalAt === undefined) dispatch.terminalAt = Date.now();
       this.controllers.delete(status.operation_id);
       this.operationCleanup.get(status.operation_id)?.forEach(cleanup => { try { cleanup(); } catch { /* continue cleanup */ } });
       this.operationCleanup.delete(status.operation_id);
@@ -388,23 +401,27 @@ export class BrowserOperationContext {
     if (!entry) throw new Error(`Unsupported browser operation: ${request.name}`);
     if (!entry.capability().available) throw new Error(entry.capability().reason || 'Browser operation is unavailable.');
     const status = await this.create(request);
-    this.emit(status);
     const oldest = Date.now() - 5 * 60_000;
-    for (const [id, when] of this.dispatched) if (when < oldest) this.dispatched.delete(id);
+    for (const [id, dispatch] of this.dispatched)
+      if (dispatch.terminalAt !== undefined && dispatch.terminalAt < oldest) this.dispatched.delete(id);
+    // A delayed create reply may describe an old running state. Read the current
+    // server state before either returning it or dispatching an effect.
+    const current = await this.status(status.operation_id);
     if (this.dispatched.has(status.operation_id) ||
-        ['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) return status;
-    this.dispatched.set(status.operation_id, Date.now());
-    void entry.handler(this, request, status).catch(async error => {
-      try { this.emit(await this.transition(status.operation_id, 'failed', undefined, {
+        ['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) return current;
+    this.dispatched.set(status.operation_id, {});
+    void entry.handler(this, request, current).catch(async error => {
+      try { this.emit(await this.transition(current.operation_id, 'failed', undefined, {
         code: error instanceof BrowserMediaError ? error.code : 'unsupported',
         message: error instanceof Error ? error.message.slice(0, 400) : 'Browser operation failed'
       })); } catch { /* the owner may already have closed */ }
     });
-    return status;
+    return current;
   }
   async dispose(): Promise<void> {
     if (this.disposed) return;
-    const closing = this.ownerSecret ? this.command('close', {}).catch(() => undefined) : Promise.resolve();
+    const closing = (this.readyPromise ?? Promise.resolve()).catch(() => undefined)
+      .then(() => this.closeOwner()).catch(() => undefined);
     this.disposed = true;
     this.panel.disposed.disconnect(this.targetChanged);
     this.panel.sessionContext.kernelChanged.disconnect(this.targetChanged);

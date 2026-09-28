@@ -41,6 +41,21 @@ def test_dedup_owner_and_kernel_binding(tmp_path):
     assert owner(registry, secret=first.secret) is first
 
 
+def test_close_owner_revokes_only_exact_frozen_credential(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    first = owner(registry)
+    other = owner(registry, 'other-client')
+    operation = registry.create(first, 'request', 'capture', {})
+    with pytest.raises(MediaError, match='unavailable'):
+        registry.close_owner(first.session_id, first.client_id, first.model_id, other.secret)
+    with pytest.raises(MediaError, match='unavailable'):
+        registry.close_owner(first.session_id, first.client_id, 'other-model', first.secret)
+    assert first in registry.leases and other in registry.leases
+    registry.close_owner(first.session_id, first.client_id, first.model_id, first.secret)
+    assert first not in registry.leases and other in registry.leases
+    assert operation.status == 'expired'
+
+
 def test_binary_hash_mime_save_and_release(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)

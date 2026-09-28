@@ -1,0 +1,95 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { BrowserOperationContext, registerBrowserOperation } from '../../src/browserMediaClient';
+
+function panelFixture() {
+  const signal = { connect() { /* no-op */ }, disconnect() { /* no-op */ } };
+  const kernel = {};
+  const model = { cells: { length: 1, get: () => ({ id: 'cell' }) } };
+  const panel = { isDisposed: false, disposed: signal,
+    content: { model, modelChanged: signal },
+    sessionContext: { session: { id: 'old-session', kernel }, kernelChanged: signal } };
+  return { panel, kernel, model };
+}
+
+function browserGlobals(fetcher: typeof fetch): () => void {
+  const oldWindow = globalThis.window;
+  const oldDocument = globalThis.document;
+  const oldFetch = globalThis.fetch;
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    location: { origin: 'http://localhost:8897' },
+    addEventListener() { /* no-op */ }, removeEventListener() { /* no-op */ },
+    setInterval, clearInterval
+  } });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { cookie: '' } });
+  globalThis.fetch = fetcher;
+  return () => {
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: oldWindow });
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: oldDocument });
+    globalThis.fetch = oldFetch;
+  };
+}
+
+function response(body: unknown): Response {
+  return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+}
+
+test('dispose revokes the original owner after notebook identity changes', async () => {
+  const { panel, kernel } = panelFixture();
+  let close: { body: Record<string, string>; secret: string | null } | undefined;
+  const restore = browserGlobals(async (input, init) => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'close') {
+      close = { body: JSON.parse(String(init?.body)), secret: new Headers(init?.headers).get('X-NBInlineAI-Owner') };
+      return response({ closed: true });
+    }
+    throw new Error(`Unexpected ${command}`);
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    await context.ready();
+    panel.sessionContext.session.id = 'replacement-session';
+    panel.sessionContext.session.kernel = {};
+    panel.content.model = {} as typeof panel.content.model;
+    panel.isDisposed = true;
+    await context.dispose();
+    assert.equal(close?.body.session_id, 'old-session');
+    assert.equal(close?.secret, 'server-secret');
+    assert.ok(close?.body.client_id && close?.body.model_id);
+  } finally { restore(); }
+});
+
+test('dispatch stays single-flight past five minutes and rejects an old running create reply', async () => {
+  const { panel, kernel } = panelFixture();
+  const operationId = 'server-operation';
+  let serverStatus = 'running';
+  let runs = 0;
+  const name = 'fixture_long_dispatch';
+  registerBrowserOperation(name, async () => { runs++; await new Promise<void>(() => undefined); },
+    () => ({ available: true }));
+  const restore = browserGlobals(async input => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'create') return response({ operation_id: operationId, status: 'running' });
+    if (command === 'status') return response({ operation_id: operationId, status: serverStatus });
+    if (command === 'close') return response({ closed: true });
+    throw new Error(`Unexpected ${command}`);
+  });
+  const realNow = Date.now;
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    const request = { request_id: 'same', name, arguments: {} };
+    assert.equal((await context.start(request)).status, 'running');
+    Date.now = () => realNow() + 6 * 60_000;
+    const retries = await Promise.all([context.start(request), context.start(request)]);
+    assert.ok(retries.every(item => item.operation_id === operationId));
+    assert.equal(runs, 1);
+    serverStatus = 'completed';
+    context.emit({ operation_id: operationId, status: 'completed' });
+    Date.now = () => realNow() + 12 * 60_000;
+    assert.equal((await context.start(request)).status, 'completed');
+    assert.equal(runs, 1);
+    await context.dispose();
+  } finally { Date.now = realNow; restore(); }
+});

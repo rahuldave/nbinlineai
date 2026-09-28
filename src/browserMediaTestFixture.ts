@@ -31,11 +31,27 @@ const dedupRuns = new Map<string, number>();
 registerBrowserOperation('fixture_dedup', async (context, request, operation) => {
   dedupRuns.set(operation.operation_id, (dedupRuns.get(operation.operation_id) ?? 0) + 1);
   await new Promise(resolve => window.setTimeout(resolve, 50));
-  const nested = await Promise.all([context.start(request), context.start(request)]);
+  const now = Date.now;
+  let nested;
+  try {
+    Date.now = () => now() + 6 * 60_000;
+    nested = await Promise.all([context.start(request), context.start(request)]);
+  } finally { Date.now = now; }
   await context.transition(operation.operation_id, 'completed', {
     handler_runs: dedupRuns.get(operation.operation_id),
     same_operation: nested.every(item => item.operation_id === operation.operation_id)
   });
+  // Simulate an old running create reply after the terminal tombstone window.
+  const create = context.create.bind(context);
+  let staleReplayStatus = '';
+  try {
+    Date.now = () => now() + 12 * 60_000;
+    context.create = async () => ({ operation_id: operation.operation_id, status: 'running' });
+    staleReplayStatus = (await context.start(request)).status;
+  } finally { context.create = create; Date.now = now; }
+  (window as unknown as { __nbinlineaiFixtureDedup?: { runs: number; staleReplayStatus: string } }).__nbinlineaiFixtureDedup = {
+    runs: dedupRuns.get(operation.operation_id) ?? 0, staleReplayStatus
+  };
   dedupRuns.delete(operation.operation_id);
 }, () => ({ available: true }));
 

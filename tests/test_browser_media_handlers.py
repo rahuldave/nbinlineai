@@ -133,6 +133,26 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
 
         self.io_loop.run_sync(check)
 
+    def test_close_revokes_frozen_owner_after_session_resolver_changes(self):
+        async def check():
+            second = self.registry.bind('session', 'kernel', 'fixture.ipynb', 'model', 'second')
+            with patch.object(_Dispatcher, 'resolve', side_effect=RuntimeError('kernel replaced')):
+                denied = await AsyncHTTPClient().fetch(HTTPRequest(
+                    self.get_url('/nbinlineai/browser-media/close'), method='POST',
+                    headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': second.secret,
+                             'Content-Type': 'application/json'},
+                    body=json.dumps({'session_id': 'session', 'client_id': 'client', 'model_id': 'model'})),
+                    raise_error=False)
+                assert denied.code == 409
+                assert self.owner in self.registry.leases
+                closed = await self._command('close', {})
+                assert closed.code == 200
+            assert self.owner not in self.registry.leases
+            assert second in self.registry.leases
+            assert self.op.status == 'expired'
+
+        self.io_loop.run_sync(check)
+
     def test_stored_bytes_and_inflight_share_one_budget(self):
         async def check():
             self.registry.media['stored'] = Media('stored', self.owner, b'x' * 12,

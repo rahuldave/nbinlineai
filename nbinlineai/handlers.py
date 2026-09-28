@@ -355,6 +355,14 @@ class BrowserMediaHandler(APIHandler):
         _require_single_user_server(self)
         try:
             body = self.get_json_body()
+            if command == 'close':
+                if not isinstance(body, dict):
+                    raise MediaError('invalid_argument', 'Expected a JSON object')
+                self.media_registry.close_owner(body.get('session_id'), body.get('client_id'),
+                                                body.get('model_id'),
+                                                self.request.headers.get('X-NBInlineAI-Owner'))
+                self.finish({'closed': True})
+                return
             owner = await self._owner(body, create=command == 'owner')
             registry = self.media_registry
             if command == 'owner':
@@ -398,9 +406,6 @@ class BrowserMediaHandler(APIHandler):
             elif command == 'release':
                 registry.release_media(owner, body.get('media_id'))
                 self.finish({'released': True})
-            elif command == 'close':
-                registry.expire_owner(owner)
-                self.finish({'closed': True})
             else:
                 raise MediaError('unsupported', 'Unknown browser operation command')
         except MediaError as exc:
