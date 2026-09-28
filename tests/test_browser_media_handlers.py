@@ -20,7 +20,11 @@ from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 
 from nbinlineai.browser_media import Media, MediaRegistry
-from nbinlineai.handlers import BrowserMediaBytesHandler, BrowserMediaFileHandler, BrowserMediaHandler
+from nbinlineai.handlers import (
+    BrowserMediaBytesHandler,
+    BrowserMediaFileHandler,
+    BrowserMediaHandler,
+)
 
 
 class _Sessions:
@@ -123,6 +127,37 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
             assert saved.headers['Content-Type'] == mimetypes.guess_type('sample.wav')[0]
             assert saved.headers['Content-Type'] != 'application/json'
             assert saved.headers['X-NBInlineAI-SHA256'] == wav_hash
+
+        self.io_loop.run_sync(check)
+
+    def test_saved_crop_http_upload_publishes_media_with_anchored_sidecar(self):
+        async def check():
+            image = Image.new('RGB', (2, 2), 'blue')
+            stream = io.BytesIO()
+            image.save(stream, format='PNG')
+            data = stream.getvalue()
+            digest = hashlib.sha256(data).hexdigest()
+            self.registry.media['crop-source'] = Media('crop-source', self.owner, data, 'image/png',
+                                                       digest, self.registry._now() + 600)
+            op = self.registry.create(self.owner, 'crop-http', 'crop_image', {
+                'media': {'media_id': 'crop-source'}, 'x': 0, 'y': 0,
+                'width': 2, 'height': 2, 'save_to': 'derived.png'})
+            response = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url(f'/nbinlineai/browser-media-bytes/{op.id}'), method='POST',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'X-NBInlineAI-Session': 'session', 'X-NBInlineAI-Client': 'client',
+                         'X-NBInlineAI-Model': 'model', 'Content-Type': 'image/png',
+                         'X-NBInlineAI-SHA256': digest,
+                         'X-NBInlineAI-Metadata': json.dumps({
+                             'source_sha256': digest, 'transform': 'crop_image'}),
+                         'X-NBInlineAI-Save-To': json.dumps('derived.png')}, body=data))
+            state = json.loads(response.body)
+            assert state['status'] == 'completed'
+            assert state['media']['sidecar_path'] == 'derived.png.json'
+            assert (Path(self._root.name) / 'derived.png').read_bytes() == data
+            sidecar = json.loads((Path(self._root.name) / 'derived.png.json').read_text())
+            assert sidecar['source_sha256'] == digest
+            assert sidecar['parameters'] == {'x': 0, 'y': 0, 'width': 2, 'height': 2}
 
         self.io_loop.run_sync(check)
 
@@ -307,7 +342,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
             stream = io.BytesIO()
             image.save(stream, format='PNG')
             data = stream.getvalue()
-            op = self.registry.create(self.owner, 'batch', 'extract_frames', {})
+            op = self.registry.create(self.owner, 'batch', 'fixture_batch', {})
             self.registry.begin_batch(self.owner, op.id, 1)
             self.registry.upload_part(self.owner, op.id, 0, data, 'image/png', hashlib.sha256(data).hexdigest())
             entered = threading.Event()
@@ -345,7 +380,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
             stream = io.BytesIO()
             image.save(stream, format='PNG')
             data = stream.getvalue()
-            op = self.registry.create(self.owner, 'batch-rollback', 'extract_frames', {})
+            op = self.registry.create(self.owner, 'batch-rollback', 'fixture_batch', {})
             self.registry.begin_batch(self.owner, op.id, 2)
             digest = hashlib.sha256(data).hexdigest()
             self.registry.upload_part(self.owner, op.id, 0, data, 'image/png', digest)

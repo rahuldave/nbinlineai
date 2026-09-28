@@ -517,24 +517,37 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
             if save_to is not None and status['status'] == 'saving':
                 op = self.media_registry.operation(owner, operation_id)
                 media = self.media_registry.media_ref(owner, op.media_id)
+                path = sidecar = None
                 try:
-                    path = await asyncio.to_thread(self.media_registry._save, owner, media,
-                                                   save_to, lambda: not op.cancelled.is_set() and
-                                                   not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set())
+                    path, sidecar = await asyncio.to_thread(
+                        self.media_registry._save_with_provenance, owner, media,
+                        save_to, lambda: not op.cancelled.is_set() and
+                        not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set(),
+                        notebook_path=op.notebook_path)
                     with self.media_registry._state_lock:
                         active = (op.status == 'saving' and not op.cancelled.is_set() and
                                   owner in self.media_registry.owner_cancelled and
                                   self.media_registry.media.get(media.id) is media)
                         if active:
                             media.path = path
+                            if sidecar is not None:
+                                media.metadata['sidecar_path'] = sidecar
                             op.status = 'completed'
                             op.updated = self.media_registry._now()
                             self.media_registry._forget_saved(path)
+                            if sidecar is not None:
+                                self.media_registry._forget_saved(sidecar)
                     if not active:
                         self.media_registry._unlink_saved(path)
+                        if sidecar is not None:
+                            self.media_registry._unlink_saved(sidecar)
                         raise MediaError('cancelled', 'Save was cancelled')
                     status = self.media_registry.status(owner, operation_id)
                 except Exception as exc:
+                    if path is not None:
+                        self.media_registry._unlink_saved(path)
+                    if sidecar is not None:
+                        self.media_registry._unlink_saved(sidecar)
                     with self.media_registry._state_lock:
                         self.media_registry.media.pop(media.id, None)
                         op.media_id = None
