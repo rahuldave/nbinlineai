@@ -27,6 +27,7 @@ from ._tool_helpers import (
 )
 from .browser_media_tools import BROWSER_MEDIA_TOOL_FUNCTIONS
 from .browser_playback_tools import BROWSER_PLAYBACK_TOOL_FUNCTIONS
+from .browser_transform_tools import BROWSER_TRANSFORM_TOOL_FUNCTIONS
 from .execution_tools import EXECUTION_TOOL_FUNCTIONS
 from .fastcore_tools import (
     FASTCORE_TOOL_FUNCTIONS,
@@ -364,6 +365,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     **NOTEBOOK_TOOL_FUNCTIONS,
     **BROWSER_MEDIA_TOOL_FUNCTIONS,
     **BROWSER_PLAYBACK_TOOL_FUNCTIONS,
+    **BROWSER_TRANSFORM_TOOL_FUNCTIONS,
 })
 
 
@@ -426,6 +428,7 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "browser_playback": ("choose_file", "open_media", "play_media", "pause_media",
                          "seek_media", "set_media_volume", "close_media", "copy_text",
                          "paste_content"),
+    "browser_transforms": ("extract_frames", "crop_image", "annotate_image"),
 })
 
 

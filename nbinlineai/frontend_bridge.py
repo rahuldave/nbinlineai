@@ -169,6 +169,26 @@ def normalize_action(
             **({'accept': 'text,image', 'save_to': None} if name == 'paste_content' else {}),
             **arguments,
         }
+    if name in {'extract_frames', 'crop_image', 'annotate_image'}:
+        from .browser_playback_tools import _media_ref, _save_to
+        from .browser_transform_tools import _annotations, _bounded_number, _coordinate
+        required = {'media', 'timestamps'} if name == 'extract_frames' else (
+            {'media', 'x', 'y', 'width', 'height'} if name == 'crop_image' else {'media', 'annotations'})
+        if required - set(arguments) or set(arguments) - (required | {'save_to'}):
+            raise ValueError(f'Unexpected or missing {name} argument')
+        normalized = {'media': _media_ref(arguments['media'])}
+        if name == 'extract_frames':
+            times = arguments['timestamps']
+            if not isinstance(times, list) or not 1 <= len(times) <= 12:
+                raise ValueError('timestamps must contain 1 through 12 seconds values')
+            normalized['timestamps'] = [_bounded_number(value, 'timestamp', 0, 300) for value in times]
+        elif name == 'crop_image':
+            for key in ('x', 'y', 'width', 'height'):
+                normalized[key] = _coordinate(arguments[key], key, positive=key in {'width', 'height'})
+        else:
+            normalized['annotations'] = _annotations(arguments['annotations'])
+        normalized['save_to'] = _save_to(arguments.get('save_to'))
+        return normalized
     if name == "list_cells":
         if set(arguments) - {"start", "limit"}:
             raise ValueError("Unexpected list_cells argument")
