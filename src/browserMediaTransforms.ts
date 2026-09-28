@@ -49,17 +49,37 @@ function drawable(context: BrowserOperationContext, width: number, height: numbe
     return { canvas, drawing, release };
   } catch (error) { release(); throw error; }
 }
+function abortable<T>(promise: Promise<T>, signal: AbortSignal, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => { signal.removeEventListener('abort', abort);
+      reject(new BrowserMediaError('cancelled', message)); };
+    if (signal.aborted) { abort(); return; }
+    signal.addEventListener('abort', abort, { once: true });
+    promise.then(value => { signal.removeEventListener('abort', abort); resolve(value); },
+      error => { signal.removeEventListener('abort', abort); reject(error); });
+  });
+}
 async function encodedPng(canvas: HTMLCanvasElement, context: BrowserOperationContext,
   signal: AbortSignal): Promise<Uint8Array> {
   live(context, signal);
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(value => value ? resolve(value) : reject(new BrowserMediaError('unsupported',
-      'Browser could not encode the derivative PNG.')), 'image/png');
+    const abort = () => { signal.removeEventListener('abort', abort);
+      reject(new BrowserMediaError('cancelled', 'PNG encoding was cancelled.')); };
+    if (signal.aborted) { abort(); return; }
+    signal.addEventListener('abort', abort, { once: true });
+    try {
+      canvas.toBlob(value => {
+        signal.removeEventListener('abort', abort);
+        if (signal.aborted) return;
+        if (value) resolve(value);
+        else reject(new BrowserMediaError('unsupported', 'Browser could not encode the derivative PNG.'));
+      }, 'image/png');
+    } catch (error) { signal.removeEventListener('abort', abort); reject(error); }
   });
   live(context, signal);
   if (!blob.size || blob.size > 50 * 1024 * 1024)
     throw new BrowserMediaError('limit_exceeded', 'Encoded derivative exceeds 50 MiB.');
-  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const bytes = new Uint8Array(await abortable(blob.arrayBuffer(), signal, 'PNG reading was cancelled.'));
   live(context, signal);
   return bytes;
 }

@@ -88,6 +88,32 @@ test('redaction uses opaque black pixels and refuses an out-of-bounds shape', as
   } finally { undo.reverse().forEach(restore => restore()); }
 });
 
+test('cancelling pending PNG encoding releases the decoder and working budget', async () => {
+  const source = pngHeader(4, 4);
+  const digest = await sha256Bytes(source);
+  const controller = new AbortController();
+  let encoding = false; let closed = 0; let uploaded = false;
+  const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: () => undefined }),
+    toBlob: () => { encoding = true; } };
+  const undo = [replace(globalThis, 'document', { createElement: () => canvas }),
+    replace(globalThis, 'createImageBitmap', async () => ({ width: 4, height: 4,
+      close: () => { closed++; } }))];
+  const context = { isCurrent: () => true, operationSignal: () => controller.signal,
+    fetchReference: async () => ({ data: source.buffer, mimeType: 'image/png', sha256: digest }),
+    upload: async () => { uploaded = true; } };
+  try {
+    const pending = cropImage(context as never, { name: 'crop_image', request_id: 'r',
+      arguments: { media: { media_id: 'source' }, x: 0, y: 0, width: 2, height: 2 } },
+    { operation_id: 'op', status: 'running' });
+    while (!encoding) await new Promise(resolve => setTimeout(resolve, 0));
+    controller.abort();
+    await assert.rejects(pending, (error: any) => error.code === 'cancelled');
+    assert.equal(closed, 1); assert.equal(uploaded, false);
+    const release = reserveMediaWorkingPixels(context as never, 4096, 3906);
+    release();
+  } finally { undo.reverse().forEach(restore => restore()); }
+});
+
 test('one decoder lease uploads actual video timestamps and cancels a partial batch', async () => {
   const source = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
   const digest = await sha256Bytes(source);

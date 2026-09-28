@@ -30,6 +30,7 @@ EXAMPLES = [
     "tool-catalog-processes.ipynb",
     "browser-media-foundation.ipynb",
     "browser-media-playback.ipynb",
+    "browser-media-transforms.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -67,6 +68,12 @@ HEADLESS_UI_CELLS = {
     ("browser-media-playback.ipynb", "playback-copy-inspect"): "copied.status",
     ("browser-media-playback.ipynb", "playback-paste-call"): "paste_content(",
     ("browser-media-playback.ipynb", "playback-paste-inspect"): "pasted.status",
+    ("browser-media-transforms.ipynb", "transform-frames-call"): "extract_frames(",
+    ("browser-media-transforms.ipynb", "transform-frames-inspect"): "frames.status",
+    ("browser-media-transforms.ipynb", "transform-crop-call"): "crop_image(",
+    ("browser-media-transforms.ipynb", "transform-crop-inspect"): "crop.status",
+    ("browser-media-transforms.ipynb", "transform-annotate-call"): "annotate_image(",
+    ("browser-media-transforms.ipynb", "transform-annotate-inspect"): "annotated.status",
 }
 
 
@@ -154,7 +161,8 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
 
     with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
         kernel_cwd = Path(scratch) if relative_path in {
-            "browser-media-foundation.ipynb", "browser-media-playback.ipynb"} else ROOT
+            "browser-media-foundation.ipynb", "browser-media-playback.ipynb",
+            "browser-media-transforms.ipynb"} else ROOT
         outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
@@ -205,6 +213,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         text = "\n".join(outputs)
         assert "sha256" in text
         assert "browser-media-source-" in text
+    if relative_path == "browser-media-transforms.ipynb":
+        text = "\n".join(outputs)
+        assert "Disposable transform files removed" in text
+        assert "Disposable exact PNG and 16×16 two-color VP9 clip" in text
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)
