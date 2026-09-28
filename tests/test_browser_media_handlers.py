@@ -28,12 +28,16 @@ from nbinlineai.handlers import (
 
 
 class _Sessions:
+    def __init__(self):
+        self.paths = {'session': 'fixture.ipynb'}
+
     async def get_session(self, *, session_id):
-        return {'type': 'notebook', 'path': 'fixture.ipynb'}
+        return {'type': 'notebook', 'path': self.paths[session_id]}
 
 
 class _Dispatcher:
-    sessions = _Sessions()
+    def __init__(self):
+        self.sessions = _Sessions()
 
     async def resolve(self, session_id):
         return 'kernel', object()
@@ -51,6 +55,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
     def get_app(self):
         self._root = tempfile.TemporaryDirectory()
         self.registry = MediaRegistry(self._root.name)
+        self.dispatcher = _Dispatcher()
         self.authorizer = _Authorizer()
         identity = IdentityProvider()
         identity.get_user = lambda handler: ('test-user' if handler.request.headers.get('Authorization') == 'Bearer test'
@@ -59,11 +64,11 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
         self.op = self.registry.create(self.owner, 'op-request', 'fixture_image', {})
         return Application(
             [(r'/nbinlineai/browser-media-bytes/([^/]+)', BrowserMediaBytesHandler,
-              {'dispatcher': _Dispatcher(), 'media_registry': self.registry}),
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
              (r'/nbinlineai/browser-media/([a-z]+)', BrowserMediaHandler,
-              {'dispatcher': _Dispatcher(), 'media_registry': self.registry}),
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
              (r'/nbinlineai/browser-media-file', BrowserMediaFileHandler,
-              {'dispatcher': _Dispatcher(), 'media_registry': self.registry})],
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry})],
             authorizer=self.authorizer, identity_provider=identity, login_url='/login',
             base_url='/', cookie_secret='test-only', disable_check_xsrf=True
         )
