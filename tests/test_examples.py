@@ -21,11 +21,21 @@ EXAMPLES = [
     "python-and-web-tools.ipynb",
     "fastcore-tools.ipynb",
     "project-tools.ipynb",
+    "tool-catalog-inspection.ipynb",
+    "tool-catalog-files.ipynb",
+    "tool-catalog-saved-notebooks.ipynb",
+    "tool-catalog-live-notebook.ipynb",
+    "tool-catalog-web.ipynb",
+    "tool-catalog-processes.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
 ]
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
+HEADLESS_UI_CELLS = {
+    ("live-variables-and-tools.ipynb", "live-insert-tools-optional"):
+        "execution-bound insert_tools needs a JupyterLab browser acknowledgement",
+}
 
 
 async def _run_code(
@@ -78,11 +88,12 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
             for cell in notebook["cells"]:
                 source = "".join(cell["source"])
                 if cell["cell_type"] == "code":
-                    ui_only = "nbinlineai-ui-only" in cell.get("metadata", {}).get("tags", [])
-                    if ui_only:
-                        assert (relative_path, cell["id"]) == (
-                            "live-variables-and-tools.ipynb", "live-insert-tools-optional"
-                        )
+                    tags = set(cell.get("metadata", {}).get("tags", []))
+                    if "nbinlineai-ui-only" in tags:
+                        assert (relative_path, cell["id"]) in HEADLESS_UI_CELLS
+                    if (relative_path, cell["id"]) in HEADLESS_UI_CELLS:
+                        assert "nbinlineai-ui-only" in tags
+                        assert "insert_tools(" in source
                     else:
                         outputs.append(await _run_code(kernel, source))
                     continue
@@ -136,6 +147,25 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         assert "stable-note" in text
         assert "visits" in text
         assert "Study notes" in text
+    if relative_path == "tool-catalog-inspection.ipynb":
+        text = "\n".join(outputs)
+        assert "catalog_double" in text
+        assert "Path.read_text" in text
+    if relative_path == "tool-catalog-files.ipynb":
+        text = "\n".join(outputs)
+        assert "Disposable folder:" in text
+        assert "Counts" in text
+        assert "sha256:" in text
+    if relative_path == "tool-catalog-saved-notebooks.ipynb":
+        assert "catalog-note" in "\n".join(outputs)
+    if relative_path == "tool-catalog-live-notebook.ipynb":
+        assert "Live notebook tools imported" in "\n".join(outputs)
+    if relative_path == "tool-catalog-web.ipynb":
+        assert "Public page tools imported" in "\n".join(outputs)
+    if relative_path == "tool-catalog-processes.ipynb":
+        text = "\n".join(outputs)
+        assert "catalog-ready" in text
+        assert "5" in text
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)

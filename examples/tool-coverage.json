@@ -1,0 +1,569 @@
+{
+  "search_kernel_names": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "search_kernel_names",
+    "cell_id": "catalog-demo-search_kernel_names",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "inspect_python": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "inspect_python",
+    "cell_id": "catalog-demo-inspect_python",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "show_doc": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "show_doc",
+    "cell_id": "catalog-demo-show_doc",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "api_names": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "api_names",
+    "cell_id": "catalog-demo-api_names",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "search_docs": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "search_docs",
+    "cell_id": "catalog-demo-search_docs",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "inspect_value": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "inspect_value",
+    "cell_id": "catalog-demo-inspect_value",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "search_value": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "search_value",
+    "cell_id": "catalog-demo-search_value",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "source_files": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "source_files",
+    "cell_id": "catalog-demo-source_files",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "list_skills": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "list_skills",
+    "cell_id": "catalog-demo-list_skills",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "read_skill": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "read_skill",
+    "cell_id": "catalog-demo-read_skill",
+    "execution": "model-optional-environment",
+    "platform_note": "Requires a registered skill discovered by list_skills.",
+    "verification": {
+      "unit": "tests/test_inspection_tools.py"
+    },
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+  },
+  "trace_function": {
+    "notebook": "tool-catalog-inspection.ipynb",
+    "section": "trace_function",
+    "cell_id": "catalog-demo-trace_function",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "path_info": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "path_info",
+    "cell_id": "catalog-demo-path_info",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "list_files": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "list_files",
+    "cell_id": "catalog-demo-list_files",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "view_file": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "view_file",
+    "cell_id": "catalog-demo-view_file",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "create_file": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "create_file",
+    "cell_id": "catalog-demo-create_file",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "file_str_replace": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "file_str_replace",
+    "cell_id": "catalog-demo-file_str_replace",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "file_insert_line": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "file_insert_line",
+    "cell_id": "catalog-demo-file_insert_line",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "file_replace_lines": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "file_replace_lines",
+    "cell_id": "catalog-demo-file_replace_lines",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "search_files": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "search_files",
+    "cell_id": "catalog-demo-search_files",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "source_doc": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "source_doc",
+    "cell_id": "catalog-demo-source_doc",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "document_outline": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "document_outline",
+    "cell_id": "catalog-demo-document_outline",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "read_document_section": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "read_document_section",
+    "cell_id": "catalog-demo-read_document_section",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "file_strs_replace": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "file_strs_replace",
+    "cell_id": "catalog-demo-file_strs_replace",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "view_file_hashes": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "view_file_hashes",
+    "cell_id": "catalog-demo-view_file_hashes",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "file_replace_checked": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "file_replace_checked",
+    "cell_id": "catalog-demo-file_replace_checked",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "list_notebooks": {
+    "notebook": "tool-catalog-saved-notebooks.ipynb",
+    "section": "list_notebooks",
+    "cell_id": "catalog-demo-list_notebooks",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "find_notebook_cells": {
+    "notebook": "tool-catalog-saved-notebooks.ipynb",
+    "section": "find_notebook_cells",
+    "cell_id": "catalog-demo-find_notebook_cells",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "read_notebook_cell": {
+    "notebook": "tool-catalog-saved-notebooks.ipynb",
+    "section": "read_notebook_cell",
+    "cell_id": "catalog-demo-read_notebook_cell",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "search_notebooks": {
+    "notebook": "tool-catalog-saved-notebooks.ipynb",
+    "section": "search_notebooks",
+    "cell_id": "catalog-demo-search_notebooks",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "notebook_outline": {
+    "notebook": "tool-catalog-saved-notebooks.ipynb",
+    "section": "notebook_outline",
+    "cell_id": "catalog-demo-notebook_outline",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "list_cells": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "list_cells",
+    "cell_id": "catalog-demo-list_cells",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/tool-catalog-live.spec.ts"
+    },
+    "checkpoint_evidence": "Exact catalog notebook and deterministic provider exercised this call in isolated JupyterLab; browser test passed."
+  },
+  "read_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "read_cell",
+    "cell_id": "catalog-demo-read_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/frontend-actions.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "find_cells": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "find_cells",
+    "cell_id": "catalog-demo-find_cells",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "insert_markdown": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "insert_markdown",
+    "cell_id": "catalog-demo-insert_markdown",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/frontend-actions.spec.ts"
+    },
+    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+  },
+  "insert_code": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "insert_code",
+    "cell_id": "catalog-demo-insert_code",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/frontend-actions.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "replace_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "replace_cell",
+    "cell_id": "catalog-demo-replace_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "cell_str_replace": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "cell_str_replace",
+    "cell_id": "catalog-demo-cell_str_replace",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "cell_insert_line": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "cell_insert_line",
+    "cell_id": "catalog-demo-cell_insert_line",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "cell_replace_lines": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "cell_replace_lines",
+    "cell_id": "catalog-demo-cell_replace_lines",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "delete_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "delete_cell",
+    "cell_id": "catalog-demo-delete_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "move_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "move_cell",
+    "cell_id": "catalog-demo-move_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "copy_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "copy_cell",
+    "cell_id": "catalog-demo-copy_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "split_cell": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "split_cell",
+    "cell_id": "catalog-demo-split_cell",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "merge_cells": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "merge_cells",
+    "cell_id": "catalog-demo-merge_cells",
+    "execution": "model-frontend",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "browser": "tests/e2e/notebook-edit-tools.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "read_url": {
+    "notebook": "tool-catalog-web.ipynb",
+    "section": "read_url",
+    "cell_id": "catalog-demo-read_url",
+    "execution": "model-network",
+    "platform_note": "Requires provider and public network; url_to_note also requires the JupyterLab frontend.",
+    "verification": {
+      "mocked_network": "tests/test_web_tools.py"
+    },
+    "checkpoint_evidence": "AI prompt only; public network not used in routine checks"
+  },
+  "read_url_section": {
+    "notebook": "tool-catalog-web.ipynb",
+    "section": "read_url_section",
+    "cell_id": "catalog-demo-read_url_section",
+    "execution": "model-network",
+    "platform_note": "Requires provider and public network; url_to_note also requires the JupyterLab frontend.",
+    "verification": {
+      "mocked_network": "tests/test_web_tools.py"
+    },
+    "checkpoint_evidence": "AI prompt only; public network not used in routine checks"
+  },
+  "url_to_note": {
+    "notebook": "tool-catalog-web.ipynb",
+    "section": "url_to_note",
+    "cell_id": "catalog-demo-url_to_note",
+    "execution": "model-frontend",
+    "platform_note": "Requires provider and public network; url_to_note also requires the JupyterLab frontend.",
+    "verification": {
+      "unit": "tests/test_frontend_bridge.py",
+      "browser": "tests/e2e/frontend-actions.spec.ts"
+    },
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+  },
+  "run_python": {
+    "notebook": "tool-catalog-processes.ipynb",
+    "section": "run_python",
+    "cell_id": "catalog-demo-run_python",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "run_shell": {
+    "notebook": "tool-catalog-processes.ipynb",
+    "section": "run_shell",
+    "cell_id": "catalog-demo-run_shell",
+    "execution": "kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "tmux_sessions": {
+    "notebook": "tool-catalog-processes.ipynb",
+    "section": "tmux_sessions",
+    "cell_id": "catalog-demo-tmux_sessions",
+    "execution": "model-optional-environment",
+    "platform_note": "Requires local tmux; read uses a discovered pane ID.",
+    "verification": {
+      "unit": "tests/test_execution_tools.py"
+    },
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+  },
+  "tmux_read": {
+    "notebook": "tool-catalog-processes.ipynb",
+    "section": "tmux_read",
+    "cell_id": "catalog-demo-tmux_read",
+    "execution": "model-optional-environment",
+    "platform_note": "Requires local tmux; read uses a discovered pane ID.",
+    "verification": {
+      "unit": "tests/test_execution_tools.py"
+    },
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+  },
+  "tool_catalog": {
+    "notebook": "tool-catalog-files.ipynb",
+    "section": "Work with disposable saved files",
+    "cell_id": "catalog-setup-tool_catalog",
+    "setup_helper": true,
+    "execution": "setup-kernel",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "tools_markdown": {
+    "notebook": "tool-catalog-live-notebook.ipynb",
+    "section": "Inspect and edit this live notebook",
+    "cell_id": "catalog-setup-tools_markdown",
+    "setup_helper": true,
+    "execution": "setup-kernel",
+    "platform_note": "Requires the JupyterLab frontend and a configured provider; direct Python calls use explanatory stubs.",
+    "verification": {
+      "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
+    },
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+  },
+  "insert_tools": {
+    "notebook": "live-variables-and-tools.ipynb",
+    "section": "Optional: add a declaration from Python",
+    "cell_id": "live-insert-tools-optional",
+    "setup_helper": true,
+    "execution": "setup-ui-receipt",
+    "platform_note": "Requires JupyterLab frontend and execution-bound comm acknowledgement.",
+    "verification": {
+      "unit": "tests/test_insert_tools.py",
+      "browser": "tests/e2e/inherited-tools.spec.ts"
+    },
+    "checkpoint_evidence": "UI receipt demo skipped headlessly; same helper passed in a focused isolated JupyterLab browser regression."
+  }
+}
