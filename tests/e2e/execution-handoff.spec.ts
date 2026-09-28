@@ -3,6 +3,14 @@ import { expect, test, type APIRequestContext, type Page } from '../support/e2e-
 type Cell = { id: string; cell_type: 'code' | 'markdown'; source: string; metadata: object; outputs?: object[]; execution_count?: null };
 const code = (id: string, source: string): Cell => ({ id, cell_type: 'code', source, metadata: {}, outputs: [], execution_count: null });
 const ai = (id: string, source: string): Cell => ({ id, cell_type: 'markdown', source, metadata: { nbinlineai: { isPromptCell: true } } });
+const setup = code('setup', 'from nbinlineai.tools import add_code_cell_and_execute, prompt_and_run, run_and_prompt');
+
+async function runSetup(page: Page): Promise<void> {
+  const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await notebook.locator('.jp-CodeCell').first().click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(notebook.locator('.jp-CodeCell').first().locator('.jp-InputPrompt')).toContainText('[1]');
+}
 
 async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[]): Promise<void> {
   const name = `handoff-${Date.now()}-${Math.floor(Math.random() * 1e6)}.ipynb`;
@@ -31,6 +39,7 @@ async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[
 
 test('AI terminal add inserts and natively executes code before later Run All work', async ({ page, request }) => {
   await openNotebook(page, request, [
+    setup,
     ai('ask', 'E2E_HANDOFF_ADD &`add_code_cell_and_execute`'),
     code('later', 'print("LATER_MARKER", handoff_value)')
   ]);
@@ -46,30 +55,34 @@ test('AI terminal add inserts and natively executes code before later Run All wo
 });
 
 test('a completed terminal handoff is kept and does not replay on another run', async ({ page, request }) => {
-  await openNotebook(page, request, [ai('ask', 'E2E_HANDOFF_ADD &`add_code_cell_and_execute`')]);
+  await openNotebook(page, request, [setup, ai('ask', 'E2E_HANDOFF_ADD &`add_code_cell_and_execute`')]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   const prompt = notebook.locator('.nbinlineai-prompt-cell');
   await prompt.locator('[data-nbinlineai-run]').click();
-  await expect(notebook.locator('.jp-CodeCell').locator('.jp-OutputArea')).toContainText('HANDOFF_ADD_RESULT 41');
+  await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-OutputArea')).toContainText('HANDOFF_ADD_RESULT 41');
   await expect(notebook.locator('.nbinlineai-response-cell')).toContainText('Handoff scheduled for cell');
   await prompt.locator('[data-nbinlineai-run]').click();
-  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
-  await expect(notebook.locator('.jp-CodeCell').locator('.jp-InputPrompt')).toContainText('[1]');
+  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(2);
+  await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-InputPrompt')).toContainText('[2]');
 });
 
 test('AI terminal execution accepts an existing identified code cell', async ({ page, request }) => {
   await openNotebook(page, request, [
+    setup,
     ai('ask', 'E2E_HANDOFF_EXISTING &`add_code_cell_and_execute`'),
     code('target', 'print("EXISTING_TARGET_RAN")')
   ]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
   await expect(notebook.locator('.jp-CodeCell').filter({ hasText: 'EXISTING_TARGET_RAN' }).locator('.jp-OutputArea')).toContainText('EXISTING_TARGET_RAN');
-  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
+  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(2);
 });
 
 test('Run All coalesces an upcoming explicit run of the same identified cell', async ({ page, request }) => {
   await openNotebook(page, request, [
+    setup,
     ai('ask', 'E2E_HANDOFF_EXISTING &`add_code_cell_and_execute`'),
     code('target', 'overlap_count = globals().get("overlap_count", 0) + 1\nprint("OVERLAP_COUNT", overlap_count)')
   ]);
@@ -78,7 +91,7 @@ test('Run All coalesces an upcoming explicit run of the same identified cell', a
   await page.getByRole('menuitem', { name: 'Run All Cells', exact: true }).click();
   const target = notebook.locator('.jp-CodeCell').filter({ hasText: 'OVERLAP_COUNT' });
   await expect(target.locator('.jp-OutputArea')).toContainText('OVERLAP_COUNT 1');
-  await expect(target.locator('.jp-InputPrompt')).toContainText('[1]');
+  await expect(target.locator('.jp-InputPrompt')).toContainText('[2]');
 });
 
 test('editing a bound code source before dispatch stops the handoff', async ({ page, request }) => {
@@ -94,20 +107,23 @@ test('editing a bound code source before dispatch stops the handoff', async ({ p
     };
   });
   await openNotebook(page, request, [
+    setup,
     ai('ask', 'E2E_HANDOFF_EXISTING &`add_code_cell_and_execute`'),
     code('target', 'print("STALE_ORIGINAL")')
   ]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
   await page.waitForFunction(() => (window as any).__handoffReplyHeld === true);
-  await notebook.locator('.jp-CodeCell').locator('.cm-content').fill('print("STALE_EDIT")');
+  await notebook.locator('.jp-CodeCell').last().locator('.cm-content').fill('print("STALE_EDIT")');
   await expect(notebook.locator('.nbinlineai-prompt-cell').first().locator('.nbinlineai-status')).toContainText(/changed|stopped/i);
-  await expect(notebook.locator('.jp-CodeCell').locator('.jp-OutputArea-output')).toHaveCount(0);
+  await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-OutputArea-output')).toHaveCount(0);
 });
 
 test('run_and_prompt transfers the exact code result to a separate AI question', async ({ page, request }) => {
-  await openNotebook(page, request, [ai('ask', 'E2E_HANDOFF_RUN_PROMPT &`run_and_prompt`')]);
+  await openNotebook(page, request, [setup, ai('ask', 'E2E_HANDOFF_RUN_PROMPT &`run_and_prompt`')]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   let promptRequests = 0;
   page.on('request', item => { if (item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST') promptRequests++; });
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
@@ -119,18 +135,21 @@ test('run_and_prompt transfers the exact code result to a separate AI question',
 
 test('run_and_prompt accepts an existing code ID and transfers that execution', async ({ page, request }) => {
   await openNotebook(page, request, [
+    setup,
     ai('ask', 'E2E_HANDOFF_RUN_PROMPT_EXISTING &`run_and_prompt`'),
     code('target', 'print("HANDOFF_RESULT", 53)')
   ]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
-  await expect(notebook.locator('.jp-CodeCell').locator('.jp-OutputArea')).toContainText('HANDOFF_RESULT 53');
+  await expect(notebook.locator('.jp-CodeCell').last().locator('.jp-OutputArea')).toContainText('HANDOFF_RESULT 53');
   await expect(notebook.locator('.nbinlineai-response-cell').last()).toContainText('HANDOFF_RESULT 53');
 });
 
 test('prompt_and_run creates a distinct question which selects and executes code', async ({ page, request }) => {
-  await openNotebook(page, request, [ai('ask', 'E2E_HANDOFF_PROMPT_RUN &`prompt_and_run`')]);
+  await openNotebook(page, request, [setup, ai('ask', 'E2E_HANDOFF_PROMPT_RUN &`prompt_and_run`')]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   let promptRequests = 0;
   page.on('request', item => { if (item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST') promptRequests++; });
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
@@ -140,12 +159,13 @@ test('prompt_and_run creates a distinct question which selects and executes code
 });
 
 test('prompt_and_run visibly stops when its new question does not select code', async ({ page, request }) => {
-  await openNotebook(page, request, [ai('ask', 'E2E_HANDOFF_PROMPT_RUN_NO_CHOICE &`prompt_and_run`')]);
+  await openNotebook(page, request, [setup, ai('ask', 'E2E_HANDOFF_PROMPT_RUN_NO_CHOICE &`prompt_and_run`')]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
   await notebook.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
   await expect(notebook.locator('.nbinlineai-prompt-cell')).toHaveCount(2);
   await expect(notebook.locator('.nbinlineai-prompt-cell').last().locator('.nbinlineai-status')).toContainText('No code cell was selected');
-  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(0);
+  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
 });
 
 test('direct Python add returns before its inserted code executes', async ({ page, request }) => {
