@@ -121,8 +121,19 @@ test('one decoder lease uploads actual video timestamps and cancels a partial ba
   class Video extends EventTarget {
     src = ''; controls = false; preload = ''; duration = 2; videoWidth = 2; videoHeight = 2; readyState = 2;
     private position = 0;
+    private callback?: VideoFrameRequestCallback;
+    private callbackId = 0;
     get currentTime(): number { return this.position; }
-    set currentTime(value: number) { this.position = value + 0.01; queueMicrotask(() => this.dispatchEvent(new Event('seeked'))); }
+    set currentTime(value: number) { this.position = value + 0.01; queueMicrotask(() => {
+      this.dispatchEvent(new Event('seeked'));
+      this.callback?.(0, { mediaTime: value } as VideoFrameCallbackMetadata);
+    }); }
+    requestVideoFrameCallback(callback: VideoFrameRequestCallback): number {
+      this.callback = callback; return ++this.callbackId;
+    }
+    cancelVideoFrameCallback(id: number): void {
+      if (id === this.callbackId) this.callback = undefined;
+    }
     canPlayType(): string { return 'maybe'; }
     load(): void { if (this.src) queueMicrotask(() => this.dispatchEvent(new Event('loadeddata'))); }
     pause(): void { /* decoder does not play */ }
@@ -149,7 +160,7 @@ test('one decoder lease uploads actual video timestamps and cancels a partial ba
     arguments: { media: { media_id: 'video' }, timestamps: [0.5, 1], save_to: 'frames' } };
   try {
     await extractFrames(context as never, request, { operation_id: 'op', status: 'running' });
-    assert.deepEqual(uploaded.map(part => part.actual_seconds), [0.51, 1.01]);
+    assert.deepEqual(uploaded.map(part => part.actual_seconds), [0.5, 1]);
     assert.equal(finished, 1); assert.equal(cancelled, 0); assert.equal(revoked, 1);
     context.upload = async () => { throw new Error('upload failed'); };
     await assert.rejects(extractFrames(context as never, request, { operation_id: 'fail', status: 'running' }));

@@ -23,6 +23,7 @@ test('the public notebook decodes two real video frames and saves and redacts PN
   const code = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
   await expect(code).toHaveCount(ids.length);
   const selectKernel = page.getByRole('button', { name: 'Select', exact: true });
+  await selectKernel.waitFor({ state: 'visible', timeout: 3000 }).catch(() => undefined);
   if (await selectKernel.isVisible().catch(() => false)) await selectKernel.click();
   const newsNo = page.getByRole('button', { name: 'No', exact: true });
   if (await newsNo.isVisible().catch(() => false)) await newsNo.click();

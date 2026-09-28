@@ -221,6 +221,7 @@ export async function loadPlaybackMedia(context: BrowserOperationContext, refere
       released = true; element.pause(); element.removeAttribute('src'); element.load();
       URL.revokeObjectURL(url); releasePixels?.(); releaseEncoded();
     };
+    let lastFrame: { requested: number; actual: number } | undefined;
     const frameAt = async (seconds: number, signal?: AbortSignal): Promise<RasterFrameLease> => {
       if (format.kind !== 'video') throw new BrowserMediaError('unsupported', 'Only video has frames.');
       requireCurrent(context, signal);
@@ -231,15 +232,37 @@ export async function loadPlaybackMedia(context: BrowserOperationContext, refere
       try {
         element.pause();
         const alreadyAtFrame = Math.abs(video.currentTime - seconds) < 0.001 && video.readyState >= 2;
-        if (!alreadyAtFrame) await new Promise<void>((resolve, reject) => {
+        if (typeof video.requestVideoFrameCallback !== 'function' ||
+            typeof video.cancelVideoFrameCallback !== 'function')
+          throw new BrowserMediaError('unsupported', 'This browser cannot report decoded frame timestamps.');
+        let actualSeconds = alreadyAtFrame && lastFrame?.requested === seconds ? lastFrame.actual : undefined;
+        if (actualSeconds === undefined) actualSeconds = await new Promise<number>((resolve, reject) => {
+          let frameCallback: number | undefined;
           const cleanup = () => { video.removeEventListener('seeked', onSeek); video.removeEventListener('error', onError);
-            signal?.removeEventListener('abort', onAbort); window.clearTimeout(timer); };
-          const onSeek = () => { cleanup(); resolve(); };
+            signal?.removeEventListener('abort', onAbort); window.clearTimeout(timer);
+            if (frameCallback !== undefined) video.cancelVideoFrameCallback(frameCallback); };
+          const onSeek = () => {
+            frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
+              if (released || !context.isCurrent() || signal?.aborted) {
+                cleanup(); reject(new BrowserMediaError('stale_target', 'Decoder lease has closed.')); return;
+              }
+              if (!Number.isFinite(metadata.mediaTime) || metadata.mediaTime < 0 ||
+                  metadata.mediaTime > duration + 0.001) {
+                cleanup(); reject(new BrowserMediaError('unsupported', 'Decoded frame timestamp is unavailable.'));
+                return;
+              }
+              cleanup(); resolve(metadata.mediaTime);
+            });
+          };
           const onError = () => { cleanup(); reject(new BrowserMediaError('unsupported', 'Video frame could not be decoded.')); };
           const onAbort = () => { cleanup(); reject(new BrowserMediaError('cancelled', 'Frame extraction cancelled.')); };
-          const timer = window.setTimeout(() => { cleanup(); reject(new BrowserMediaError('timeout', 'Video seek timed out.')); }, 10_000);
+          const timer = window.setTimeout(() => { cleanup(); reject(new BrowserMediaError('timeout', 'Decoded frame presentation timed out.')); }, 10_000);
           video.addEventListener('seeked', onSeek, { once: true }); video.addEventListener('error', onError, { once: true });
-          signal?.addEventListener('abort', onAbort, { once: true }); video.currentTime = seconds;
+          signal?.addEventListener('abort', onAbort, { once: true });
+          // Assigning the same currentTime may not seek; a tiny nudge still presents its frame.
+          video.currentTime = alreadyAtFrame
+            ? (seconds + 0.0001 < duration ? seconds + 0.0001 : Math.max(0, seconds - 0.0001))
+            : seconds;
         });
         requireCurrent(context, signal);
         const bitmap = await createImageBitmap(video);
@@ -247,8 +270,9 @@ export async function loadPlaybackMedia(context: BrowserOperationContext, refere
           bitmap.close(); requireCurrent(context, signal);
           throw new BrowserMediaError('stale_target', 'Decoder lease has closed.');
         }
+        lastFrame = { requested: seconds, actual: actualSeconds };
         let frameReleased = false;
-        return { bitmap, actualSeconds: video.currentTime, width: bitmap.width, height: bitmap.height,
+        return { bitmap, actualSeconds, width: bitmap.width, height: bitmap.height,
           release: () => { if (frameReleased) return; frameReleased = true; bitmap.close(); releaseFrameBudget(); } };
       } catch (error) { releaseFrameBudget(); throw error; }
     };

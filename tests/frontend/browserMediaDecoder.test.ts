@@ -104,11 +104,24 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     videoHeight = 16;
     readyState = 2;
     blockSeek = false;
+    blockFrame = false;
     private position = 0;
+    private callback?: VideoFrameRequestCallback;
+    private callbackId = 0;
     get currentTime(): number { return this.position; }
     set currentTime(value: number) {
       this.position = value;
-      if (!this.blockSeek) queueMicrotask(() => this.dispatchEvent(new Event('seeked')));
+      if (!this.blockSeek) queueMicrotask(() => {
+        this.dispatchEvent(new Event('seeked'));
+        if (!this.blockFrame)
+          this.callback?.(0, { mediaTime: Math.floor(value * 2) / 2 } as VideoFrameCallbackMetadata);
+      });
+    }
+    requestVideoFrameCallback(callback: VideoFrameRequestCallback): number {
+      this.callback = callback; return ++this.callbackId;
+    }
+    cancelVideoFrameCallback(id: number): void {
+      if (id === this.callbackId) this.callback = undefined;
     }
     canPlayType(mime: string): string { return mime === 'video/webm' ? 'maybe' : ''; }
     load(): void { if (this.src) queueMicrotask(() => this.dispatchEvent(new Event('loadeddata'))); }
@@ -138,10 +151,17 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     const lease = await loadPlaybackMedia(context as never, { media_id: 'clip' }, { preview: true });
     assert.equal(lease.kind, 'video');
     if (lease.kind !== 'video') return;
-    const frame = await lease.frameAt(0.5);
+    const frame = await lease.frameAt(0.6);
     assert.equal(frame.actualSeconds, 0.5);
     assert.equal(frame.width, 16);
     frame.release();
+    video.blockFrame = true;
+    const afterSeek = new AbortController();
+    const awaitingFrame = lease.frameAt(0.8, afterSeek.signal);
+    await new Promise(resolve => queueMicrotask(resolve));
+    afterSeek.abort();
+    await assert.rejects(awaitingFrame, (error: any) => error.code === 'cancelled');
+    video.blockFrame = false;
     video.blockSeek = true;
     const controller = new AbortController();
     const pending = lease.frameAt(1, controller.signal);
