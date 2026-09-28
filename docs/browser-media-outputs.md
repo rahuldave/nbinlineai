@@ -6,7 +6,7 @@ title: Live notebook outputs and canvas
 
 These browser tools inspect the **open notebook that started the request**. They read live JupyterLab cell and output models, so unsaved and offscreen outputs can be listed without running a cell or opening a renderer. Direct calls in a code cell return a `BrowserReceipt` immediately. Run a later cell to inspect its `status`, `result`, `media`, or `error`; image exports arrive as Pillow images, and native SVG exports arrive as markup text. AI tool calls receive bounded JSON descriptors, never image bytes in the answer text.
 
-Import the functions from `nbinlineai.tools`. Offer only the functions needed by a particular AI question using ordinary Markdown `&` references; importing them alone does not authorize a model call. The [Notebook example](https://github.com/rahuldave/nbinlineai/blob/main/examples/browser-media-outputs.ipynb) uses direct code-cell calls and later inspection cells without a provider key. See the [tools reference](tools.md) for the complete source registry and the [examples guide](examples.md) for declaration rules.
+Import the functions from `nbinlineai.tools`. Offer only the functions needed by a particular AI question using ordinary Markdown `&` references; importing them alone does not authorize a model call. The [Notebook example](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) uses direct code-cell calls and later inspection cells without a provider key. See the [tools reference](tools.md) for the complete source registry and the [examples guide](examples.md) for declaration rules.
 
 | Tool | Existing state read or result |
 | --- | --- |
