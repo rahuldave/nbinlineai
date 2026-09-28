@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import io
 import json
+import mimetypes
 import os
 import socket
 import tempfile
@@ -19,16 +20,24 @@ from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 
 from nbinlineai.browser_media import Media, MediaRegistry
-from nbinlineai.handlers import BrowserMediaBytesHandler, BrowserMediaHandler
+from nbinlineai.handlers import (
+    BrowserMediaBytesHandler,
+    BrowserMediaFileHandler,
+    BrowserMediaHandler,
+)
 
 
 class _Sessions:
+    def __init__(self):
+        self.paths = {'session': 'fixture.ipynb'}
+
     async def get_session(self, *, session_id):
-        return {'type': 'notebook', 'path': 'fixture.ipynb'}
+        return {'type': 'notebook', 'path': self.paths[session_id]}
 
 
 class _Dispatcher:
-    sessions = _Sessions()
+    def __init__(self):
+        self.sessions = _Sessions()
 
     async def resolve(self, session_id):
         return 'kernel', object()
@@ -52,11 +61,14 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                                              else None)
         self.owner = self.registry.bind('session', 'kernel', 'fixture.ipynb', 'model', 'client')
         self.op = self.registry.create(self.owner, 'op-request', 'fixture_image', {})
+        self.dispatcher = _Dispatcher()
         return Application(
             [(r'/nbinlineai/browser-media-bytes/([^/]+)', BrowserMediaBytesHandler,
-              {'dispatcher': _Dispatcher(), 'media_registry': self.registry}),
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
              (r'/nbinlineai/browser-media/([a-z]+)', BrowserMediaHandler,
-              {'dispatcher': _Dispatcher(), 'media_registry': self.registry})],
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
+             (r'/nbinlineai/browser-media-file', BrowserMediaFileHandler,
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry})],
             authorizer=self.authorizer, identity_provider=identity, login_url='/login',
             base_url='/', cookie_secret='test-only', disable_check_xsrf=True
         )
@@ -88,6 +100,75 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                                            'session_id': 'session', 'client_id': 'client', 'model_id': 'model', **body
                                        }))
         return await AsyncHTTPClient().fetch(request, raise_error=False)
+
+    def test_recording_admission_refreshes_distinct_session_paths(self):
+        async def check():
+            self.dispatcher.sessions.paths.update({'session-b': 'fixture.ipynb',
+                                                   'session-c': 'other.ipynb'})
+            second = self.registry.bind('session-b', 'kernel', 'fixture.ipynb', 'model', 'client-b')
+            third = self.registry.bind('session-c', 'kernel', 'other.ipynb', 'model', 'client-c')
+            a = self.registry.create(self.owner, 'rec-a', 'start_recording', {})
+            b = self.registry.create(second, 'rec-b', 'record_camera', {})
+            c = self.registry.create(third, 'rec-c', 'record_microphone', {})
+
+            async def claim(candidate, operation_id):
+                request = HTTPRequest(self.get_url('/nbinlineai/browser-media/claimrecording'), method='POST',
+                                      headers={'Authorization': 'Bearer test',
+                                               'X-NBInlineAI-Owner': candidate.secret,
+                                               'Content-Type': 'application/json'},
+                                      body=json.dumps({'session_id': candidate.session_id,
+                                                       'client_id': candidate.client_id,
+                                                       'model_id': candidate.model_id,
+                                                       'operation_id': operation_id}))
+                return await AsyncHTTPClient().fetch(request, raise_error=False)
+
+            assert (await claim(self.owner, a.id)).code == 200
+            assert json.loads((await claim(second, b.id)).body)['error']['code'] == 'busy'
+            self.dispatcher.sessions.paths.update({'session': 'renamed.ipynb',
+                                                   'session-b': 'renamed.ipynb'})
+            assert json.loads((await claim(second, b.id)).body)['error']['code'] == 'busy'
+            assert a.notebook_path == 'fixture.ipynb'
+            assert (await claim(third, c.id)).code == 200
+            self.registry.expire_owner(second)
+            assert self.registry.recording_claims[self.owner] == a.id
+            self.registry.cancel(self.owner, a.id)
+            assert self.owner not in self.registry.recording_claims
+
+        self.io_loop.run_sync(check)
+
+    def test_binary_routes_preserve_exact_bytes_hash_and_mime(self):
+        async def check():
+            image = Image.new('RGB', (2, 2), 'blue')
+            encoded = io.BytesIO()
+            image.save(encoded, format='PNG')
+            png = encoded.getvalue()
+            png_hash = hashlib.sha256(png).hexdigest()
+            self.registry.media['memory-png'] = Media('memory-png', self.owner, png, 'image/png',
+                                                      png_hash, self.registry._now() + 600)
+            memory = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url('/nbinlineai/browser-media-bytes/memory-png'), method='GET',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'X-NBInlineAI-Session': 'session', 'X-NBInlineAI-Client': 'client',
+                         'X-NBInlineAI-Model': 'model'}))
+            assert memory.body == png
+            assert memory.headers['Content-Type'] == 'image/png'
+            assert memory.headers['X-NBInlineAI-SHA256'] == png_hash
+
+            wav = b'RIFF' + (36).to_bytes(4, 'little') + b'WAVEfmt ' + b'\x00' * 28
+            await asyncio.to_thread((Path(self._root.name) / 'sample.wav').write_bytes, wav)
+            wav_hash = hashlib.sha256(wav).hexdigest()
+            saved = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url('/nbinlineai/browser-media-file'), method='POST',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'Content-Type': 'application/json'},
+                body=json.dumps({'session_id': 'session', 'client_id': 'client', 'model_id': 'model',
+                                 'media': {'path': 'sample.wav', 'sha256': wav_hash}})))
+            assert saved.body == wav
+            assert saved.headers['Content-Type'] == mimetypes.guess_type('sample.wav')[0]
+            assert saved.headers['Content-Type'] != 'application/json'
+            assert saved.headers['X-NBInlineAI-SHA256'] == wav_hash
+
+        self.io_loop.run_sync(check)
 
     def test_admission_precedes_streamed_body_and_disconnection_releases_reservation(self):
         async def check():

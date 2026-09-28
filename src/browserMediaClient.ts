@@ -31,16 +31,18 @@ export interface BrowserSource {
 }
 export type BrowserOperationHandler = (context: BrowserOperationContext, request: BrowserOperationRequest,
   operation: BrowserOperationStatus) => Promise<void>;
+export interface BrowserOperationOptions { waitingForUser?: boolean; }
 
-const handlers = new Map<string, { handler: BrowserOperationHandler; capability: () => BrowserCapabilityFact }>();
+const handlers = new Map<string, { handler: BrowserOperationHandler; capability: () => BrowserCapabilityFact;
+  options: BrowserOperationOptions }>();
 const controlNames = new Set(['browser_capabilities', 'operation_status', 'cancel_operation',
   'save_media', 'release_media']);
 /** Register one family operation without changing shared dispatch code. */
 export function registerBrowserOperation(name: string, handler: BrowserOperationHandler,
-  capability: () => BrowserCapabilityFact): void {
+  capability: () => BrowserCapabilityFact, options: BrowserOperationOptions = {}): void {
   if (!/^[a-z][a-z0-9_]{0,39}$/.test(name) || controlNames.has(name) || handlers.has(name) || handlers.size >= 43)
     throw new Error('Invalid, duplicate, or excessive browser operation');
-  handlers.set(name, { handler, capability });
+  handlers.set(name, { handler, capability, options });
 }
 export function browserCapabilityFacts(fileMediaSupported: boolean): ReturnType<typeof boundedCapabilityFacts> {
   const controls: Array<[string, BrowserCapabilityFact]> = [
@@ -96,6 +98,7 @@ export class BrowserOperationContext {
   private readonly operationCleanup = new Map<string, Set<() => void>>();
   private readonly mediaCleanup = new Map<string, Set<() => void>>();
   private readonly sources = new Map<string, BrowserSource>();
+  private readonly stoppedSources = new Map<string, { kind: BrowserSource['kind']; at: number }>();
   private readonly sourceListeners = new Map<string, Array<[MediaStreamTrack, () => void]>>();
   private readonly onDispose = new Set<() => void>();
   private readonly listeners = new Set<(operation: BrowserOperationStatus) => void>();
@@ -370,12 +373,12 @@ export class BrowserOperationContext {
   }
   registerSource(source: Omit<BrowserSource, 'sourceId' | 'state'>): BrowserSource {
     this.identity();
-    if (this.sources.size >= 16) throw new Error('Too many live browser sources.');
+    if (this.sources.size >= 16) throw new BrowserMediaError('limit_exceeded', 'Too many live browser sources.');
     const registered: BrowserSource = { ...source, sourceId: randomId(), state: 'live' };
     this.sources.set(registered.sourceId, registered);
     const listeners: Array<[MediaStreamTrack, () => void]> = [];
     for (const track of registered.tracks) {
-      const ended = (): void => { void this.endSource(registered.sourceId, 'source_ended'); };
+      const ended = (): void => { void this.endSource(registered.sourceId, 'source_ended').catch(() => undefined); };
       track.addEventListener('ended', ended, { once: true });
       listeners.push([track, ended]);
     }
@@ -385,14 +388,32 @@ export class BrowserOperationContext {
   source(sourceId: string): BrowserSource {
     this.identity();
     const source = this.sources.get(sourceId);
-    if (!source || source.state !== 'live') throw new Error('Source stopped or belongs to another notebook.');
+    if (!source || source.state !== 'live')
+      throw new BrowserMediaError('source_stopped', 'Source stopped or belongs to another notebook.');
     return source;
+  }
+  sourcesOfKind(kind: BrowserSource['kind']): BrowserSource[] {
+    this.identity();
+    return Array.from(this.sources.values()).filter(source => source.kind === kind && source.state === 'live');
+  }
+  sourceWasStopped(sourceId: string, kind: BrowserSource['kind']): boolean {
+    this.identity();
+    return this.stoppedSources.get(sourceId)?.kind === kind;
+  }
+  uniqueStoppedSourceId(kind: BrowserSource['kind']): string | null {
+    this.identity();
+    const matches = Array.from(this.stoppedSources).filter(([, stopped]) => stopped.kind === kind);
+    return matches.length === 1 ? matches[0][0] : null;
   }
   async endSource(sourceId: string, reason: 'source_ended' | 'cancelled'): Promise<void> {
     const source = this.sources.get(sourceId);
     if (!source || source.state === 'stopped') return;
     source.state = 'stopped';
     this.sources.delete(sourceId);
+    this.stoppedSources.set(sourceId, { kind: source.kind, at: Date.now() });
+    const oldest = Date.now() - 5 * 60_000;
+    for (const [id, stopped] of this.stoppedSources)
+      if (stopped.at < oldest || this.stoppedSources.size > 64) this.stoppedSources.delete(id);
     this.sourceListeners.get(sourceId)?.forEach(([track, listener]) => track.removeEventListener('ended', listener));
     this.sourceListeners.delete(sourceId);
     source.tracks.forEach(track => track.stop());
@@ -403,7 +424,7 @@ export class BrowserOperationContext {
     const entry = handlers.get(request.name);
     if (!entry) throw new Error(`Unsupported browser operation: ${request.name}`);
     if (!entry.capability().available) throw new Error(entry.capability().reason || 'Browser operation is unavailable.');
-    const status = await this.create(request);
+    const status = await this.create(request, entry.options.waitingForUser === true);
     const oldest = Date.now() - 5 * 60_000;
     for (const [id, dispatch] of this.dispatched)
       if (dispatch.terminalAt !== undefined && dispatch.terminalAt < oldest) this.dispatched.delete(id);

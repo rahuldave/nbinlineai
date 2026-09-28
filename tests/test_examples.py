@@ -30,6 +30,7 @@ EXAMPLES = [
     "tool-catalog-processes.ipynb",
     "browser-media-foundation.ipynb",
     "browser-media-outputs.ipynb",
+    "browser-media-capture.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -74,6 +75,20 @@ HEADLESS_UI_CELLS = {
     ("browser-media-outputs.ipynb", "outputs-cleanup"): "canvas_saved.media",
     ("browser-media-outputs.ipynb", "source-stop-inspect"): "stopped_source.status",
 }
+CAPTURE_DEMO_VARIABLES = {
+    "list_media_sources": "devices", "start_camera": "camera",
+    "capture_camera": "still", "start_recording": "recording",
+    "pause_recording": "paused", "resume_recording": "resumed",
+    "stop_recording": "stopped_recording", "stop_source": "stopped_camera",
+    "start_microphone": "microphone", "read_audio_levels": "levels",
+    "record_camera": "camera_clip", "record_microphone": "microphone_clip",
+    "setup_share": "sharing_controls", "start_share": "sharing",
+    "capture_screen": "screenshot", "capture_tool": "alias_frame",
+    "stop_share": "stopped_share",
+}
+for name, variable in CAPTURE_DEMO_VARIABLES.items():
+    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-call")] = f"{name}("
+    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f"{variable}.status"
 
 
 async def _run_code(

@@ -20,7 +20,8 @@ export function installBrowserMediaStatus(panel: NotebookPanel, context: Browser
       const row = document.createElement('div');
       row.className = 'nbinlineai-media-status-row';
       const label = document.createElement('span');
-      label.textContent = `Media ${item.status}`;
+      label.textContent = item.status === 'paused' && item.result?.source_id ?
+        'Media paused (source preview remains live)' : `Media ${item.status}`;
       row.append(label);
       if (['running', 'waiting_for_user', 'paused', 'saving'].includes(item.status)) {
         const stop = document.createElement('button');

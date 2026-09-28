@@ -9,7 +9,7 @@ test('source-ended and repeated Stop share one finalization; cancellation discar
   let finish!: () => void;
   registerRecordingHandle(context, { operationId: 'first', sourceId: 'canvas',
     finalize: async reason => { reasons.push(reason); await new Promise<void>(resolve => { finish = resolve; }); },
-    discard: () => { reasons.push('discarded'); } });
+    discard: () => { reasons.push('discarded'); }, pause() {}, resume() {}, state: () => 'recording' });
   const ended = recordingSourceEnded(context, 'canvas', 'source_ended');
   const stopped = stopRecordingHandle(context, 'first', 'user');
   assert.deepEqual(reasons, ['source_ended']);
@@ -19,8 +19,25 @@ test('source-ended and repeated Stop share one finalization; cancellation discar
   assert.deepEqual(reasons, ['source_ended']);
 
   registerRecordingHandle(context, { operationId: 'second', sourceId: 'microphone',
-    finalize: async reason => { reasons.push(reason); }, discard: () => { reasons.push('discarded'); } });
+    finalize: async reason => { reasons.push(reason); }, discard: () => { reasons.push('discarded'); },
+    pause() {}, resume() {}, state: () => 'recording' });
   await recordingSourceEnded(context, 'microphone', 'cancelled');
   await recordingSourceEnded(context, 'microphone', 'source_ended');
   assert.deepEqual(reasons, ['source_ended', 'discarded']);
+});
+
+test('source cleanup runs after a failed recorder flush and the next recorder can start', async () => {
+  const transitions: string[] = [];
+  const context = { transition: async (_id: string, state: string) => { transitions.push(state); } } as unknown as BrowserOperationContext;
+  let cleanups = 0;
+  registerRecordingHandle(context, { operationId: 'failed', sourceId: 'camera',
+    finalize: async () => { throw new Error('flush failed'); }, discard() {},
+    pause() {}, resume() {}, state: () => 'stopping' });
+  await assert.rejects(recordingSourceEnded(context, 'camera', 'source_ended', () => { cleanups++; }),
+    /flush failed/);
+  assert.equal(cleanups, 1);
+  assert.deepEqual(transitions, ['failed']);
+  registerRecordingHandle(context, { operationId: 'next', sourceId: 'microphone',
+    finalize: async () => undefined, discard() {}, pause() {}, resume() {}, state: () => 'recording' });
+  await recordingSourceEnded(context, 'microphone', 'cancelled');
 });

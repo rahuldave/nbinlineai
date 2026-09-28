@@ -29,6 +29,7 @@ import './browserNotebookOutputs';
 import './browserNotebookViews';
 import './browserNotebookCanvas';
 import './browserNotebookRegion';
+import './browserMediaCapture';
 import '../style/index.css';
 
 interface CellMetadata {
@@ -581,8 +582,12 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
                 throw new BrowserMediaError(released.error?.code || 'stale_target',
                   released.error?.message || 'Media release did not complete.');
               value = { operation_id: released.operation_id, released: released.result?.released === true };
-            } else value = await media.start({ request_id: event.request_id, name: event.name,
-              arguments: args });
+            } else {
+              const started = await media.start({ request_id: event.request_id, name: event.name,
+                arguments: args });
+              value = event.name === 'capture_tool' ? { ...started, model_pixels_attached: false,
+                note: 'The captured pixels remain local; no image pixels were sent to the model.' } : started;
+            }
             const encoded = JSON.stringify(value);
             result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
               truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'

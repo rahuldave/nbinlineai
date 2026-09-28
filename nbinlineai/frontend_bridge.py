@@ -6,6 +6,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from .browser_capture_tools import normalize_capture_action
+
 ACTION_TIMEOUT_SECONDS = 45
 MAX_REPLY_CHARS = 4_000
 MAX_ERROR_CHARS = 500
@@ -87,6 +89,9 @@ def normalize_action(
         raise ValueError("Action arguments must be JSON values") from exc
     if size > 16_000:
         raise ValueError("Action arguments are too large")
+    capture = normalize_capture_action(name, arguments)
+    if capture is not None:
+        return capture
     browser_fields = {
         'browser_capabilities': set(),
         'operation_status': {'operation_id'},

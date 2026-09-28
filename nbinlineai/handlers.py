@@ -392,7 +392,21 @@ class BrowserMediaHandler(APIHandler):
             elif command == 'cancel':
                 self.finish(registry.cancel(owner, body.get('operation_id')))
             elif command == 'claimrecording':
-                self.finish(registry.claim_recording(owner, body.get('operation_id')))
+                async with registry.recording_admission_lock:
+                    # Session paths are server-owned and may have changed after
+                    # these owners were created (for example, notebook Rename).
+                    paths = {}
+                    for claimed in (*registry.recording_owners(), owner):
+                        try:
+                            session = await self.dispatcher.sessions.get_session(
+                                session_id=claimed.session_id)
+                        except Exception as exc:
+                            raise MediaError('stale_target', 'Recording session is unavailable') from exc
+                        if (session.get('type') != 'notebook' or
+                                not isinstance(session.get('path'), str) or not session['path']):
+                            raise MediaError('stale_target', 'Notebook session is unavailable')
+                        paths[claimed] = session['path']
+                    self.finish(registry.claim_recording(owner, body.get('operation_id'), paths))
             elif command == 'save':
                 reference = body.get('media', body.get('media_id'))
                 save_to = body.get('save_to')
@@ -559,10 +573,9 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
         try:
             owner = await self._byte_owner()
             media = self.media_registry.media_ref(owner, media_id, consume=True)
-            self.set_header('Content-Type', media.mime_type)
             self.set_header('X-NBInlineAI-SHA256', media.sha256)
             self.set_header('Cache-Control', 'no-store')
-            self.finish(media.data)
+            self.finish(media.data, set_content_type=media.mime_type)
         except MediaError as exc:
             self._error(exc)
 
@@ -586,10 +599,9 @@ class BrowserMediaFileHandler(BrowserMediaHandler):
 
             data, mime_type, digest = await asyncio.to_thread(self.media_registry.resolve_ref,
                                                                owner, body.get('media'), reserve_file)
-            self.set_header('Content-Type', mime_type)
             self.set_header('X-NBInlineAI-SHA256', digest)
             self.set_header('Cache-Control', 'no-store')
-            self.finish(data)
+            self.finish(data, set_content_type=mime_type)
         except MediaError as exc:
             self._error(exc)
         finally:
