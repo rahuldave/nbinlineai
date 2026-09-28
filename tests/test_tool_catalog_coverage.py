@@ -111,9 +111,9 @@ def demo_is_actionable(cells: list[dict], index: int, name: str) -> bool:
 
 
 def row_has_exact_link(row: str, entry: dict) -> bool:
-    """Keep a notebook section and cell ID attached to the correct tool row."""
-    url = ("https://github.com/rahuldave/nbinlineai/blob/main/examples/"
-           + entry["notebook"])
+    """Keep the rendered notebook cell attached to the correct tool row."""
+    url = ("https://rahuldave.com/nbinlineai/notebooks/"
+           + entry["notebook"].removesuffix(".ipynb") + ".html#" + entry["cell_id"])
     expected = f"[Notebook example: § `{entry['section']}`, cell `{entry['cell_id']}`]({url})"
     return row.count("[Notebook example:") == 1 and expected in row
 

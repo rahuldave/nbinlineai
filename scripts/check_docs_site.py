@@ -13,6 +13,7 @@ class Page(HTMLParser):
         super().__init__()
         self.ids: set[str] = set()
         self.references: list[str] = []
+        self.classes: list[str] = []
         self.table_rows: list[list[str]] = []
         self._table = False
         self._row: list[str] | None = None
@@ -22,6 +23,7 @@ class Page(HTMLParser):
         attributes = dict(attrs)
         if attributes.get("id"):
             self.ids.add(attributes["id"])
+        self.classes.extend((attributes.get("class") or "").split())
         if tag in ("a", "link") and attributes.get("href"):
             self.references.append(attributes["href"])
         if tag in ("img", "script") and attributes.get("src"):
@@ -67,24 +69,58 @@ def public_tool_names(coverage_path: Path = CATALOG) -> set[str]:
     return {name for name, entry in coverage.items() if not entry.get("setup_helper")}
 
 
-def check(site: Path, coverage_path: Path = CATALOG) -> list[str]:
+def check(site: Path, coverage_path: Path = CATALOG,
+          examples: Path | None = None) -> list[str]:
     problems: list[str] = []
     pages: dict[Path, Page] = {}
     expected_tools = public_tool_names(coverage_path)
+    examples = examples or Path(__file__).resolve().parents[1] / "examples"
+    sources = sorted(examples.glob("*.ipynb"))
+    notebook_pages = [f"notebooks/{source.stem}.html" for source in sources]
     for path in sorted(site.rglob("*.html")):
         page = Page()
         page.feed(path.read_text(encoding="utf-8"))
         pages[path.resolve()] = page
-    for relative in REQUIRED_PAGES:
+    for relative in [*REQUIRED_PAGES, *notebook_pages]:
         path = site / relative
         if not path.is_file():
             problems.append(f"missing page: {relative}")
     if not (site / ".nojekyll").is_file():
         problems.append("missing .nojekyll in rendered site")
+    gallery = pages.get((site / "examples.html").resolve())
+    if gallery:
+        listing_links = {ref.rsplit("/", 1)[-1] for ref in gallery.references
+                         if re.search(r"(?:^|/)notebooks/[a-z0-9-]+\.html$", ref)}
+        if len(listing_links) != len(sources):
+            problems.append(f"expected {len(sources)} notebook links, found {len(listing_links)}")
+        for relative in notebook_pages:
+            if not any(ref.endswith(relative) for ref in gallery.references):
+                problems.append(f"examples guide does not link to {relative}")
+    for source, relative in zip(sources, notebook_pages):
+        page = pages.get((site / relative).resolve())
+        if not page:
+            continue
+        if "—title:" in (site / relative).read_text(encoding="utf-8"):
+            problems.append(f"{relative}: Quarto front matter appears as page text")
+        notebook = json.loads(source.read_text(encoding="utf-8"))
+        for key, css in (("isPromptCell", "nbinlineai-ai-prompt"),
+                         ("isOutputCell", "nbinlineai-ai-response")):
+            expected = sum(bool(cell.get("metadata", {}).get("nbinlineai", {}).get(key))
+                           for cell in notebook["cells"])
+            actual = page.classes.count(css)
+            if actual != expected:
+                problems.append(f"{relative}: expected {expected} {css} panels, found {actual}")
+        download = f"https://github.com/rahuldave/nbinlineai/blob/main/examples/{source.name}"
+        if download not in page.references:
+            problems.append(f"{relative}: missing source notebook download link")
     for path, page in list(pages.items()):
         for reference in page.references:
             url = urlsplit(reference)
-            if url.scheme or url.netloc or reference.startswith("//"):
+            if url.netloc:
+                if (url.scheme != "https" or url.netloc != "rahuldave.com"
+                        or not url.path.startswith("/nbinlineai/")):
+                    continue
+            elif url.scheme or reference.startswith("//"):
                 continue
             target = unquote(url.path)
             if target.startswith("/nbinlineai/"):
@@ -134,4 +170,5 @@ if __name__ == "__main__":
         print("\n".join(errors), file=sys.stderr)
         raise SystemExit(1)
     print(f"Quarto site: {len(list(site.rglob('*.html')))} pages, "
-          f"{len(public_tool_names())} tool rows, local links and anchors OK")
+          f"{len(public_tool_names())} tool rows, notebook gallery, AI panels, "
+          "local links and anchors OK")
