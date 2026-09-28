@@ -40,6 +40,7 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 | Document | Status and purpose |
 | --- | --- |
+| [Browser, app and local-media tools](browser_media_tool_research.md) | September 28 dialoghelper/Chrome-extension survey, local screenshots/video, browser API candidates and explicit main-versus-execution-handoff dependencies. Research only. |
 | [ChatGPT subscription runtime gate](chatgpt_subscription_gate.md) | Pinned runtime isolation evidence, the superseded strict one-request gate, local live acceptance, and cross-platform CI results for 0.1.13. |
 | [ChatGPT subscription integration spec](chatgpt_subscription_integration.md) | Implemented 0.1.13 contract: packaged pinned SDK/runtime, ChatGPT sign-in, notebook-owned structured tool plans (no ACP), exact host-submission budget, private runtime cwd, disabled native direct files, API coexistence and release checks. |
 | [Subscription implementation task prompt](chatgpt_subscription_task_prompt.md) | Historical 0.1.13 task contract and acceptance checklist; use the handoff and release record for current status. |
