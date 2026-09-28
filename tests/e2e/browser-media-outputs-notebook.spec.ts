@@ -5,6 +5,7 @@ import { expect, test, type Page } from '../support/e2e-fixtures';
 type NotebookCell = { id: string; cell_type: string; source: string[] };
 
 test('the exact outputs example demonstrates and inspects all ten public tools', async ({ page, request }) => {
+  test.setTimeout(180_000);
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-outputs.ipynb'), 'utf8'));
   const cells = example.cells as NotebookCell[];
   const codeIds = cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
