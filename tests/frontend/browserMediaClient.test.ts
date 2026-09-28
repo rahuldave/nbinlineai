@@ -93,3 +93,32 @@ test('dispatch stays single-flight past five minutes and rejects an old running 
     await context.dispose();
   } finally { Date.now = realNow; restore(); }
 });
+
+test('registered permission operation creates a real waiting_for_user state', async () => {
+  const { panel, kernel } = panelFixture();
+  let requestedWaiting: unknown;
+  let handlerState = '';
+  const name = 'fixture_permission_wait';
+  registerBrowserOperation(name, async (_context, _request, operation) => {
+    handlerState = operation.status;
+  }, () => ({ available: true }), { waitingForUser: true });
+  const restore = browserGlobals(async (input, init) => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'create') {
+      requestedWaiting = JSON.parse(String(init?.body)).waiting;
+      return response({ operation_id: 'waiting-operation', status: 'waiting_for_user' });
+    }
+    if (command === 'status') return response({ operation_id: 'waiting-operation', status: 'waiting_for_user' });
+    if (command === 'close') return response({ closed: true });
+    throw new Error(`Unexpected ${command}`);
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    const started = await context.start({ request_id: 'permission', name, arguments: {} });
+    assert.equal(requestedWaiting, true);
+    assert.equal(started.status, 'waiting_for_user');
+    assert.equal(handlerState, 'waiting_for_user');
+    await context.dispose();
+  } finally { restore(); }
+});
