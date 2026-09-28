@@ -128,7 +128,8 @@ def normalize_action(
             if not isinstance(arguments.get('canvas'), dict):
                 raise ValueError('canvas must be a CanvasRef descriptor')
             canvas = arguments['canvas']
-            if set(canvas) != {'canvas_id', 'cell_id', 'output_id', 'revision', 'view_revision'}:
+            required = {'canvas_id', 'cell_id', 'output_id', 'revision', 'view_revision'}
+            if not required <= set(canvas) or set(canvas) - required - {'width', 'height'}:
                 raise ValueError('canvas must be an exact CanvasRef descriptor')
             result['canvas'] = {
                 'canvas_id': _text(canvas['canvas_id'], 'canvas_id', 100),

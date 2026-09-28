@@ -17,7 +17,7 @@ function visibleIds(context: BrowserOperationContext): { first: string | null; l
 export function readNotebookView(context: BrowserOperationContext): Record<string, unknown> {
   if (!context.isCurrent()) throw new BrowserMediaError('stale_target', 'The originating notebook changed.');
   const notebook = context.panel.content;
-  const selected = notebook.selectedCells.slice(0, 20).map(widget => widget.model.id);
+  const selected = notebook.selectedCells.slice(0, 12).map(widget => widget.model.id.slice(0, 200));
   return { active_cell_id: notebook.activeCell?.model.id ?? null,
     active_cell_index: notebook.activeCellIndex, selected_cell_ids: selected,
     selected_truncated: notebook.selectedCells.length > selected.length,
@@ -40,8 +40,11 @@ export function readSelection(context: BrowserOperationContext, maxChars: number
   const end = editor.getOffsetAt(selection.end);
   const source = widget.model.sharedModel.getSource();
   const value = source.slice(Math.min(start, end), Math.max(start, end));
-  return { cell_id: widget.model.id, text: value.slice(0, maxChars),
-    truncated: value.length > maxChars, total_chars: value.length };
+  let length = Math.min(maxChars, value.length);
+  const result = (size: number): Record<string, unknown> => ({ cell_id: widget.model.id,
+    text: value.slice(0, size), truncated: value.length > size, total_chars: value.length });
+  while (length > 0 && JSON.stringify(result(length)).length > 3200) length = Math.floor(length * 0.75);
+  return result(length);
 }
 registerBrowserOperation('read_notebook_view', async (context, _request, operation) => {
   await context.transition(operation.operation_id, 'completed', readNotebookView(context));

@@ -27,6 +27,8 @@ import { boundedMediaErrorText } from './browserMediaCapabilities';
 import { installBrowserMediaStatus } from './browserMediaStatus';
 import './browserNotebookOutputs';
 import './browserNotebookViews';
+import './browserNotebookCanvas';
+import './browserNotebookRegion';
 import '../style/index.css';
 
 interface CellMetadata {
