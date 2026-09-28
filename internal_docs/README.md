@@ -48,6 +48,7 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 | Document | Status and purpose |
 | --- | --- |
+| [JupyterLite feasibility](jupyterlite_feasibility.md) | 2026-09-25 exploration: published frontend loads in Lite Notebook/Lab; embedded Pyodide execution succeeds; current AI server routes need a port. |
 | [Browser, app and local-media tools](browser_media_tool_research.md) | September 28 dialoghelper survey; camera/video/audio, local Jupyter-folder saves, no extra browser extensions, desktop/mobile gaps and main-versus-handoff dependencies. |
 | [Browser and media API spec](browser_media_tool_spec.md) | Proposed callable APIs, dialoghelper naming, camera video, local saves, image attachment, ownership and verification; apps deferred; no runtime implementation. |
 | [Browser/media implementation task prompt](browser_media_tool_task_prompt.md) | Copyable post-merge prompt for main-based implementation worktrees; separates experimental execution compositions. |

@@ -1,5 +1,13 @@
 # Developer handoff
 
+**2026-09-25 JupyterLite exploration (preserved 2026-09-28):** See the
+[JupyterLite feasibility study](jupyterlite_feasibility.md). The published 0.1.15
+frontend loaded in JupyterLite 0.8.4 Notebook and Lab; a same-origin embedded
+Notebook executed Python 3.14.2 through Pyodide. AI remains unavailable because
+the static site has no nbinlineai server routes. This is research on `main`,
+not a runtime port or release. The study recommends a Notebook-first browser
+adapter experiment and separates browser execution from model hosting.
+
 **2026-09-28 documentation policy:** Internal research, specs, task prompts,
 handoffs and release records are maintained on main. Implementation worktrees
 read them through the primary main checkout or an explicitly recorded main
