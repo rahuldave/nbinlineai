@@ -1,0 +1,7 @@
+# Browser capture and shared recorder handoff
+
+**In progress on `codex/browser-media-capture`, based on reviewed foundation `c876fd4c77517c08b60670a0ecc66029872b02b3`; not merged or released.** The approved API is `internal_docs/browser_media_tool_spec.md` at main `61fa3fe517999d8f88ff328a99fc86a34dfb470b` and the selected task prompt is at `e3fcf33b20ec10cd511129cd1672b98d307e4a5c`.
+
+The shared source hook is `recordingSourceEnded(context, sourceId, reason)` from `src/browserMediaRecorder.ts`. A camera, microphone, screen, or canvas family calls it from the `onEnded` passed to `context.registerSource`. The source's returned `sourceId` can be captured in that callback. `source_ended` flushes the selected recording destination once; `cancelled` discards unfinished data. `stopRecordingHandle` and repeated source-end callbacks share one finalization promise. Explicit sources survive a normal recording stop; convenience operations own and stop their tracks.
+
+`MediaRegistry.claim_recording(owner, operation_id)` atomically admits one active recording per notebook session across browser clients. The browser calls `context.claimRecording` after a recording operation reaches `running`. Matching terminal transition, upload completion/failure, cancel, or owner expiry releases the claim. Slow media encoding and file saving occur outside this admission lock. The full public API, device interaction, examples and browser verification remain in progress on this topic.

@@ -391,6 +391,8 @@ class BrowserMediaHandler(APIHandler):
                 self.finish(status)
             elif command == 'cancel':
                 self.finish(registry.cancel(owner, body.get('operation_id')))
+            elif command == 'claimrecording':
+                self.finish(registry.claim_recording(owner, body.get('operation_id')))
             elif command == 'save':
                 reference = body.get('media', body.get('media_id'))
                 save_to = body.get('save_to')
@@ -529,6 +531,7 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
                             media.path = path
                             op.status = 'completed'
                             op.updated = self.media_registry._now()
+                            self.media_registry._drop_recording(op)
                             self.media_registry._forget_saved(path)
                     if not active:
                         self.media_registry._unlink_saved(path)
@@ -543,6 +546,7 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
                             op.error = {'code': exc.code if isinstance(exc, MediaError) else 'save_failed',
                                         'message': str(exc)[:300] if isinstance(exc, MediaError) else 'Media could not be saved'}
                             op.updated = self.media_registry._now()
+                            self.media_registry._drop_recording(op)
                     raise
             self.finish(status)
         except (ValueError, TypeError) as exc:
