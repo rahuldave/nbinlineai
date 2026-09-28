@@ -102,6 +102,8 @@ test('deterministic camera still and shared recorder deliver typed Python result
     "print('RECORDING_READY' if recording.status == 'running' and recording.operation_id else recording.status, recording.operation_id)",
     "stopped = stop_recording(recording.operation_id)",
     "print(stopped.status, recording.status, type(recording.result).__name__, recording.media)",
+    'second_stop = stop_recording(recording.operation_id)',
+    'print(second_stop.status, second_stop.result)',
     'closed = stop_source(camera_id)',
     'from nbinlineai.tools import record_camera\nconvenience = record_camera(save_to=None, duration=2, audio=False)',
     'print(convenience.status, type(convenience.result).__name__, convenience.media)'
@@ -119,9 +121,11 @@ test('deterministic camera still and shared recorder deliver typed Python result
   expect(stopped).toContain('completed');
   expect(stopped).toContain('stop_reason');
   await runCell(page, 8);
+  expect(await inspectLater(page, 9, 'already_stopped')).toContain('completed');
+  await runCell(page, 10);
   await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
-  await runCell(page, 9);
-  expect(await inspectLater(page, 10, 'MediaClip')).toContain('completed');
+  await runCell(page, 11);
+  expect(await inspectLater(page, 12, 'MediaClip')).toContain('completed');
   await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
 });
 

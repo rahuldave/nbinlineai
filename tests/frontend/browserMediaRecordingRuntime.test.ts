@@ -129,6 +129,7 @@ test('the shared recorder claims once and uploads actual MIME with a user stop r
     await stopRecordingHandle(context, 'pause-resume', 'user');
 
     await startRecordedOperation(context, { operation_id: 'duration-limit', status: 'running' }, source, null, 1);
+    recordingHandle(context, 'duration-limit').pause();
     await new Promise(resolve => setTimeout(resolve, 1100));
     assert.ok(calls.some(call => call[0] === 'upload' && call[1] === 'duration-limit' &&
       (call[4] as { stop_reason: string }).stop_reason === 'duration'));

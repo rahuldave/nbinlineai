@@ -412,6 +412,12 @@ registerBrowserOperation('resume_recording', async (context, request, operation)
 
 registerBrowserOperation('stop_recording', async (context, request, operation) => {
   const target = String(request.arguments.operation_id);
+  const before = await context.status(target);
+  if (before.status === 'completed') {
+    await context.transition(operation.operation_id, 'completed', { target_operation_id: target,
+      target_status: 'completed', already_stopped: true });
+    return;
+  }
   await stopRecordingHandle(context, target, 'user');
   const current = await context.status(target);
   await context.transition(operation.operation_id, 'completed', { target_operation_id: target,
