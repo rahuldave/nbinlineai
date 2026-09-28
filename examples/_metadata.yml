@@ -1,0 +1,10 @@
+ipynb-filters:
+  - ../scripts/quarto_notebook_filter.py
+execute:
+  enabled: false
+format:
+  html:
+    theme: cosmo
+    css: ../assets/css/site.css
+    toc: true
+    code-copy: true

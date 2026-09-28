@@ -78,14 +78,14 @@ The [user guide index](user-guide.md) shows the reading order. Open the chapter 
 - Search saved project files and notebooks, inspect static Python source documentation, navigate document sections, and make checked text edits.
 - Find and edit ordinary cells in the live notebook by stable ID, including unsaved and offscreen cells. Edits do not execute or save them automatically.
 - Extract a public web-page section, inspect live values or skill descriptions, trace a live function, and run bounded shell or Python subprocesses with kernel-user permissions.
-- Try the [disposable project notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb).
+- Try the [disposable project notebook](notebooks/project-tools.html).
 
 ## Added in version 0.1.10
 
 - Questions and answers have distinct backgrounds that adapt to light and dark themes.
 - Empty questions offer editable starters. Shared instructions and cell-position landmarks help focus explanations on the requested cell while retaining useful earlier context.
 - Offer `insert_code` to let the AI add an ordinary, unexecuted code cell below its answer. The question and answer remain intact.
-- Try the [Jupyter AI + nbinlineai example](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb), and read the [FAQ](faq.md) for tool-registration, insertion, prompt starters, and coexistence details.
+- Try the [Jupyter AI + nbinlineai example](notebooks/jupyter-ai-and-nbinlineai.html), and read the [FAQ](faq.md) for tool-registration, insertion, prompt starters, and coexistence details.
 
 ## Added in version 0.1.9
 
@@ -98,7 +98,7 @@ Each cell's Context/Tools controls now sit above its content, aligned with the t
 Version 0.1.8 adds selectable notebook context.
 
 - Choose Default, Full notebook, All above, 10 above, 10 above + below, Custom or Current question only, with separate text/tool checkboxes and an authoritative first-round preview.
-- Save Custom choices while keeping inherited tools independent of selected text. Try the [context-selection example](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb).
+- Save Custom choices while keeping inherited tools independent of selected text. Try the [context-selection example](notebooks/context-selection.html).
 
 ## In version 0.1.7
 

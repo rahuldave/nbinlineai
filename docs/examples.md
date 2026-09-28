@@ -115,33 +115,35 @@ This image uses a simulated provider and sample page content; insertion uses the
 
 ## Explore a disposable project
 
-The [Fastcore tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) creates a temporary project and demonstrates saved-file search, static Python source documentation, Markdown/Python document sections, and digest-checked edits. Its setup code works without a provider or network request.
+The [Fastcore tools notebook](notebooks/fastcore-tools.html) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](notebooks/project-tools.html) creates a temporary project and demonstrates saved-file search, static Python source documentation, Markdown/Python document sections, and digest-checked edits. Its setup code works without a provider or network request.
 
 Use `tool_catalog()` to inspect group names without declaring anything. `tools_markdown(group="code")` prints removable declarations for a task-focused group; the default `starter` group has 19 tools. Select at most 20 tool and variable names combined in one AI question. `source_doc(path)` parses source without importing it; `show_doc(name, module="...")` imports a named module explicitly and can run its initialization. Search paths are relative to the selected kernel's current working directory, not necessarily the notebook folder. See the [tools reference](tools.md) for exact signatures and limits.
 
-## Downloadable notebooks
+## Notebook gallery
+
+Browse the notebooks below as readable HTML pages. Blue panels mark AI prompts and green panels mark saved AI responses. The pages show saved notebook content without running code or calling a provider. Each page links to its original `.ipynb` for download.
 
 Download notebooks from the [examples folder on GitHub](https://github.com/rahuldave/nbinlineai/tree/main/examples), and keep their `data/` folder beside them. The package also installs examples under `share/doc/nbinlineai/examples/` in its Python environment; copy that directory into your project before editing it. These notebooks include setup code and prompts, with no API keys or pre-generated AI answers. Configure your provider as usual. Run the Learning example one step at a time so you can answer the tutor before continuing.
 
 | Notebook | Try it |
 | --- | --- |
-| [Context selection](https://github.com/rahuldave/nbinlineai/blob/main/examples/context-selection.ipynb) | Compare context modes and control declaration cells with Tools. |
-| [Quick start](https://github.com/rahuldave/nbinlineai/blob/main/examples/quickstart.ipynb) | One live variable, one custom function, and your first AI call. |
-| [Live variables and tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-variables-and-tools.ipynb) | Compare a live value with a function call and inspect a real Python state change. |
-| [Socratic learning dialogue](https://github.com/rahuldave/nbinlineai/blob/main/examples/socratic-learning-dialog.ipynb) | Answer the tutor in successive AI cells and explore Keep overrides. |
-| [Bundled tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/bundled-tools.ipynb) | Generate references, find live names, and search/read a supplied saved notebook. |
-| [Live notebook tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/live-notebook-tools.ipynb) | Read unsaved cells below a question and insert a hint without selecting its target. |
-| [Python and web tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/python-and-web-tools.ipynb) | Inspect Python documentation/source, consult a page, and make a notebook note. |
-| [Fastcore tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) | Inspect documentation and make bounded edits to disposable text files. |
-| [Project tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) | Search and document a temporary source project; preview and check text edits. |
-| [Tool catalog: live Python](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-inspection.ipynb) | Call inspection and tracing tools on disposable kernel values; optionally read a discovered registered skill. |
-| [Tool catalog: saved files](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-files.ipynb) | Call each saved-file/source tool inside a temporary folder with fresh addresses and digests. |
-| [Tool catalog: saved notebooks](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-saved-notebooks.ipynb) | Search and read a temporary notebook containing a real stable cell ID. |
-| [Tool catalog: live notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-live-notebook.ipynb) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
-| [Tool catalog: web](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-web.ipynb) | Optional public-page reads and source-attributed note insertion. |
-| [Tool catalog: processes](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-processes.ipynb) | Run bounded local subprocesses; inspect tmux only if it is available. |
-| [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
-| [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
+| [Context selection](notebooks/context-selection.html) | Compare context modes and control declaration cells with Tools. |
+| [Quick start](notebooks/quickstart.html) | One live variable, one custom function, and your first AI call. |
+| [Live variables and tools](notebooks/live-variables-and-tools.html) | Compare a live value with a function call and inspect a real Python state change. |
+| [Socratic learning dialogue](notebooks/socratic-learning-dialog.html) | Answer the tutor in successive AI cells and explore Keep overrides. |
+| [Bundled tools](notebooks/bundled-tools.html) | Generate references, find live names, and search/read a supplied saved notebook. |
+| [Live notebook tools](notebooks/live-notebook-tools.html) | Read unsaved cells below a question and insert a hint without selecting its target. |
+| [Python and web tools](notebooks/python-and-web-tools.html) | Inspect Python documentation/source, consult a page, and make a notebook note. |
+| [Fastcore tools](notebooks/fastcore-tools.html) | Inspect documentation and make bounded edits to disposable text files. |
+| [Project tools](notebooks/project-tools.html) | Search and document a temporary source project; preview and check text edits. |
+| [Tool catalog: live Python](notebooks/tool-catalog-inspection.html) | Call inspection and tracing tools on disposable kernel values; optionally read a discovered registered skill. |
+| [Tool catalog: saved files](notebooks/tool-catalog-files.html) | Call each saved-file/source tool inside a temporary folder with fresh addresses and digests. |
+| [Tool catalog: saved notebooks](notebooks/tool-catalog-saved-notebooks.html) | Search and read a temporary notebook containing a real stable cell ID. |
+| [Tool catalog: live notebook](notebooks/tool-catalog-live-notebook.html) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
+| [Tool catalog: web](notebooks/tool-catalog-web.html) | Optional public-page reads and source-attributed note insertion. |
+| [Tool catalog: processes](notebooks/tool-catalog-processes.html) | Run bounded local subprocesses; inspect tmux only if it is available. |
+| [Jupyter AI and nbinlineai together](notebooks/jupyter-ai-and-nbinlineai.html) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
+| [Codex ACP worked example](notebooks/codex-acp-worked-example.html) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
 
 For the combined-extension examples, work step by step and paste chat prompts into **Jupyter Chat**. Jupyter AI's Codex authentication belongs to its adapter and does not configure nbinlineai. Inline questions can use nbinlineai's own ChatGPT connection or a separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) describes the earlier authenticated Jupyter AI trial and its limits.
 

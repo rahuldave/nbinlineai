@@ -1,5 +1,6 @@
 """Check the rendered Quarto site before publishing it to GitHub Pages."""
 
+import json
 import re
 import sys
 from html.parser import HTMLParser
@@ -12,6 +13,7 @@ class Page(HTMLParser):
         super().__init__()
         self.ids: set[str] = set()
         self.references: list[str] = []
+        self.classes: list[str] = []
         self.table_rows: list[list[str]] = []
         self._table = False
         self._row: list[str] | None = None
@@ -21,6 +23,7 @@ class Page(HTMLParser):
         attributes = dict(attrs)
         if attributes.get("id"):
             self.ids.add(attributes["id"])
+        self.classes.extend((attributes.get("class") or "").split())
         if tag in ("a", "link") and attributes.get("href"):
             self.references.append(attributes["href"])
         if tag in ("img", "script") and attributes.get("src"):
@@ -58,10 +61,13 @@ REQUIRED_PAGES = [
 ]
 
 
-def check(site: Path) -> list[str]:
+def check(site: Path, examples: Path | None = None) -> list[str]:
     problems: list[str] = []
     pages: dict[Path, Page] = {}
-    for relative in REQUIRED_PAGES:
+    examples = examples or Path(__file__).resolve().parents[1] / "examples"
+    sources = sorted(examples.glob("*.ipynb"))
+    notebook_pages = [f"notebooks/{source.stem}.html" for source in sources]
+    for relative in [*REQUIRED_PAGES, *notebook_pages]:
         path = site / relative
         if not path.is_file():
             problems.append(f"missing page: {relative}")
@@ -71,6 +77,32 @@ def check(site: Path) -> list[str]:
         pages[path.resolve()] = page
     if not (site / ".nojekyll").is_file():
         problems.append("missing .nojekyll in rendered site")
+    gallery = pages.get((site / "examples.html").resolve())
+    if gallery:
+        listing_links = {ref.rsplit("/", 1)[-1] for ref in gallery.references
+                         if re.search(r"(?:^|/)notebooks/[a-z0-9-]+\.html$", ref)}
+        if len(listing_links) != len(sources):
+            problems.append(f"expected {len(sources)} notebook links, found {len(listing_links)}")
+        for relative in notebook_pages:
+            if not any(ref.endswith(relative) for ref in gallery.references):
+                problems.append(f"examples guide does not link to {relative}")
+    for source, relative in zip(sources, notebook_pages):
+        page = pages.get((site / relative).resolve())
+        if not page:
+            continue
+        if "—title:" in (site / relative).read_text(encoding="utf-8"):
+            problems.append(f"{relative}: Quarto front matter appears as page text")
+        notebook = json.loads(source.read_text(encoding="utf-8"))
+        for key, css in (("isPromptCell", "nbinlineai-ai-prompt"),
+                         ("isOutputCell", "nbinlineai-ai-response")):
+            expected = sum(bool(cell.get("metadata", {}).get("nbinlineai", {}).get(key))
+                           for cell in notebook["cells"])
+            actual = page.classes.count(css)
+            if actual != expected:
+                problems.append(f"{relative}: expected {expected} {css} panels, found {actual}")
+        download = f"https://github.com/rahuldave/nbinlineai/blob/main/examples/{source.name}"
+        if download not in page.references:
+            problems.append(f"{relative}: missing source notebook download link")
     for path, page in list(pages.items()):
         for reference in page.references:
             url = urlsplit(reference)
@@ -115,4 +147,4 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         raise SystemExit(1)
-    print("Quarto site: 16 pages, 51 tool rows, local links and anchors OK")
+    print("Quarto site: pages, notebook gallery, AI panels, 51 tool rows, local links and anchors OK")
