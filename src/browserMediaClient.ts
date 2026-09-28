@@ -400,6 +400,11 @@ export class BrowserOperationContext {
     this.identity();
     return this.stoppedSources.get(sourceId)?.kind === kind;
   }
+  uniqueStoppedSourceId(kind: BrowserSource['kind']): string | null {
+    this.identity();
+    const matches = Array.from(this.stoppedSources).filter(([, stopped]) => stopped.kind === kind);
+    return matches.length === 1 ? matches[0][0] : null;
+  }
   async endSource(sourceId: string, reason: 'source_ended' | 'cancelled'): Promise<void> {
     const source = this.sources.get(sourceId);
     if (!source || source.state === 'stopped') return;

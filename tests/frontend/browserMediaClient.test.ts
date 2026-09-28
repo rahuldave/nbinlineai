@@ -122,3 +122,26 @@ test('registered permission operation creates a real waiting_for_user state', as
     await context.dispose();
   } finally { restore(); }
 });
+
+test('stopped screen source remains identifiable for idempotent default Stop', async () => {
+  const { panel, kernel } = panelFixture();
+  const restore = browserGlobals(async input => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'close') return response({ closed: true });
+    throw new Error(`Unexpected ${command}`);
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    const track = { kind: 'video', readyState: 'live', stop() { this.readyState = 'ended'; },
+      addEventListener() { /* test track */ }, removeEventListener() { /* test track */ } };
+    const source = context.registerSource({ kind: 'screen', tracks: [track as never],
+      actions: ['capture'], onEnded: () => undefined });
+    assert.equal(context.uniqueStoppedSourceId('screen'), null);
+    await context.endSource(source.sourceId, 'source_ended');
+    assert.equal(context.uniqueStoppedSourceId('screen'), source.sourceId);
+    assert.equal(context.sourceWasStopped(source.sourceId, 'screen'), true);
+    await context.endSource(source.sourceId, 'source_ended');
+    await context.dispose();
+  } finally { restore(); }
+});

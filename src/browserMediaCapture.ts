@@ -53,7 +53,7 @@ function recordingCapability(kind?: 'camera' | 'microphone') {
 
 function deviceListCapability() {
   if (!window.isSecureContext) return { available: false, reason: 'Needs a secure Jupyter origin' };
-  return navigator.mediaDevices?.enumerateDevices ? { available: true } :
+  return Boolean(navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) ? { available: true } :
     { available: false, reason: 'Browser device listing is unavailable' };
 }
 
@@ -495,8 +495,11 @@ registerBrowserOperation('capture_tool', screenStill, () => capability('screen')
 
 registerBrowserOperation('stop_share', async (context, request, operation) => {
   const id = String(request.arguments.source_id);
-  if (id && context.sourceWasStopped(id, 'screen')) {
-    await context.transition(operation.operation_id, 'completed', { source_id: id, stopped: true, already_stopped: true });
+  const alreadyStopped = id ? context.sourceWasStopped(id, 'screen') :
+    context.sourcesOfKind('screen').length === 0 && Boolean(context.uniqueStoppedSourceId('screen'));
+  if (alreadyStopped) {
+    await context.transition(operation.operation_id, 'completed', {
+      source_id: id || context.uniqueStoppedSourceId('screen'), stopped: true, already_stopped: true });
     return;
   }
   const source = chosenSource(context, 'screen', id);

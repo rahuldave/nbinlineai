@@ -107,8 +107,10 @@ test('screen chooser is activated by the visible Share button and stop is idempo
     'print(controls.status, sharing.status, sharing.result)',
     "screen_id = sharing.result['source_id']\nscreen = capture_screen(source_id=screen_id, save_to=None)",
     'print(screen.status, type(screen.result).__name__)',
-    'first = stop_share(screen_id)\nsecond = stop_share(screen_id)',
-    'print(first.status, second.status, second.result)'
+    'first = stop_share(screen_id)',
+    'print(first.status, first.result)',
+    'second = stop_share()',
+    'print(second.status, second.result)'
   ]);
   await runCell(page, 0);
   await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
@@ -118,5 +120,7 @@ test('screen chooser is activated by the visible Share button and stop is idempo
   await runCell(page, 2);
   expect(await inspectLater(page, 3, 'PngImageFile')).toContain('completed');
   await runCell(page, 4);
-  expect(await inspectLater(page, 5, 'already_stopped')).toContain('completed');
+  expect(await inspectLater(page, 5, 'completed')).toContain('stopped');
+  await runCell(page, 6);
+  expect(await inspectLater(page, 7, 'already_stopped')).toContain('completed');
 });
