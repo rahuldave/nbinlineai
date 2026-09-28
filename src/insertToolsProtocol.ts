@@ -1,5 +1,6 @@
 /** Small, versioned payload for kernel-requested tool notes. */
 export const INSERT_TOOLS_TARGET = 'nbinlineai.insert_tools.v1';
+export const EXECUTION_HANDOFF_TARGET = 'nbinlineai.execution_handoff.v1';
 const MAX_MARKDOWN_CHARS = 8000;
 
 export interface InsertRequest {
@@ -7,6 +8,26 @@ export interface InsertRequest {
   content: string;
   source_cell_id: string;
   execute_request_id: string;
+}
+
+export interface ExecutionHandoffRequest {
+  version: 1;
+  operation: 'add_code_cell_and_execute' | 'prompt_and_run' | 'run_and_prompt';
+  arguments: Record<string, unknown>;
+  source_cell_id: string;
+  execute_request_id: string;
+  request_id: string;
+}
+
+export function parseExecutionHandoffRequest(value: unknown): ExecutionHandoffRequest | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const data = value as Record<string, unknown>;
+  if (data.version !== 1 || !['add_code_cell_and_execute', 'prompt_and_run', 'run_and_prompt'].includes(String(data.operation)) ||
+      !data.arguments || typeof data.arguments !== 'object' || Array.isArray(data.arguments) ||
+      typeof data.source_cell_id !== 'string' || !data.source_cell_id || data.source_cell_id.length > 200 ||
+      typeof data.execute_request_id !== 'string' || !data.execute_request_id || data.execute_request_id.length > 200 ||
+      typeof data.request_id !== 'string' || !data.request_id || data.request_id.length > 200) return null;
+  return data as unknown as ExecutionHandoffRequest;
 }
 
 /** Validate data before any notebook mutation. */

@@ -38,6 +38,7 @@ from .fastcore_tools import (
     view_file,
 )
 from .inspection_tools import INSPECTION_TOOL_FUNCTIONS
+from .kernel_execution_handoff import ExecutionHandoffReceipt, request_execution_handoff
 from .kernel_insert_tools import InsertToolsReceipt, request_insert_tools
 from .notebook_tools import NOTEBOOK_TOOL_FUNCTIONS
 from .source_tools import SOURCE_TOOL_FUNCTIONS
@@ -345,6 +346,40 @@ def insert_code(
     return _requires_ai_prompt("insert_code")
 
 
+def add_code_cell_and_execute(
+    content: str = "",  # New Python source, exclusive with cell_id.
+    cell_id: str = "",  # Existing live code cell ID.
+    after_cell_id: str = "",  # Placement for new source only.
+) -> "ExecutionHandoffReceipt":
+    """Finish this AI turn, then run one identified code cell in the notebook queue."""
+    return request_execution_handoff("add_code_cell_and_execute", {
+        "content": content, "cell_id": cell_id, "after_cell_id": after_cell_id,
+    })
+
+
+def prompt_and_run(
+    prompt: str,  # A new AI question that must select code explicitly.
+    after_cell_id: str = "",  # Placement of the new question.
+) -> "ExecutionHandoffReceipt":
+    """Finish this turn, then ask a new AI question that may select code to run."""
+    return request_execution_handoff("prompt_and_run", {
+        "prompt": prompt, "after_cell_id": after_cell_id,
+    })
+
+
+def run_and_prompt(
+    prompt: str,  # A new AI question to ask after successful code execution.
+    content: str = "",  # New Python source, exclusive with cell_id.
+    cell_id: str = "",  # Existing live code cell ID.
+    after_cell_id: str = "",  # Placement for new source only.
+) -> "ExecutionHandoffReceipt":
+    """Finish this turn, run identified code, then ask a separate AI question."""
+    return request_execution_handoff("run_and_prompt", {
+        "prompt": prompt, "content": content, "cell_id": cell_id,
+        "after_cell_id": after_cell_id,
+    })
+
+
 def url_to_note(
     url: str,  # Public HTTP(S) page to summarize as source-attributed Markdown.
     after_cell_id: str = "",  # Optional live cell ID to insert after.
@@ -359,6 +394,9 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "insert_markdown": insert_markdown,
     "insert_code": insert_code,
     "url_to_note": url_to_note,
+    "add_code_cell_and_execute": add_code_cell_and_execute,
+    "prompt_and_run": prompt_and_run,
+    "run_and_prompt": run_and_prompt,
     **NOTEBOOK_TOOL_FUNCTIONS,
 })
 
@@ -410,6 +448,7 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
         "list_cells", "read_cell", "find_cells", "insert_markdown", "insert_code", "replace_cell",
         "cell_str_replace", "cell_insert_line", "cell_replace_lines", "delete_cell",
         "move_cell", "copy_cell", "split_cell", "merge_cells",
+        "add_code_cell_and_execute", "prompt_and_run", "run_and_prompt",
     ),
     "saved_notebooks": (
         "list_notebooks", "find_notebook_cells", "read_notebook_cell", "search_notebooks",

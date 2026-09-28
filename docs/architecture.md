@@ -50,6 +50,8 @@ Editing a completed answer changes the source that later requests use as history
 6. The selected connection sends one host-built round: FastLLM for an API provider, or the owned ChatGPT runtime. The ChatGPT runtime may make internal inference or recovery requests within that round, but native file, shell, browser, and ambient project-instruction tools are disabled. It returns an answer or a proposed group of declared notebook-tool calls. The host validates and dispatches ordinary functions to the same kernel or recognized live notebook tools to the originating browser. It appends completed results, budgets a new host round against the same snapshot, and continues without replaying tool effects.
 7. The frontend marks the answer completed, failed, or cancelled. Saving the notebook preserves the text and metadata.
 
+On the experimental branch, a terminal handoff is the only tool call in its proposed group. The host validates and acknowledges it, then ends that model turn under host control on either connection route. The frontend starts a scheduled successor only after step 7 succeeds; it never scrapes code from an answer fence to decide what to execute. A successor AI question takes a fresh ordinary snapshot. Its explicit predecessor result is charged with fixed request material before optional notebook text.
+
 The server does not automatically repeat a completed notebook-tool action. A user-initiated rerun is a new request. **Maximum tool steps** counts host-executed groups of declared notebook tools, not internal ChatGPT inference requests; a group can contain several calls.
 
 ## Context and live state
@@ -246,13 +248,15 @@ JupyterLab schedules multiple cell-executor calls concurrently. nbinlineai queue
 
 Each AI request snapshots context when its turn executes, so it sees completed or edited earlier answers and the kernel state created by earlier work. Kept answers skip provider calls and do not replay earlier tool side effects. Headless notebook execution does not load this browser plugin and treats these cells as Markdown.
 
+On the ongoing experimental Git branch, `add_code_cell_and_execute`, `prompt_and_run`, and `run_and_prompt` add a **queued handoff** to this same executor. A running AI question can request one terminal successor through the authenticated browser action bridge; a running Python code cell can request it through an execution-bound comm and return a scheduling receipt. The current turn or code execution finishes before the successor starts. A handoff carries a chain/step ID and an identified cell ID, and checks the original notebook, session, kernel, and expected source again before dispatch. New code executes as an ordinary code cell in the bound live kernel. `prompt_and_run` creates a separate tagged AI question that must explicitly choose code; `run_and_prompt` runs code and then creates a separate question with a bounded result from that exact execution. A code error or cancellation stops its chain. Native Run All still keeps its batch failure boundary and executes a valid handoff before later batch cells.
+
 The server publishes the bundled style instructions and model effort capabilities. The frontend sends any chosen custom style wording with a request; the server validates its size and keeps notebook-context instructions separate. FastLLM maps effort to OpenAI `reasoning.effort` or Anthropic `output_config.effort` with adaptive thinking where supported. ChatGPT lists the runtime-supported models available to the connected account and their efforts. An unavailable saved ChatGPT model or effort remains selected and blocks a run rather than silently choosing another.
 
 Saved API keys take precedence over server environment keys. On macOS/Linux, the default file is `~/.config/nbinlineai/credentials.json`; an absolute `XDG_CONFIG_HOME` changes the configuration root. The browser receives availability and key-source information, never the saved key value. Project environments under the same OS account can share the file. See [key storage](manual/saving-and-privacy.md#where-keys-are-stored) for details.
 
 ## Processes, event loops, and cancellation
 
-Provider networking and HTTP streaming use the existing asynchronous Jupyter Server loop. API mode uses FastLLM; ChatGPT mode owns a native child process supplied by the installed Python dependency, without requiring a separate student-installed app or CLI. Kernel work travels through Jupyter's normal kernel channels to a separate kernel process. The extension does not call `asyncio.run()` inside the notebook or patch the notebook event loop.
+Provider networking and HTTP streaming use the existing asynchronous Jupyter Server loop. API mode uses FastLLM; ChatGPT mode owns a native child process supplied by the installed Python dependency, without requiring a separate student-installed app or CLI. Kernel work travels through Jupyter's normal kernel channels to a separate kernel process. The extension does not call `asyncio.run()` inside the notebook or patch the notebook event loop. Experimental handoffs schedule successors and return; no caller waits for a later execution behind itself in the same queue or busy kernel shell.
 
 Frontend actions wait on an asynchronous server future while JupyterLab performs the model operation and posts its reply. They do not send a Python execute request that waits for the browser, so the kernel is free during that wait. Ordinary synchronous tools, including `read_url`, occupy the kernel while running; the server-side fetch for `url_to_note` uses a worker thread with bounded network work.
 
@@ -275,6 +279,7 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `src/sse.ts` | Sequential parsing and awaiting of streamed event callbacks. |
 | `src/defaults.ts`, `src/keepAnswer.ts` | Setting inheritance and rerun protection. |
 | `src/executionQueue.ts` | Ordered per-notebook execution, batch failure handling, and recovery. |
+| `src/executionHandoff.ts`, `src/insertTools.ts` | Experimental chain scheduling, bound code-result capture, and execution-bound Python comm handling. |
 | `src/codeCopy.ts` | Clipboard controls on rendered code blocks. |
 | `schema/plugin.json` | JupyterLab user-settings schema. |
 | `nbinlineai/handlers.py` | Authenticated HTTP endpoints and server-sent events. |
@@ -285,6 +290,7 @@ Paths below are relative to the [source repository](https://github.com/rahuldave
 | `nbinlineai/notebook_scope.py`, `nbinlineai/subscription_settings.py` | Authenticated notebook-folder resolution and per-user direct-file preference. |
 | `nbinlineai/kernel.py` | Session-bound kernel inspection and execution. |
 | `nbinlineai/frontend_bridge.py` | Bound run/action registry, argument/reply validation, and expiring asynchronous waiters. |
+| `nbinlineai/kernel_execution_handoff.py` | Experimental nonblocking direct-Python handoff receipts. |
 | `nbinlineai/tool_schema.py` | Signature-to-tool-schema translation. |
 | `nbinlineai/tools.py` | Opt-in tools, frontend callable registry, and Markdown reference helper. |
 | `nbinlineai/web_tools.py` | Bounded public-page retrieval and text/Markdown conversion. |
