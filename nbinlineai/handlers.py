@@ -392,7 +392,21 @@ class BrowserMediaHandler(APIHandler):
             elif command == 'cancel':
                 self.finish(registry.cancel(owner, body.get('operation_id')))
             elif command == 'claimrecording':
-                self.finish(registry.claim_recording(owner, body.get('operation_id')))
+                async with registry.recording_admission_lock:
+                    # Session paths are server-owned and may have changed after
+                    # these owners were created (for example, notebook Rename).
+                    paths = {}
+                    for claimed in (*registry.recording_owners(), owner):
+                        try:
+                            session = await self.dispatcher.sessions.get_session(
+                                session_id=claimed.session_id)
+                        except Exception as exc:
+                            raise MediaError('stale_target', 'Recording session is unavailable') from exc
+                        if (session.get('type') != 'notebook' or
+                                not isinstance(session.get('path'), str) or not session['path']):
+                            raise MediaError('stale_target', 'Notebook session is unavailable')
+                        paths[claimed] = session['path']
+                    self.finish(registry.claim_recording(owner, body.get('operation_id'), paths))
             elif command == 'save':
                 reference = body.get('media', body.get('media_id'))
                 save_to = body.get('save_to')

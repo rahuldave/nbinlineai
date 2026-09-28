@@ -25,6 +25,7 @@ from ._tool_helpers import (
     _resolve_python_name,
     _text,
 )
+from .browser_capture_tools import BROWSER_CAPTURE_TOOL_FUNCTIONS
 from .browser_media_tools import BROWSER_MEDIA_TOOL_FUNCTIONS
 from .execution_tools import EXECUTION_TOOL_FUNCTIONS
 from .fastcore_tools import (
@@ -362,6 +363,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "url_to_note": url_to_note,
     **NOTEBOOK_TOOL_FUNCTIONS,
     **BROWSER_MEDIA_TOOL_FUNCTIONS,
+    **BROWSER_CAPTURE_TOOL_FUNCTIONS,
 })
 
 
@@ -421,6 +423,10 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "execution": ("run_python", "run_shell", "trace_function", "tmux_sessions", "tmux_read"),
     "browser_media": ("browser_capabilities", "operation_status", "cancel_operation",
                       "save_media", "release_media"),
+    "camera": ("list_media_sources", "start_camera", "start_microphone", "capture_camera",
+               "stop_source", "start_recording", "pause_recording", "resume_recording",
+               "stop_recording", "record_camera", "record_microphone", "read_audio_levels"),
+    "screen": ("setup_share", "start_share", "capture_screen", "stop_share"),
 })
 
 

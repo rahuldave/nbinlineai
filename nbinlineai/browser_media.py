@@ -6,6 +6,7 @@ threads. Shared operation, quota, and lifecycle state is protected by one lock.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import io
 import json
@@ -150,7 +151,9 @@ class MediaRegistry:
         self.current_paths: dict[Owner, str] = {}
         self._state_lock = threading.RLock()
         self._published_inodes: dict[str, tuple[int, int, int]] = {}
-        self.recording_claims: dict[str, tuple[Owner, str]] = {}
+        self.recording_claims: dict[Owner, str] = {}
+        # Serializes asynchronous session-path snapshots before recorder admission.
+        self.recording_admission_lock = asyncio.Lock()
 
     def _now(self) -> float:
         return float(self.clock())
@@ -306,20 +309,40 @@ class MediaRegistry:
         return op
 
     @_locked
-    def claim_recording(self, owner: Owner, operation_id: str) -> dict[str, Any]:
-        """Admit at most one live recorder across clients of a notebook session."""
+    def recording_owners(self) -> tuple[Owner, ...]:
+        """Snapshot claims for a fresh server-session lookup before admission."""
+        return tuple(self.recording_claims)
+
+    @_locked
+    def claim_recording(self, owner: Owner, operation_id: str,
+                        session_paths: dict[Owner, str] | None = None) -> dict[str, Any]:
+        """Admit one recorder for the server's current canonical notebook path."""
         op = self.operation(owner, operation_id)
         if op.name not in {'start_recording', 'record_camera', 'record_microphone'} or op.status != 'running':
             raise MediaError('stale_target', 'Recording operation is unavailable')
-        current = self.recording_claims.get(owner.session_id)
-        if current is not None and current != (owner, operation_id):
-            raise MediaError('busy', 'A recording is already active in this notebook')
-        self.recording_claims[owner.session_id] = (owner, operation_id)
+        paths = session_paths if session_paths is not None else {}
+        if session_paths is not None and any(claimed not in paths for claimed in self.recording_claims):
+            raise MediaError('stale_target', 'Recording session path is unavailable')
+        current_path = paths.get(owner, self.current_paths.get(owner, owner.notebook_path))
+        if not isinstance(current_path, str) or not current_path:
+            raise MediaError('stale_target', 'Notebook path is unavailable')
+        for claimed_owner, claimed_operation in self.recording_claims.items():
+            claimed_path = paths.get(claimed_owner)
+            if claimed_path is None:
+                # A caller with no fresh snapshot may safely use only the frozen
+                # session identity; HTTP admission always supplies every path.
+                claimed_path = self.current_paths.get(claimed_owner, claimed_owner.notebook_path)
+            if claimed_path == current_path and (claimed_owner, claimed_operation) != (owner, operation_id):
+                raise MediaError('busy', 'A recording is already active in this notebook')
+            if claimed_owner.session_id == owner.session_id and claimed_operation != operation_id:
+                raise MediaError('busy', 'A recording is already active in this notebook')
+        self.current_paths.update(paths)
+        self.recording_claims[owner] = operation_id
         return self.status(owner, operation_id)
 
     def _drop_recording(self, op: Operation) -> None:
-        if self.recording_claims.get(op.owner.session_id) == (op.owner, op.id):
-            self.recording_claims.pop(op.owner.session_id, None)
+        if self.recording_claims.get(op.owner) == op.id:
+            self.recording_claims.pop(op.owner, None)
 
     @_locked
     def status(self, owner: Owner, operation_id: str) -> dict[str, Any]:
@@ -434,6 +457,17 @@ class MediaRegistry:
             raise MediaError('stale_target', 'Media hash mismatch')
         if not isinstance(mime_type, str) or not 0 < len(mime_type) <= 100:
             raise MediaError('invalid_argument', 'Invalid MIME type')
+        base_mime = mime_type.split(';', 1)[0].lower()
+        if base_mime.startswith(('audio/', 'video/')):
+            signatures = {
+                'audio/webm': data.startswith(b'\x1a\x45\xdf\xa3'),
+                'video/webm': data.startswith(b'\x1a\x45\xdf\xa3'),
+                'audio/mp4': len(data) >= 12 and data[4:8] == b'ftyp',
+                'video/mp4': len(data) >= 12 and data[4:8] == b'ftyp',
+                'audio/ogg': data.startswith(b'OggS'),
+            }
+            if not signatures.get(base_mime, False):
+                raise MediaError('invalid_argument', 'Encoded recording MIME does not match its container')
         if mime_type.startswith(('audio/', 'video/')) and save_to is None and len(data) > 16 * 1024 * 1024:
             raise MediaError('limit_exceeded', 'In-memory recording exceeds 16 MiB')
         if metadata is None:
@@ -701,7 +735,14 @@ class MediaRegistry:
         if len(save_to) > 500:
             raise MediaError('limit_exceeded', 'save_to is too long')
         notebook_dir = PurePosixPath(notebook_path or owner.notebook_path).parent
-        suffix = mimetypes.guess_extension(mime_type.split(';', 1)[0]) or '.bin'
+        base_mime = mime_type.split(';', 1)[0]
+        recording_suffixes = {
+            'audio/webm': ('.weba', '.webm'), 'video/webm': ('.webm',),
+            'audio/mp4': ('.m4a', '.mp4'), 'video/mp4': ('.mp4',),
+            'audio/ogg': ('.ogg',),
+        }
+        suffix = (recording_suffixes[base_mime][0] if base_mime in recording_suffixes else
+                  mimetypes.guess_extension(base_mime) or '.bin')
         if save_to == 'auto':
             relative = notebook_dir / 'media' / f'capture-{secrets.token_hex(8)}{suffix}'
         else:
@@ -709,7 +750,8 @@ class MediaRegistry:
             if relative.is_absolute() or '..' in relative.parts or '\\' in save_to:
                 raise MediaError('invalid_argument', 'save_to must be inside the server root')
             guessed, _ = mimetypes.guess_type(relative.name)
-            if guessed != mime_type.split(';', 1)[0]:
+            if (relative.suffix.lower() not in recording_suffixes[base_mime]
+                    if base_mime in recording_suffixes else guessed != base_mime):
                 raise MediaError('invalid_argument', 'Destination extension does not match media MIME')
         path = self.root.joinpath(*relative.parts)
         if len(relative.as_posix()) > 500:

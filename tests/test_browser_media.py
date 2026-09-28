@@ -67,6 +67,10 @@ def test_one_recording_per_notebook_across_clients_and_terminal_release(tmp_path
     with pytest.raises(MediaError) as busy:
         registry.claim_recording(second, rival.id)
     assert busy.value.code == 'busy'
+    with pytest.raises(MediaError) as renamed_busy:
+        registry.claim_recording(second, rival.id,
+                                 {first: 'folder/renamed.ipynb', second: 'folder/renamed.ipynb'})
+    assert renamed_busy.value.code == 'busy'
     registry.cancel(first, active.id)
     assert registry.claim_recording(second, rival.id)['status'] == 'running'
     registry.transition(second, rival.id, 'failed', error={'code': 'device_unavailable', 'message': 'No microphone'})
@@ -78,6 +82,58 @@ def test_one_recording_per_notebook_across_clients_and_terminal_release(tmp_path
     assert not registry.recording_claims
     with pytest.raises(MediaError, match='expired'):
         registry.claim_recording(first, another.id)
+
+
+def test_recording_container_and_actual_audio_extension(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    op = registry.create(browser, 'audio-one', 'start_recording', {'source_id': 'microphone'})
+    registry.claim_recording(browser, op.id)
+    data = b'\x1a\x45\xdf\xa3encoded-webm-audio'
+    digest = hashlib.sha256(data).hexdigest()
+    with pytest.raises(MediaError, match='container'):
+        registry.upload(browser, op.id, b'wrong', 'audio/webm;codecs=opus',
+                        hashlib.sha256(b'wrong').hexdigest(), save_to='voice.weba')
+    assert browser in registry.recording_claims
+    status = registry.upload(browser, op.id, data, 'audio/webm;codecs=opus', digest,
+                             metadata={'duration_seconds': 2, 'stop_reason': 'user'},
+                             save_to='voice.weba')
+    assert status['status'] == 'completed'
+    assert status['media']['path'] == 'voice.weba'
+    assert (tmp_path / 'voice.weba').read_bytes() == data
+    assert not registry.recording_claims
+
+
+def test_recording_claims_follow_server_paths_across_sessions_and_rename(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    first = registry.bind('session-a', 'kernel-a', 'folder/one.ipynb', 'model-a', 'client-a')
+    second = registry.bind('session-b', 'kernel-b', 'folder/one.ipynb', 'model-b', 'client-b')
+    third = registry.bind('session-c', 'kernel-c', 'folder/two.ipynb', 'model-c', 'client-c')
+    op_a = registry.create(first, 'a', 'start_recording', {})
+    op_b = registry.create(second, 'b', 'record_camera', {})
+    op_c = registry.create(third, 'c', 'record_microphone', {})
+    paths = {first: 'folder/one.ipynb', second: 'folder/one.ipynb'}
+    registry.claim_recording(first, op_a.id, paths)
+    with pytest.raises(MediaError) as busy:
+        registry.claim_recording(second, op_b.id, paths)
+    assert busy.value.code == 'busy'
+
+    # Refresh the live path of an existing claim before admitting another session.
+    # Its operation/save destination remains frozen to its original request path.
+    renamed = {first: 'folder/renamed.ipynb', second: 'folder/renamed.ipynb'}
+    with pytest.raises(MediaError) as busy:
+        registry.claim_recording(second, op_b.id, renamed)
+    assert busy.value.code == 'busy'
+    assert op_a.notebook_path == 'folder/one.ipynb'
+
+    distinct = {first: 'folder/renamed.ipynb', third: 'folder/two.ipynb'}
+    registry.claim_recording(third, op_c.id, distinct)
+    assert len(registry.recording_claims) == 2
+    registry.expire_owner(second)  # A stale, non-claiming owner cannot release A.
+    assert registry.recording_claims[first] == op_a.id
+    registry.cancel(first, op_a.id)
+    assert first not in registry.recording_claims
+    assert registry.recording_claims[third] == op_c.id
 
 
 def test_binary_hash_mime_save_and_release(tmp_path):
