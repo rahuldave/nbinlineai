@@ -89,6 +89,8 @@ CAPTURE_DEMO_VARIABLES = {
 for name, variable in CAPTURE_DEMO_VARIABLES.items():
     HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-call")] = f"{name}("
     HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f"{variable}.status"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup")] = "stop_source(microphone_id)"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = "microphone_cleanup.status"
 
 
 async def _run_code(

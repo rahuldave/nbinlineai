@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
 async function fixtureNotebook(page: Page, request: APIRequestContext, sources: string[]): Promise<void> {
@@ -95,6 +97,71 @@ async function syntheticDevices(page: Page): Promise<void> {
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: media });
   });
 }
+
+test('the exact public capture notebook exercises all 17 APIs and later receipt cells', async ({ page, request }) => {
+  test.setTimeout(180_000);
+  await syntheticDevices(page);
+  const notebook = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-capture.ipynb'), 'utf8')) as {
+    cells: Array<{ cell_type: string; id: string }>;
+  };
+  const codeIds = notebook.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const tools = [
+    'list_media_sources', 'start_camera', 'capture_camera', 'start_recording',
+    'pause_recording', 'resume_recording', 'stop_recording', 'stop_source',
+    'start_microphone', 'read_audio_levels', 'record_camera', 'record_microphone',
+    'setup_share', 'start_share', 'capture_screen', 'capture_tool', 'stop_share'
+  ];
+  expect(codeIds).toEqual(['capture-setup', ...tools.flatMap(name =>
+    [`capture-${name}-call`, `capture-${name}-inspect`]), 'capture-cleanup', 'capture-cleanup-inspect']);
+  const position = (id: string): number => {
+    const index = codeIds.indexOf(id);
+    expect(index, `Missing public notebook cell ${id}`).toBeGreaterThanOrEqual(0);
+    return index;
+  };
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  expect(xsrf).toBeTruthy();
+  const name = `capture-public-${Date.now()}.ipynb`;
+  const created = await request.put(`/api/contents/${name}`, { headers: { 'X-XSRFToken': xsrf! },
+    data: { type: 'notebook', format: 'json', content: notebook } });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+  await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell')).toHaveCount(codeIds.length);
+  const select = page.getByRole('button', { name: 'Select', exact: true });
+  if (await select.isVisible().catch(() => false)) await select.click();
+  const no = page.getByRole('button', { name: 'No', exact: true });
+  if (await no.isVisible().catch(() => false)) await no.click();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible({ timeout: 30_000 });
+  await runCell(page, position('capture-setup'));
+  const inspect = async (id: string, expected: string): Promise<string> => {
+    let last = '';
+    for (let attempt = 0; attempt < 40; attempt++) {
+      last = await runCell(page, position(id));
+      if (last.includes(expected) && !last.includes('stale_target') && !last.includes('unsupported')) return last;
+      await page.waitForTimeout(250);
+    }
+    throw new Error(`Public notebook cell ${id} did not reach ${expected}: ${last}`);
+  };
+  for (const tool of tools) {
+    await runCell(page, position(`capture-${tool}-call`));
+    if (tool === 'start_share') {
+      await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
+      await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+    }
+    const expected = tool === 'start_recording' ? 'running' : 'completed';
+    const output = await inspect(`capture-${tool}-inspect`, expected);
+    if (tool === 'list_media_sources') expect(output).toContain('synthetic-camera');
+    if (tool === 'capture_camera' || tool === 'capture_screen' || tool === 'capture_tool')
+      expect(output).toContain('PngImageFile');
+    if (tool === 'pause_recording') expect(output).toContain("'paused': True");
+    if (tool === 'resume_recording') expect(output).toContain("'resumed': True");
+    if (tool === 'read_audio_levels') expect(output).toContain('rms');
+    if (tool === 'record_camera' || tool === 'record_microphone') expect(output).toContain('MediaClip');
+  }
+  await runCell(page, position('capture-cleanup'));
+  expect(await inspect('capture-cleanup-inspect', 'completed')).toContain('completed');
+  await expect(page.locator('.nbinlineai-capture-source')).toHaveCount(0);
+});
 
 test('deterministic camera still and shared recorder deliver typed Python results', async ({ page, request }) => {
   await syntheticDevices(page);
