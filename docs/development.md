@@ -129,6 +129,20 @@ See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-
 
 ## Branches and worktrees
 
+Internal research, specifications, task prompts and handoffs have one canonical
+home on `main`. Implementation worktrees read the primary main checkout's
+`internal_docs/` (on the maintainer's machine,
+`/Users/rahul/Projects/nbinlineai/internal_docs/`) and record the documentation
+commit used. In another clone, use a recorded main checkout or committed main
+snapshot. Author internal documentation in owned main-based topic worktrees and
+PR it to main; do not edit the primary directly or copy internal docs into each
+implementation branch. Preserve drafts in a dirty primary and read committed
+main bytes when needed. The repository's
+[documentation workflow](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/workflow.md#canonical-internal-documentation)
+describes revision selection and cross-branch records. Public docs, examples and
+code documentation remain with the code they describe so packaged instructions
+match the installed version.
+
 Keep the primary checkout on `main`. Develop changes in separate topic
 worktrees, using a temporary `codex/*` branch based on the intended integration
 target. Stable fixes and release preparation start from `main` and return there

@@ -1,5 +1,12 @@
 # Notebook execution handoffs and agent identity
 
+**Historical research snapshot:** preserved on main from experimental commit
+[`a316494f`](https://github.com/rahuldave/nbinlineai/blob/a316494f8c3a6c391f142b97b2bb02ad8aec8b11/internal_docs/notebook_execution_handoffs.md).
+Claims and source links below describe the September 25 investigation. Read the
+[approved handoff spec](notebook_execution_handoff_spec.md) for the selected
+first implementation contract and the [canonical documentation policy](workflow.md#canonical-internal-documentation)
+for subsequent updates. This migration does not implement the proposed features.
+
 **Research and design note, 2026-09-25. No implementation is claimed here.** The
 shipped baseline is nbinlineai 0.1.14. This note gathers the Solveit,
 Jupyter AI/MCP, Jupyter kernel, and Python interpreter findings in one place,

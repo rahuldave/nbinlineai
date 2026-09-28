@@ -37,8 +37,14 @@
 .nbinlineai-keys-dialog { min-width: min(440px, 75vw); max-width: 560px; color: var(--jp-ui-font-color1); }
 .nbinlineai-keys-dialog [hidden] { display: none !important; }
 .nbinlineai-keys-dialog p { margin: 0 0 12px; line-height: 1.45; }
+.nbinlineai-dialog-tabs { display: flex; gap: 4px; position: sticky; top: 0; z-index: 1; background: var(--jp-layout-color1); border-bottom: 1px solid var(--jp-border-color2); }
+.nbinlineai-dialog-tabs button { padding: 8px 12px; border: 0; border-bottom: 3px solid transparent; color: var(--jp-ui-font-color2); background: transparent; font: inherit; cursor: pointer; }
+.nbinlineai-dialog-tabs button[aria-selected="true"] { border-bottom-color: var(--jp-brand-color1); color: var(--jp-ui-font-color1); font-weight: 600; }
+.nbinlineai-dialog-tabs button:focus-visible { outline: 2px solid var(--jp-brand-color1); outline-offset: -2px; }
+.nbinlineai-dialog-panel { padding-top: 4px; }
+.nbinlineai-connection-hint { color: var(--jp-ui-font-color2); font-size: var(--jp-ui-font-size1); }
 .nbinlineai-connection-selector, .nbinlineai-subscription-setup label { display: grid; gap: 5px; font-weight: 600; }
-.nbinlineai-connection-selector { margin-bottom: 12px; }
+.nbinlineai-connection-selector { margin-bottom: 6px; }
 .nbinlineai-connection-selector select, .nbinlineai-subscription-setup select { box-sizing: border-box; width: 100%; min-width: 0; padding: 5px 7px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; }
 .nbinlineai-keys-dialog [data-nbinlineai-default-backend] { box-sizing: border-box; width: 100%; padding: 5px 7px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; }
 .nbinlineai-subscription-setup { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--jp-border-color2); border-left: 3px solid var(--jp-brand-color1); background: var(--jp-layout-color2); }

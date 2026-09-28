@@ -29,6 +29,76 @@ CI and author self-review supply additional evidence. They do not create a
 GitHub approval from another account. Ask for a merge decision only when that
 particular merge has not already been authorized.
 
+## Canonical internal documentation
+
+Maintain `internal_docs/` on `main` for all implementation branches. On this
+machine the reading location is
+`/Users/rahul/Projects/nbinlineai/internal_docs/`; the primary checkout stays on
+`main`. Read its index, workflow and relevant specs even when executing from an
+experimental worktree. Existing copies on other branches are historical and
+are not maintained mirrors. A missing or older worktree copy is not a reason
+to cherry-pick documentation or merge main into the implementation branch.
+
+Keep these sources distinct:
+
+| Material | Read from | Edit and PR target |
+| --- | --- | --- |
+| Internal specs, research, task prompts, handoffs, release records | Recorded main revision, normally through the primary checkout | Owned main-based topic worktree → `main` |
+| Runtime source, tests, public `docs/` (including architecture), README, examples and code documentation | Implementation worktree | Topic → the selected implementation target |
+| Gest task/spec index and revision references | Primary repository's ignored `.gest/` | Serialized Gest operations; committed docs remain authoritative |
+
+The primary is a reading location, not a shared editing workspace. For internal
+documentation changes, create a separate topic worktree from current
+`origin/main` and use the usual review, CI and PR process. Stable code and its
+internal notes may share a main-based topic; experimental code and its internal
+notes need separate PR targets. Cross-link those PRs and identify the code
+branch/commit and status (proposed, implemented on a topic, integrated, or
+released) in the notes. Main's handoff must not describe experimental-only work
+as a mainline or PyPI feature. Packaged docs/examples must match their code.
+
+### Resolve and record the documentation revision
+
+1. Find the primary checkout using the recorded path and `git worktree list`;
+   verify that it is on `main`. In another clone, choose and record an equivalent
+   main checkout or a committed main revision; do not assume this machine's
+   absolute path exists there.
+2. Inspect its HEAD and the status of the documents you will use. Record
+   `docs.source_branch=main`, `docs.source_commit=<full SHA>` and the relative
+   document paths in the task/PR. Also record `docs.source_path` for a local
+   reading location. Read the corresponding committed bytes. A clean document
+   at the selected HEAD can be read directly from the primary folder; for a
+   locally modified document use `git show <recorded-SHA>:internal_docs/<file>`.
+   Uncommitted/untracked files are drafts unless explicitly selected by the
+   user; record their draft status and content hash rather than attributing
+   them to a commit.
+3. Fetch to check whether main has advanced. Fast-forward the primary only when
+   it is clean and safe to update. If dirty, behind or unavailable, preserve it
+   and read the chosen fetched main SHA with `git show`, or use a separate
+   read-only main snapshot. Never stash, reset or change branches in the primary
+   to obtain docs. Do not silently fall back to an experimental copy. An offline
+   task may use an available committed main snapshot and record its freshness
+   limit; if no required main document is available, resolve that dependency.
+4. Keep that documentation baseline during the task. If a relevant spec changes,
+   review the change and deliberately update the recorded revision. A proposed
+   documentation PR may be used as an explicit dependency by recording its
+   reviewed head and pending status; do not call it merged main documentation.
+
+Read `AGENTS.md` in the implementation checkout for branch constraints and the
+primary's current documentation policy for where to find internal material.
+An experimental AGENTS bootstrap may be updated through a small PR to that
+branch so new worktrees discover main; this does not mirror internal docs.
+Older worktrees do not change when another branch's PR merges: task prompts
+must carry this reading rule explicitly. Verify implemented behavior, available
+commands and source paths against the implementation checkout, since main's
+documentation may describe a newer release. Follow relative internal-doc links
+within the same recorded main snapshot; resolve code/public-doc links against
+the implementation checkout when deciding what is actually available there.
+
+Keep Gest artifacts as discoverable mirrors with source path, revision and
+status. They do not transport documents between branches or override committed
+main specs. This project-specific policy takes precedence over generic skill
+instructions to update documentation alongside implementation.
+
 ## Tracking and installed skills
 
 Use the project-local `.agents/skills/gtw/SKILL.md` router. Native Gest records
