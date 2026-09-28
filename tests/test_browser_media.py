@@ -56,6 +56,27 @@ def test_close_owner_revokes_only_exact_frozen_credential(tmp_path):
     assert operation.status == 'expired'
 
 
+def test_mixed_case_recording_mime_keeps_memory_caps_and_audio_extension(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    header = b'\x1a\x45\xdf\xa3'
+    too_long = registry.create(browser, 'mixed-duration', 'record_microphone', {})
+    with pytest.raises(MediaError, match='60 seconds'):
+        registry.upload(browser, too_long.id, header, 'Audio/WebM;codecs=opus',
+                        hashlib.sha256(header).hexdigest(),
+                        metadata={'duration_seconds': 61}, save_to=None)
+    too_large = registry.create(browser, 'mixed-size', 'record_microphone', {})
+    encoded = header + b'\x00' * (16 * 1024 * 1024)
+    with pytest.raises(MediaError, match='16 MiB'):
+        registry.upload(browser, too_large.id, encoded, 'Audio/WebM',
+                        hashlib.sha256(encoded).hexdigest(), save_to=None)
+    saved = registry.create(browser, 'mixed-save', 'record_microphone', {})
+    status = registry.upload(browser, saved.id, header, 'Audio/WebM;codecs=opus',
+                             hashlib.sha256(header).hexdigest(), save_to='auto')
+    assert status['media']['mime_type'] == 'audio/webm;codecs=opus'
+    assert status['media']['path'].endswith('.weba')
+
+
 def test_binary_hash_mime_save_and_release(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
