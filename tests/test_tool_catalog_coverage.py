@@ -48,14 +48,16 @@ def test_each_demo_has_matching_section_cell_call_and_page_link() -> None:
         assert demo_is_actionable(cells, index, name), name
         assert entry["execution"] in {
             "kernel", "model-frontend", "model-network", "model-optional-environment",
-            "setup-kernel", "setup-ui-receipt",
+            "setup-kernel", "setup-ui-receipt", "receipt-frontend",
         }, name
         assert entry["verification"], name
         assert entry["checkpoint_evidence"], name
         assert all((ROOT / test_path.split("::", 1)[0]).is_file()
                    for test_path in entry["verification"].values()), name
-        if entry["execution"] in ("model-frontend", "setup-ui-receipt"):
+        if entry["execution"] in ("model-frontend", "setup-ui-receipt", "receipt-frontend"):
             assert "browser" in entry["verification"], name
+        if entry["execution"] == "receipt-frontend":
+            assert receipt_demo_is_valid(cells, index, name, entry), name
         if entry.get("setup_helper"):
             assert name in DOC
         else:
@@ -116,6 +118,38 @@ def row_has_exact_link(row: str, entry: dict) -> bool:
     return row.count("[Notebook example:") == 1 and expected in row
 
 
+def receipt_demo_is_valid(cells: list[dict], index: int, name: str, entry: dict) -> bool:
+    """A UI receipt demo must call the tool, then inspect that receipt later."""
+    call_cell = cells[index]
+    variable = entry.get("receipt_variable")
+    inspect_id = entry.get("receipt_inspect_cell")
+    if not variable or not inspect_id or call_cell["cell_type"] != "code":
+        return False
+    if "nbinlineai-ui-only" not in call_cell.get("metadata", {}).get("tags", []):
+        return False
+    calls = ast.parse("".join(call_cell["source"]))
+    assigned = any(
+        isinstance(node, (ast.Assign, ast.AnnAssign))
+        and any(isinstance(target, ast.Name) and target.id == variable
+                for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == name
+        for node in ast.walk(calls)
+    )
+    if not assigned:
+        return False
+    later = [cell for cell in cells[index + 1:] if cell["id"] == inspect_id]
+    if len(later) != 1 or later[0]["cell_type"] != "code":
+        return False
+    if "nbinlineai-ui-only" not in later[0].get("metadata", {}).get("tags", []):
+        return False
+    inspected = ast.parse("".join(later[0]["source"]))
+    return any(isinstance(node, ast.Attribute) and node.attr == "status"
+               and isinstance(node.value, ast.Name) and node.value.id == variable
+               for node in ast.walk(inspected))
+
+
 def _markdown(cell_id: str, source: str, ai: dict | None = None) -> dict:
     return {"cell_type": "markdown", "id": cell_id, "metadata": {"nbinlineai": ai or {}},
             "source": [source]}
@@ -155,6 +189,23 @@ def test_swapped_notebook_links_are_rejected_per_row() -> None:
     assert row_has_exact_link(rows["path_info"], first)
     assert not row_has_exact_link(rows["view_file"], first)
     assert not row_has_exact_link(rows["path_info"], second)
+
+
+def test_receipt_demo_rejects_missing_or_non_executing_inspection() -> None:
+    entry = {"receipt_variable": "saved", "receipt_inspect_cell": "inspect"}
+    call = {"cell_type": "code", "id": "call", "metadata": {"tags": ["nbinlineai-ui-only"]},
+            "source": ["saved = save_media(source_ref)" ]}
+    inspect = {"cell_type": "code", "id": "inspect",
+               "metadata": {"tags": ["nbinlineai-ui-only"]}, "source": ["saved.status"]}
+    assert receipt_demo_is_valid([call, inspect], 0, "save_media", entry)
+    assert not receipt_demo_is_valid([call], 0, "save_media", entry)
+    assert not receipt_demo_is_valid([inspect, call], 1, "save_media", entry)
+    assert not receipt_demo_is_valid([call, {**inspect, "source": ["print('saved.status')"]}],
+                                     0, "save_media", entry)
+    assert not receipt_demo_is_valid([call, {**inspect, "metadata": {}}],
+                                     0, "save_media", entry)
+    assert not receipt_demo_is_valid([{**call, "source": ["saved = source_ref"]}, inspect],
+                                     0, "save_media", entry)
 
 
 def test_new_notebooks_are_in_source_and_installed_example_layout() -> None:

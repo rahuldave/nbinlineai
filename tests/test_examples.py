@@ -1,10 +1,11 @@
-"""Keep shipped student notebooks valid and runnable without a provider key."""
+"""Keep student notebooks valid and runnable without a provider key."""
 
 import ast
 import asyncio
 import json
 import re
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import nbformat
 import pytest
@@ -27,6 +28,7 @@ EXAMPLES = [
     "tool-catalog-live-notebook.ipynb",
     "tool-catalog-web.ipynb",
     "tool-catalog-processes.ipynb",
+    "browser-media-foundation.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -34,7 +36,18 @@ EXAMPLES = [
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
 HEADLESS_UI_CELLS = {
     ("live-variables-and-tools.ipynb", "live-insert-tools-optional"):
-        "execution-bound insert_tools needs a JupyterLab browser acknowledgement",
+        "insert_tools(",
+    ("browser-media-foundation.ipynb", "media-capabilities-call"): "browser_capabilities(",
+    ("browser-media-foundation.ipynb", "media-capabilities-inspect"): "capabilities.status",
+    ("browser-media-foundation.ipynb", "media-save-call"): "save_media(",
+    ("browser-media-foundation.ipynb", "media-save-inspect"): "saved.status",
+    ("browser-media-foundation.ipynb", "media-status-call"): "operation_status(",
+    ("browser-media-foundation.ipynb", "media-status-inspect"): "lookup.status",
+    ("browser-media-foundation.ipynb", "media-cancel-call"): "cancel_operation(",
+    ("browser-media-foundation.ipynb", "media-cancel-inspect"): "cancelled.status",
+    ("browser-media-foundation.ipynb", "media-release-call"): "release_media(",
+    ("browser-media-foundation.ipynb", "media-release-inspect"): "released.status",
+    ("browser-media-foundation.ipynb", "media-cleanup"): "saved.media",
 }
 
 
@@ -69,7 +82,7 @@ async def _run_code(
 
 @pytest.mark.parametrize("relative_path", EXAMPLES)
 def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None:  # relative_path: example notebook
-    """Run setup code; skip only the documented JupyterLab-only helper example."""
+    """Run setup code; skip only exact JupyterLab receipt or helper cells."""
     notebook_path = ROOT / "examples" / relative_path
     notebook = json.loads(notebook_path.read_text())
     nbformat.validate(notebook)
@@ -77,10 +90,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     assert code_cells, f"No code cells in {relative_path}"
     assert all(not cell.get("outputs") for cell in code_cells)
 
-    async def run() -> tuple[list[str], list[str]]:
+    async def run(kernel_cwd: Path) -> tuple[list[str], list[str]]:
         """Execute setup in notebook order and inspect every AI question's offered names."""
         kernel = AsyncKernelManager(kernel_name="python3")
-        await kernel.start_kernel(cwd=str(ROOT))
+        await kernel.start_kernel(cwd=str(kernel_cwd))
         try:
             outputs: list[str] = []
             unresolved: list[str] = []
@@ -93,7 +106,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
                         assert (relative_path, cell["id"]) in HEADLESS_UI_CELLS
                     if (relative_path, cell["id"]) in HEADLESS_UI_CELLS:
                         assert "nbinlineai-ui-only" in tags
-                        assert "insert_tools(" in source
+                        assert HEADLESS_UI_CELLS[(relative_path, cell["id"])] in source
                     else:
                         outputs.append(await _run_code(kernel, source))
                     continue
@@ -120,7 +133,9 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         finally:
             await kernel.shutdown_kernel(now=True)
 
-    outputs, unresolved = asyncio.run(run())
+    with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
+        kernel_cwd = Path(scratch) if relative_path == "browser-media-foundation.ipynb" else ROOT
+        outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
         assert "&`find_notebook_cells`" in "\n".join(outputs)
@@ -166,6 +181,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         text = "\n".join(outputs)
         assert "catalog-ready" in text
         assert "5" in text
+    if relative_path == "browser-media-foundation.ipynb":
+        text = "\n".join(outputs)
+        assert "sha256" in text
+        assert "browser-media-source-" in text
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)
