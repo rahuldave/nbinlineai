@@ -48,9 +48,15 @@ question without choosing code; a new browser regression now rejects it.
 The reviewer also raised an unproven race between source precheck and the
 native execute request. Result attribution now captures the actual outgoing
 code, and stops the successor with a visible message if it differs from the
-selected source. Final review/CI/PR status should be appended after those
-gates complete. The browser harness stopped its owned server on 8897; the
-user's server on 8888 was untouched.
+selected source. A very late edit can still reach the native kernel before
+the mismatch is detected; this is a recorded experimental follow-up risk, not
+an attributed successful handoff. The read-only follow-up review at head
+`f1fcb14` found the reported bug resolved and no new proven regression.
+`uv build` produced source and wheel artifacts, and a disposable environment
+successfully built and installed `f1fcb14` directly from local Git with the
+JupyterLab extension assets present. Final CI/PR status should be appended
+after those gates complete. The browser harness stopped its owned server on
+8897; the user's server on 8888 was untouched.
 
 **2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
 PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
