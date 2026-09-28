@@ -25,9 +25,11 @@ operations for durable media. No extra browser extensions, CDP installation,
 browser-only durable artifact store or browser filesystem picker is required.
 The existing nbinlineai JupyterLab extension supplies the browser UI.
 
-Start with **output export, camera photos/video, microphone recording and saving
-to the local Jupyter folder**. Keep **sending media to the model** as a separate
-operation. Use portable browser APIs and test desktop and mobile browsers;
+Start with **output export, camera photos/video and microphone recording**.
+Still captures may complete as PIL images in Python without first saving a
+file. Short encoded recordings may remain briefly in memory; longer recordings
+default to the local Jupyter folder. Keep **sending media to the model** as a
+separate operation. Use portable browser APIs and test desktop and mobile browsers;
 do not silently reduce the user's requirement to Chromium or desktop-only.
 Screen sharing and system-audio capture have a different compatibility envelope;
 the user accepts those gaps if clearly documented. Their APIs are included with
@@ -137,13 +139,13 @@ does not mean the capability exists now or authorizes a release.
 | --- | --- | --- | --- |
 | `read_notebook_view`, `read_selection` | Read selected text/cell IDs, visible range and compact UI state from the originating notebook, not whichever tab later gains focus | None; new bounded frontend actions | Main |
 | `read_output(cell_id, output_ref)` | Inspect existing text/HTML/table output with explicit MIME filtering and a source/run reference; never imply that it executes code | None for an existing output snapshot | Main |
-| `export_output`, `export_canvas` | Save an existing plot/image/SVG or origin-clean canvas to the local Jupyter folder; preserve original image data where available | None; server save support | Main |
+| `export_output`, `capture_canvas`, `export_canvas`, `export_app` | Read or save an existing plot/image/SVG or registered origin-clean canvas. Canvas pixels can become a PIL still; app-owned SVG/scene data needs its own registered vector exporter. | None; server save support when requested | Main |
 | `capture_notebook_region` | Capture a rendered cell/output or visible notebook region; fidelity/offscreen limits require a defined renderer and browser checks | None; supported-renderer contract | Main, after known image/canvas export |
 | `setup_share`, `start_share`, `capture_screen`, `stop_share` | Keep dialoghelper names where available; user chooses an available display surface; support varies across browsers/devices | None; permission UI and capture lifecycle | Main, with explicit capability gaps |
-| `record_start`, `record_stop`, `record_status` | Bounded camera video or microphone audio recording; return an operation ID and save the completed file in the local Jupyter folder | None for manual start/stop/retrieval; operation lifecycle | Main |
+| `record_start`, `record_stop`, `record_status` | Bounded camera, screen, canvas video or microphone audio recording; return an operation ID and a saved file by default, or a short encoded clip in memory | None for manual start/stop/retrieval; operation lifecycle | Main |
 | `camera_preview`, `camera_snapshot`, `record_camera`, `record_microphone` | User-authorized preview, camera stills, camera video with optional microphone audio, or microphone-only recording | None; device permission/lifecycle support | Main core candidates |
 | `extract_frames`, `crop_artifact`, `annotate_artifact` | Locally select timestamps, crop/redact stills, or annotate before saving/sharing; create a derivative and retain source provenance | None; local media processing and bounds | Main |
-| `choose_file` and capture/output `path` arguments | Select existing Jupyter files or use a standard file input; save media through the local server and return its relative path | None; ordinary file UI and authenticated server save | Main core candidates |
+| `choose_file`, `save_media`, `release_media` and capture/output `save_to` arguments | Choose memory (`None`), generated local file (`"auto"`) or explicit server-relative file path; save/release owned memory media deliberately | None; ordinary file UI and authenticated server save | Main core candidates |
 | `read_clipboard`, `copy_artifact` | Explicit user paste/copy with standard controls; programmatic rich clipboard access varies and must not be required | None; separate user action where required | Main only with portable interaction |
 | `open_app_panel`, `read_app_state`, `call_app` | Registered visualization/form/app inside JupyterLab; typed state/actions through an owned widget or cooperating iframe | None for state and browser-only actions; new app registry/channel | Main foundation |
 | `subscribe_app_events`, `read_events` | Bounded event queue for selections, slider changes, capture completion or app results; poll/read later without executing notebook code | None; lifetime, backpressure and teardown contract | Main foundation |
@@ -153,6 +155,12 @@ does not mean the capability exists now or authorizes a release.
 
 An app action that only updates JavaScript state remains a main candidate. The
 same action wired to execute a notebook cell becomes a handoff composition.
+Nbinlineai does **not** currently ship an app registry or general browser-app
+framework. The proposed app group would add owned interactive HTML/JavaScript
+components and a typed message bridge inside JupyterLab; it does not discover
+arbitrary installed apps, control other browser tabs, or automatically wrap
+ipywidgets. An ipywidget could participate only through a separately written
+adapter that deliberately implements the registration contract.
 Likewise, an event-triggered AI-only call needs explicit prompt scheduling and
 lifecycle design, although it does not inherently require Python execution.
 Put autonomous notebook continuation experiments on the experimental branch;
@@ -195,10 +203,12 @@ sampling limits, queue ownership, cancellation and explicit media disclosure.
 
 `getUserMedia` obtains the camera stream and, when requested, a microphone
 track. `MediaRecorder` records it. The user sees a preview plus start/stop
-controls; a bounded-duration tool can also stop automatically. On completion,
-save the recording to the local Jupyter folder and return the file path, actual
-MIME type and completion status. Saving uses the server, so it does not need a
-browser filesystem API or an installed browser extension.
+controls; a bounded-duration tool can also stop automatically. The default
+recording destination is the local Jupyter folder, returning a file path,
+actual MIME type and completion status. A caller can request a bounded short
+memory recording instead, yielding encoded `MediaClip` bytes and MIME type in
+Python after its nonblocking receipt completes. Video is not a PIL object.
+Neither destination requires a browser filesystem API or installed extension.
 
 Both APIs are widely available in current browsers. Recording containers/codecs
 are not identical: select a supported format using `isTypeSupported` or the
@@ -237,6 +247,13 @@ accepted gaps explicitly.
   supported formats instead of promising one codec across browsers.
   ([Recording](https://www.w3.org/TR/mediastream-recording/),
   [canvas stream](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream).)
+- **Canvas stills and motion have different paths.** A registered origin-clean
+  canvas can use `toBlob` for a still, decoded into a PIL image for Python, or
+  saved through the local server. Its `captureStream()` can feed the same
+  bounded recorder as camera/screen video. Neither method captures arbitrary
+  DOM, and microphone audio requires a separate explicit choice. HTML canvas
+  contains pixels, not recoverable vector primitives. Existing SVG output can
+  be preserved as text; native SVG/scene export needs a registered app exporter.
 - **A DOM node is not universally screenshot-able by a page API.** Prefer MIME
   or canvas export for known outputs. DOM-to-image reconstruction has fidelity
   limits; display capture samples a rendered surface and may include unwanted
@@ -262,26 +279,35 @@ The selected deployment assumes Jupyter runs on the user's computer, with files
 saved under its configured user folder. A phone/tablet browser can connect to
 that server; saving then means the computer's folder, not phone-only storage.
 Mobile camera/microphone access requires a secure origin: an HTTP LAN address
-does not inherit the server computer's localhost exception. The simple
-flow is **browser capture → authenticated Jupyter/server save → file path and
+does not inherit the server computer's localhost exception. For file output,
+the flow is **browser capture → authenticated Jupyter/server save → path and
 preview**. Jupyter's Contents API already defines file creation/update with a
 path and content representation. Use it for suitably bounded files; whether
 larger recordings need bounded chunk uploads is an implementation decision.
-Do not hold a notebook cell open to write a file through Python when the server
-can accept the save independently of the busy kernel.
+`save_to` selects memory (`None`), a generated local file (`"auto"`) or an
+explicit server-relative path. Stills default to memory; recordings default
+to `"auto"`. A short memory recording uses a separate bounded binary transfer
+to Python after the initiating cell returns, never base64 in model tool text.
+Do not hold a notebook cell open to await capture or save while the server can
+write independently of the busy kernel.
 ([Jupyter Server Contents API](https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html#put--api-contents-path).)
 
-Temporary browser buffers and an operation ID are sufficient for an active
+Temporary browser buffers and an operation ID are sufficient for active
 recording; no separate durable browser storage system is required. A completed
-save returns a relative path, MIME type, byte count and relevant duration or
-dimensions. Acknowledge success only after the file is saved; define collision,
-cancel/failure and incomplete-upload behavior. The destination stays within the
-configured user folder. Preview can load the saved media from that local server.
+file save returns a relative path, MIME type, byte count and relevant duration
+or dimensions. Acknowledge file success only after save; define collision,
+cancel/failure and incomplete-upload behavior. Memory stills become PIL images
+in Python; short recordings remain encoded `MediaClip` bytes with MIME type.
+Both need bounded ephemeral retention plus explicit `save_media` and
+`release_media`. A `MediaRef` identifies an owned `media_id` or saved path plus
+SHA-256, so preview, editing or later attachment need not force a memory item
+to disk first. File destinations stay within the configured user folder.
 
-Saving locally must not automatically attach the file to a model request.
-Return bounded status/path metadata rather than media bytes in the tool result;
-image/audio/video attachment is a separately selected action with transport
-support. A model can arrange a recording without receiving its pixels or sound.
+Holding or saving locally must not automatically attach media to a model
+request. Return bounded status/reference metadata rather than media bytes in
+the model tool result; attachment is a separately selected action with
+transport support. A model can arrange a recording without receiving its
+pixels or sound.
 If a deployment later uses a remote Jupyter server, this assumption changes and
 must be revisited; supporting a separate browser-only mode is outside this scope.
 
@@ -311,6 +337,9 @@ need a deliberate media schema, transport support for each backend, size/pixel
 limits, authorization and preview/budget accounting; base64 inside text is not
 equivalent. The existing 64,000-character envelope estimate is not an image-token
 budget. This work is independent of queued cell execution.
+Python's in-memory PIL stills and encoded `MediaClip` results need a separate
+bounded binary delivery path after the nonblocking receipt completes. They are
+not proof that the model transport can consume the same media.
 ([Text context](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/context_budget.py#L154-L206),
 [tool results](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/prompt.py#L395-L444),
 [subscription configuration](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/subscription_runtime.py#L80-L131).)
@@ -326,15 +355,17 @@ continuation feature. ([Existing transports](bundled_tools.md).)
 
 ## Suggested delivery order
 
-1. **Main: local-server capture/save foundation.** Bound operation IDs, preview,
-   existing image output discovery/export and authenticated saves in the user's
-   Jupyter folder. No browser-only durable artifact store or extra extension.
+1. **Main: memory and local-server capture foundation.** Bound operation IDs,
+   PIL stills, short encoded clips, preview, existing image output discovery
+   and authenticated saves when selected. No browser-only durable artifact
+   store or extra extension.
 2. **Main: camera and microphone.** Camera stills and video with optional
    microphone audio, microphone-only recording, start/stop and bounded duration.
    Select supported formats across the desktop/mobile matrix in the spec.
 3. **Main: typed app interfaces.** Read notebook view/output text, registered
-   app state/actions/canvases and a bounded event queue. Avoid making arbitrary page
-   JavaScript evaluation the default model tool surface.
+   app state/actions/canvases, native app SVG/scene export and a bounded event
+   queue. Avoid making arbitrary page JavaScript evaluation the default model
+   tool surface.
 4. **Main, separate design: image-aware model input.** Explicitly attach chosen
    artifacts only after both transport and budget contracts are defined. Full
    video-model input need not precede useful still frames or local recordings.

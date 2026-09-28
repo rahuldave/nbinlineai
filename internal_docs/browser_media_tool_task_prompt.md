@@ -78,39 +78,61 @@ user-owned Codex tasks unless requested.
 
 Implement **Phase A** of the spec first: capabilities, bounded operation IDs,
 results and lifecycle; `list_outputs` discovery plus `export_output` so the
-first phase can obtain the required output references; camera photos/video and
-microphone recording; authenticated local Jupyter-server saving into the
-user's configured folder. Direct Python helpers return a `BrowserReceipt`
-immediately; model tools use the authenticated frontend action path. Neither
-holds a Python cell waiting for a browser response. Return status and saved
-file metadata, including exact server-relative path, MIME type, size and
-relevant dimensions/duration, never media bytes in tool text. Saving is
-complete only after the server confirms it.
+first phase can obtain required output references; camera photos/video and
+microphone recording; bounded in-memory results; and authenticated local
+Jupyter-server saving when selected. Direct Python helpers return a
+`BrowserReceipt` immediately and receive their result later; model tools use
+the authenticated frontend action path. Neither holds a Python cell waiting
+for a browser response, and this spec does not promise an awaitable kernel API.
+Raster stills may become PIL images in Python after receipt completion; short
+recordings become encoded `MediaClip` bytes with actual MIME type, never PIL
+video. Return only bounded status/reference metadata to model tools, never
+media bytes in tool text. File success occurs only after server confirmation.
 Keep target binding to the originating notebook, model, session, kernel and
 stable cell/output/artifact identities, including unsaved and offscreen cells.
-Do not redirect an operation when focus changes. Default paths are unique files
-under `media/` beside the initiating notebook; do not overwrite or escape the
-server root, including through symlinks.
+Do not redirect an operation when focus changes. Use one `save_to` argument:
+`None` means a bounded ephemeral memory result, `"auto"` a generated local
+file, and a nonempty server-relative string an explicit local path. Still
+capture defaults to `None`; recordings default to `"auto"`, with memory allowed
+only for bounded short clips. Default file paths are unique under `media/`
+beside the initiating notebook; do not overwrite or escape the server root,
+including through symlinks. Implement bounded result retention and explicit
+`save_media`/`release_media`, without a durable browser artifact store.
 
 Complete Phase A's camera photo, camera video with **optional** microphone
 audio, and microphone-only recording. Use browser capability and MIME/codec
 detection, explicit permission and audio choices, finite duration/byte/pixel
-limits, and clear stop/cancel/close behavior. Save through authenticated
-Jupyter/server APIs, not a held Python cell. A local preview or saved file does
-not transfer media to any model.
+limits, and clear stop/cancel/close behavior. Save requested files through
+authenticated Jupyter/server APIs, not a held Python cell. A memory result,
+local preview or saved file does not transfer media to any model.
 
 Implement **Phase B** screen capture/recording, the remaining notebook view and
 `read_output` reads (output discovery already belongs to Phase A), and
 supported rendered-region capture, local media preview/playback and bounded
 frame/image derivatives, explicit file and clipboard UI, registered typed
 JupyterLab/cooperating-app state/actions/events, and the scoped developer
-bridge. Preserve the spec's `setup_share`, `start_share`, `capture_screen`,
+bridge. Add `capture_canvas` for an origin-clean registered canvas still;
+`export_canvas` remains its convenient save form. A canvas `toBlob` still can
+be decoded to PIL; `captureStream()` feeds the bounded recorder for motion.
+Canvas pixels do not recover vector primitives. Preserve existing SVG output
+through `export_output(..., mime="image/svg+xml", save_to=None)` and expose
+app-owned SVG/scene data through registered `export_app(..., format="svg",
+save_to=None)`. SVG returned to Python is text. Neither canvas recording nor
+still capture adds microphone audio automatically. Preserve the spec's
+`setup_share`, `start_share`, `capture_screen`,
 `capture_tool` alias and `stop_share` names; screen recording uses
 `start_recording` with the screen source. Screen operations are in scope with
 capability detection, a real user gesture and chooser where required, and
 explicit `unsupported` results on platforms that lack the needed API. Do not
 claim system audio or arbitrary external-tab inspection. Keep camera/microphone
 and output export usable where screen capture is unavailable.
+
+The app group builds a **new** owned interactive HTML/JavaScript component
+registry and typed message bridge in JupyterLab. Nbinlineai has no general app
+registry/framework today. `open_app` addresses definitions registered through
+that new contract, not arbitrary installed apps or external browser tabs.
+Ipywidgets are not automatically wrapped; any adapter needs deliberate
+registration and tests.
 
 Avoid a generic arbitrary JavaScript or cross-tab browser-control tool. Follow
 dialoghelper's public API patterns where the spec identifies corresponding
@@ -123,8 +145,10 @@ model-generated arbitrary JavaScript as an enabled tool.
 
 **Phase C model image attachment is a separate substantial implementation
 phase within the approved main scope.** Implement `attach_media` for an exact
-saved still image or extracted frame, with file hash, identified AI question,
-visible confirmation, backend capability checks, genuine media transport,
+still image or extracted frame through the spec's `MediaRef` (owned `media_id`
+or saved path plus SHA-256); memory media need not be saved first. Bind the
+identified AI question, visible confirmation, backend capability checks,
+genuine media transport,
 payload size/pixel limits, preview and budget accounting. Recheck file bytes
 and backend support when the question runs; opening or previewing never
 attaches. Initial audio and full-video model input return
@@ -146,7 +170,9 @@ extension is needed for the portable core.
 
 Add focused tests for schemas, binding, duplicate/expired operations, closed
 tabs/surfaces, permission denial, cancellation, byte/time bounds, MIME choice,
-save completion/failure and no implicit provider transfer. Verify with a real
+save completion/failure, memory retention/release, `save_to` defaults and
+explicit paths, PIL/SVG/encoded clip result types, and no implicit provider
+transfer. Verify with a real
 isolated JupyterLab and kernel plus deterministic provider, including two
 notebook tabs and focus changes. The support matrix includes current desktop
 Chrome, Edge, Firefox and Safari; Android Chrome and Firefox; and iOS/iPadOS
