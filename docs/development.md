@@ -111,10 +111,18 @@ Use an output directory containing exactly one version's wheel and source archiv
 
 ## Maintain the documentation
 
-The site source is the repository's `docs/` folder. GitHub Pages publishes `main:/docs` using Jekyll and the Minimal theme, with a white documentation layout and small local style overrides. No separate documentation release command is needed: push a documentation change to `main`, then check the **Pages build and deployment** run on GitHub.
+The site source is the repository's `docs/` folder. Quarto **1.8.26** renders its Markdown into `docs/_site/` using [`docs/_quarto.yml`](_quarto.yml). The generated folder is ignored by Git. To check a change locally:
 
-- Write pages in Markdown with a title in YAML front matter.
-- Keep links to other pages relative, such as `user-guide.md` from a root page or `../faq.md` from a manual chapter; Jekyll's relative-links plugin adapts them for the website.
+```bash
+quarto render docs
+python3 scripts/check_docs_site.py docs/_site
+quarto preview docs
+```
+
+The checker verifies all 16 pages, 51 tool rows, local links, and anchors. The `docs/.nojekyll` marker is copied into the rendered site so GitHub Pages serves Quarto's files directly. The **Documentation site** workflow builds on every PR and publishes the rendered site to GitHub Pages after a push to `main`; the repository's Pages source is **GitHub Actions**. Check that workflow's build and deployment jobs after merge, then inspect the live [Tools reference](tools.html).
+
+- Write pages in Markdown with a title in YAML front matter. Quote titles containing a colon so Quarto can parse them.
+- Keep links to other pages relative, such as `user-guide.md` from a root page or `../faq.md` from a manual chapter; Quarto rewrites them to `.html` for the website.
 - Keep the short `docs/user-guide.md` index and the eight `docs/manual/` chapters in reading order. Link each chapter from the site homepage, and keep the chapter's Manual, Previous, and Next links current. When moving a section, update cross-links and the legacy fragment redirect map in the index.
 - Keep screenshots in `docs/images/` and reference them as `images/filename.png` from root documentation pages or `../images/filename.png` from nested manual chapters.
 - The README uses absolute GitHub image URLs so its images also render on PyPI. Keep it to at most two screenshots.
@@ -124,7 +132,7 @@ After a frontend build and relink, refresh the core notebook screenshots with `u
 
 The same Markdown and image files are installed under `share/doc/nbinlineai/docs/` in the Python environment for offline use. Example notebooks and their data fixture are installed under `share/doc/nbinlineai/examples/`; keep their relative layout intact. Internal release records and future design notes remain in `internal_docs/` and are excluded from published package archives and the documentation site.
 
-See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site) for the hosting configuration, and [Architecture](architecture.md) for the source map.
+See [GitHub's custom Pages workflow guide](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages) for the hosting configuration, and [Architecture](architecture.md) for the source map.
 
 
 ## Branches and worktrees

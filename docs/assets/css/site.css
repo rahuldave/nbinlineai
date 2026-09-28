@@ -1,0 +1,21 @@
+/* Markdown pages already have their visible H1 headings. */
+#title-block-header {
+  display: none;
+}
+
+/* Keep long signatures and examples usable on narrow screens. */
+#quarto-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#quarto-content table th:first-child,
+#quarto-content table td:first-child {
+  min-width: 22rem;
+}
+
+#quarto-content img {
+  max-width: 100%;
+  height: auto;
+}

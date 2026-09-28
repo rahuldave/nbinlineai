@@ -1,0 +1,40 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - '*.md'
+    - 'manual/*.md'
+  resources:
+    - .nojekyll
+    - images/**
+
+website:
+  title: nbinlineai
+  description: AI prompts in JupyterLab notebooks
+  site-url: https://rahuldave.com/nbinlineai/
+  repo-url: https://github.com/rahuldave/nbinlineai
+  navbar:
+    left:
+      - text: Home
+        href: index.md
+      - text: User guide
+        href: user-guide.md
+      - text: Tools reference
+        href: tools.md
+      - text: Examples
+        href: examples.md
+      - text: FAQ
+        href: faq.md
+      - text: Architecture
+        href: architecture.md
+      - text: Prior art
+        href: prior-art.md
+      - text: Development
+        href: development.md
+
+format:
+  html:
+    theme: cosmo
+    css: assets/css/site.css
+    toc: true
+    code-copy: true
