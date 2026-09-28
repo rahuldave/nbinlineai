@@ -1,5 +1,22 @@
 # Developer handoff
 
+**2026-09-28 documentation policy:** Internal research, specs, task prompts,
+handoffs and release records are maintained on main. Implementation worktrees
+read them through the primary main checkout or an explicitly recorded main
+snapshot; document edits use owned main-based topics and PRs. See
+[the workflow](workflow.md#canonical-internal-documentation) for revision
+pinning, draft handling and unavailable/behind primary checkouts. Public docs,
+examples and code remain with their implementation branch. Records about an
+experiment must identify its branch/commit and delivery status.
+
+The [execution research](notebook_execution_handoffs.md) and
+[one-kernel RLM/Python 3.14 research](one_kernel_rlm_python314.md) were preserved
+from experimental commit `a316494` with provenance in each document. The
+[approved handoff spec](notebook_execution_handoff_spec.md) and
+[task prompt](notebook_execution_handoff_task_prompt.md) now use main as their
+documentation source. This policy adds no notebook behavior; inspect the chosen
+implementation checkout for actual features. Version/PyPI remain 0.1.15.
+
 **0.1.15 published (2026-09-25):** The two-tab Configure AI source merged by
 PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate
 release used `/Users/rahul/Projects/nbinlineai-release-0.1.15` on
