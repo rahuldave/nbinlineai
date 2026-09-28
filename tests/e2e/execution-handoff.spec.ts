@@ -190,7 +190,7 @@ test('direct Python run_and_prompt transfers the actual output to a new question
 
 test('direct Python prompt_and_run creates a new question with a code choice', async ({ page, request }) => {
   await openNotebook(page, request, [code('caller',
-    'from nbinlineai.tools import prompt_and_run\nreceipt = prompt_and_run("E2E_HANDOFF_P1_SELECT Create and execute one code cell.")\nprint("CALLER_RETURNED")')]);
+    'from nbinlineai.tools import prompt_and_run, add_code_cell_and_execute\nreceipt = prompt_and_run("E2E_HANDOFF_P1_SELECT Create and execute one code cell.")\nprint("CALLER_RETURNED")')]);
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
   await notebook.locator('.jp-CodeCell').first().click();
   await page.keyboard.press('Shift+Enter');
