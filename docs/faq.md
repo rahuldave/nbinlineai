@@ -474,7 +474,9 @@ The kernel does not own the browser's document model. Live-cell tools such as `l
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.14 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Version 0.1.14 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. Those edit tools do not execute code, save the notebook, edit AI question/answer cells, or control another notebook.
+
+The [experimental Git branch](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project) adds `add_code_cell_and_execute`, `prompt_and_run`, and `run_and_prompt`. These explicitly schedule native code execution or a new AI question **after the current turn or Python cell finishes**. An existing code target is named by ID and checked against its current source. `run_and_prompt` passes a bounded result from that particular run to a new question; code errors stop the chain. Scheduling is not saving, so inspect the result and save normally. See the [experimental example](examples.md#try-queued-execution-handoffs-experimental-git-branch).
 
 ### The extension works, but importing the tools fails. Why?
 

@@ -110,6 +110,14 @@ The [Fastcore tools notebook](https://github.com/rahuldave/nbinlineai/blob/main/
 
 Use `tool_catalog()` to inspect group names without declaring anything. `tools_markdown(group="code")` prints removable declarations for a task-focused group; the default `starter` group has 19 tools. Select at most 20 tool and variable names combined in one AI question. `source_doc(path)` parses source without importing it; `show_doc(name, module="...")` imports a named module explicitly and can run its initialization. Search paths are relative to the selected kernel's current working directory, not necessarily the notebook folder. See the [tools reference](tools.md) for exact signatures and limits.
 
+## Try queued execution handoffs (experimental Git branch)
+
+The [execution handoff notebook](https://github.com/rahuldave/nbinlineai/blob/codex/agentic-notebook-experiments/examples/notebook-execution-handoffs.ipynb) demonstrates three ways to schedule work in the same open notebook and Python kernel. Use the [experimental Git installation](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project); these helpers are not in the published 0.1.14 package.
+
+Import and declare `add_code_cell_and_execute`, `prompt_and_run`, or `run_and_prompt` just like other opt-in AI tools. A running AI question can add code and arrange for native execution after its answer finishes. `run_and_prompt` follows a successful run with a **new AI question** that receives the actual, bounded text result of that run. `prompt_and_run` starts a new question first; that question must explicitly choose or create the code cell to run. A direct Python call returns a scheduling receipt while its code cell finishes; it does not wait inside the kernel for the next cell.
+
+Each step uses a stable cell ID and checks the source and original notebook/kernel again before running. A changed or deleted target, code error, or cancelled predecessor stops the chain. Review new cells and save the notebook to keep them. Keep answer prevents a completed question from repeating its handoff effects on a later Run All.
+
 ## Downloadable notebooks
 
 Download notebooks from the [examples folder on GitHub](https://github.com/rahuldave/nbinlineai/tree/main/examples), and keep their `data/` folder beside them. The package also installs examples under `share/doc/nbinlineai/examples/` in its Python environment; copy that directory into your project before editing it. These notebooks include setup code and prompts, with no API keys or pre-generated AI answers. Configure your provider as usual. Run the Learning example one step at a time so you can answer the tutor before continuing.

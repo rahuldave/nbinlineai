@@ -10,6 +10,7 @@ Students can install the prebuilt package without this setup. Contributors need 
 
 Notebook-agent execution experiments live on the long-running
 [`codex/agentic-notebook-experiments` branch](https://github.com/rahuldave/nbinlineai/tree/codex/agentic-notebook-experiments).
+Its queued same-notebook handoffs are documented in the [tools reference](tools.md#live-notebook-cells) and [experimental example](examples.md#try-queued-execution-handoffs-experimental-git-branch). They require both the JupyterLab frontend and the package in the selected Python kernel; installing only one side cannot schedule a handoff.
 From the directory of the **uv project that starts your Jupyter server**, run:
 
 ```bash

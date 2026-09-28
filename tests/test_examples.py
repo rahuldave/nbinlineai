@@ -23,6 +23,7 @@ EXAMPLES = [
     "project-tools.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
+    "notebook-execution-handoffs.ipynb",
     "data/ecosystem-lesson.ipynb",
 ]
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
@@ -59,7 +60,7 @@ async def _run_code(
 
 @pytest.mark.parametrize("relative_path", EXAMPLES)
 def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None:  # relative_path: example notebook
-    """Run setup code; skip only the documented JupyterLab-only helper example."""
+    """Run setup code; skip only documented JupyterLab-only helper cells."""
     notebook_path = ROOT / "examples" / relative_path
     notebook = json.loads(notebook_path.read_text())
     nbformat.validate(notebook)
@@ -80,9 +81,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
                 if cell["cell_type"] == "code":
                     ui_only = "nbinlineai-ui-only" in cell.get("metadata", {}).get("tags", [])
                     if ui_only:
-                        assert (relative_path, cell["id"]) == (
-                            "live-variables-and-tools.ipynb", "live-insert-tools-optional"
-                        )
+                        assert (relative_path, cell["id"]) in {
+                            ("live-variables-and-tools.ipynb", "live-insert-tools-optional"),
+                            ("notebook-execution-handoffs.ipynb", "handoff-direct-request"),
+                        }
                     else:
                         outputs.append(await _run_code(kernel, source))
                     continue
