@@ -1,5 +1,5 @@
 ---
-title: Prior art: Solveit and ai-jup
+title: "Prior art: Solveit and ai-jup"
 ---
 
 # The ideas behind nbinlineai
