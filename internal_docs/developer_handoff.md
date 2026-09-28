@@ -2,7 +2,7 @@
 
 **2026-09-28 queued notebook execution handoffs (experimental topic, pending
 PR):** `codex/notebook-execution-handoffs` started at
-`f1304d3b57e2d521fbd0d3c222533c6425c7be6bda3e9cdbd338e40` from
+`f1304d3b57e2d521fbd0d3c222533c6425c7be6c` from
 `origin/codex/agentic-notebook-experiments` in owned worktree
 `/Users/rahul/Projects/nbinlineai-execution-handoffs`; that persistent branch
 is the PR base. The primary checkout remains on `main`. The approved
@@ -36,6 +36,21 @@ stop execution. The direct Python scheduling receipt reports acknowledgement,
 not completed execution. A lost acknowledgement warrants inspection before
 retrying. See [tools](../docs/tools.md), [architecture](../docs/architecture.md),
 and the [experimental example](../examples/notebook-execution-handoffs.ipynb).
+
+Local verification for this topic: 279 Python tests, 69 frontend unit tests,
+TypeScript, Ruff, lockfile and diff checks passed. The rebuilt and relinked
+isolated JupyterLab/kernel passed all 13 new handoff browser scenarios. The
+full default browser run had 84 passing cases, two expected opt-in skips, and
+one existing answer-editor keystroke case that passed immediately on an
+isolated rerun. Independent adversarial review at base `f1304d3` and head
+`b369b19` found that a `prompt_and_run` follow-up could schedule another
+question without choosing code; a new browser regression now rejects it.
+The reviewer also raised an unproven race between source precheck and the
+native execute request. Result attribution now captures the actual outgoing
+code, and stops the successor with a visible message if it differs from the
+selected source. Final review/CI/PR status should be appended after those
+gates complete. The browser harness stopped its owned server on 8897; the
+user's server on 8888 was untouched.
 
 **2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
 PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
