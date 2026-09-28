@@ -56,6 +56,24 @@ async function openNotebook(page: Page, request: APIRequestContext, cells: Cell[
     if (!sessions.ok()) return false;
     return (await sessions.json()).some((session: any) => session.path === name && session.kernel?.id);
   }).toBeTruthy();
+  await expect.poll(async () => {
+    const sessions = await request.get('/api/sessions');
+    if (!sessions.ok()) return false;
+    const session = (await sessions.json()).find((item: any) => item.path === name);
+    if (!session?.kernel?.id) return false;
+    const kernel = await request.get(`/api/kernels/${session.kernel.id}`);
+    return kernel.ok() && (await kernel.json()).execution_state === 'idle';
+  }, { timeout: 30_000 }).toBeTruthy();
+  const browserIdle = page.getByRole('button', { name: /Python.*\| Idle$/ });
+  try {
+    await expect(browserIdle).toBeVisible({ timeout: 8_000 });
+  } catch {
+    // A new workspace can retain an unconnected browser status after REST is idle.
+    // Reload before any notebook edit or execution, then require browser readiness.
+    await page.reload();
+    await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell')).toHaveCount(cells.length);
+    await expect(browserIdle).toBeVisible();
+  }
   return name;
 }
 

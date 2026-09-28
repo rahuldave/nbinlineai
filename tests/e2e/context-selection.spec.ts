@@ -58,7 +58,7 @@ async function openNotebook(page: Page, request: APIRequestContext, fixture: Cel
     const sessions = await request.get('/api/sessions');
     return sessions.ok() && (await sessions.json()).some((s: any) => s.path === name && s.kernel?.id);
   }).toBeTruthy();
-  await waitKernelIdle(page);
+  await waitRestKernelIdle(page);
   const browserIdle = page.getByRole('button', { name: /Python.*\| Idle$/ });
   try {
     await expect(browserIdle).toBeVisible({ timeout: 8_000 });
@@ -67,13 +67,13 @@ async function openNotebook(page: Page, request: APIRequestContext, fixture: Cel
     // Reload only here, before the test edits this notebook.
     await page.reload();
     await expect(cells(page)).toHaveCount(fixture.length);
-    await waitKernelIdle(page);
+    await waitRestKernelIdle(page);
     await expect(browserIdle).toBeVisible();
   }
   return name;
 }
 
-async function waitKernelIdle(page: Page) {
+async function waitRestKernelIdle(page: Page) {
   const name = decodeURIComponent(new URL(page.url()).pathname.split('/').pop() || '');
   await expect.poll(async () => {
     const sessions = await page.request.get('/api/sessions');
@@ -83,6 +83,12 @@ async function waitKernelIdle(page: Page) {
     const kernel = await page.request.get(`/api/kernels/${session.kernel.id}`);
     return kernel.ok() && (await kernel.json()).execution_state === 'idle';
   }, { timeout: 30_000 }).toBeTruthy();
+}
+
+async function waitKernelIdle(page: Page) {
+  await waitRestKernelIdle(page);
+  // REST can report idle before this browser completes its kernel connection.
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
 }
 
 async function savedNotebook(request: APIRequestContext, name: string) {
