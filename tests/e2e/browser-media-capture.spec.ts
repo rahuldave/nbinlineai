@@ -128,3 +128,46 @@ test('screen chooser is activated by the visible Share button and stop is idempo
   await runCell(page, 8);
   expect(await inspectLater(page, 9, 'already_stopped')).toContain('completed');
 });
+
+test('model capture_tool reply states that no image pixels were attached', async ({ page, request }) => {
+  await syntheticDevices(page);
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  expect(xsrf).toBeTruthy();
+  const headers = { 'X-XSRFToken': xsrf! };
+  const key = await request.post('/nbinlineai/settings/keys', {
+    headers, data: { backend: 'openai_api', key: 'e2e-no-network-openai' }
+  });
+  expect(key.ok(), await key.text()).toBeTruthy();
+  const name = `capture-model-${Date.now()}.ipynb`;
+  const created = await request.put(`/api/contents/${name}`, { headers,
+    data: { type: 'notebook', format: 'json', content: { cells: [
+      { id: 'share', cell_type: 'code', source: 'from nbinlineai.tools import start_share, capture_tool\nsharing = start_share()',
+        metadata: {}, outputs: [], execution_count: null },
+      { id: 'ask', cell_type: 'markdown', source: 'E2E_CAPTURE_TOOL_DESCRIPTOR &`capture_tool`',
+        metadata: { nbinlineai: { isPromptCell: true } } }
+    ], metadata: { kernelspec: { display_name: 'Python 3 (ipykernel)', language: 'python', name: 'python3' } },
+    nbformat: 4, nbformat_minor: 5 } } });
+  expect(created.ok(), await created.text()).toBeTruthy();
+  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+  const select = page.getByRole('button', { name: 'Select', exact: true });
+  if (await select.isVisible().catch(() => false)) await select.click();
+  const no = page.getByRole('button', { name: 'No', exact: true });
+  if (await no.isVisible().catch(() => false)) await no.click();
+  await expect(page.locator('.nbinlineai-prompt-cell')).toHaveCount(1);
+  await runCell(page, 0);
+  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
+  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+  await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
+  const action = page.waitForRequest(item => item.url().endsWith('/nbinlineai/action-reply') && item.method() === 'POST');
+  await page.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();
+  const reply = JSON.parse((await action).postData() || '{}') as { ok: boolean; text: string };
+  expect(reply.ok).toBe(true);
+  expect(reply.text.length).toBeLessThan(3800);
+  const descriptor = JSON.parse(reply.text) as { operation_id: string; model_pixels_attached: boolean; note: string };
+  expect(descriptor.operation_id).toBeTruthy();
+  expect(descriptor.model_pixels_attached).toBe(false);
+  expect(descriptor.note).toContain('no image pixels');
+  expect(reply.text).not.toContain('data:image');
+  await expect(page.locator('.nbinlineai-response-cell')).toContainText('CAPTURE_TOOL_DESCRIPTOR');
+});
