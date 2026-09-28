@@ -6,7 +6,7 @@ title: Tools reference
 
 Version **0.1.14** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
 
-The ongoing [experimental Git branch](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project) also has the three execution handoffs below. They are source experiments, not part of the published 0.1.14 tool count or a PyPI release.
+The ongoing [experimental Git branch](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project) also has the three execution handoffs below. This branch still reports version 0.1.14; the handoffs are absent from the current published PyPI 0.1.15 release.
 
 A new release with frontend changes needs a **JupyterLab server restart** after installation or upgrade, followed by a browser reload. Restart the selected Python kernel and rerun imports too. The older editable-install, Python-only shortcut for the first eight fastcore tools does not apply to this release's live notebook edits. See [setup](manual/setup.md) and [development](development.md).
 

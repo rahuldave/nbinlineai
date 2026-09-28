@@ -112,7 +112,7 @@ Use `tool_catalog()` to inspect group names without declaring anything. `tools_m
 
 ## Try queued execution handoffs (experimental Git branch)
 
-The [execution handoff notebook](https://github.com/rahuldave/nbinlineai/blob/codex/agentic-notebook-experiments/examples/notebook-execution-handoffs.ipynb) demonstrates three ways to schedule work in the same open notebook and Python kernel. Use the [experimental Git installation](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project); these helpers are not in the published 0.1.14 package.
+The [execution handoff notebook](https://github.com/rahuldave/nbinlineai/blob/codex/agentic-notebook-experiments/examples/notebook-execution-handoffs.ipynb) demonstrates three ways to schedule work in the same open notebook and Python kernel. Use the [experimental Git installation](development.md#install-the-ongoing-experimental-branch-in-a-jupyterlab-project); these helpers are absent from the current published PyPI 0.1.15 package.
 
 Import and declare `add_code_cell_and_execute`, `prompt_and_run`, or `run_and_prompt` just like other opt-in AI tools. A running AI question can add code and arrange for native execution after its answer finishes. `run_and_prompt` follows a successful run with a **new AI question** that receives the actual, bounded text result of that run. `prompt_and_run` starts a new question first; that question must explicitly choose or create the code cell to run. A direct Python call returns a scheduling receipt while its code cell finishes; it does not wait inside the kernel for the next cell.
 

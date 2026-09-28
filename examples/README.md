@@ -15,7 +15,7 @@ Copy this `examples/` directory into a JupyterLab project, keeping `data/` besid
 | `python-and-web-tools.ipynb` | Inspect Python help/signatures/source, offer a custom alias, read a public documentation page, and add it as a note. |
 | `jupyter-ai-and-nbinlineai.ipynb` | Analyze a small pollinator survey with standard-library Python; optionally use Jupyter AI chat for planning/refactoring and nbinlineai Learning questions for in-notebook explanation and an unexecuted code draft. |
 | `codex-acp-worked-example.ipynb` | Ask Codex in Jupyter AI chat to diagnose and fix a revenue calculation that confuses zero with missing data, run its checks, then use nbinlineai for an inline explanation and tutoring follow-up. Tested with an authenticated Codex ACP agent. |
-| `notebook-execution-handoffs.ipynb` | On the ongoing experimental Git branch, schedule new or identified code after an AI turn, run code before a separate follow-up question, and try a nonblocking direct Python request. This is not in published 0.1.14. |
+| `notebook-execution-handoffs.ipynb` | On the ongoing experimental Git branch, schedule new or identified code after an AI turn, run code before a separate follow-up question, and try a nonblocking direct Python request. This is absent from published PyPI 0.1.15. |
 
 Run the setup code in each notebook before its AI prompts. The Learning notebook has blank prompt cells for **your** attempts: fill and run each one only after reading the previous tutor answer. Work through both combined-extension examples step by step too; their chat and learning activities require pauses. Do not use Run All to skip those pauses. Run All executes code and AI prompts in order; a provider call may incur normal API usage.
 
