@@ -56,6 +56,30 @@ def test_close_owner_revokes_only_exact_frozen_credential(tmp_path):
     assert operation.status == 'expired'
 
 
+def test_one_recording_per_notebook_across_clients_and_terminal_release(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    first = owner(registry)
+    second = owner(registry, 'other-client')
+    active = registry.create(first, 'record-one', 'start_recording', {'source_id': 'source'})
+    rival = registry.create(second, 'record-two', 'record_microphone', {})
+    assert registry.claim_recording(first, active.id)['status'] == 'running'
+    assert registry.claim_recording(first, active.id)['status'] == 'running'
+    with pytest.raises(MediaError) as busy:
+        registry.claim_recording(second, rival.id)
+    assert busy.value.code == 'busy'
+    registry.cancel(first, active.id)
+    assert registry.claim_recording(second, rival.id)['status'] == 'running'
+    registry.transition(second, rival.id, 'failed', error={'code': 'device_unavailable', 'message': 'No microphone'})
+    assert not registry.recording_claims
+
+    another = registry.create(first, 'record-three', 'record_camera', {})
+    registry.claim_recording(first, another.id)
+    registry.expire_owner(first)
+    assert not registry.recording_claims
+    with pytest.raises(MediaError, match='expired'):
+        registry.claim_recording(first, another.id)
+
+
 def test_binary_hash_mime_save_and_release(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)

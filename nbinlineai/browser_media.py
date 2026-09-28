@@ -150,6 +150,7 @@ class MediaRegistry:
         self.current_paths: dict[Owner, str] = {}
         self._state_lock = threading.RLock()
         self._published_inodes: dict[str, tuple[int, int, int]] = {}
+        self.recording_claims: dict[str, tuple[Owner, str]] = {}
 
     def _now(self) -> float:
         return float(self.clock())
@@ -305,6 +306,22 @@ class MediaRegistry:
         return op
 
     @_locked
+    def claim_recording(self, owner: Owner, operation_id: str) -> dict[str, Any]:
+        """Admit at most one live recorder across clients of a notebook session."""
+        op = self.operation(owner, operation_id)
+        if op.name not in {'start_recording', 'record_camera', 'record_microphone'} or op.status != 'running':
+            raise MediaError('stale_target', 'Recording operation is unavailable')
+        current = self.recording_claims.get(owner.session_id)
+        if current is not None and current != (owner, operation_id):
+            raise MediaError('busy', 'A recording is already active in this notebook')
+        self.recording_claims[owner.session_id] = (owner, operation_id)
+        return self.status(owner, operation_id)
+
+    def _drop_recording(self, op: Operation) -> None:
+        if self.recording_claims.get(op.owner.session_id) == (op.owner, op.id):
+            self.recording_claims.pop(op.owner.session_id, None)
+
+    @_locked
     def status(self, owner: Owner, operation_id: str) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         result: dict[str, Any] = {'operation_id': op.id, 'status': op.status}
@@ -386,6 +403,8 @@ class MediaRegistry:
         op.status = status
         op.updated = self._now()
         op.deadline = None
+        if status in TERMINAL:
+            self._drop_recording(op)
         return self.status(owner, operation_id)
 
     def cancel(self, owner: Owner, operation_id: str) -> dict[str, Any]:
@@ -396,6 +415,7 @@ class MediaRegistry:
                 op.status = 'cancelled'
                 op.error = {'code': 'cancelled', 'message': 'Operation cancelled'}
                 op.updated = self._now()
+                self._drop_recording(op)
                 if op.media_id:
                     self.media.pop(op.media_id, None)
                 for media_id in op.batch_media_ids:
@@ -477,6 +497,7 @@ class MediaRegistry:
                 op.status = 'saving'
             else:
                 op.status = 'completed'
+                self._drop_recording(op)
             op.updated = self._now()
         if save_to is not None and not defer_save:
             path: str | None = None
@@ -492,6 +513,7 @@ class MediaRegistry:
                     if op.status not in TERMINAL:
                         op.status = 'completed'
                         op.updated = self._now()
+                        self._drop_recording(op)
                     self._forget_saved(path)
             except Exception:
                 if path is not None:
@@ -503,6 +525,7 @@ class MediaRegistry:
                         op.status = 'failed'
                         op.error = {'code': 'save_failed', 'message': 'Media could not be saved'}
                         op.updated = self._now()
+                        self._drop_recording(op)
                 raise
         return self.status(owner, operation_id)
 
@@ -953,6 +976,7 @@ class MediaRegistry:
                 op.status = 'expired'
                 op.error = {'code': 'stale_target', 'message': 'Browser owner disconnected'}
                 op.updated = self._now()
+                self._drop_recording(op)
         for media_id, media in list(self.media.items()):
             if media.owner is owner:
                 self.media.pop(media_id, None)
@@ -971,6 +995,7 @@ class MediaRegistry:
                 op.status = 'expired'
                 op.error = {'code': 'timeout', 'message': 'Permission request timed out'}
                 op.updated = now
+                self._drop_recording(op)
         for media_id, media in list(self.media.items()):
             if media.expires <= now:
                 self.media.pop(media_id, None)

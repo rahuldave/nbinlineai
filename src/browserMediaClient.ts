@@ -200,6 +200,9 @@ export class BrowserOperationContext {
     this.emit(updated);
     return updated;
   }
+  async claimRecording(operationId: string): Promise<BrowserOperationStatus> {
+    return this.command('claimrecording', { operation_id: operationId });
+  }
   private async save(reference: { media_id: string } | { path: string; sha256: string },
     saveTo = 'auto', requestId = randomId()): Promise<{ media: Record<string, unknown>; operation_id: string }> {
     const result = await this.command('save', { media: reference, save_to: saveTo, request_id: requestId });
