@@ -64,10 +64,12 @@ def test_saved_image_preview_and_actual_round_reread_exact_current_question(tmp_
         report = await preview_context(body, NoKernelReferences(), 'kernel', object(),
                                        media_registry=registry, attachment_owner=owner)
         assert 0 < report['round_wire_chars'] <= 64_000
+        assert registry.reserved_save_bytes == 0
         sent = []
 
         async def fake_complete(backend, model, messages, tools, **kwargs):
             sent.append(messages)
+            assert registry.reserved_save_bytes == len(data)
             assert backend == 'openai_api' and model == 'gpt-6-sol'
             assert len(messages[-1].content) == 2
             assert isinstance(messages[-1].content[1], InputImage)
@@ -79,6 +81,7 @@ def test_saved_image_preview_and_actual_round_reread_exact_current_question(tmp_
         events = [event async for event in run_prompt(body, NoKernelReferences(), 'kernel', object(),
                                                        media_registry=registry, attachment_owner=owner)]
         assert sent and events[-1]['type'] == 'done'
+        assert registry.reserved_save_bytes == 0
         path.write_bytes(data + b'changed')
         with pytest.raises(MediaError, match='hash'):
             await preview_context(body, NoKernelReferences(), 'kernel', object(),
@@ -101,5 +104,41 @@ def test_prior_question_image_never_attaches_to_current_question():
         report = await preview_context(body, NoKernelReferences(), 'kernel', object(),
                                        media_registry=RefuseRead(), attachment_owner=object())
         assert report['context_budget_chars'] == 64_000
+
+    asyncio.run(check())
+
+
+def test_cancelled_stream_releases_prepared_image_reservation(tmp_path, monkeypatch):
+    async def check():
+        registry = MediaRegistry(tmp_path)
+        browser = registry.bind('session', 'kernel', 'notes/example.ipynb', 'model', 'client')
+        data = png()
+        folder = tmp_path / 'notes'
+        folder.mkdir()
+        (folder / 'sample.png').write_bytes(data)
+        reference = {'path': 'notes/sample.png', 'sha256': hashlib.sha256(data).hexdigest()}
+        operation = registry.create(browser, 'attach', 'attach_media',
+                                    {'media': reference, 'question_cell_id': 'question', 'detail': 'auto'},
+                                    waiting=True)
+        granted = registry.confirm_attachment(browser, reference, 'question', 'auto', operation.id)
+        body = snapshot({key: value for key, value in granted.items() if key != 'display'})
+
+        async def fake_complete(*_args, **_kwargs):
+            assert registry.reserved_save_bytes == len(data)
+
+            async def stream():
+                yield Text('partial')
+                await asyncio.Future()
+
+            return stream()
+
+        monkeypatch.setattr(providers, 'complete', fake_complete)
+        events = run_prompt(body, NoKernelReferences(), 'kernel', object(),
+                            media_registry=registry, attachment_owner=browser)
+        assert (await anext(events))['type'] == 'context'
+        assert (await anext(events))['type'] == 'text_delta'
+        assert registry.reserved_save_bytes == len(data)
+        await events.aclose()
+        assert registry.reserved_save_bytes == 0
 
     asyncio.run(check())
