@@ -154,9 +154,15 @@ test('a later AI prompt sees the edited saved answer, not the original response'
   const firstAnswer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').first();
   await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('ORIGINAL_HISTORY_ANSWER');
 
-  await firstAnswer.dblclick();
-  await expect(firstAnswer.locator('.cm-content')).toBeVisible();
-  await firstAnswer.locator('.cm-content').fill('CORRECTED_HISTORY_ANSWER');
+  const editor = firstAnswer.locator('.cm-content');
+  await expect(async () => {
+    if (!(await editor.isVisible())) {
+      await firstAnswer.locator('.jp-Cell-inputWrapper').click();
+      await page.keyboard.press('Enter');
+    }
+    await editor.fill('CORRECTED_HISTORY_ANSWER', { timeout: 2000 });
+    await expect(editor).toHaveText('CORRECTED_HISTORY_ANSWER');
+  }).toPass({ timeout: 10_000 });
   await page.keyboard.press('Shift+Enter');
   await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('CORRECTED_HISTORY_ANSWER');
 
