@@ -12,9 +12,11 @@ from jupyter_server.auth.decorator import authorized
 from jupyter_server.auth.identity import IdentityProvider, PasswordIdentityProvider
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
+from tornado.ioloop import PeriodicCallback
 from tornado.iostream import StreamClosedError
 from tornado.web import HTTPError, authenticated
 
+from .browser_media import MediaError, MediaRegistry
 from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, provider_status
 from .credentials import CredentialStore
 from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
@@ -315,6 +317,120 @@ class ActionReplyHandler(APIHandler):
         self.finish({"accepted": True})
 
 
+class BrowserMediaHandler(APIHandler):
+    """Authenticated operation commands; every command rechecks the live session."""
+
+    def initialize(self, dispatcher, media_registry):
+        self.dispatcher = dispatcher
+        self.media_registry = media_registry
+
+    async def _owner(self, body, *, create=False):
+        if not isinstance(body, dict):
+            raise MediaError('invalid_argument', 'Expected a JSON object')
+        session_id = body.get('session_id')
+        client_id = body.get('client_id')
+        model_id = body.get('model_id')
+        if not isinstance(session_id, str) or not session_id:
+            raise MediaError('invalid_argument', 'Missing notebook session')
+        kernel_id, _ = await self.dispatcher.resolve(session_id)
+        session = await self.dispatcher.sessions.get_session(session_id=session_id)
+        if session.get('type') != 'notebook' or not isinstance(session.get('path'), str):
+            raise MediaError('stale_target', 'Notebook session is unavailable')
+        secret = None if create else self.request.headers.get('X-NBInlineAI-Owner')
+        return self.media_registry.bind(session_id, kernel_id, session['path'],
+                                        model_id, client_id, secret)
+
+    def _error(self, exc):
+        self.set_status(409 if exc.code in ('stale_target', 'path_conflict') else
+                        413 if exc.code == 'limit_exceeded' else 400)
+        self.finish({'error': {'code': exc.code, 'message': str(exc)}})
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self, command):
+        _require_single_user_server(self)
+        try:
+            body = self.get_json_body()
+            owner = await self._owner(body, create=command == 'owner')
+            registry = self.media_registry
+            if command == 'owner':
+                self.finish({'client_id': owner.client_id, 'owner_secret': owner.secret,
+                             'lease_seconds': 90})
+            elif command == 'heartbeat':
+                registry.heartbeat(owner)
+                self.finish({'ok': True})
+            elif command == 'create':
+                op = registry.create(owner, body.get('request_id'), body.get('name'),
+                                     body.get('arguments'), waiting=body.get('waiting') is True)
+                self.finish(registry.status(owner, op.id))
+            elif command == 'status':
+                self.finish(registry.status(owner, body.get('operation_id')))
+            elif command == 'transition':
+                self.finish(registry.transition(owner, body.get('operation_id'),
+                                                body.get('status'), body.get('result'), body.get('error')))
+            elif command == 'cancel':
+                self.finish(registry.cancel(owner, body.get('operation_id')))
+            elif command == 'save':
+                self.finish({'media': registry.save_media(owner, body.get('media_id'), body.get('save_to'))})
+            elif command == 'release':
+                registry.release_media(owner, body.get('media_id'))
+                self.finish({'released': True})
+            elif command == 'close':
+                registry.expire_owner(owner)
+                self.finish({'closed': True})
+            else:
+                raise MediaError('unsupported', 'Unknown browser operation command')
+        except MediaError as exc:
+            self._error(exc)
+
+
+class BrowserMediaBytesHandler(BrowserMediaHandler):
+    """Raw binary ingress/egress, separate from action and model text envelopes."""
+
+    async def _byte_owner(self):
+        return await self._owner({
+            'session_id': self.request.headers.get('X-NBInlineAI-Session'),
+            'client_id': self.request.headers.get('X-NBInlineAI-Client'),
+            'model_id': self.request.headers.get('X-NBInlineAI-Model'),
+        })
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self, operation_id):
+        _require_single_user_server(self)
+        try:
+            owner = await self._byte_owner()
+            raw = self.request.body
+            if len(raw) > 50 * 1024 * 1024:
+                raise MediaError('limit_exceeded', 'Upload exceeds 50 MiB')
+            metadata_header = self.request.headers.get('X-NBInlineAI-Metadata', '{}')
+            if len(metadata_header) > 2000:
+                raise MediaError('limit_exceeded', 'Media metadata is too large')
+            metadata = json.loads(metadata_header)
+            save_to_header = self.request.headers.get('X-NBInlineAI-Save-To')
+            save_to = json.loads(save_to_header) if save_to_header is not None else None
+            self.finish(self.media_registry.upload(
+                owner, operation_id, raw, self.request.headers.get('Content-Type', ''),
+                self.request.headers.get('X-NBInlineAI-SHA256', ''), metadata=metadata,
+                save_to=save_to))
+        except (ValueError, TypeError) as exc:
+            self._error(exc if isinstance(exc, MediaError) else MediaError('invalid_argument', 'Invalid upload metadata'))
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def get(self, media_id):
+        _require_single_user_server(self)
+        try:
+            owner = await self._byte_owner()
+            media = self.media_registry.media_ref(owner, media_id, consume=True)
+            self.set_header('Content-Type', media.mime_type)
+            self.set_header('X-NBInlineAI-SHA256', media.sha256)
+            self.set_header('Cache-Control', 'no-store')
+            self.finish(media.data)
+        except MediaError as exc:
+            self._error(exc)
+
+
 class KeySettingsHandler(APIHandler):
     @authenticated
     @authorized(action="execute", resource="kernels")
@@ -500,6 +616,11 @@ def setup_handlers(web_app, *, subscription_manager=None):
     dispatcher = KernelDispatcher(web_app.settings["session_manager"], web_app.settings["kernel_manager"])
     bridge = FrontendBridge()
     contents_manager = web_app.settings.get("contents_manager")
+    media_root = getattr(contents_manager, 'root_dir', None) or getattr(contents_manager, 'root_path', None)
+    media_registry = MediaRegistry(media_root if media_root and os.path.isdir(media_root) else None)
+    cleanup = PeriodicCallback(media_registry.sweep, 30_000)
+    cleanup.start()
+    web_app.settings['nbinlineai_media_cleanup'] = cleanup
     try:
         scope_resolver = NotebookScopeResolver(contents_manager) if contents_manager is not None else None
     except (OSError, ValueError):
@@ -509,6 +630,12 @@ def setup_handlers(web_app, *, subscription_manager=None):
         "scope_resolver": scope_resolver,
         "subscription_manager": subscription_manager,
     }
+    media_routes = [] if media_registry is None else [
+        (url_path_join(base_url, "nbinlineai", "browser-media", r"([a-z]+)"), BrowserMediaHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+        (url_path_join(base_url, "nbinlineai", "browser-media-bytes", r"([^/]+)"), BrowserMediaBytesHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+    ]
     web_app.add_handlers(r".*$", [
         (url_path_join(base_url, "nbinlineai", "status"), StatusHandler,
          {"subscription_manager": subscription_manager}),
@@ -520,6 +647,7 @@ def setup_handlers(web_app, *, subscription_manager=None):
           "scope_resolver": scope_resolver}),
         (url_path_join(base_url, "nbinlineai", "action-reply"), ActionReplyHandler,
          {"dispatcher": dispatcher, "bridge": bridge}),
+        *media_routes,
         (url_path_join(base_url, "nbinlineai", "settings", "keys"), KeySettingsHandler),
         (url_path_join(base_url, "nbinlineai", "settings", "keys", r"([^/]+)"), KeySettingsItemHandler),
         (url_path_join(base_url, "nbinlineai", "subscription", "status"),

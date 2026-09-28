@@ -21,6 +21,9 @@ import { readEventStream, StreamEvent } from './sse';
 import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
 import { runTrackedStandardCell } from './insertTools';
+import { mediaContext } from './browserMediaComm';
+import { browserCapabilityFacts } from './browserMediaClient';
+import { installBrowserMediaStatus } from './browserMediaStatus';
 import '../style/index.css';
 
 interface CellMetadata {
@@ -531,7 +534,30 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
             getCell(panel, promptId) !== prompt || getCell(panel, output.id) !== output) {
           throw new Error('The originating notebook, prompt, answer, or kernel changed. Notebook action cancelled.');
         }
-        const result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
+        let result;
+        if (['browser_capabilities', 'operation_status', 'cancel_operation', 'save_media', 'release_media'].includes(event.name)) {
+          try {
+            const args = event.arguments as Record<string, any>;
+            const media = mediaContext(panel, panel.sessionContext.session!.kernel!);
+            let value: unknown;
+            if (event.name === 'browser_capabilities') value = {
+              secure_context: window.isSecureContext, operations: browserCapabilityFacts(),
+              limits: { image_max_side: 4096, image_max_pixels: 16000000,
+                notebook_media_bytes: 104857600, media_idle_seconds: 600,
+                owner_lease_seconds: 90, permission_seconds: 120,
+                recording_saved_seconds: 300, recording_saved_bytes: 52428800,
+                recording_memory_seconds: 60, recording_memory_bytes: 16777216 }
+            };
+            else if (event.name === 'operation_status') value = await media.status(args.operation_id);
+            else if (event.name === 'cancel_operation') value = await media.cancel(args.operation_id);
+            else if (event.name === 'save_media') value = await media.save(args.media.media_id, args.save_to ?? 'auto');
+            else { await media.release(args.media_id); value = { released: true }; }
+            const encoded = JSON.stringify(value);
+            result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
+              truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'
+            }) };
+          } catch (error) { result = { ok: false, text: error instanceof Error ? error.message.slice(0, 500) : 'Browser operation failed.' }; }
+        } else result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
         status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
         const reply = await fetch(serverUrl('nbinlineai/action-reply'), {
@@ -1102,6 +1128,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
       if (boundModel) panelsByModel.set(boundModel, panel);
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
+        const mediaKernel = panel.sessionContext.session?.kernel;
+        if (mediaKernel) installBrowserMediaStatus(panel, mediaContext(panel, mediaKernel));
         const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
           const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
           return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];

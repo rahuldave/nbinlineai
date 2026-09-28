@@ -2,6 +2,7 @@
 import { INotebookCellExecutor, NotebookPanel, runCell as runStandardCell } from '@jupyterlab/notebook';
 import { Kernel, KernelMessage } from '@jupyterlab/services';
 import { INSERT_TOOLS_TARGET, parseInsertRequest, insertionIndex } from './insertToolsProtocol';
+import { trackBrowserMediaCell } from './browserMediaComm';
 
 interface Origin {
   panel: NotebookPanel;
@@ -102,6 +103,9 @@ export function runTrackedStandardCell(
         bridges.set(kernel, bridge);
       }
       cleanup = bridge.trackScheduled(options, panel);
+      const mediaCleanup = trackBrowserMediaCell(options, panel, kernel);
+      const insertionCleanup = cleanup;
+      cleanup = () => { insertionCleanup?.(); mediaCleanup(); };
     }
   }).finally(() => cleanup?.());
 }
