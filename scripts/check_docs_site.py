@@ -1,5 +1,6 @@
 """Check the rendered Quarto site before publishing it to GitHub Pages."""
 
+import json
 import re
 import sys
 from html.parser import HTMLParser
@@ -56,19 +57,28 @@ REQUIRED_PAGES = [
         "troubleshooting",
     )],
 ]
+CATALOG = Path(__file__).resolve().parents[1] / "examples" / "tool-coverage.json"
+TOOL_SIGNATURE = re.compile(r"^([a-z][a-z0-9_]*)\s*\(")
 
 
-def check(site: Path) -> list[str]:
+def public_tool_names(coverage_path: Path = CATALOG) -> set[str]:
+    """The separate catalog test checks this mapping against the live registry."""
+    coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
+    return {name for name, entry in coverage.items() if not entry.get("setup_helper")}
+
+
+def check(site: Path, coverage_path: Path = CATALOG) -> list[str]:
     problems: list[str] = []
     pages: dict[Path, Page] = {}
+    expected_tools = public_tool_names(coverage_path)
+    for path in sorted(site.rglob("*.html")):
+        page = Page()
+        page.feed(path.read_text(encoding="utf-8"))
+        pages[path.resolve()] = page
     for relative in REQUIRED_PAGES:
         path = site / relative
         if not path.is_file():
             problems.append(f"missing page: {relative}")
-            continue
-        page = Page()
-        page.feed(path.read_text(encoding="utf-8"))
-        pages[path.resolve()] = page
     if not (site / ".nojekyll").is_file():
         problems.append("missing .nojekyll in rendered site")
     for path, page in list(pages.items()):
@@ -103,9 +113,17 @@ def check(site: Path) -> list[str]:
     if re.search(r"<p>\s*\|\s*Function\s*\|\s*Purpose\s*\|", tools):
         problems.append("function index was emitted as literal Markdown")
     tool_rows = [row for row in pages[tools_path].table_rows
-                 if row and "(" in row[0] and ")" in row[0]]
-    if len(tool_rows) != 51:
-        problems.append(f"expected 51 rendered tool rows, found {len(tool_rows)}")
+                 if row and TOOL_SIGNATURE.match(row[0].strip())]
+    rendered = [TOOL_SIGNATURE.match(row[0].strip()).group(1) for row in tool_rows]
+    missing = sorted(expected_tools - set(rendered))
+    unexpected = sorted(set(rendered) - expected_tools)
+    duplicates = sorted({name for name in rendered if rendered.count(name) > 1})
+    if missing:
+        problems.append(f"missing rendered tool rows: {', '.join(missing)}")
+    if unexpected:
+        problems.append(f"unexpected rendered tool rows: {', '.join(unexpected)}")
+    if duplicates:
+        problems.append(f"duplicate rendered tool rows: {', '.join(duplicates)}")
     return problems
 
 
@@ -115,4 +133,5 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         raise SystemExit(1)
-    print("Quarto site: 16 pages, 51 tool rows, local links and anchors OK")
+    print(f"Quarto site: {len(list(site.rglob('*.html')))} pages, "
+          f"{len(public_tool_names())} tool rows, local links and anchors OK")

@@ -140,7 +140,7 @@ python3 scripts/check_docs_site.py docs/_site
 quarto preview docs
 ```
 
-The checker verifies all 16 pages, 51 tool rows, local links, and anchors. The `docs/.nojekyll` marker is copied into the rendered site so GitHub Pages serves Quarto's files directly. The **Documentation site** workflow builds on every PR and publishes the rendered site to GitHub Pages after a push to `main`; the repository's Pages source is **GitHub Actions**. Check that workflow's build and deployment jobs after merge, then inspect the live [Tools reference](tools.html).
+The checker verifies required core pages, every rendered HTML page's local links and anchors, and each public tool row against the maintained notebook coverage map. The `docs/.nojekyll` marker is copied into the rendered site so GitHub Pages serves Quarto's files directly. The **Documentation site** workflow builds on every PR and publishes the rendered site to GitHub Pages after a push to `main`; the repository's Pages source is **GitHub Actions**. Check that workflow's build and deployment jobs after merge, then inspect the live [Tools reference](tools.html).
 
 - Write pages in Markdown with a title in YAML front matter. Quote titles containing a colon so Quarto can parse them.
 - Keep links to other pages relative, such as `user-guide.md` from a root page or `../faq.md` from a manual chapter; Quarto rewrites them to `.html` for the website.
