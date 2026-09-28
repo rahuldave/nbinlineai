@@ -311,6 +311,7 @@ class MediaRegistry:
     @_locked
     def recording_owners(self) -> tuple[Owner, ...]:
         """Snapshot claims for a fresh server-session lookup before admission."""
+        self.sweep()
         return tuple(self.recording_claims)
 
     @_locked

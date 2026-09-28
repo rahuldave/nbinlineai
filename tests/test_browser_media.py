@@ -136,6 +136,17 @@ def test_recording_claims_follow_server_paths_across_sessions_and_rename(tmp_pat
     assert registry.recording_claims[third] == op_c.id
 
 
+def test_recording_admission_snapshot_sweeps_expired_owner_before_session_lookup(tmp_path):
+    now = [0.0]
+    registry = MediaRegistry(tmp_path, clock=lambda: now[0])
+    first = registry.bind('old-session', 'kernel', 'note.ipynb', 'model', 'old-client')
+    op = registry.create(first, 'old-recording', 'start_recording', {})
+    registry.claim_recording(first, op.id)
+    now[0] = 91.0
+    assert registry.recording_owners() == ()
+    assert not registry.recording_claims
+
+
 def test_binary_hash_mime_save_and_release(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
