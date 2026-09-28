@@ -11,7 +11,16 @@ are read from the branch containing that code. See [revision selection and
 documentation PRs](workflow.md#documentation-by-branch), including dirty or
 stale primary checkouts. Public docs and examples also follow their code.
 
-Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+**Release context (2026-09-28):** Published PyPI 0.1.15 has the Configure AI
+tabs and 51 tools. The experimental Git branch reports the same package
+version but has 54 tools, including the three queued execution handoffs. The
+[release record](releasing.md) contains artifact and installation checks.
+Context selection shipped in 0.1.8, followed by clearer controls in 0.1.9 and
+AI-cell backgrounds, editable starters, prompt focus and code insertion in
+0.1.10. Version 0.1.12 retained 51 curated tools; 0.1.11 introduced the expanded
+catalog and disposable project example. The Jupyter AI/Codex examples include
+an authenticated agent trial. These files are public repository content, but
+are excluded from PyPI archives and the Jekyll site.
 
 The [current handoff](developer_handoff.md) distinguishes the experimental
 execution handoffs from the published PyPI release, and records the published

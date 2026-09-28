@@ -51,8 +51,9 @@ live kernel; declarations alone do not create Python names. A tool-only turn
 leaves a brief paired scheduling answer so Keep protects it from replay. A
 skipped or failed chain shows its status even if that answer is kept. New code
 is placed after the paired answer by default. Source edits detected by the
-pre-dispatch check stop execution. A direct Python receipt acknowledges scheduling, not completed
-execution; inspect the notebook before retrying a lost acknowledgement.
+pre-dispatch check stop execution. A direct Python receipt acknowledges
+scheduling, not completed execution; inspect the notebook before retrying a
+lost acknowledgement.
 
 Verification at reviewed topic head `ed87a7818d6c3e785271a37c1d529c415c7ed65a`:
 279 Python tests, 69 frontend unit tests, TypeScript, Ruff, lockfile, docs and
