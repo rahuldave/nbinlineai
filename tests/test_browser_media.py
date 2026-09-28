@@ -104,6 +104,27 @@ def test_recording_container_and_actual_audio_extension(tmp_path):
     assert not registry.recording_claims
 
 
+@pytest.mark.parametrize(('mime_type', 'data'), [
+    ('audio/wav', b'RIFF\x04\x00\x00\x00WAVE'),
+    ('audio/mpeg', b'ID3\x04\x00\x00\x00\x00\x00\x00'),
+    ('video/ogg', b'OggS\x00synthetic-video'),
+    ('audio/x-custom', b'other-imported-audio'),
+])
+def test_imported_media_is_not_limited_to_recorder_encodings(tmp_path, mime_type, data):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    operation = registry.create(browser, f'import-{mime_type}', 'choose_file', {})
+    result = registry.upload(browser, operation.id, data, mime_type,
+                             hashlib.sha256(data).hexdigest(), save_to=None)
+    assert result['status'] == 'completed'
+    assert registry.media[result['media']['media_id']].data == data
+
+    recorder = registry.create(browser, f'recorder-{mime_type}', 'record_microphone', {})
+    with pytest.raises(MediaError, match='container'):
+        registry.upload(browser, recorder.id, data, mime_type,
+                        hashlib.sha256(data).hexdigest(), save_to=None)
+
+
 def test_mixed_case_recording_mime_keeps_memory_caps_and_audio_extension(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)

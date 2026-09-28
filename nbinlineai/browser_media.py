@@ -463,7 +463,7 @@ class MediaRegistry:
         if '/' not in base_mime:
             raise MediaError('invalid_argument', 'Invalid MIME type')
         mime_type = base_mime + (';' + mime_parts[1].strip() if len(mime_parts) > 1 and mime_parts[1].strip() else '')
-        if base_mime.startswith(('audio/', 'video/')):
+        if op.name in {'start_recording', 'record_camera', 'record_microphone'}:
             signatures = {
                 'audio/webm': data.startswith(b'\x1a\x45\xdf\xa3'),
                 'video/webm': data.startswith(b'\x1a\x45\xdf\xa3'),
