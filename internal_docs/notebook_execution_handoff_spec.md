@@ -1,10 +1,14 @@
 # Spec: notebook execution handoffs
 
 Status: **approved direction, awaiting implementation**, 2026-09-25. This is a
-design contract, not shipped behavior. The user approved recording this spec on
-`main` and making the same file available on `codex/agentic-notebook-experiments`.
-All runtime work belongs on topics based on that experimental branch, in owned
-worktrees. The primary checkout stays on `main`.
+design contract, not shipped behavior. **Documentation policy updated
+2026-09-28:** maintain this spec on `main`; implementation worktrees read it
+through the primary main checkout or a recorded committed main snapshot. The
+experimental copy originally distributed in PR #8 is historical. All runtime
+work belongs on topics based on `codex/agentic-notebook-experiments`, in owned
+worktrees. The primary checkout stays on `main`. Follow the
+[documentation workflow](workflow.md#canonical-internal-documentation) to
+record the consumed revision and submit internal-doc updates separately.
 
 ## Problem statement
 
@@ -197,8 +201,10 @@ a live acknowledged run; no crash-durable exactly-once guarantee is claimed.
   existing/new code targets, terminal handoff and bounded result transfer.
 - Native Shift+Enter/Run All integration, compact status, cancellation and
   meaningful deterministic tests for both provider transports.
-- Experimental Git-source installation remains buildable; update experimental
-  documentation/examples and the handoff without presenting this as a release.
+- Experimental Git-source installation remains buildable; update public docs
+  and examples with that code, and internal handoff/spec notes through a
+  main-based documentation PR. Identify the experimental branch/commit without
+  presenting its behavior as mainline or a release.
 
 ### Out of scope
 
@@ -256,9 +262,10 @@ weaken cell/source binding or change the meanings above, discuss it first.
   `src/frontendActions.ts`, `src/insertTools.ts`, `src/insertToolsProtocol.ts`,
   `nbinlineai/prompt.py`, `nbinlineai/frontend_bridge.py`,
   `nbinlineai/kernel_insert_tools.py`, `nbinlineai/kernel.py` and transport tests.
-- [Preserved execution research](https://github.com/rahuldave/nbinlineai/blob/f2cdf022e67661048186bf41ccf23c621828997e/internal_docs/notebook_execution_handoffs.md)
-  and [one-kernel RLM/Python 3.14 research](https://github.com/rahuldave/nbinlineai/blob/f2cdf022e67661048186bf41ccf23c621828997e/internal_docs/one_kernel_rlm_python314.md).
-  Both also live on the experimental branch. This spec resolves the first
+- [Preserved execution research](notebook_execution_handoffs.md)
+  and [one-kernel RLM/Python 3.14 research](one_kernel_rlm_python314.md).
+  Both are now maintained on main, with their experimental provenance retained.
+  This spec resolves the first
   research note's open choices; later research is context, not implementation scope.
 - [Implementation task prompt](notebook_execution_handoff_task_prompt.md).
 - [GitHub initiative #2](https://github.com/rahuldave/nbinlineai/issues/2) stays open.

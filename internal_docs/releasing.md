@@ -252,3 +252,62 @@ All README and public documentation pages were audited for the new controls. All
 The final source archive (`1,807,613` bytes, SHA-256 `32deb0513883c87c7ca2741ec309c78a7f55e01da60916ef9f13d4947f599463`) and wheel (`1,549,968` bytes, SHA-256 `3051343ac7a44b08fcc56c284e4e03c78f36d044998b0b4100c171bbabb661b9`) passed strict Twine validation, archive checks, all 182 checkout-backed source file comparisons and all 36 wheel public-document comparisons. The source archive contains 183 files; the wheel has 92 entries. A bounded credential-pattern scan found no high-confidence matches. The checked wheel installed with 113 compatible packages in a disposable Python 3.14 environment; both JupyterLab/server extension discoveries, version/status route and packaged quickstart UI passed.
 
 Both checked files were uploaded to PyPI. The public version-specific metadata and downloaded files match the local SHA-256 digests; neither is yanked. A second clean Python 3.14 environment installed `nbinlineai==0.1.14` from the public index without a cache, passed dependency consistency and imported the package from its own `site-packages`; both extensions were discovered enabled/OK. Source commit `b781ac0` and the release record are pushed to `main`; the annotated `v0.1.14` tag points to release-record commit `faba1fa`. A later documentation correction on `main` fixed the count of screenshots reviewed without changing the package.
+
+## Version 0.1.15 — published and verified
+
+The 0.1.15 release promotes the reviewed Configure AI two-tab change merged on
+main as `a5066dfd` by PR #12. **Connections & models** groups the connection
+picker, ChatGPT setup, and OpenAI/Anthropic keys. **Defaults** holds the
+new-notebook connection preference, response style, and style-instruction
+editors. Switching a setup connection or tab does not change notebook defaults.
+The README, site home, manual, FAQ, and screenshots describe the released tabs;
+the 0.1.14 single-dialog caveats were removed. Python, npm and the uv lockfile
+agree on 0.1.15. The clean-wheel checker now reads the expected version from
+the project, waits for extension status after JupyterLab starts, and checks both
+tabs in the installed quickstart UI.
+
+Local checks passed 272 Python tests, 58 frontend unit tests, Ruff, TypeScript,
+lockfile validation, internal/public Markdown links, and diff whitespace.
+The full isolated browser run passed 71 default scenarios, failed three older
+context/tool scenarios, and skipped two opt-in captures. All three failures
+passed on a focused rerun, so all 74 default scenarios passed across the two
+runs. The final 0.1.15 source archive and wheel passed strict Twine and archive
+checks (188 source files, 93 wheel entries). All 187 checkout-backed source
+files matched byte for byte, all 92 wheel RECORD entries validated, and a
+bounded credential-pattern scan found no matches. The source archive is
+1,833,219 bytes (SHA-256
+`8b95d50f0f0376a2e9b8a4e31d161486bfdf91e3fcd57108be5ef5a0eafd7897`);
+the wheel is 1,570,187 bytes (SHA-256
+`425a8d291d549a535e08f135ad618d55f98e696f62f7516b20e59ae61be86452`).
+A clean Python 3.14 install resolved 113 compatible packages and passed
+dependency consistency, both extension discoveries, status version, and the
+packaged quickstart UI with both tabs. The isolated server on port 8897 stopped
+after each run; port 8888 was untouched.
+
+Independent adversarial review of release PR #13's exact base `a5066dfd` and
+head `0345041` found no actionable issues. Its runtime compatibility matrix
+run `36191095591` passed on macOS, Linux, Windows, arm, Intel, and musl.
+Source validation run `36191095691` passed 272 Python tests and all source,
+frontend, type, package, and fresh-wheel installation checks. The first CI
+browser run passed 73 of 74 default scenarios; JupyterLab briefly showed the
+second notebook's kernel as Unknown after REST reported it idle, and that older
+test timed out. The unchanged candidate's second CI attempt passed **74/74** default
+browser checks, with two opt-in captures skipped. PR #13 merged to `main` as
+`9a435c5437f9f52308ea0c5328be26c5853a2ad8`; its tree matches the reviewed
+release head.
+
+Both checked artifacts were uploaded to PyPI. Version-specific public metadata
+and direct public downloads match the SHA-256 digests above, neither file is
+yanked, and the PyPI page renders the 0.1.15 README with the new tab guidance.
+A separate clean Python 3.14 environment installed `nbinlineai==0.1.15` from
+the public index with no cache (113 wheel packages), passed dependency
+consistency, imported from its own `site-packages`, and discovered both the
+JupyterLab and server extensions enabled/OK at 0.1.15 under isolated config.
+The pushed annotated `v0.1.15` tag (`4f841bf`) peels to source merge
+`9a435c5`. GitHub Pages deployment `36193258731` succeeded for that commit.
+The live home, user guide, setup, models, FAQ, architecture, tools, examples,
+and development pages returned HTTP 200; release guidance was checked on the
+configuration pages. Both published Configure AI screenshots matched their
+local SHA-256 digests (`822cf562b27d14a3955dc456243811849394da2200481f9ebb5aa9712be2c90a`
+and `9ec2030e78b88074a1e8189611ccba5a4b0eff1ee6bcd349ae4b5b18718e786a`).
+The user's JupyterLab server on port 8888 was untouched.

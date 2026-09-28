@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '.
 const notebook = (page: Page) => page.locator('.jp-NotebookPanel:visible .jp-Notebook');
 const defaults = (page: Page) => page.locator('.jp-NotebookPanel:visible [data-nbinlineai-notebook-defaults]');
 const prompts = (page: Page) => notebook(page).locator('.jp-Cell.nbinlineai-prompt-cell');
+const showDialogDefaults = (dialog: Locator) => dialog.getByRole('tab', { name: 'Defaults' }).click();
 
 test.beforeEach(async ({ request }) => {
   await request.get('/lab');
@@ -81,6 +82,7 @@ async function saveNotebook(page: Page) {
 }
 
 async function expandCompactTemplate(dialog: Locator) {
+  await showDialogDefaults(dialog);
   const details = dialog.locator('[data-nbinlineai-template-details]');
   if ((await details.getAttribute('open')) === null) await details.locator(':scope > summary').click();
   const compact = details.locator('[data-nbinlineai-template-mode="compact"]');
@@ -279,6 +281,7 @@ test('Configure AI saves the connection default used by new notebooks', async ({
   await openNotebook(page, request);
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDialogDefaults(dialog);
   const choice = dialog.locator('[data-nbinlineai-default-backend]');
   await expect(choice).toBeEnabled();
   const original = await choice.inputValue();
@@ -295,6 +298,7 @@ test('Configure AI saves the connection default used by new notebooks', async ({
     expect(body.backend).toBe(next);
   } finally {
     if (!await dialog.isVisible()) await page.getByRole('button', { name: 'Configure AI' }).first().click();
+    await showDialogDefaults(dialog);
     await choice.selectOption(original);
     await expect(dialog.locator('[data-nbinlineai-default-backend-notice]')).toContainText('default for new notebooks');
     await page.getByRole('button', { name: 'Done' }).click();
@@ -356,6 +360,7 @@ test('custom style instructions save, reset, and reconcile an unconfirmed write'
   expect(body.prompt_instructions).toBeUndefined();
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   await page.unroute('**/api/settings/**');
+  await showDialogDefaults(dialog);
   await dialog.locator('[data-nbinlineai-style-retry]').click();
   await expandCompactTemplate(dialog);
   await expect(editor).toHaveValue('E2E_UNCONFIRMED_COMPACT use exactly one line.');

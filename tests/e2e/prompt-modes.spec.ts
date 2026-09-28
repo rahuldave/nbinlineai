@@ -1,5 +1,7 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '../support/e2e-fixtures';
 
+const showDefaults = (dialog: Locator) => dialog.getByRole('tab', { name: 'Defaults' }).click();
+
 test.beforeEach(async ({ request }) => {
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
@@ -41,6 +43,7 @@ async function openNotebook(page: Page, request: APIRequestContext) {
 async function setMode(page: Page, mode: 'compact' | 'full' | 'learning', screenshot = false) {
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDefaults(dialog);
   const select = dialog.locator('select[data-nbinlineai-prompt-mode]');
   await expect(select).toBeVisible();
   await select.selectOption(mode);
@@ -56,6 +59,7 @@ async function setMode(page: Page, mode: 'compact' | 'full' | 'learning', screen
 async function resetBundledInstructions(page: Page) {
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDefaults(dialog);
   const details = dialog.locator('[data-nbinlineai-template-details]');
   await details.locator(':scope > summary').click();
   for (const mode of ['compact', 'full', 'learning']) {
@@ -116,6 +120,7 @@ test('saved response style controls requests, server instructions, and learning 
   await page.reload();
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDefaults(dialog);
   await expect(dialog.locator('select[data-nbinlineai-prompt-mode]')).toHaveValue('learning');
   await page.getByRole('button', { name: 'Done' }).click();
 
@@ -225,6 +230,7 @@ test('uncertain style save keeps the last confirmed mode until Retry reconciles 
   });
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDefaults(dialog);
   await dialog.locator('select[data-nbinlineai-prompt-mode]').selectOption('full');
   await expect(dialog.locator('.nbinlineai-style-notice')).toContainText(
     'Could not confirm the response style save. Choose Retry response style settings to check what was saved.'
@@ -235,6 +241,7 @@ test('uncertain style save keeps the last confirmed mode until Retry reconciles 
   await runAndCaptureMode(page, prompt, 'compact');
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
   await expect(dialog.locator('[data-nbinlineai-style-retry]')).toBeVisible();
   await page.unroute('**/api/settings/**');
   await dialog.locator('[data-nbinlineai-style-retry]').click();

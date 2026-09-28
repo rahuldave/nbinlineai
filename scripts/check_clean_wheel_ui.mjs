@@ -16,6 +16,14 @@ try {
     .waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: 'Configure AI' }).first()
     .waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await dialog.getByRole('tab', { name: 'Connections & models' }).waitFor();
+  const picker = dialog.locator('[data-nbinlineai-connection]');
+  if (await picker.isVisible()) await picker.selectOption('anthropic_api');
+  await dialog.locator('[data-nbinlineai-key-provider="anthropic_api"]').waitFor();
+  await dialog.getByRole('tab', { name: 'Defaults' }).click();
+  await dialog.locator('[data-nbinlineai-default-backend]').waitFor();
   if (promptRequests !== 0) throw new Error('Installed-wheel UI unexpectedly sent a prompt');
 } finally {
   await browser.close();
