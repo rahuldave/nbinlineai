@@ -11,6 +11,12 @@ Copy this `examples/` directory into a JupyterLab project, keeping `data/` besid
 | `bundled-tools.ipynb` | Import bundled tools, print selected tool references, inspect a saved fixture notebook, and try inserting an unexecuted code draft. |
 | `fastcore-tools.ipynb` | Display fastcore-style documentation and try checked text-file edits in a temporary folder. |
 | `project-tools.ipynb` | Explore a disposable project with saved text search, static Python source docs, Markdown/Python sections, and checked replacements. |
+| `tool-catalog-inspection.ipynb` | Call live Python inspection tools on disposable values and standard-library objects. |
+| `tool-catalog-files.ipynb` | Call saved-file/source tools inside a temporary folder with fresh section addresses and digests. |
+| `tool-catalog-saved-notebooks.ipynb` | Search and read a temporary notebook containing a stable saved cell ID. |
+| `tool-catalog-live-notebook.ipynb` | Ask each live-cell tool to inspect or edit a separate scratch cell in a copied notebook. |
+| `tool-catalog-web.ipynb` | Optional public-page reads and source-attributed note insertion. |
+| `tool-catalog-processes.ipynb` | Run bounded subprocess examples and inspect tmux only if installed. |
 | `live-notebook-tools.ipynb` | Inspect live cells including unsaved edits and insert an editable Markdown note into the open notebook. |
 | `python-and-web-tools.ipynb` | Inspect Python help/signatures/source, offer a custom alias, read a public documentation page, and add it as a note. |
 | `jupyter-ai-and-nbinlineai.ipynb` | Analyze a small pollinator survey with standard-library Python; optionally use Jupyter AI chat for planning/refactoring and nbinlineai Learning questions for in-notebook explanation and an unexecuted code draft. |
@@ -22,7 +28,7 @@ The Codex example retains an intentional bug so you can reproduce the exercise. 
 
 The bundled-tools example reads `data/ecosystem-lesson.ipynb` from disk. Its setup accepts either a kernel working directory at the repository root (`examples/data/...`) or inside the copied `examples/` directory (`data/...`). Keep the fixture with the examples and save any notebook edits before expecting file tools to see them. The notebook kernel must be able to import `nbinlineai.tools`.
 
-The [tools reference](https://rahuldave.com/nbinlineai/tools.html) lists all 51 tools, and the separate [examples guide](https://rahuldave.com/nbinlineai/examples.html) walks through complete workflows.
+The [tools reference](https://rahuldave.com/nbinlineai/tools.html) lists every registered tool, and the separate [examples guide](https://rahuldave.com/nbinlineai/examples.html) walks through complete workflows. Each tool row links to a catalog notebook section and stable demonstration cell ID; `tool-coverage.json` records the mapping checked by the test suite.
 
 For bundled tools, `tools_markdown()` prints references for the 19-tool starter group; pass `group="code"`, `"files"`, `"inspect"`, `"notebook"`, `"saved_notebooks"`, `"web"`, or `"execution"` to choose another group; copy only the desired lines into an **ordinary Markdown declaration above your AI questions**. The custom-tool notebook generates references from its locally defined function names. A tool named with ``&`name` `` in ordinary Markdown or an earlier AI **question** stays available to lower AI questions in that notebook. The kernel must still contain an import or definition of the callable when a lower question runs. AI answers, code cells, raw cells, and cells below the question do not declare tools. Repeating a reference in the current question is optional. Keep declarations selective: lower questions inherit enabled declarations above them. The separate per-cell Tools checkbox can withdraw declarations without changing selected text; another enabled cell can still declare the same name. A ``$`variable` `` value is read only when the **current AI question** contains it.
 
