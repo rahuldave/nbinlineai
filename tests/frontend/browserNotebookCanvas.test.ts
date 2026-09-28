@@ -12,9 +12,9 @@ function signal() {
 
 test('canvas ID binds one rendered HTML output node and invalidation ends its source', async () => {
   const oldObserver = globalThis.MutationObserver;
-  let notify = () => undefined;
+  let notify = (_records: MutationRecord[]) => undefined;
   Object.defineProperty(globalThis, 'MutationObserver', { configurable: true, value: class {
-    constructor(callback: () => void) { notify = callback; }
+    constructor(callback: (records: MutationRecord[]) => void) { notify = callback; }
     observe() { /* passive observation */ }
     disconnect() { /* passive observation */ }
   } });
@@ -47,7 +47,7 @@ test('canvas ID binds one rendered HTML output node and invalidation ends its so
     assert.equal(registry.resolve(canvasRef as never).node, canvas);
     registry.trackSource(registry.resolve(canvasRef as never), 'video-source');
     canvas.isConnected = false;
-    notify();
+    notify([]);
     assert.throws(() => registry.resolve(canvasRef as never), /changed/);
     assert.deepEqual(ended, ['video-source']);
     registry.dispose();

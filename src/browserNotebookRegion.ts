@@ -55,6 +55,12 @@ async function surface(context: BrowserOperationContext, ref: OutputRef, frame: 
     element = canvases[0];
     if (!element.width || !element.height) fail('unsupported', `Cell ${ref.cell_id} has a blank canvas surface.`);
   } else return fail('unsupported', `Cell ${ref.cell_id} has unsupported rendered MIME ${mime ?? 'unknown'}.`);
+  const sourceWidth = element instanceof HTMLImageElement ? element.naturalWidth : element.width;
+  const sourceHeight = element instanceof HTMLImageElement ? element.naturalHeight : element.height;
+  if (!sourceWidth || !sourceHeight || sourceWidth * sourceHeight > 32_000_000) {
+    dispose?.();
+    fail('limit_exceeded', `Cell ${ref.cell_id} output exceeds the safe readback limit.`);
+  }
   const rect = mime === 'image/svg+xml' ? node.querySelector<SVGSVGElement>('.jp-RenderedSVG svg')!.getBoundingClientRect()
     : element.getBoundingClientRect();
   if (!visible(rect, frame)) { dispose?.(); fail('unsupported', `Cell ${ref.cell_id} output is not fully visible.`); }
@@ -126,6 +132,8 @@ export async function captureNotebookRegion(context: BrowserOperationContext,
       catch { fail('unsupported', `Cell ${item.ref.cell_id} output cannot be read back.`); }
     }
     const bytes = await png(target);
+    if (bytes.byteLength > 50 * 1024 * 1024)
+      fail('limit_exceeded', 'Region still exceeds the encoded media limit.');
     stillCurrent(context, surfaces);
     const digest = await hash(bytes);
     stillCurrent(context, surfaces);

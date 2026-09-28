@@ -84,6 +84,8 @@ function png(canvas: HTMLCanvasElement): Promise<Uint8Array> {
 function scale(width: number, height: number, maxSize: number): { width: number; height: number } {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0)
     fail('unsupported', 'Canvas has no drawable pixels.');
+  if (width * height > 32_000_000)
+    fail('limit_exceeded', 'Canvas source exceeds the safe readback limit.');
   const factor = Math.min(1, maxSize / Math.max(width, height), Math.sqrt(16_000_000 / (width * height)));
   return { width: Math.max(1, Math.round(width * factor)), height: Math.max(1, Math.round(height * factor)) };
 }
@@ -193,6 +195,8 @@ async function capture(context: BrowserOperationContext, operation: BrowserOpera
   try { drawing.drawImage(entry.node, 0, 0, size.width, size.height); }
   catch { fail('unsupported', 'Canvas could not be read as a raster image.'); }
   const bytes = await png(image);
+  if (bytes.byteLength > 50 * 1024 * 1024)
+    fail('limit_exceeded', 'Canvas still exceeds the encoded media limit.');
   canvasRegistry(context).resolve(ref);
   const hash = await bytesHash(bytes);
   canvasRegistry(context).resolve(ref);
