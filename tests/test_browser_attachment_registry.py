@@ -111,3 +111,48 @@ def test_non_still_and_tampered_metadata_fail_closed(tmp_path):
         validate_confirmation({'version': 1, 'kind': 'saved', 'question_cell_id': 'question',
                                'path': 'notes/drawing.svg', 'sha256': reference['sha256'],
                                'detail': 'auto', 'owner_secret': 'never'}, 'question')
+
+
+def test_memory_grants_reuse_exact_confirmation_and_cap_per_question(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    grants = []
+    for index in range(5):
+        image = io.BytesIO()
+        Image.new('RGB', (3, 2), (index * 30, 0, 0)).save(image, format='PNG')
+        data = image.getvalue()
+        produced = registry.create(browser, f'produced-{index}', 'capture_camera', {})
+        media = registry.upload(browser, produced.id, data, 'image/png',
+                                hashlib.sha256(data).hexdigest())['media']
+        ref = {'media_id': media['media_id']}
+        operation = waiting(registry, browser, ref, f'attach-{index}')
+        if index == 4:
+            with pytest.raises(MediaError, match='Too many pending'):
+                registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id)
+        else:
+            grants.append(registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id))
+    first = {'media_id': next(grant.media_id for grant in registry.attachment_grants.values()
+                             if grant.id == grants[0]['grant_id'])}
+    retry = waiting(registry, browser, first, 'attach-again')
+    assert registry.confirm_attachment(browser, first, 'question', 'auto', retry.id)['grant_id'] == grants[0]['grant_id']
+    registry.release_media(browser, first['media_id'])
+    assert len(registry.attachment_grants) == 3
+
+
+def test_attachment_read_reservation_lives_until_closed(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = image_bytes()
+    path = tmp_path / 'notes' / 'sample.png'
+    path.parent.mkdir()
+    path.write_bytes(data)
+    reference = {'path': 'notes/sample.png', 'sha256': hashlib.sha256(data).hexdigest()}
+    operation = waiting(registry, browser, reference)
+    result = registry.confirm_attachment(browser, reference, 'question', 'auto', operation.id)
+    confirmation = {key: value for key, value in result.items() if key != 'display'}
+    read = registry.acquire_attachment(browser, 'question', confirmation)
+    assert read.data == data
+    assert registry.reserved_save_bytes == len(data)
+    read.close()
+    read.close()
+    assert registry.reserved_save_bytes == 0

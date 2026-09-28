@@ -900,6 +900,7 @@ class MediaRegistry:
         from .browser_attachment import (
             MAX_ATTACHMENT_GRANTS,
             MAX_OWNER_GRANTS,
+            MAX_QUESTION_GRANTS,
             AttachmentGrant,
             still_image_info,
             validate_detail,
@@ -960,12 +961,21 @@ class MediaRegistry:
                 media = self.media_ref(owner, reference['media_id'])
                 if media.sha256 != digest:
                     raise MediaError('stale_target', 'Attachment media changed')
-                if (len(self.attachment_grants) >= MAX_ATTACHMENT_GRANTS or
-                        sum(grant.owner is owner for grant in self.attachment_grants.values()) >= MAX_OWNER_GRANTS):
-                    raise MediaError('limit_exceeded', 'Too many pending image attachments')
-                grant_id = secrets.token_urlsafe(24)
-                self.attachment_grants[grant_id] = AttachmentGrant(
-                    grant_id, owner, question_cell_id, media.id, digest, mime_type, detail)
+                matching = next((grant for grant in self.attachment_grants.values()
+                                 if grant.owner is owner and grant.question_cell_id == question_cell_id
+                                 and grant.media_id == media.id and grant.sha256 == digest
+                                 and grant.mime_type == mime_type and grant.detail == detail), None)
+                if matching is None:
+                    if (len(self.attachment_grants) >= MAX_ATTACHMENT_GRANTS or
+                            sum(grant.owner is owner for grant in self.attachment_grants.values()) >= MAX_OWNER_GRANTS or
+                            sum(grant.owner is owner and grant.question_cell_id == question_cell_id
+                                for grant in self.attachment_grants.values()) >= MAX_QUESTION_GRANTS):
+                        raise MediaError('limit_exceeded', 'Too many pending image attachments for this question')
+                    grant_id = secrets.token_urlsafe(24)
+                    self.attachment_grants[grant_id] = AttachmentGrant(
+                        grant_id, owner, question_cell_id, media.id, digest, mime_type, detail)
+                else:
+                    grant_id = matching.id
                 confirmed = {**common, 'kind': 'memory', 'grant_id': grant_id}
             elif set(reference) == {'path', 'sha256'}:
                 confirmed = {**common, 'kind': 'saved', 'path': reference['path']}
@@ -975,10 +985,10 @@ class MediaRegistry:
             self.attachment_requests[(owner, operation_id)] = (signature, result, self._now())
             return result
 
-    def resolve_attachment(self, owner: Owner, question_cell_id: str,
-                           confirmation: dict[str, Any]) -> tuple[bytes, str, str]:
-        """Re-read the exact confirmed image for one actual model submission."""
-        from .browser_attachment import still_image_info, validate_confirmation
+    def acquire_attachment(self, owner: Owner, question_cell_id: str,
+                           confirmation: dict[str, Any]):
+        """Re-read and account for the exact image until its caller closes the read."""
+        from .browser_attachment import AttachmentRead, still_image_info, validate_confirmation
 
         self.require(owner)
         accepted = validate_confirmation(confirmation, question_cell_id)
@@ -993,6 +1003,8 @@ class MediaRegistry:
                 if media.sha256 != grant.sha256 or media.mime_type != grant.mime_type:
                     raise MediaError('stale_target', 'In-memory attachment changed')
                 data, mime_type, digest = media.data, media.mime_type, media.sha256
+                self.reserve_file_read(owner, len(data))
+                reserved = len(data)
         else:
             reserved = 0
             def reserve(size: int) -> None:
@@ -1002,13 +1014,29 @@ class MediaRegistry:
             try:
                 data, mime_type, digest = self.resolve_ref(owner, {
                     'path': accepted['path'], 'sha256': accepted['sha256']}, reserve)
-            finally:
+            except BaseException:
                 if reserved:
                     self.release_file_read(owner, reserved)
-        if digest != accepted['sha256']:
-            raise MediaError('stale_target', 'Attachment hash changed')
-        facts = still_image_info(data, mime_type)
-        return data, facts['mime_type'], accepted['detail']
+                raise
+        try:
+            if digest != accepted['sha256']:
+                raise MediaError('stale_target', 'Attachment hash changed')
+            facts = still_image_info(data, mime_type)
+            return AttachmentRead(data, facts['mime_type'], accepted['detail'],
+                                  lambda: self.release_file_read(owner, reserved))
+        except BaseException:
+            if reserved:
+                self.release_file_read(owner, reserved)
+            raise
+
+    def resolve_attachment(self, owner: Owner, question_cell_id: str,
+                           confirmation: dict[str, Any]) -> tuple[bytes, str, str]:
+        """Compatibility read for callers that do not hold a model round open."""
+        read = self.acquire_attachment(owner, question_cell_id, confirmation)
+        try:
+            return read.data, read.mime_type, read.detail
+        finally:
+            read.close()
 
     def resolve_ref(self, owner: Owner, reference: dict[str, Any],
                     reserve: Callable[[int], None] | None = None) -> tuple[bytes, str, str]:

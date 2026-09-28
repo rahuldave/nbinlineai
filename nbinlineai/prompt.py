@@ -226,12 +226,16 @@ async def _attachment_input(body: dict, media_registry, attachment_owner,
     if not image_model_supported(body['backend'], body['model'],
                                  subscription_modalities=subscription_modalities):
         raise ValueError('provider_unsupported: Selected model does not support image input')
-    data, mime_type, detail = await asyncio.to_thread(
-        media_registry.resolve_attachment, attachment_owner, body['prompt_cell_id'], confirmation)
-    if body['backend'] == 'openai_codex_subscription':
-        return data, mime_type, detail, None
-    return data, mime_type, detail, image_part(data, mime_type, detail=detail,
-                                               backend=body['backend'])
+    read = await asyncio.to_thread(
+        media_registry.acquire_attachment, attachment_owner, body['prompt_cell_id'], confirmation)
+    try:
+        if body['backend'] == 'openai_codex_subscription':
+            return read.data, read.mime_type, read.detail, None, read
+        return read.data, read.mime_type, read.detail, image_part(
+            read.data, read.mime_type, detail=read.detail, backend=body['backend']), read
+    except BaseException:
+        read.close()
+        raise
 
 
 async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, preview: bool = False):
@@ -322,25 +326,29 @@ async def preview_context(body: dict, dispatcher, kernel_id: str, kernel, *,
     cells, units, tools, prefix, suffix, prompt, report, vars_, funcs, info, focus = prepared
     attachment = await _attachment_input(body, media_registry, attachment_owner,
                                          subscription_modalities)
-    round_wire_cost = (subscription_runtime.round_wire_cost
-                       if body["backend"] == "openai_codex_subscription" and subscription_runtime else None)
-    if attachment:
-        if body['backend'] == 'openai_codex_subscription':
-            if subscription_runtime is None:
-                raise ValueError('ChatGPT subscription connection is unavailable')
-            round_wire_cost = lambda messages, declared: subscription_runtime.round_wire_cost(
-                messages, declared, local_image=True, detail=attachment[2])
-        else:
-            round_wire_cost = lambda messages, declared: api_wire_cost(
-                body['backend'], body['model'], messages, declared,
-                reasoning_effort=body.get('reasoning_effort'), image_detail=attachment[2])
-    if body["backend"] == "openai_codex_subscription" and subscription_scope is not None:
-        prefix += _subscription_scope_preamble(subscription_scope)
-    built = build_context(cells, units, tools, prefix, suffix, prompt, [], report, focus,
-                          round_wire_cost=round_wire_cost,
-                          current_media_parts=[attachment[3]] if attachment and attachment[3] else None)
-    return {"type": "context", **built.counts,
-            "variables": {name: info[name] for name in vars_}, "tools": funcs}
+    try:
+        round_wire_cost = (subscription_runtime.round_wire_cost
+                           if body["backend"] == "openai_codex_subscription" and subscription_runtime else None)
+        if attachment:
+            if body['backend'] == 'openai_codex_subscription':
+                if subscription_runtime is None:
+                    raise ValueError('ChatGPT subscription connection is unavailable')
+                round_wire_cost = lambda messages, declared: subscription_runtime.round_wire_cost(
+                    messages, declared, local_image=True, detail=attachment[2])
+            else:
+                round_wire_cost = lambda messages, declared: api_wire_cost(
+                    body['backend'], body['model'], messages, declared,
+                    reasoning_effort=body.get('reasoning_effort'), image_detail=attachment[2])
+        if body["backend"] == "openai_codex_subscription" and subscription_scope is not None:
+            prefix += _subscription_scope_preamble(subscription_scope)
+        built = build_context(cells, units, tools, prefix, suffix, prompt, [], report, focus,
+                              round_wire_cost=round_wire_cost,
+                              current_media_parts=[attachment[3]] if attachment and attachment[3] else None)
+        return {"type": "context", **built.counts,
+                "variables": {name: info[name] for name in vars_}, "tools": funcs}
+    finally:
+        if attachment:
+            attachment[4].close()
 
 
 async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None, run=None, *,
@@ -373,78 +381,82 @@ async def run_prompt(body: dict, dispatcher, kernel_id: str, kernel, bridge=None
     while True:
         attachment = await _attachment_input(body, media_registry, attachment_owner,
                                              subscription_modalities)
-        round_wire_cost = subscription_runtime.round_wire_cost if is_subscription else None
-        if attachment:
-            if is_subscription:
-                round_wire_cost = lambda messages, declared, bound=attachment: subscription_runtime.round_wire_cost(
-                    messages, declared, local_image=True, detail=bound[2])
-            else:
-                round_wire_cost = lambda messages, declared, bound=attachment: api_wire_cost(
-                    body['backend'], body['model'], messages, declared,
-                    reasoning_effort=body.get('reasoning_effort'), image_detail=bound[2])
-        built = build_context(cells, units, tools, system_prefix,
-                              system_suffix, prompt, executed_messages, selection_report, focus,
-                              round_wire_cost=round_wire_cost,
-                              current_media_parts=[attachment[3]] if attachment and attachment[3] else None)
-        messages = built.messages
-        yield {"type": "context", **built.counts,
-               "variables": {name: info[name] for name in vars_}, "tools": funcs}
-        if is_subscription:
-            await check_subscription_binding()
         try:
+            round_wire_cost = subscription_runtime.round_wire_cost if is_subscription else None
+            if attachment:
+                if is_subscription:
+                    round_wire_cost = lambda messages, declared, bound=attachment: subscription_runtime.round_wire_cost(
+                        messages, declared, local_image=True, detail=bound[2])
+                else:
+                    round_wire_cost = lambda messages, declared, bound=attachment: api_wire_cost(
+                        body['backend'], body['model'], messages, declared,
+                        reasoning_effort=body.get('reasoning_effort'), image_detail=bound[2])
+            built = build_context(cells, units, tools, system_prefix,
+                                  system_suffix, prompt, executed_messages, selection_report, focus,
+                                  round_wire_cost=round_wire_cost,
+                                  current_media_parts=[attachment[3]] if attachment and attachment[3] else None)
+            messages = built.messages
+            yield {"type": "context", **built.counts,
+                   "variables": {name: info[name] for name in vars_}, "tools": funcs}
             if is_subscription:
-                image_options = ({'image': attachment[0], 'image_mime': attachment[1],
-                                  'image_sha256': hashlib.sha256(attachment[0]).hexdigest(),
-                                  'image_detail': attachment[2]} if attachment else {})
-                response = await subscription_runtime.complete_round(
-                    body["model"], messages, tools,
-                    reasoning_effort=body.get("reasoning_effort"),
-                    scope=subscription_scope,
-                    run_id=run.run_id,
-                    **image_options,
-                )
-            else:
-                options = {}
-                if body.get('reasoning_effort') not in (None, 'default'):
-                    options['reasoning_effort'] = body['reasoning_effort']
-                if attachment and attachment[2] != 'auto':
-                    options['image_detail'] = attachment[2]
-                response = await providers.complete(body['backend'], body['model'], messages, tools,
-                                                    **options)
-        except (APIError, SubscriptionRuntimeError, KeyboardInterrupt, SystemExit):
-            raise
-        except Exception as exc:
-            raise RuntimeError("Model request failed") from exc
-        streamed_text = ""
-        if hasattr(response, "__aiter__"):
-            completion = None
+                await check_subscription_binding()
             try:
-                async for item in response:
-                    if hasattr(item, "message") and hasattr(item, "tool_calls"):
-                        completion = item
-                    elif isinstance(item, Text) and item.text:
-                        streamed_text += item.text
-                        yield {"type": "text_delta", "text": item.text}
-            except (APIError, KeyboardInterrupt, SystemExit):
+                if is_subscription:
+                    image_options = ({'image': attachment[0], 'image_mime': attachment[1],
+                                      'image_sha256': hashlib.sha256(attachment[0]).hexdigest(),
+                                      'image_detail': attachment[2]} if attachment else {})
+                    response = await subscription_runtime.complete_round(
+                        body["model"], messages, tools,
+                        reasoning_effort=body.get("reasoning_effort"),
+                        scope=subscription_scope,
+                        run_id=run.run_id,
+                        **image_options,
+                    )
+                else:
+                    options = {}
+                    if body.get('reasoning_effort') not in (None, 'default'):
+                        options['reasoning_effort'] = body['reasoning_effort']
+                    if attachment and attachment[2] != 'auto':
+                        options['image_detail'] = attachment[2]
+                    response = await providers.complete(body['backend'], body['model'], messages, tools,
+                                                        **options)
+            except (APIError, SubscriptionRuntimeError, KeyboardInterrupt, SystemExit):
                 raise
             except Exception as exc:
                 raise RuntimeError("Model request failed") from exc
-            if completion is None:
-                raise RuntimeError("Model stream ended without completion")
-        else:
-            completion = response
-        refusal = next((part.text for part in completion.message.content if isinstance(part, Refusal)), None)
-        if refusal is not None:
-            raise ValueError((refusal or "Model declined the request")[:500])
-        if completion.finish_reason == "content_filter":
-            raise ValueError("Model response was blocked by the provider")
-        if completion.finish_reason == "length":
-            raise ValueError("Model response exceeded the output limit")
-        full_text = completion.message.text
-        if not streamed_text and full_text:
-            yield {"type": "text_delta", "text": full_text}
-        elif streamed_text and full_text.startswith(streamed_text) and len(full_text) > len(streamed_text):
-            yield {"type": "text_delta", "text": full_text[len(streamed_text):]}
+            streamed_text = ""
+            if hasattr(response, "__aiter__"):
+                completion = None
+                try:
+                    async for item in response:
+                        if hasattr(item, "message") and hasattr(item, "tool_calls"):
+                            completion = item
+                        elif isinstance(item, Text) and item.text:
+                            streamed_text += item.text
+                            yield {"type": "text_delta", "text": item.text}
+                except (APIError, KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as exc:
+                    raise RuntimeError("Model request failed") from exc
+                if completion is None:
+                    raise RuntimeError("Model stream ended without completion")
+            else:
+                completion = response
+            refusal = next((part.text for part in completion.message.content if isinstance(part, Refusal)), None)
+            if refusal is not None:
+                raise ValueError((refusal or "Model declined the request")[:500])
+            if completion.finish_reason == "content_filter":
+                raise ValueError("Model response was blocked by the provider")
+            if completion.finish_reason == "length":
+                raise ValueError("Model response exceeded the output limit")
+            full_text = completion.message.text
+            if not streamed_text and full_text:
+                yield {"type": "text_delta", "text": full_text}
+            elif streamed_text and full_text.startswith(streamed_text) and len(full_text) > len(streamed_text):
+                yield {"type": "text_delta", "text": full_text[len(streamed_text):]}
+        finally:
+            if attachment:
+                attachment[4].close()
         calls = completion.tool_calls
         if not calls:
             if not full_text and not streamed_text:

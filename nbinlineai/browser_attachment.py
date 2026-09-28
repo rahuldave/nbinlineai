@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +17,23 @@ DETAILS = frozenset({'auto', 'low', 'high'})
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
 MAX_ATTACHMENT_GRANTS = 256
 MAX_OWNER_GRANTS = 8
+MAX_QUESTION_GRANTS = 4
+
+
+@dataclass
+class AttachmentRead:
+    """Keep decoded input bytes accounted for until the model round ends."""
+
+    data: bytes
+    mime_type: str
+    detail: str
+    release: Callable[[], None]
+    closed: bool = False
+
+    def close(self) -> None:
+        if not self.closed:
+            self.closed = True
+            self.release()
 
 
 @dataclass(frozen=True)
