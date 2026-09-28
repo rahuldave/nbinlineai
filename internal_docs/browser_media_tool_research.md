@@ -52,8 +52,8 @@ licenses and nbinlineai's GPL-3.0-only policy.
 
 `add_html(_a)`, `add_scr`, `iife` and `add_mod` inject page content or scripts.
 `fire_event(_a)` emits an event; `event_get(_a)` correlates one response by ID.
-`js_run(_a)` provides a `done(data)` callback; `js_eval(_a)` evaluates an
-expression and returns JSON. `trigger_now`/`event_once(_a)` use transient output
+`js_run(_a)` provides a `done(data)` callback; `js_eval(_a)` runs an async
+JavaScript body with an explicit `return` for its JSON result. `trigger_now`/`event_once(_a)` use transient output
 scripts. `Channel.connect` supports ongoing JSON requests over a WebSocket relay.
 `display_response` separates visible rendering from the tool return, and
 `mermaid` is a diagram display helper. These are useful patterns for typed
@@ -102,7 +102,8 @@ has shared their pixels.
 [Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger).)
 
 The extension also has a user-picked directory flow: a browser file handle is
-kept in IndexedDB and a read operation returns text through the relay. The handle
+kept in IndexedDB and a read operation returns text through Solveit's page reply
+path (`pushData`/`event_get_a`), separate from the CDP WebSocket relay. The handle
 can be browser-local while the file contents subsequently leave the browser.
 This is not a general binary upload API.
 ([Directory/file bridge](https://github.com/AnswerDotAI/fastcdp-chrome/blob/ac469b36ba14f205f3de2d41af708bb0441ae5f1/content.js#L27-L68).)
@@ -221,7 +222,7 @@ The proposed artifact contract must distinguish three destinations:
 For strict local mode, do not put base64 images, transcripts, OCR, thumbnails or
 file contents in tool-result text. Do not insert the media into ordinary notebook
 outputs/attachments and then call it local-only: saving that notebook can send it
-to a remote Jupyter server. Keep the capture in an extension-owned client artifact
+to a remote Jupyter server. Keep the capture in a browser-owned client artifact
 store, preview it locally, and make local download and model attachment distinct
 actions. A model may arrange a local capture without receiving its pixels; it
 cannot visually reason about pixels it has not been given. Previously existing
