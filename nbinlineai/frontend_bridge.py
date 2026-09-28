@@ -113,6 +113,28 @@ def normalize_action(
                 _text(media.get('sha256'), 'sha256', 64)
             _text(arguments.get('save_to', 'auto'), 'save_to', 500)
         return arguments
+    if name == 'attach_media':
+        if set(arguments) - {'media', 'question_cell_id', 'detail'} or not {'media', 'question_cell_id'} <= set(arguments):
+            raise ValueError('Unexpected or missing attach_media argument')
+        media = arguments['media']
+        if not isinstance(media, dict):
+            raise ValueError('media must be a descriptor')
+        if isinstance(media.get('media_id'), str):
+            if set(media) != {'media_id'}:
+                raise ValueError('Memory reference must contain only media_id')
+            reference = {'media_id': _text(media['media_id'], 'media_id', 100)}
+        elif isinstance(media.get('path'), str) and isinstance(media.get('sha256'), str):
+            if set(media) != {'path', 'sha256'}:
+                raise ValueError('Saved reference must contain only path and sha256')
+            reference = {'path': _text(media['path'], 'path', 500),
+                         'sha256': _text(media['sha256'], 'sha256', 64)}
+        else:
+            raise ValueError('media must be a memory or exact saved reference')
+        detail = arguments.get('detail', 'auto')
+        if detail not in ('auto', 'low', 'high') or not isinstance(detail, str):
+            raise ValueError('detail must be auto, low, or high')
+        return {'media': reference, 'question_cell_id': _text(arguments['question_cell_id'], 'question_cell_id', 200),
+                'detail': detail}
     if name == "list_cells":
         if set(arguments) - {"start", "limit"}:
             raise ValueError("Unexpected list_cells argument")

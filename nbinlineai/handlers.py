@@ -95,6 +95,10 @@ def _safe_subscription_status(status: dict) -> dict:
                 effort for effort in model.get("efforts", [])[:7]
                 if isinstance(effort, str) and effort in efforts
             ] if isinstance(model.get("efforts"), list) else []}
+            modalities = model.get('input_modalities')
+            item['input_modalities'] = ([value for value in modalities
+                                        if value in ('text', 'image') and isinstance(value, str)]
+                                       if isinstance(modalities, list) else [])
             if display := safe_text(model.get("display_name"), 120):
                 item["display_name"] = display
             if isinstance(model.get("default_effort"), str) and model["default_effort"] in efforts:
@@ -130,6 +134,32 @@ async def _notebook_subscription_scope(dispatcher, scope_resolver, session_id: s
         "file_access_root": str(scope.file_access_root),
         "access": scope.access,
     }
+
+
+def _request_attachment(body: dict) -> bool:
+    if body.get('_legacy_snapshot'):
+        return False
+    question = next(cell for cell in body['notebook_cells']
+                    if cell['id'] == body['prompt_cell_id'])
+    return 'mediaAttachment' in question['metadata'].get('nbinlineai', {})
+
+
+async def _attachment_owner(handler, body: dict, kernel_id: str):
+    """Require the tab's exact browser credential for an attached question."""
+    if not _request_attachment(body):
+        return None
+    registry = handler.media_registry
+    if registry is None:
+        raise MediaError('unsupported', 'Browser media is unavailable')
+    client = handler.request.headers.get('X-NBInlineAI-Client')
+    model = handler.request.headers.get('X-NBInlineAI-Model')
+    secret = handler.request.headers.get('X-NBInlineAI-Owner')
+    if not all(isinstance(value, str) and value for value in (client, model, secret)):
+        raise MediaError('stale_target', 'Confirmed image needs its originating browser owner')
+    session = await handler.dispatcher.sessions.get_session(session_id=body['session_id'])
+    if session.get('type') != 'notebook' or not isinstance(session.get('path'), str):
+        raise MediaError('stale_target', 'Notebook session is unavailable')
+    return registry.bind(body['session_id'], kernel_id, session['path'], model, client, secret)
 
 
 def _running_version() -> str:
@@ -170,6 +200,7 @@ class StatusHandler(APIHandler):
                 model["id"]: {
                     "efforts": model["efforts"],
                     "default_effort": model.get("default_effort"),
+                    "input_modalities": model.get("input_modalities", []),
                 } for model in models
             }
         self.finish({
@@ -185,11 +216,13 @@ class StatusHandler(APIHandler):
 
 
 class PromptHandler(APIHandler):
-    def initialize(self, dispatcher, bridge=None, subscription_manager=None, scope_resolver=None):
+    def initialize(self, dispatcher, bridge=None, subscription_manager=None, scope_resolver=None,
+                   media_registry=None):
         self.dispatcher = dispatcher
         self.bridge = bridge if bridge is not None else FrontendBridge()
         self.subscription_manager = subscription_manager
         self.scope_resolver = scope_resolver
+        self.media_registry = media_registry
         self._run_task = None
 
     @authenticated
@@ -200,6 +233,7 @@ class PromptHandler(APIHandler):
             body = validate_request(self.get_json_body())
             kernel_id, kernel = await self.dispatcher.resolve(body["session_id"])
             subscription_scope = None
+            subscription_modalities = None
             if body["backend"] == "openai_codex_subscription":
                 if self.subscription_manager is None or self.scope_resolver is None:
                     raise ValueError("ChatGPT subscription connection is unavailable")
@@ -213,9 +247,11 @@ class PromptHandler(APIHandler):
                 if (body["reasoning_effort"] is not None
                         and body["reasoning_effort"] not in models[body["model"]]["efforts"]):
                     raise ValueError("Selected ChatGPT reasoning effort is unavailable")
+                subscription_modalities = models[body['model']].get('input_modalities', [])
                 subscription_scope = await _notebook_subscription_scope(
                     self.dispatcher, self.scope_resolver, body["session_id"],
                 )
+            attachment_owner = await _attachment_owner(self, body, kernel_id)
             run = self.bridge.start(body["session_id"], body["prompt_cell_id"], kernel_id, kernel)
         except (ValueError, TypeError) as exc:
             raise HTTPError(400, str(exc)) from exc
@@ -224,8 +260,11 @@ class PromptHandler(APIHandler):
         self.set_header("X-Accel-Buffering", "no")
         self._run_task = asyncio.current_task()
         try:
-            kwargs = ({"subscription_runtime": self.subscription_manager, "subscription_scope": subscription_scope}
-                      if subscription_scope else {})
+            kwargs = {'media_registry': self.media_registry, 'attachment_owner': attachment_owner,
+                      'subscription_modalities': subscription_modalities}
+            if subscription_scope:
+                kwargs.update(subscription_runtime=self.subscription_manager,
+                              subscription_scope=subscription_scope)
             async for event in run_prompt(body, self.dispatcher, kernel_id, kernel, self.bridge, run, **kwargs):
                 if event.get("type") == "context":
                     event = {**event, "run_id": run.run_id}
@@ -261,10 +300,12 @@ class PromptHandler(APIHandler):
 
 
 class ContextPreviewHandler(APIHandler):
-    def initialize(self, dispatcher, subscription_manager=None, scope_resolver=None):
+    def initialize(self, dispatcher, subscription_manager=None, scope_resolver=None,
+                   media_registry=None):
         self.dispatcher = dispatcher
         self.subscription_manager = subscription_manager
         self.scope_resolver = scope_resolver
+        self.media_registry = media_registry
 
     @authenticated
     @authorized(action="execute", resource="kernels")
@@ -274,16 +315,27 @@ class ContextPreviewHandler(APIHandler):
             body = validate_request(self.get_json_body(), preview=True)
             kernel_id, kernel = await self.dispatcher.resolve(body["session_id"])
             subscription_scope = None
+            subscription_modalities = None
             if body["backend"] == "openai_codex_subscription" and self.scope_resolver is not None:
                 subscription_scope = await _notebook_subscription_scope(
                     self.dispatcher, self.scope_resolver, body["session_id"],
                 )
+                if _request_attachment(body):
+                    if self.subscription_manager is None:
+                        raise ValueError('ChatGPT subscription connection is unavailable')
+                    status = _safe_subscription_status(await self.subscription_manager.status())
+                    models = {item['id']: item for item in status['models']}
+                    subscription_modalities = models.get(body['model'], {}).get('input_modalities', [])
+            attachment_owner = await _attachment_owner(self, body, kernel_id)
             if not self.dispatcher.preview_ready(kernel_id, kernel):
                 raise HTTPError(409, "Kernel is busy; refresh the context preview when it is idle")
             report = await asyncio.wait_for(
                 preview_context(body, self.dispatcher, kernel_id, kernel,
                                 subscription_runtime=self.subscription_manager,
-                                subscription_scope=subscription_scope), timeout=7
+                                subscription_scope=subscription_scope,
+                                media_registry=self.media_registry,
+                                attachment_owner=attachment_owner,
+                                subscription_modalities=subscription_modalities), timeout=7
             )
             current_id, current_kernel = await self.dispatcher.resolve(body["session_id"])
             if current_id != kernel_id or current_kernel is not kernel:
@@ -406,6 +458,11 @@ class BrowserMediaHandler(APIHandler):
             elif command == 'release':
                 registry.release_media(owner, body.get('media_id'))
                 self.finish({'released': True})
+            elif command == 'grantattachment':
+                result = await asyncio.to_thread(registry.confirm_attachment, owner,
+                                                 body.get('media'), body.get('question_cell_id'),
+                                                 body.get('detail', 'auto'), body.get('operation_id'))
+                self.finish(result)
             else:
                 raise MediaError('unsupported', 'Unknown browser operation command')
         except MediaError as exc:
@@ -804,10 +861,10 @@ def setup_handlers(web_app, *, subscription_manager=None):
          {"subscription_manager": subscription_manager}),
         (url_path_join(base_url, "nbinlineai", "prompt"), PromptHandler,
          {"dispatcher": dispatcher, "bridge": bridge, "subscription_manager": subscription_manager,
-          "scope_resolver": scope_resolver}),
+          "scope_resolver": scope_resolver, "media_registry": media_registry}),
         (url_path_join(base_url, "nbinlineai", "context-preview"), ContextPreviewHandler,
          {"dispatcher": dispatcher, "subscription_manager": subscription_manager,
-          "scope_resolver": scope_resolver}),
+          "scope_resolver": scope_resolver, "media_registry": media_registry}),
         (url_path_join(base_url, "nbinlineai", "action-reply"), ActionReplyHandler,
          {"dispatcher": dispatcher, "bridge": bridge}),
         *media_routes,

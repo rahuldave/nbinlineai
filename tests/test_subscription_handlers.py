@@ -117,7 +117,7 @@ class _Manager:
         return {
             "state": "connected", "configured": True, "auth_mode": self.auth_mode,
             "account": {"email": "synthetic@example.test", "secret": "never-expose"},
-            "models": [{"id": "synthetic-model", "efforts": ["low"]}],
+            "models": [{"id": "synthetic-model", "efforts": ["low"], "input_modalities": []}],
             "usage": {"state": "unavailable"},
             "access_token": "never-expose",
         }
@@ -355,7 +355,7 @@ def test_status_sanitizer_rejects_malformed_presentation_values():
     assert safe == {
         "state": "error", "configured": False,
         "account": {"display_name": "Valid name"},
-        "models": [{"id": "synthetic-model", "efforts": ["low"]}],
+        "models": [{"id": "synthetic-model", "efforts": ["low"], "input_modalities": []}],
         "usage": {"state": "unavailable"},
     }
     full = _safe_subscription_status({"models": [{

@@ -163,6 +163,22 @@ export class BrowserOperationContext {
     catch (error) { this.readyPromise = undefined; throw error; }
   }
 
+  /** An exact, volatile browser-owner proof for an attached question request. */
+  async attachmentHeaders(): Promise<Headers> {
+    await this.ready();
+    const identity = this.identity();
+    const requestHeaders = headers(this.ownerSecret);
+    requestHeaders.set('X-NBInlineAI-Client', identity.client_id);
+    requestHeaders.set('X-NBInlineAI-Model', identity.model_id);
+    return requestHeaders;
+  }
+
+  async grantAttachment(operationId: string, media: { media_id: string } | { path: string; sha256: string },
+    questionCellId: string, detail: 'auto' | 'low' | 'high'): Promise<Record<string, unknown>> {
+    return this.command('grantattachment', { operation_id: operationId, media,
+      question_cell_id: questionCellId, detail });
+  }
+
   async create(request: BrowserOperationRequest, waiting = false): Promise<BrowserOperationStatus> {
     await this.ready();
     const state = await this.command('create', { ...request, waiting });

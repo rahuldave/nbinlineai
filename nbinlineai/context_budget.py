@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from aidialog.msg_parts import Msg, Text, msg2dict
+from aidialog.msg_parts import Msg, Part, Text, msg2dict
 
 MAX_CONTEXT_CHARS = 64_000
 
@@ -163,6 +163,7 @@ def build_context(
     focus: Any = None,  # Bounded frozen-snapshot landmarks, when available.
     *,
     round_wire_cost: Callable[[list[Msg], list[dict[str, Any]]], int] | None = None,
+    current_media_parts: list[Part] | None = None,
 ) -> BuiltContext:  # Messages and per-round accounting.
     """Fit fixed material first, then nearest units without gaps.
 
@@ -171,7 +172,7 @@ def build_context(
     The same callback is used before optional context and for each candidate.
     """
     tool_schema_chars = json_chars(tools)
-    current = Msg("user", [Text(current_prompt)])
+    current = Msg("user", [Text(current_prompt), *(current_media_parts or [])])
     focus_before = focus.render(set(), set(), units, []) if focus else ""
     focus_prefix = (system_prefix + "\n\nNotebook cell landmarks:\n" + focus_before
                     + "\n\nNotebook source:\n") if focus else system_prefix
@@ -182,6 +183,11 @@ def build_context(
     if isinstance(fixed, bool) or not isinstance(fixed, int) or fixed < 0:
         raise ValueError("Round wire cost must be a nonnegative integer")
     if fixed > MAX_CONTEXT_CHARS:
+        if current_media_parts:
+            raise ContextWindowExceededError(
+                "Exact image, current question, and tool schemas exceed the 64000-character "
+                "submission budget. Attach an explicit smaller derivative or shorten the question."
+            )
         raise ContextWindowExceededError(
             "Current prompt, instructions, tool definitions, or executed tool results exceed "
             f"the {MAX_CONTEXT_CHARS}-character context budget. Shorten the prompt or "
