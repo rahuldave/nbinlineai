@@ -548,7 +548,9 @@ async function executePrompt(panel: NotebookPanel, promptId: string, predecessor
           if (cached.signature !== signature) throw new Error('Handoff request ID was reused with different arguments.');
           return;
         }
-        const result = isHandoff ? requestExecutionHandoff({
+        const result = isHandoff && requireCodeChoice && event.name === 'prompt_and_run'
+          ? { ok: false, status: 'failed', error: 'This follow-up question must select a code cell before another question; no execution was scheduled.' }
+          : isHandoff ? requestExecutionHandoff({
           panel, originCellId: promptId, defaultAfterCellId: output.id, chainId,
           onPrompt: async (id, result, nextChainId, requireSelection) => {
             const success = await executePrompt(panel, id, result, nextChainId, requireSelection);

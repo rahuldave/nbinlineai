@@ -168,6 +168,17 @@ test('prompt_and_run visibly stops when its new question does not select code', 
   await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
 });
 
+test('prompt_and_run follow-up cannot schedule another question without choosing code', async ({ page, request }) => {
+  await openNotebook(page, request, [setup, ai('ask', 'E2E_HANDOFF_PROMPT_RUN_NESTED &`prompt_and_run`')]);
+  const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  await runSetup(page);
+  await notebook.locator('.nbinlineai-prompt-cell').first().locator('[data-nbinlineai-run]').click();
+  await expect(notebook.locator('.nbinlineai-prompt-cell')).toHaveCount(2);
+  await expect(notebook.locator('.nbinlineai-prompt-cell').last().locator('.nbinlineai-status')).toContainText('must select a code cell');
+  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
+  await expect(notebook).not.toContainText('E2E_HANDOFF_P2_SHOULD_NOT_EXIST');
+});
+
 test('direct Python add returns before its inserted code executes', async ({ page, request }) => {
   await openNotebook(page, request, [code('caller',
     'from nbinlineai.tools import add_code_cell_and_execute\nreceipt = add_code_cell_and_execute(content="direct_value = 51\\nprint(\\\"DIRECT_ADD\\\", direct_value)")\nprint("CALLER_RETURNED")')]);

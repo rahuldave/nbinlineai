@@ -47,6 +47,16 @@ async def fake_complete(
             id="handoff-no-choice", name="prompt_and_run",
             arguments={"prompt": "E2E_HANDOFF_P1_NO_CHOICE Explain this notebook."},
         )]))
+    if "E2E_HANDOFF_PROMPT_RUN_NESTED" in current_user:
+        return Completion(model=model, message=Msg("assistant", [ToolUse(
+            id="handoff-nested-p0", name="prompt_and_run",
+            arguments={"prompt": "E2E_HANDOFF_P1_NESTED Choose code now."},
+        )]))
+    if "E2E_HANDOFF_P1_NESTED" in current_user:
+        return Completion(model=model, message=Msg("assistant", [ToolUse(
+            id="handoff-nested-p1", name="prompt_and_run",
+            arguments={"prompt": "E2E_HANDOFF_P2_SHOULD_NOT_EXIST"},
+        )]))
     if "E2E_HANDOFF_P1_NO_CHOICE" in current_user:
         return Completion(model=model, message=Msg("assistant", [Text("No code was selected.")]))
     if "E2E_HANDOFF_RUN_PROMPT_EXISTING" in current_user:

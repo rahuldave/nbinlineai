@@ -49,11 +49,17 @@ async function executeCode(panel: NotebookPanel, step: BoundStep): Promise<Execu
   const widget = panel.content.widgets.find(candidate => candidate.model === target);
   if (!widget) throw new Error('Code cell widget is unavailable.');
   let msgId = '';
+  let executedSource: string | null = null;
   const output = new ExecutionTextCollector();
   const onMessage = (_: Kernel.IKernelConnection, args: Kernel.IAnyMessageArgs): void => {
     const message = args.msg;
     if (args.direction === 'send' && message.header.msg_type === 'execute_request' &&
-        message.metadata.cellId === step.cellId) { msgId = message.header.msg_id; return; }
+        message.metadata.cellId === step.cellId) {
+      msgId = message.header.msg_id;
+      const code = (message.content as Record<string, unknown>).code;
+      executedSource = typeof code === 'string' ? code : null;
+      return;
+    }
     if (!msgId || args.direction !== 'recv' || message.parent_header?.msg_id !== msgId) return;
     output.accept(message.header.msg_type, message.content as Record<string, unknown>);
   };
@@ -64,11 +70,13 @@ async function executeCode(panel: NotebookPanel, step: BoundStep): Promise<Execu
       sessionContext: panel.sessionContext, onCellExecutionScheduled: () => undefined,
       onCellExecuted: () => undefined
     }, panel, step.chainId);
-    const sourceDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(step.source));
+    const sourceDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(executedSource ?? ''));
     const sourceSha256 = Array.from(new Uint8Array(sourceDigest), byte => byte.toString(16).padStart(2, '0')).join('');
     const captured = output.snapshot();
     return { chain_id: step.chainId, step_id: step.stepId, cell_id: step.cellId,
-      msg_id: msgId, source_sha256: sourceSha256, status: success && msgId ? 'completed' : 'failed',
+      msg_id: msgId, source_sha256: sourceSha256,
+      status: executedSource !== null && executedSource !== step.source ? 'source_changed' :
+        success && msgId && executedSource === step.source ? 'completed' : 'failed',
       ...captured };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -153,7 +161,9 @@ export function requestExecutionHandoff(owner: HandoffOwner, operation: HandoffO
       }
       const result = await executeCode(panel, bound);
       if (result.status !== 'completed') {
-        owner.onStatus('failed', 'Handoff stopped after code execution failed.');
+        owner.onStatus('failed', result.status === 'source_changed'
+          ? 'Code ran after its source changed; the next step was stopped.'
+          : 'Handoff stopped after code execution failed or could not be attributed.');
         finishHandoffChain(chainId);
         return false;
       }
