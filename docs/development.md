@@ -129,19 +129,18 @@ See [GitHub's publishing-source guide](https://docs.github.com/en/pages/getting-
 
 ## Branches and worktrees
 
-Internal research, specifications, task prompts and handoffs have one canonical
-home on `main`. Implementation worktrees read the primary main checkout's
-`internal_docs/` (on the maintainer's machine,
-`/Users/rahul/Projects/nbinlineai/internal_docs/`) and record the documentation
-commit used. In another clone, use a recorded main checkout or committed main
-snapshot. Author internal documentation in owned main-based topic worktrees and
-PR it to main; do not edit the primary directly or copy internal docs into each
-implementation branch. Preserve drafts in a dirty primary and read committed
-main bytes when needed. The repository's
-[documentation workflow](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/workflow.md#canonical-internal-documentation)
-describes revision selection and cross-branch records. Public docs, examples and
-code documentation remain with the code they describe so packaged instructions
-match the installed version.
+Approved pre-work research, specifications and task prompts live on `main`.
+Record the committed main revision used to read them, normally from the primary
+checkout's `internal_docs/` (on the maintainer's machine,
+`/Users/rahul/Projects/nbinlineai/internal_docs/`). If that checkout is dirty,
+behind or unavailable, read the selected committed revision without changing
+its working tree. Author pre-work updates in owned main-based topic worktrees
+and PR them to `main`. Implementation handoffs and verification records travel
+with the branch containing their code and its PR target; promote those records
+to `main` with the implementation. Public docs, examples and code documentation
+also follow their code so packaged instructions match the installed version.
+The [documentation workflow](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/workflow.md#documentation-by-branch)
+explains revision selection and cross-branch records.
 
 Keep the primary checkout on `main`. Develop changes in separate topic
 worktrees, using a temporary `codex/*` branch based on the intended integration

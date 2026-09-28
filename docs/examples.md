@@ -56,7 +56,7 @@ me one short usage example.
 
 The model can call `show_doc(name="Path.read_text", module="pathlib")`. You do not need another `&` reference in this question or later questions that inherit the same enabled declaration. Plain tool names in a question are instructions to the model; the earlier declaration is what makes the function available. Importing `pathlib` this way runs its module initialization, but showing the method's docs does not read a file.
 
-The [function index](tools.md#function-index) gives an example question for **each of the 51 tools**, assuming its reference has already been declared. For example, after importing and declaring `source_doc` instead, ask:
+The [function index](tools.md#function-index) gives an example question for every registered tool, assuming its reference has already been declared. For example, after importing and declaring `source_doc` instead, ask:
 
 ```text
 Use source_doc to explain the written signature and documentation of
@@ -64,6 +64,15 @@ normalize in demo_project/analysis.py without importing the file.
 ```
 
 That second example assumes the saved file and function exist. For a multi-tool task, import and declare each tool the question needs; a reference to `show_doc` alone does not also offer `source_doc`.
+
+For a runnable path through every shipped tool, use the catalog notebooks below.
+The six tool-catalog notebooks are new **source examples**; they are not in the unchanged PyPI 0.1.15 archive. Open or copy them from the GitHub source repository after this change merges, or from a Git checkout. They demonstrate the existing tools and do not imply a new package release.
+Their sections and stable demonstration cell IDs are linked from each row of the
+[function index](tools.md#function-index). The inspection, saved-file, saved-notebook,
+and process notebooks call safe tools against disposable inputs. The live-notebook
+and web notebooks contain explicit AI questions for browser-backed or public-page
+tools. Copy the live-notebook example before editing it; run optional network
+questions only when you want to fetch that page.
 
 ## Read saved or live notebook cells
 
@@ -125,6 +134,12 @@ Download notebooks from the [examples folder on GitHub](https://github.com/rahul
 | [Python and web tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/python-and-web-tools.ipynb) | Inspect Python documentation/source, consult a page, and make a notebook note. |
 | [Fastcore tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/fastcore-tools.ipynb) | Inspect documentation and make bounded edits to disposable text files. |
 | [Project tools](https://github.com/rahuldave/nbinlineai/blob/main/examples/project-tools.ipynb) | Search and document a temporary source project; preview and check text edits. |
+| [Tool catalog: live Python](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-inspection.ipynb) | Call inspection and tracing tools on disposable kernel values; optionally read a discovered registered skill. |
+| [Tool catalog: saved files](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-files.ipynb) | Call each saved-file/source tool inside a temporary folder with fresh addresses and digests. |
+| [Tool catalog: saved notebooks](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-saved-notebooks.ipynb) | Search and read a temporary notebook containing a real stable cell ID. |
+| [Tool catalog: live notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-live-notebook.ipynb) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
+| [Tool catalog: web](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-web.ipynb) | Optional public-page reads and source-attributed note insertion. |
+| [Tool catalog: processes](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-processes.ipynb) | Run bounded local subprocesses; inspect tmux only if it is available. |
 | [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
 | [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
 
