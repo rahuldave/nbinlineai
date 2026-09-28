@@ -11,10 +11,21 @@ are read from the branch containing that code. See [revision selection and
 documentation PRs](workflow.md#documentation-by-branch), including dirty or
 stale primary checkouts. Public docs and examples also follow their code.
 
-Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+**Release context (2026-09-28):** Published PyPI 0.1.15 has the Configure AI
+tabs and 51 tools. The experimental Git branch reports the same package
+version but has 54 tools, including the three queued execution handoffs. The
+[release record](releasing.md) contains artifact and installation checks.
+Context selection shipped in 0.1.8, followed by clearer controls in 0.1.9 and
+AI-cell backgrounds, editable starters, prompt focus and code insertion in
+0.1.10. Version 0.1.12 retained 51 curated tools; 0.1.11 introduced the expanded
+catalog and disposable project example. The Jupyter AI/Codex examples include
+an authenticated agent trial. These files are public repository content, but
+are excluded from PyPI archives and the Jekyll site.
 
-The [current handoff](developer_handoff.md) records the published 0.1.15
-Configure AI tabs and earlier releases. Verify applicability to your code branch.
+The [current handoff](developer_handoff.md) distinguishes the experimental
+execution handoffs from the published PyPI release, and records the published
+0.1.15 Configure AI tabs and earlier fixes. Verify applicability to your code
+branch.
 
 ## A new task's reading order
 
@@ -26,15 +37,20 @@ Configure AI tabs and earlier releases. Verify applicability to your code branch
 
 ## Approved experimental design
 
-- [Notebook execution handoff spec](notebook_execution_handoff_spec.md): approved
+- [Notebook execution handoff spec](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_spec.md): approved
   same-notebook contract for `add_code_cell_and_execute`, `prompt_and_run` and
   `run_and_prompt`; queued terminal handoffs, stable IDs and actual run results.
-- [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
+- [Copyable implementation task prompt](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-These pre-work documents are maintained on `main`; record their approved
-revision when implementing them. They do not add runtime functionality. The
-experiment's implementation handoff belongs on its own branch until promotion.
+The links above pin the approved pre-work documents on `main` at `404f0e5`;
+branch-local copies are historical discovery copies. The implementation-specific
+[handoff](developer_handoff.md#2026-09-28-queued-notebook-execution-handoffs)
+belongs to this experimental branch. PR #21 merged the runtime, public docs,
+tests and example here at `c6ac76e`; PyPI 0.1.15 and `main` do not contain those
+helpers. The pinned prompt's original instruction to put the implementation
+handoff on `main` has been superseded by the current
+[documentation workflow](workflow.md#documentation-by-branch).
 
 ## Context-selection implementation references
 

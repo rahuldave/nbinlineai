@@ -1,5 +1,92 @@
 # Developer handoff
 
+## 2026-09-28 queued notebook execution handoffs
+
+PR [#21](https://github.com/rahuldave/nbinlineai/pull/21) merged into
+`codex/agentic-notebook-experiments` at
+`c6ac76e17a8bfaab8f82e4c3e27d396e59c8d4c8`. Its owned topic worktree
+was `/Users/rahul/Projects/nbinlineai-execution-handoffs`, branch
+`codex/notebook-execution-handoffs`; the primary checkout stayed on `main`.
+The [approved spec](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_spec.md) and
+[task prompt](https://github.com/rahuldave/nbinlineai/blob/404f0e5eddcabf31985219d66c72075230fcdc2b/internal_docs/notebook_execution_handoff_task_prompt.md) are pinned pre-work
+documents on `main` at `404f0e5`; branch-local copies are historical. This
+implementation record belongs with the experimental
+code. Git source contains the helpers; published PyPI 0.1.15 and `main` do not.
+No version bump, tag, package upload or site deployment followed the merge.
+Gest iteration `srtuoxrt`, parent `tutortnk`, and leaves `oloxqsoz`, `twqntstm`
+and `ksoqwvzp` track the work under issue #2, which remains open.
+
+Keep `codex/agentic-notebook-experiments` as the persistent integration branch.
+The current handoffs serialize execution on one notebook kernel; later sidecar,
+Python 3.14, concurrency and multi-kernel experiments belong on new topic PRs
+targeting this branch. See [Development](../docs/development.md) for Git-source
+installation. Promoting source to `main` requires a separate decision and must
+preserve this experimental branch.
+
+PR [#25](https://github.com/rahuldave/nbinlineai/pull/25) brought current
+`main` through `47be176` into this branch at merge commit `532d5a3` without
+promoting the handoffs to `main`. Its reviewed topic head `eece770` passed 279
+Python tests, 69 frontend tests, 87 deterministic browser cases with two
+expected opt-in skips, and the runtime compatibility matrix. The mainline
+documentation policy from PR #24 now applies to this branch too.
+
+The three opt-in helpers are `add_code_cell_and_execute` (new or identified
+existing code), `prompt_and_run` (a separate AI question that must choose code)
+and `run_and_prompt` (code first, then a separate question with that run's
+bounded result). Model calls use a sole-call terminal group over server
+SSE/action-reply; direct Python calls use the execution-bound
+`nbinlineai.execution_handoff.v1` comm. Both schedule successors after the
+caller finishes through the ordinary per-notebook queue. Each step binds the
+original document, session, kernel, cell ID and source; chains stop at eight
+steps. The code step keeps native execution and outputs. Its successor receives
+up to 8,000 characters of text with the request ID, source digest, truncation
+and rich-output flags; that fixed material enters the 64,000-character host
+submission budget before optional context. No sidecar or nested kernel wait is
+used. See the [tools reference](../docs/tools.md),
+[architecture](../docs/architecture.md) and
+[executable example](../docs/examples.md#try-queued-execution-handoffs-experimental-git-branch).
+
+The deterministic browser fixture imports declared handoff functions into its
+live kernel; declarations alone do not create Python names. A tool-only turn
+leaves a brief paired scheduling answer so Keep protects it from replay. A
+skipped or failed chain shows its status even if that answer is kept. New code
+is placed after the paired answer by default. Source edits detected by the
+pre-dispatch check stop execution. A direct Python receipt acknowledges
+scheduling, not completed execution; inspect the notebook before retrying a
+lost acknowledgement.
+
+Verification at reviewed topic head `ed87a7818d6c3e785271a37c1d529c415c7ed65a`:
+279 Python tests, 69 frontend unit tests, TypeScript, Ruff, lockfile, docs and
+diff checks passed. A rebuilt/relinked isolated JupyterLab and real kernel
+passed all 13 new handoff browser scenarios. The final full-source PR check
+passed 86 deterministic browser cases with two expected opt-in skips, and all
+applicable cross-platform compatibility jobs passed. A disposable Git-source
+Python environment installed the built extension assets. The owned browser
+server on 8897 stopped; port 8888 was untouched. Independent read-only
+adversarial review of the actual base `541fe37938b27f35c285425d90eaa2f14f430de6`
+and head `ed87a7818d6c3e785271a37c1d529c415c7ed65a` found no remaining
+actionable issue after a missing-code-selection path was fixed and covered by a
+browser regression. A very late source edit can still reach native execution
+before mismatch detection; the successor stops and never attributes that
+result as a successful handoff. This timing window remains an experimental
+follow-up. The experimental merge commit `c6ac76e` passed its source push gate
+(`36466829860`: 279 Python tests and 86 deterministic browser cases, two
+expected opt-in skips) and runtime compatibility push gate (`36466829985`).
+
+The dated sections below preserve the status at those earlier milestones;
+their 0.1.14 and research-only statements do not supersede the merged handoff
+status above.
+
+**2026-09-25 workflow follow-up (topic PR):** Shared PR #45 and experimental
+PR #3 have merged. Issue #4 tracks adoption onto mainline and this experimental
+follow-up, including explicit task-owned worktree cleanup and the preview fix
+below. Installed skills are refreshed to reviewed source commit
+`bc22ef179e345396869309bfac1a596c515b69b4` from shared PR #47; merge that shared
+source PR before these adoptions. The primary checkout stays on `main`, while
+stable and experimental topics use owned worktrees from their respective bases.
+See [Project workflow](workflow.md) for review, provenance, CI and cleanup.
+Version 0.1.14 and PyPI are unchanged; no notebook-agent feature is added.
+
 **2026-09-25 JupyterLite exploration (preserved 2026-09-28):** See the
 [JupyterLite feasibility study](jupyterlite_feasibility.md). The published 0.1.15
 frontend loaded in JupyterLite 0.8.4 Notebook and Lab; a same-origin embedded
