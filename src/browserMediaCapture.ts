@@ -345,6 +345,11 @@ async function audioLevels(source: BrowserSource, windowMs: number): Promise<{ r
   } finally { await audio.close(); }
 }
 
+let captureRegistered = false;
+/** Install the capture family explicitly so the labextension bundler retains it. */
+export function registerBrowserMediaCapture(): void {
+if (captureRegistered) return;
+captureRegistered = true;
 registerBrowserOperation('list_media_sources', async (context, request, operation) => {
   const support = deviceListCapability();
   if (!support.available) throw new BrowserMediaError(window.isSecureContext ? 'unsupported' : 'needs_secure_context',
@@ -525,3 +530,4 @@ registerBrowserOperation('stop_share', async (context, request, operation) => {
   await context.endSource(source.sourceId, 'source_ended');
   await context.transition(operation.operation_id, 'completed', { source_id: source.sourceId, stopped: true });
 }, () => ({ available: true }));
+}

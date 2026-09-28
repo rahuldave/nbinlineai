@@ -29,8 +29,10 @@ import { registerBrowserNotebookOutputs } from './browserNotebookOutputs';
 import { registerBrowserNotebookViews } from './browserNotebookViews';
 import { registerBrowserNotebookCanvas } from './browserNotebookCanvas';
 import { registerBrowserNotebookRegion } from './browserNotebookRegion';
-import './browserMediaCapture';
+import { registerBrowserMediaCapture } from './browserMediaCapture';
 import '../style/index.css';
+
+registerBrowserMediaCapture();
 
 interface CellMetadata {
   isPromptCell?: boolean;
