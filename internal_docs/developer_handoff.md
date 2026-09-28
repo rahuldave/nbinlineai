@@ -54,9 +54,9 @@ actionable issue after a missing-code-selection path was fixed and covered by a
 browser regression. A very late source edit can still reach native execution
 before mismatch detection; the successor stops and never attributes that
 result as a successful handoff. This timing window remains an experimental
-follow-up. PR #21's post-merge source and runtime push checks were still
-running when this record was drafted; confirm their final status before citing
-the integration gate.
+follow-up. The experimental merge commit `c6ac76e` passed its source push gate
+(`36466829860`: 279 Python tests and 86 deterministic browser cases, two
+expected opt-in skips) and runtime compatibility push gate (`36466829985`).
 
 The dated sections below preserve the status at those earlier milestones;
 their 0.1.14 and research-only statements do not supersede the merged handoff
