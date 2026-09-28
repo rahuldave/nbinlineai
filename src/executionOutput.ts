@@ -20,7 +20,7 @@ export class ExecutionTextCollector {
       const data = content.data as Record<string, unknown> | undefined;
       const plain = data?.['text/plain'];
       fragment = typeof plain === 'string' ? `${plain}\n` : '';
-      if (!fragment && data && Object.keys(data).length > 0) this.richOutputOmitted = true;
+      if (data && Object.keys(data).some(mime => mime !== 'text/plain')) this.richOutputOmitted = true;
     }
     if (!fragment) return;
     const transient = content.transient as Record<string, unknown> | undefined;

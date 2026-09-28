@@ -45,6 +45,18 @@ test('AI terminal add inserts and natively executes code before later Run All wo
   expect(ids.findIndex(text => text.includes('HANDOFF_ADD_RESULT'))).toBeLessThan(ids.findIndex(text => text.includes('LATER_MARKER')));
 });
 
+test('a completed terminal handoff is kept and does not replay on another run', async ({ page, request }) => {
+  await openNotebook(page, request, [ai('ask', 'E2E_HANDOFF_ADD &`add_code_cell_and_execute`')]);
+  const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  const prompt = notebook.locator('.nbinlineai-prompt-cell');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  await expect(notebook.locator('.jp-CodeCell').locator('.jp-OutputArea')).toContainText('HANDOFF_ADD_RESULT 41');
+  await expect(notebook.locator('.nbinlineai-response-cell')).toContainText('Handoff scheduled for cell');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  await expect(notebook.locator('.jp-CodeCell')).toHaveCount(1);
+  await expect(notebook.locator('.jp-CodeCell').locator('.jp-InputPrompt')).toContainText('[1]');
+});
+
 test('AI terminal execution accepts an existing identified code cell', async ({ page, request }) => {
   await openNotebook(page, request, [
     ai('ask', 'E2E_HANDOFF_EXISTING &`add_code_cell_and_execute`'),

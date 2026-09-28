@@ -26,6 +26,12 @@ test('bounded output marks truncation and omitted rich-only output', () => {
   assert.deepEqual(output.snapshot(4), { text: '1234', truncated: true, rich_output_omitted: true });
 });
 
+test('a plain fallback does not imply that a rich image was transferred', () => {
+  const output = new ExecutionTextCollector();
+  output.accept('display_data', { data: { 'text/plain': '<image>', 'image/png': 'encoded' } });
+  assert.deepEqual(output.snapshot(), { text: '<image>\n', truncated: false, rich_output_omitted: true });
+});
+
 test('a rich-only output after deferred clear removes old text and reports omission', () => {
   const output = new ExecutionTextCollector();
   output.accept('stream', { text: 'old' });

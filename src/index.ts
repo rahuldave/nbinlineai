@@ -591,6 +591,12 @@ async function executePrompt(panel: NotebookPanel, promptId: string, predecessor
       status(panel, promptId, 'skipped', 'No code cell was selected; nothing was executed.');
       return false;
     }
+    const scheduledReceipt = Array.from(handoffReplies.values(), item => item.receipt).find(item => item.ok);
+    if (scheduledReceipt && !run.text.trim()) {
+      output.sharedModel.setSource(scheduledReceipt.cell_id
+        ? `Handoff scheduled for cell \`${scheduledReceipt.cell_id}\`.`
+        : 'Notebook handoff scheduled.');
+    }
     refreshOutput(panel, output);
     status(panel, promptId, 'done', completedContextText(run.contextTrimmed),
       run.context ? contextTooltip(run.context, run.contextTrimmed) : undefined);
