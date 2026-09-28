@@ -30,10 +30,8 @@ for connection defaults, per-cell inheritance, and empty answer display.
 - [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-These design documents are available on both persistent branches for discovery.
-The runtime implementation is in the `codex/notebook-execution-handoffs` topic
-worktree pending review and integration into the experimental branch. The
-published 0.1.14 package does not include it.
+These documents are available on both persistent branches for discovery. They
+do not add runtime functionality; implementation targets the experimental branch.
 
 ## Context-selection implementation references
 
