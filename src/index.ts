@@ -25,6 +25,8 @@ import { mediaContext } from './browserMediaComm';
 import { BrowserMediaError, BrowserOperationStatus, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
 import { boundedMediaErrorText } from './browserMediaCapabilities';
 import { installBrowserMediaStatus } from './browserMediaStatus';
+import './browserNotebookOutputs';
+import './browserNotebookViews';
 import '../style/index.css';
 
 interface CellMetadata {

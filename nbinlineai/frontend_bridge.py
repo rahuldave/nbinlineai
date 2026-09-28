@@ -94,6 +94,62 @@ def normalize_action(
         'save_media': {'media', 'save_to'},
         'release_media': {'media_id'},
     }
+    output_fields = {
+        'read_notebook_view': set(), 'read_selection': {'max_chars'},
+        'list_outputs': {'cell_id', 'cursor', 'limit'},
+        'read_output': {'cell_id', 'output_id', 'revision', 'mime', 'start', 'max_chars'},
+        'export_output': {'cell_id', 'output_id', 'revision', 'save_to', 'mime'},
+        'list_canvases': {'cell_id', 'output_id', 'revision', 'cursor', 'limit'},
+        'capture_canvas': {'canvas', 'save_to', 'max_size'},
+        'export_canvas': {'canvas', 'save_to', 'max_size'},
+        'start_canvas': {'canvas', 'frame_rate'},
+        'capture_notebook_region': {'cell_ids', 'save_to', 'max_size'},
+    }
+    if name in output_fields:
+        if set(arguments) - output_fields[name]:
+            raise ValueError(f'Unexpected {name} argument')
+        result = dict(arguments)
+        if name in ('list_outputs', 'read_output', 'export_output', 'list_canvases'):
+            result['cell_id'] = _text(arguments.get('cell_id'), 'cell_id', 200)
+        if name in ('read_output', 'export_output', 'list_canvases'):
+            result['output_id'] = _text(arguments.get('output_id'), 'output_id', 100)
+            result['revision'] = _integer(arguments.get('revision'), 'revision', 0, 1_000_000_000)
+        if name in ('list_outputs', 'list_canvases'):
+            result['cursor'] = _text(arguments.get('cursor', ''), 'cursor', 100, allow_empty=True)
+            result['limit'] = _integer(arguments.get('limit', 10), 'limit', 1, 20)
+        if name in ('read_output', 'read_selection'):
+            result['max_chars'] = _integer(arguments.get('max_chars', 2000), 'max_chars', 1, 3000)
+        if name == 'read_output':
+            result['mime'] = _text(arguments.get('mime', 'text/plain'), 'mime', 100)
+            result['start'] = _integer(arguments.get('start', 0), 'start', 0, 1_000_000)
+        if name == 'export_output':
+            result['mime'] = _text(arguments.get('mime', ''), 'mime', 100, allow_empty=True)
+        if name in ('capture_canvas', 'export_canvas', 'start_canvas'):
+            if not isinstance(arguments.get('canvas'), dict):
+                raise ValueError('canvas must be a CanvasRef descriptor')
+            canvas = arguments['canvas']
+            if set(canvas) != {'canvas_id', 'cell_id', 'output_id', 'revision', 'view_revision'}:
+                raise ValueError('canvas must be an exact CanvasRef descriptor')
+            result['canvas'] = {
+                'canvas_id': _text(canvas['canvas_id'], 'canvas_id', 100),
+                'cell_id': _text(canvas['cell_id'], 'cell_id', 200),
+                'output_id': _text(canvas['output_id'], 'output_id', 100),
+                'revision': _integer(canvas['revision'], 'revision', 0, 1_000_000_000),
+                'view_revision': _integer(canvas['view_revision'], 'view_revision', 0, 1_000_000_000),
+            }
+        if name == 'start_canvas':
+            result['frame_rate'] = _integer(arguments.get('frame_rate', 30), 'frame_rate', 1, 60)
+        if name in ('capture_canvas', 'export_canvas', 'capture_notebook_region'):
+            result['max_size'] = _integer(arguments.get('max_size', 1280), 'max_size', 1, 4096)
+        if name == 'capture_notebook_region':
+            ids = arguments.get('cell_ids')
+            if not isinstance(ids, list) or not 1 <= len(ids) <= 12 or len(ids) != len(set(map(str, ids))):
+                raise ValueError('cell_ids must contain 1 to 12 distinct IDs')
+            result['cell_ids'] = [_text(value, 'cell_id', 200) for value in ids]
+        if name in ('export_output', 'capture_canvas', 'export_canvas', 'capture_notebook_region'):
+            destination = arguments.get('save_to', 'auto' if name == 'export_canvas' else None)
+            result['save_to'] = None if destination is None else _text(destination, 'save_to', 500)
+        return result
     if name in browser_fields:
         allowed = browser_fields[name]
         if set(arguments) - allowed or (name != 'save_media' and allowed - set(arguments)):

@@ -26,6 +26,7 @@ from ._tool_helpers import (
     _text,
 )
 from .browser_media_tools import BROWSER_MEDIA_TOOL_FUNCTIONS
+from .browser_output_tools import BROWSER_OUTPUT_TOOL_FUNCTIONS
 from .execution_tools import EXECUTION_TOOL_FUNCTIONS
 from .fastcore_tools import (
     FASTCORE_TOOL_FUNCTIONS,
@@ -362,6 +363,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "url_to_note": url_to_note,
     **NOTEBOOK_TOOL_FUNCTIONS,
     **BROWSER_MEDIA_TOOL_FUNCTIONS,
+    **BROWSER_OUTPUT_TOOL_FUNCTIONS,
 })
 
 
@@ -421,6 +423,9 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     "execution": ("run_python", "run_shell", "trace_function", "tmux_sessions", "tmux_read"),
     "browser_media": ("browser_capabilities", "operation_status", "cancel_operation",
                       "save_media", "release_media"),
+    "browser_outputs": ("read_notebook_view", "read_selection", "list_outputs", "read_output",
+                        "export_output", "list_canvases", "capture_canvas", "export_canvas",
+                        "start_canvas", "capture_notebook_region"),
 })
 
 
