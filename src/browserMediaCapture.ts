@@ -63,7 +63,7 @@ function captureUi(context: BrowserOperationContext): CaptureUi {
   if (previous && !previous.widget.isDisposed) return previous;
   const widget = new Widget();
   widget.addClass('nbinlineai-capture-panel');
-  widget.node.hidden = true;
+  widget.hide();
   const message = document.createElement('span');
   message.className = 'nbinlineai-capture-message';
   const share = document.createElement('button');
@@ -74,7 +74,7 @@ function captureUi(context: BrowserOperationContext): CaptureUi {
   widget.node.append(share, message);
   const ui: CaptureUi = { widget, previews, sourceCleanup, share, message };
   share.onclick = () => { void clickedShare(context, ui); };
-  context.panel.contentHeader.addWidget(widget);
+  Widget.attach(widget, context.panel.node);
   context.addCleanup(() => {
     sourceCleanup.forEach(cleanup => cleanup()); sourceCleanup.clear();
     widget.dispose(); views.delete(context);
@@ -84,7 +84,7 @@ function captureUi(context: BrowserOperationContext): CaptureUi {
 }
 
 function showCaptureControls(ui: CaptureUi, text = ''): void {
-  ui.widget.node.hidden = false;
+  ui.widget.show();
   ui.message.textContent = text;
 }
 

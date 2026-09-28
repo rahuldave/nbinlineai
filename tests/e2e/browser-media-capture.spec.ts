@@ -17,6 +17,7 @@ async function fixtureNotebook(page: Page, request: APIRequestContext, sources: 
   if (await select.isVisible().catch(() => false)) await select.click();
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible().catch(() => false)) await no.click();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible({ timeout: 30_000 });
 }
 
 async function runCell(page: Page, index: number): Promise<string> {
@@ -32,12 +33,14 @@ async function runCell(page: Page, index: number): Promise<string> {
 }
 
 async function inspectLater(page: Page, index: number, wanted: string): Promise<string> {
+  let last = '';
   for (let attempt = 0; attempt < 12; attempt++) {
     const output = await runCell(page, index);
+    last = output;
     if (output.includes(wanted)) return output;
     await page.waitForTimeout(250);
   }
-  throw new Error(`Receipt did not reach ${wanted} on a later kernel turn`);
+  throw new Error(`Receipt did not reach ${wanted} on a later kernel turn: ${last}`);
 }
 
 async function syntheticDevices(page: Page): Promise<void> {
@@ -97,7 +100,7 @@ test('deterministic camera still and shared recorder deliver typed Python result
   await syntheticDevices(page);
   await fixtureNotebook(page, request, [
     'from nbinlineai.tools import list_media_sources, start_camera, capture_camera, start_recording, stop_recording, stop_source\ndevices = list_media_sources()\ncamera = start_camera(audio=False)',
-    "print('CAMERA_READY' if camera.status == 'completed' and camera.result else camera.status, devices.result, camera.result)",
+    "print('CAMERA_READY' if camera.status == 'completed' and camera.result else camera.status, devices.result, camera.result, devices.error, camera.error)",
     "camera_id = camera.result['source_id']\nstill = capture_camera(camera_id, save_to=None)",
     "print(still.status, type(still.result).__name__, still.result.size if still.result else None)",
     "recording = start_recording(camera_id, save_to=None, duration=5)",
@@ -141,6 +144,10 @@ test('requested display audio needs a second explicit silent-share click', async
   ]);
   await runCell(page, 0);
   await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
+  expect(await page.locator('.nbinlineai-capture-panel button').first().evaluate(button => {
+    const box = button.getBoundingClientRect();
+    return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === button;
+  })).toBe(true);
   await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
   await expect(page.locator('.nbinlineai-capture-message')).toContainText('Screen audio was unavailable');
   await expect(page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share without audio' })).toBeVisible();
@@ -158,7 +165,7 @@ test('deterministic microphone levels and convenience audio recording stay local
   await syntheticDevices(page);
   await fixtureNotebook(page, request, [
     'from nbinlineai.tools import start_microphone, read_audio_levels, record_microphone, stop_source\nmicrophone = start_microphone()',
-    "print('MIC_READY' if microphone.status == 'completed' and microphone.result else microphone.status, microphone.result)",
+    "print('MIC_READY' if microphone.status == 'completed' and microphone.result else microphone.status, microphone.result, microphone.error)",
     "microphone_id = microphone.result['source_id']\nlevels = read_audio_levels(microphone_id, window_ms=100)",
     'print(levels.status, levels.result)',
     'clip = record_microphone(save_to=None, duration=2)',
@@ -234,6 +241,7 @@ test('model capture_tool reply states that no image pixels were attached', async
   if (await select.isVisible().catch(() => false)) await select.click();
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible().catch(() => false)) await no.click();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.nbinlineai-prompt-cell')).toHaveCount(1);
   await runCell(page, 0);
   await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');

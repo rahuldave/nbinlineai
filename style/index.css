@@ -141,7 +141,7 @@
 .nbinlineai-media-status { padding: 2px 8px; font-size: var(--jp-ui-font-size1); }
 .nbinlineai-media-status-row { display: flex; align-items: center; gap: 8px; }
 .nbinlineai-media-status-row button { border: 1px solid var(--jp-border-color2); background: var(--jp-layout-color1); color: var(--jp-ui-font-color1); cursor: pointer; }
-.nbinlineai-capture-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 8px; font-size: var(--jp-ui-font-size1); }
+.nbinlineai-capture-panel { position: absolute; right: 12px; bottom: 12px; z-index: 15; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: calc(100% - 24px); padding: 5px 8px; border: 1px solid var(--jp-border-color2); border-radius: 4px; background: var(--jp-layout-color1); box-shadow: var(--jp-elevation-z4); font-size: var(--jp-ui-font-size1); }
 .nbinlineai-capture-panel[hidden] { display: none; }
 .nbinlineai-capture-panel button { border: 1px solid var(--jp-border-color2); border-radius: 3px; padding: 2px 6px; background: var(--jp-layout-color1); color: var(--jp-ui-font-color1); cursor: pointer; }
 .nbinlineai-capture-source { display: inline-flex; align-items: center; gap: 6px; }
