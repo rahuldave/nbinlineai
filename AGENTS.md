@@ -2,6 +2,16 @@
 
 ## Start here
 
+`internal_docs/` is maintained on `main` for every worktree. On this machine,
+read it from `/Users/rahul/Projects/nbinlineai/internal_docs/`, even when your
+implementation checkout is on the experimental branch. All `internal_docs/`
+references below use that canonical source. Read the primary checkout's
+`AGENTS.md` for current documentation policy as well as your worktree's branch
+constraints. Record the documentation commit you use; do not treat uncommitted
+drafts or an old branch copy as the approved specification. If the primary is
+dirty, behind, or unavailable, use committed files from an explicitly recorded
+main revision as described in the canonical `internal_docs/workflow.md`.
+
 Read [the internal documentation index](internal_docs/README.md), then [the current handoff](internal_docs/developer_handoff.md). They distinguish shipped behavior from historical research and future proposals. Do not infer current behavior from an older release's design note.
 
 For context selection, read [the original feature brief](internal_docs/context_selection_next_feature.md), [the frontend feasibility assessment](internal_docs/context_selection_frontend_feasibility.md), and [the cell/kernel model](internal_docs/cell_kernel_model_and_context_selection.md). The historical task prompt is [here](internal_docs/context_selection_task_prompt.md). These context controls are part of version 0.1.8; the brief records the original design contract.
@@ -29,6 +39,15 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
   experiments on `codex/agentic-notebook-experiments`. Record the worktree path,
   branch, ownership and selected PR base. Retire completed worktrees only after
   checking their changes, integration and dependents; preserve unrelated tasks.
+- Internal specs, research, task prompts, handoffs and release records are
+  authored in owned topics based on `main`, with PRs back to `main`, including
+  records about experimental work. Read through the primary checkout; do not
+  edit it directly, mirror internal docs into implementation branches, or merge
+  main into an experiment merely to obtain docs. Label implementation records
+  with the actual branch/commit and proposed, implemented or released status.
+  Public `docs/`, README, examples and code documentation stay with the code
+  they describe and its selected PR target. Main's docs do not prove that a
+  feature exists in an experimental checkout; inspect that checkout's code.
 - Record reviewed base/head commits and finding dispositions. Self-review and
   passing tests do not replace independent review. Native Gest maintains its
   graphs; do not generate separate graph exports.
@@ -68,4 +87,4 @@ For a requested release or new drop, completion includes a version bump, checked
 
 Use meaningful tests at the changed boundaries: Python, frontend unit tests, then a real isolated JupyterLab with a real kernel and deterministic provider. After frontend changes, rebuild and relink before browser tests. Never build package assets concurrently with browser tests.
 
-See [the handoff](internal_docs/developer_handoff.md) for commands and known test pitfalls; see [the release checklist](internal_docs/releasing.md) for packaging, clean-install checks, versions, artifacts, and publication records. Do not hand-edit generated `lib/` or prebuilt labextension files. Update public docs/examples when semantics change, and keep these handoff notes current.
+See the canonical main [handoff](internal_docs/developer_handoff.md) for commands and known test pitfalls; see [the release checklist](internal_docs/releasing.md) for packaging, clean-install checks, versions, artifacts, and publication records. Verify commands against the implementation checkout. Do not hand-edit generated `lib/` or prebuilt labextension files. Update public docs/examples with their code; update internal handoff notes through a main-based documentation PR.

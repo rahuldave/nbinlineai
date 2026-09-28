@@ -2,12 +2,19 @@
 
 [Project workflow](workflow.md) describes stable and experimental PR targets,
 the primary checkout on `main`, owned topic worktrees, installed skills, CI and
-safe cleanup. Workflow follow-up is tracked in issue #4.
+safe cleanup.
+
+**Canonical source:** maintain this directory on `main`. Every implementation
+worktree reads it through `/Users/rahul/Projects/nbinlineai/internal_docs/` or a
+recorded committed main snapshot. See [revision selection and documentation
+PRs](workflow.md#canonical-internal-documentation), including dirty/stale
+primary checkouts. Branch-local copies are historical; public docs and code
+remain tied to the implementation branch.
 
 Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
 
-The [current handoff](developer_handoff.md) records the published 0.1.14 fixes
-for connection defaults, per-cell inheritance, and empty answer display.
+The [current handoff](developer_handoff.md) records the published 0.1.15
+Configure AI tabs and earlier releases. Verify applicability to your code branch.
 
 ## A new task's reading order
 
@@ -25,8 +32,9 @@ for connection defaults, per-cell inheritance, and empty answer display.
 - [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
-These documents are available on both persistent branches for discovery. They
-do not add runtime functionality; implementation targets the experimental branch.
+Read and update these documents on main. The copies originally distributed to
+the experiment are historical; future updates do not require branch mirroring.
+They do not add runtime functionality; implementation targets the experiment.
 
 ## Context-selection implementation references
 
@@ -41,6 +49,8 @@ The brief and task prompt preserve the original design contract. Context selecti
 | Document | Status and purpose |
 | --- | --- |
 | [Browser, app and local-media tools](browser_media_tool_research.md) | September 28 dialoghelper/Chrome-extension survey, local screenshots/video, browser API candidates and explicit main-versus-execution-handoff dependencies. Research only. |
+| [Notebook execution handoff research](notebook_execution_handoffs.md) | September 25 Solveit/Jupyter execution and cell-identity research, preserved from the experiment. The approved handoff spec resolves its initial open choices. |
+| [One-kernel RLM and Python 3.14 research](one_kernel_rlm_python314.md) | September 25 follow-on investigation of REPLs, interpreters and event loops; future work after handoff primitives, before multiple kernels. |
 | [ChatGPT subscription runtime gate](chatgpt_subscription_gate.md) | Pinned runtime isolation evidence, the superseded strict one-request gate, local live acceptance, and cross-platform CI results for 0.1.13. |
 | [ChatGPT subscription integration spec](chatgpt_subscription_integration.md) | Implemented 0.1.13 contract: packaged pinned SDK/runtime, ChatGPT sign-in, notebook-owned structured tool plans (no ACP), exact host-submission budget, private runtime cwd, disabled native direct files, API coexistence and release checks. |
 | [Subscription implementation task prompt](chatgpt_subscription_task_prompt.md) | Historical 0.1.13 task contract and acceptance checklist; use the handoff and release record for current status. |
