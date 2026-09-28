@@ -1,5 +1,6 @@
 /** One recorder implementation shared by device, display, and canvas sources. */
 import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, BrowserSource } from './browserMediaClient';
+import { sha256Bytes } from './browserMediaHash';
 
 export type RecordingStopReason = 'user' | 'duration' | 'size' | 'source_ended';
 
@@ -171,8 +172,7 @@ export async function startRecordedOperation(context: BrowserOperationContext,
       const blob = new Blob(pieces, { type: mime });
       const data = new Uint8Array(await blob.arrayBuffer());
       if (data.byteLength > maxBytes) throw new BrowserMediaError('limit_exceeded', 'Recording exceeded its encoded size limit.');
-      const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))
-        .map(value => value.toString(16).padStart(2, '0')).join('');
+      const digest = await sha256Bytes(data);
       const durationSeconds = Math.min(duration, Math.max(0, (performance.now() - started) / 1000));
       if (saveTo !== null) await context.transition(operation.operation_id, 'saving');
       await context.upload(operation.operation_id, data, mime, digest,

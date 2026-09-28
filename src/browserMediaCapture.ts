@@ -2,6 +2,7 @@
 import { Widget } from '@lumino/widgets';
 import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, BrowserSource,
   registerBrowserOperation } from './browserMediaClient';
+import { sha256Bytes } from './browserMediaHash';
 import { recordingHandle, recordingSourceEnded,
   startRecordedOperation, stopRecordingHandle } from './browserMediaRecorder';
 
@@ -253,8 +254,7 @@ async function videoFrame(source: BrowserSource, timeoutSeconds: number, maxSize
 async function captureStill(context: BrowserOperationContext, operation: BrowserOperationStatus,
   source: BrowserSource, saveTo: string | null, maxSize: number, timeout: number): Promise<void> {
   const bytes = await videoFrame(source, timeout, maxSize);
-  const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)))
-    .map(value => value.toString(16).padStart(2, '0')).join('');
+  const digest = await sha256Bytes(bytes);
   await context.upload(operation.operation_id, bytes, 'image/png', digest, {}, saveTo);
 }
 
