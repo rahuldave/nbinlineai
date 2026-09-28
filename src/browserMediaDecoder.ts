@@ -1,0 +1,310 @@
+/** Exact, bounded media decoding shared by playback and derivative tools. */
+import { BrowserMediaError, BrowserOperationContext } from './browserMediaClient';
+
+export type MediaRef = { media_id: string } | { path: string; sha256: string };
+export interface RasterFrameLease {
+  bitmap: ImageBitmap;
+  actualSeconds: number;
+  width: number;
+  height: number;
+  release(): void;
+}
+interface LeaseBase {
+  mimeType: string;
+  sha256: string;
+  width: number;
+  height: number;
+  duration: number | null;
+  release(): void;
+}
+export interface RasterMediaLease extends LeaseBase {
+  kind: 'image';
+  bitmap: ImageBitmap;
+  duration: null;
+}
+export interface ClipMediaLease extends LeaseBase {
+  kind: 'audio' | 'video';
+  element: HTMLMediaElement;
+  duration: number;
+  frameAt(seconds: number, signal?: AbortSignal): Promise<RasterFrameLease>;
+}
+export type DecodedMediaLease = RasterMediaLease | ClipMediaLease;
+
+const MAX_ENCODED = 50 * 1024 * 1024;
+const MAX_CONTEXT_ENCODED = 100 * 1024 * 1024;
+const MAX_IMAGE_SIDE = 4096;
+const MAX_PIXELS = 16_000_000;
+const MAX_CONTEXT_PIXELS = 32_000_000;
+const MAX_TAB_PIXELS = 64_000_000;
+const MAX_PREVIEWS = 4;
+const MAX_DURATION = 300;
+interface Budget { pixels: number; encoded: number; previews: number; }
+const budgets = new WeakMap<BrowserOperationContext, Budget>();
+let tabPixels = 0;
+
+function budget(context: BrowserOperationContext): Budget {
+  let value = budgets.get(context);
+  if (!value) { value = { pixels: 0, encoded: 0, previews: 0 }; budgets.set(context, value); }
+  return value;
+}
+function reserve(context: BrowserOperationContext, pixels: number, encoded: number, preview: boolean): () => void {
+  const usage = budget(context);
+  if (pixels > MAX_PIXELS || usage.pixels + pixels > MAX_CONTEXT_PIXELS || tabPixels + pixels > MAX_TAB_PIXELS ||
+      usage.encoded + encoded > MAX_CONTEXT_ENCODED || (preview && usage.previews >= MAX_PREVIEWS))
+    throw new BrowserMediaError('limit_exceeded', 'Media decoding or preview budget is full. Close a preview and retry.');
+  usage.pixels += pixels; usage.encoded += encoded; tabPixels += pixels;
+  if (preview) usage.previews++;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    usage.pixels -= pixels; usage.encoded -= encoded; tabPixels -= pixels;
+    if (preview) usage.previews--;
+  };
+}
+/** Reserve an additional canvas or derivative surface while its pixels remain live. */
+export function reserveMediaWorkingPixels(context: BrowserOperationContext, width: number, height: number): () => void {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0)
+    throw new BrowserMediaError('invalid_argument', 'Invalid media surface dimensions.');
+  return reserve(context, width * height, 0, false);
+}
+function requireCurrent(context: BrowserOperationContext, signal?: AbortSignal): void {
+  if (signal?.aborted) throw new BrowserMediaError('cancelled', 'Media operation was cancelled.');
+  if (!context.isCurrent()) throw new BrowserMediaError('stale_target', 'The originating notebook changed.');
+}
+
+/** Hash exact bytes even on non-secure origins where SubtleCrypto is unavailable. */
+export async function sha256Bytes(bytes: Uint8Array): Promise<string> {
+  if (globalThis.crypto?.subtle) {
+    const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes as BufferSource);
+    return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  const primes = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+  ];
+  const initial = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+  const blocks = new Uint8Array(Math.ceil((bytes.length + 9) / 64) * 64);
+  blocks.set(bytes); blocks[bytes.length] = 0x80;
+  const tail = new DataView(blocks.buffer);
+  const bitLength = bytes.length * 8;
+  tail.setUint32(blocks.length - 8, Math.floor(bitLength / 2 ** 32));
+  tail.setUint32(blocks.length - 4, bitLength >>> 0);
+  const rotate = (value: number, count: number): number => (value >>> count) | (value << (32 - count));
+  const words = new Uint32Array(64);
+  for (let offset = 0; offset < blocks.length; offset += 64) {
+    for (let i = 0; i < 16; i++) words[i] = tail.getUint32(offset + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const a = words[i - 15]; const b = words[i - 2];
+      words[i] = (words[i - 16] + (rotate(a, 7) ^ rotate(a, 18) ^ (a >>> 3)) +
+        words[i - 7] + (rotate(b, 17) ^ rotate(b, 19) ^ (b >>> 10))) >>> 0;
+    }
+    let [a, b, c, d, e, f, g, h] = initial;
+    for (let i = 0; i < 64; i++) {
+      const sum1 = (h + (rotate(e, 6) ^ rotate(e, 11) ^ rotate(e, 25)) + ((e & f) ^ (~e & g)) + primes[i] + words[i]) >>> 0;
+      const sum2 = ((rotate(a, 2) ^ rotate(a, 13) ^ rotate(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+      h = g; g = f; f = e; e = (d + sum1) >>> 0; d = c; c = b; b = a; a = (sum1 + sum2) >>> 0;
+    }
+    for (const [i, value] of [a, b, c, d, e, f, g, h].entries()) initial[i] = (initial[i] + value) >>> 0;
+  }
+  return initial.map(value => value.toString(16).padStart(8, '0')).join('');
+}
+
+function equalsAscii(bytes: Uint8Array, offset: number, value: string): boolean {
+  return [...value].every((char, index) => bytes[offset + index] === char.charCodeAt(0));
+}
+function imageDimensions(bytes: Uint8Array): { mime: string; width: number; height: number } | null {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length >= 24 && equalsAscii(bytes, 1, 'PNG\r\n\x1a\n') && bytes[0] === 0x89 &&
+      equalsAscii(bytes, 12, 'IHDR'))
+    return { mime: 'image/png', width: view.getUint32(16), height: view.getUint32(20) };
+  if (bytes.length >= 10 && (equalsAscii(bytes, 0, 'GIF87a') || equalsAscii(bytes, 0, 'GIF89a')))
+    return { mime: 'image/gif', width: view.getUint16(6, true), height: view.getUint16(8, true) };
+  if (bytes.length >= 12 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] !== 0xff) break;
+      const marker = bytes[offset + 1];
+      if (marker === 0xda || marker === 0xd9) break;
+      const length = view.getUint16(offset + 2);
+      if (length < 2 || offset + 2 + length > bytes.length) break;
+      if ([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf].includes(marker))
+        return { mime: 'image/jpeg', width: view.getUint16(offset + 7), height: view.getUint16(offset + 5) };
+      offset += 2 + length;
+    }
+  }
+  if (bytes.length >= 30 && equalsAscii(bytes, 0, 'RIFF') && equalsAscii(bytes, 8, 'WEBP')) {
+    if (equalsAscii(bytes, 12, 'VP8X'))
+      return { mime: 'image/webp', width: 1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16)),
+        height: 1 + (bytes[27] | (bytes[28] << 8) | (bytes[29] << 16)) };
+    if (equalsAscii(bytes, 12, 'VP8 ') && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a)
+      return { mime: 'image/webp', width: view.getUint16(26, true) & 0x3fff, height: view.getUint16(28, true) & 0x3fff };
+    if (equalsAscii(bytes, 12, 'VP8L') && bytes[20] === 0x2f)
+      return { mime: 'image/webp', width: 1 + (((bytes[22] & 0x3f) << 8) | bytes[21]),
+        height: 1 + (((bytes[24] & 0x0f) << 10) | (bytes[23] << 2) | (bytes[22] >> 6)) };
+  }
+  return null;
+}
+function containerMime(bytes: Uint8Array): 'mp4' | 'webm' | 'ogg' | 'wav' | 'mp3' | null {
+  if (bytes.length >= 12 && equalsAscii(bytes, 4, 'ftyp')) return 'mp4';
+  if (bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3)
+    return 'webm';
+  if (bytes.length >= 4 && equalsAscii(bytes, 0, 'OggS')) return 'ogg';
+  if (bytes.length >= 12 && equalsAscii(bytes, 0, 'RIFF') && equalsAscii(bytes, 8, 'WAVE')) return 'wav';
+  if (bytes.length >= 3 && equalsAscii(bytes, 0, 'ID3')) return 'mp3';
+  if (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0) return 'mp3';
+  return null;
+}
+export function inspectEncodedMedia(bytes: Uint8Array, declaredMime: string):
+  { kind: 'image' | 'audio' | 'video'; mimeType: string; width: number; height: number } {
+  const declared = declaredMime.split(';', 1)[0].toLowerCase().trim();
+  if (declared === 'image/svg+xml')
+    throw new BrowserMediaError('unsupported', 'SVG preview is unsupported; markup will not be rasterized.');
+  const image = imageDimensions(bytes);
+  const container = image ? null : containerMime(bytes);
+  const supportedContainer = (container === 'mp4' && ['audio/mp4', 'video/mp4'].includes(declared)) ||
+    (container === 'webm' && ['audio/webm', 'video/webm'].includes(declared)) ||
+    (container === 'ogg' && ['audio/ogg', 'video/ogg'].includes(declared)) ||
+    (container === 'wav' && ['audio/wav', 'audio/x-wav'].includes(declared)) ||
+    (container === 'mp3' && declared === 'audio/mpeg');
+  if ((!image || image.mime !== declared) && !supportedContainer)
+    throw new BrowserMediaError('unsupported', 'Media bytes do not match a supported declared format.');
+  const kind = declared.startsWith('image/') ? 'image' : declared.startsWith('video/') ? 'video' : 'audio';
+  const width = image?.width ?? 0; const height = image?.height ?? 0;
+  if (image && (!width || !height || width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_PIXELS))
+    throw new BrowserMediaError('limit_exceeded', 'Image dimensions exceed the decoder limit.');
+  return { kind, mimeType: declared, width, height };
+}
+
+async function waitForMedia(element: HTMLMediaElement, signal?: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      window.clearTimeout(timer); element.removeEventListener('error', failed);
+      element.removeEventListener('loadeddata', ready); element.removeEventListener('canplay', ready);
+      signal?.removeEventListener('abort', cancelled);
+    };
+    const ready = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new BrowserMediaError('unsupported', 'Browser could not decode this media codec.')); };
+    const cancelled = () => { cleanup(); reject(new BrowserMediaError('cancelled', 'Media operation was cancelled.')); };
+    const timer = window.setTimeout(() => { cleanup(); reject(new BrowserMediaError('timeout', 'Media decoding timed out.')); }, 10_000);
+    element.addEventListener('error', failed, { once: true });
+    element.addEventListener('loadeddata', ready, { once: true });
+    element.addEventListener('canplay', ready, { once: true });
+    signal?.addEventListener('abort', cancelled, { once: true });
+    try { element.load(); }
+    catch (error) { cleanup(); reject(error); }
+  });
+}
+
+/** One verified decoder lease; callers must release it, including on cancellation. */
+export async function loadPlaybackMedia(context: BrowserOperationContext, reference: MediaRef,
+  options: { signal?: AbortSignal; preview?: boolean } = {}): Promise<DecodedMediaLease> {
+  requireCurrent(context, options.signal);
+  const fetched = await context.fetchReference(reference, options.signal);
+  requireCurrent(context, options.signal);
+  const bytes = new Uint8Array(fetched.data);
+  if (!bytes.length || bytes.byteLength > MAX_ENCODED)
+    throw new BrowserMediaError('limit_exceeded', 'Media exceeds the 50 MiB decoder limit.');
+  const digest = await sha256Bytes(bytes);
+  requireCurrent(context, options.signal);
+  if (fetched.sha256 !== digest || ('sha256' in reference && reference.sha256 !== digest))
+    throw new BrowserMediaError('stale_target', 'Media bytes changed since the exact reference was made.');
+  const format = inspectEncodedMedia(bytes, fetched.mimeType);
+  const encoded = bytes.byteLength;
+  if (format.kind === 'image') {
+    const releaseBudget = reserve(context, format.width * format.height, encoded, options.preview === true);
+    let bitmap: ImageBitmap | undefined;
+    try {
+      bitmap = await createImageBitmap(new Blob([bytes as BlobPart], { type: format.mimeType }));
+      requireCurrent(context, options.signal);
+      if (bitmap.width !== format.width || bitmap.height !== format.height) {
+        throw new BrowserMediaError('stale_target', 'Decoded dimensions differ from encoded media.');
+      }
+      const decoded = bitmap;
+      let released = false;
+      return { kind: 'image', mimeType: format.mimeType, sha256: digest, bitmap: decoded,
+        width: decoded.width, height: decoded.height, duration: null,
+        release: () => { if (released) return; released = true; decoded.close(); releaseBudget(); } };
+    } catch (error) { bitmap?.close(); releaseBudget(); throw error; }
+  }
+  const element = document.createElement(format.kind) as HTMLMediaElement;
+  element.preload = 'auto'; element.controls = true;
+  if (!element.canPlayType(format.mimeType))
+    throw new BrowserMediaError('unsupported', 'This browser does not support the media codec.');
+  const releaseEncoded = reserve(context, 0, encoded, options.preview === true);
+  let url: string;
+  try { url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: format.mimeType })); }
+  catch (error) { releaseEncoded(); throw error; }
+  element.src = url;
+  let releasePixels: (() => void) | undefined;
+  let released = false;
+  try {
+    await waitForMedia(element, options.signal);
+    requireCurrent(context, options.signal);
+    const duration = element.duration;
+    if (!Number.isFinite(duration) || duration < 0 || duration > MAX_DURATION)
+      throw new BrowserMediaError('limit_exceeded', 'Media duration exceeds the 300-second decoder limit.');
+    const video = element as HTMLVideoElement;
+    const width = format.kind === 'video' ? video.videoWidth : 0;
+    const height = format.kind === 'video' ? video.videoHeight : 0;
+    if (format.kind === 'video' && (!width || !height || width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE || width * height > MAX_PIXELS))
+      throw new BrowserMediaError('limit_exceeded', 'Video frame dimensions exceed the decoder limit.');
+    releasePixels = reserve(context, width * height, 0, false);
+    const release = () => {
+      if (released) return;
+      released = true; element.pause(); element.removeAttribute('src'); element.load();
+      URL.revokeObjectURL(url); releasePixels?.(); releaseEncoded();
+    };
+    const frameAt = async (seconds: number, signal?: AbortSignal): Promise<RasterFrameLease> => {
+      if (format.kind !== 'video') throw new BrowserMediaError('unsupported', 'Only video has frames.');
+      requireCurrent(context, signal);
+      if (released) throw new BrowserMediaError('stale_target', 'Decoder lease has closed.');
+      if (!Number.isFinite(seconds) || seconds < 0 || seconds > duration)
+        throw new BrowserMediaError('invalid_argument', 'Frame timestamp is outside the media duration.');
+      const releaseFrameBudget = reserve(context, width * height, 0, false);
+      try {
+        element.pause();
+        const alreadyAtFrame = Math.abs(video.currentTime - seconds) < 0.001 && video.readyState >= 2;
+        if (!alreadyAtFrame) await new Promise<void>((resolve, reject) => {
+          const cleanup = () => { video.removeEventListener('seeked', onSeek); video.removeEventListener('error', onError);
+            signal?.removeEventListener('abort', onAbort); window.clearTimeout(timer); };
+          const onSeek = () => { cleanup(); resolve(); };
+          const onError = () => { cleanup(); reject(new BrowserMediaError('unsupported', 'Video frame could not be decoded.')); };
+          const onAbort = () => { cleanup(); reject(new BrowserMediaError('cancelled', 'Frame extraction cancelled.')); };
+          const timer = window.setTimeout(() => { cleanup(); reject(new BrowserMediaError('timeout', 'Video seek timed out.')); }, 10_000);
+          video.addEventListener('seeked', onSeek, { once: true }); video.addEventListener('error', onError, { once: true });
+          signal?.addEventListener('abort', onAbort, { once: true }); video.currentTime = seconds;
+        });
+        requireCurrent(context, signal);
+        const bitmap = await createImageBitmap(video);
+        if (released || !context.isCurrent() || signal?.aborted) {
+          bitmap.close(); requireCurrent(context, signal);
+          throw new BrowserMediaError('stale_target', 'Decoder lease has closed.');
+        }
+        let frameReleased = false;
+        return { bitmap, actualSeconds: video.currentTime, width: bitmap.width, height: bitmap.height,
+          release: () => { if (frameReleased) return; frameReleased = true; bitmap.close(); releaseFrameBudget(); } };
+      } catch (error) { releaseFrameBudget(); throw error; }
+    };
+    return { kind: format.kind, mimeType: format.mimeType, sha256: digest, element,
+      width, height, duration, release, frameAt } as ClipMediaLease;
+  } catch (error) {
+    element.pause(); element.removeAttribute('src'); element.load(); URL.revokeObjectURL(url);
+    releasePixels?.(); releaseEncoded(); throw error;
+  }
+}
+
+/** Raster transform input without a preview slot; release in a finally block. */
+export async function decodeRasterMedia(context: BrowserOperationContext, reference: MediaRef,
+  signal?: AbortSignal): Promise<RasterMediaLease> {
+  const lease = await loadPlaybackMedia(context, reference, { signal });
+  if (lease.kind !== 'image') { lease.release(); throw new BrowserMediaError('unsupported', 'Expected a raster image.'); }
+  return lease;
+}

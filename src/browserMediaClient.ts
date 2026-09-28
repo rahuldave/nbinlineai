@@ -310,7 +310,7 @@ export class BrowserOperationContext {
   async fetchMedia(mediaId: string): Promise<ArrayBuffer> {
     return (await this.mediaResponse(mediaId)).arrayBuffer();
   }
-  private async mediaResponse(mediaId: string): Promise<Response> {
+  private async mediaResponse(mediaId: string, signal?: AbortSignal): Promise<Response> {
     await this.ready();
     const requestHeaders = headers(this.ownerSecret);
     const identity = this.identity();
@@ -318,21 +318,22 @@ export class BrowserOperationContext {
     requestHeaders.set('X-NBInlineAI-Client', identity.client_id);
     requestHeaders.set('X-NBInlineAI-Model', identity.model_id);
     const response = await fetch(endpoint(`nbinlineai/browser-media-bytes/${encodeURIComponent(mediaId)}`), {
-      credentials: 'same-origin', headers: requestHeaders
+      credentials: 'same-origin', headers: requestHeaders, signal
     });
     if (!response.ok) throw new BrowserMediaError('stale_target', 'Media result expired or is unavailable.');
     return response;
   }
-  async fetchReference(reference: { media_id: string } | { path: string; sha256: string }): Promise<{ data: ArrayBuffer; mimeType: string; sha256: string }> {
+  async fetchReference(reference: { media_id: string } | { path: string; sha256: string },
+    signal?: AbortSignal): Promise<{ data: ArrayBuffer; mimeType: string; sha256: string }> {
     await this.ready();
     if ('media_id' in reference) {
-      const response = await this.mediaResponse(reference.media_id);
+      const response = await this.mediaResponse(reference.media_id, signal);
       return { data: await response.arrayBuffer(), mimeType: response.headers.get('Content-Type') || '',
         sha256: response.headers.get('X-NBInlineAI-SHA256') || '' };
     }
     const response = await fetch(endpoint('nbinlineai/browser-media-file'), {
       method: 'POST', credentials: 'same-origin', headers: headers(this.ownerSecret),
-      body: JSON.stringify({ ...this.identity(), media: reference })
+      body: JSON.stringify({ ...this.identity(), media: reference }), signal
     });
     if (!response.ok) throw new BrowserMediaError('stale_target', 'Saved media changed or is unavailable.');
     return { data: await response.arrayBuffer(), mimeType: response.headers.get('Content-Type') || '',
