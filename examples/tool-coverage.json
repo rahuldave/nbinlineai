@@ -576,7 +576,7 @@
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
     },
-    "checkpoint_evidence": "Catalog entry prepared against agreed foundation notebook IDs; runtime, notebook and browser checks await integration.",
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The capability receipt was inspected in a later cell; the deterministic model-action capability test also passed.",
     "receipt_inspect_cell": "media-capabilities-inspect",
     "receipt_variable": "capabilities",
     "expected_behavior": "Inspect observed browser support without requesting permission."
@@ -591,7 +591,7 @@
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
     },
-    "checkpoint_evidence": "Catalog entry prepared against agreed foundation notebook IDs; runtime, notebook and browser checks await integration.",
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The exact local PNG save and later receipt inspection passed; standalone first-save and bounded model descriptor regressions also passed.",
     "receipt_inspect_cell": "media-save-inspect",
     "receipt_variable": "saved",
     "expected_behavior": "Save an exact disposable file reference under a new server-root-relative path."
@@ -606,7 +606,7 @@
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
     },
-    "checkpoint_evidence": "Catalog entry prepared against agreed foundation notebook IDs; runtime, notebook and browser checks await integration.",
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). A completed-save snapshot was inspected later; a separate running-operation one-shot snapshot regression also passed.",
     "receipt_inspect_cell": "media-status-inspect",
     "receipt_variable": "lookup",
     "expected_behavior": "Read a completed save operation once without waiting."
@@ -621,7 +621,7 @@
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
     },
-    "checkpoint_evidence": "Catalog entry prepared against agreed foundation notebook IDs; runtime, notebook and browser checks await integration.",
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Cancellation of a completed save preserved the saved file; pending cancellation has focused registry coverage.",
     "receipt_inspect_cell": "media-cancel-inspect",
     "receipt_variable": "cancelled",
     "expected_behavior": "Show that cancelling a completed save retains its saved file."
@@ -636,7 +636,7 @@
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
     },
-    "checkpoint_evidence": "Catalog entry prepared against agreed foundation notebook IDs; runtime, notebook and browser checks await integration.",
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Release left the saved file and loaded Pillow image usable before exact cleanup; duplicate-release replay regression also passed.",
     "receipt_inspect_cell": "media-release-inspect",
     "receipt_variable": "released",
     "expected_behavior": "Release managed bytes while the saved file and loaded Python image remain."

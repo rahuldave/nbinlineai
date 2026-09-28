@@ -1,0 +1,61 @@
+/* Markdown pages already have their visible H1 headings. */
+#title-block-header {
+  display: none;
+}
+
+/* Keep long signatures and examples usable on narrow screens. */
+#quarto-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#quarto-content table th:first-child,
+#quarto-content table td:first-child {
+  min-width: 22rem;
+}
+
+#quarto-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Match the notebook extension's blue question and green answer identity. */
+#quarto-content .nbinlineai-ai-cell {
+  padding: 0.85rem 1rem;
+  margin: 1rem 0;
+  border-radius: 0 0.35rem 0.35rem 0;
+}
+
+#quarto-content .nbinlineai-ai-cell::before {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#quarto-content .nbinlineai-ai-prompt {
+  border-left: 3px solid #1976d2;
+  background: color-mix(in srgb, #1976d2 8%, white);
+}
+
+#quarto-content .nbinlineai-ai-prompt::before {
+  content: 'AI prompt';
+  color: #12559a;
+}
+
+#quarto-content .nbinlineai-ai-response {
+  border-left: 3px solid #388e3c;
+  background: color-mix(in srgb, #388e3c 8%, white);
+}
+
+#quarto-content .nbinlineai-ai-response::before {
+  content: 'AI response';
+  color: #236329;
+}
+
+#quarto-content .nbinlineai-ai-cell > :last-child {
+  margin-bottom: 0;
+}

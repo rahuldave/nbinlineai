@@ -1,5 +1,27 @@
 # Developer handoff
 
+**2026-09-28 example notebook pages (mainline topic):**
+`scripts/render_example_notebooks.py` renders each top-level public example
+notebook directly to HTML after the main Quarto site. The Quarto ipynb filter
+in `scripts/quarto_notebook_filter.py` derives page metadata and marks AI
+prompt/answer cells from their saved `metadata.nbinlineai` in memory.
+`docs/examples.md` keeps its walkthrough and notebook descriptions, with links
+to HTML pages. Each page links back to its source `.ipynb` for download. The
+site build checks page coverage, AI styling, local links, and anchors. Rendering
+explicitly disables cell execution. No intermediate `.ipynb`, package change,
+or PyPI release is part of this topic. The implementation travels with its
+mainline PR.
+
+**2026-09-28 Quarto documentation site (mainline source):** The site source in
+`docs/` is a Quarto 1.8.26 website. `.github/workflows/docs-site.yml` renders and
+checks every PR, then deploys the output on `main` pushes through GitHub Pages
+Actions. `docs/.nojekyll` is copied into the output. The rendered tools index
+contains 51 HTML table rows, and `scripts/check_docs_site.py` checks pages,
+local links, anchors, and the table regression. `docs/development.md` records
+the local commands. This is documentation infrastructure only; PyPI remains
+0.1.15. The earlier Jekyll branch-source setup was removed because it exposed
+the tool tables as literal Markdown on the live site.
+
 **2026-09-25 JupyterLite exploration (preserved 2026-09-28):** See the
 [JupyterLite feasibility study](jupyterlite_feasibility.md). The published 0.1.15
 frontend loaded in JupyterLite 0.8.4 Notebook and Lab; a same-origin embedded

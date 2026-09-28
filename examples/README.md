@@ -1,5 +1,7 @@
 # nbinlineai teaching notebooks
 
+The [online examples guide](https://rahuldave.com/nbinlineai/examples.html) links to readable HTML pages for each top-level notebook, with AI prompts highlighted. Quarto renders these original `.ipynb` files directly through `scripts/quarto_notebook_filter.py`; add a first-level heading and introductory paragraph to a new notebook, then add its link and description to `docs/examples.md`. The rendered pages do not execute notebook cells. The Quarto publishing settings in this folder are for a source checkout with the companion `scripts/` directory; installed example copies are intended to be opened in JupyterLab.
+
 Copy this `examples/` directory into a JupyterLab project, keeping `data/` beside the notebooks. It is also included in the package at `share/doc/nbinlineai/examples/` inside the installed Python environment, and in the [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples). Open a copy in JupyterLab, configure your own provider key, and choose any available model. The notebooks contain no keys or prewritten AI answers.
 
 The `tool-catalog-*.ipynb` notebooks and `browser-media-foundation.ipynb` are
