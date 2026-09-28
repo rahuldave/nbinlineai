@@ -147,7 +147,7 @@ The [example notebooks](https://github.com/rahuldave/nbinlineai/tree/main/exampl
 
 ### Bundled tools
 
-Version **0.1.15** offers 51 optional tools. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
+The published PyPI **0.1.15** package offers 51 optional tools. The experimental Git branch also reports version 0.1.15 and offers 54, including three notebook execution handoffs. Import the functions you need and declare them in an ordinary Markdown cell above the AI question. The default `tools_markdown()` note contains the 19-tool **starter** group; `tool_catalog()` lists all groups and names without declaring them.
 
 ```python
 from nbinlineai.tools import search_files, source_doc, tool_catalog, tools_markdown
