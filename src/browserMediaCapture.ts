@@ -196,6 +196,14 @@ async function openUserMedia(context: BrowserOperationContext, kind: 'camera' | 
     stream.getTracks().forEach(track => track.stop());
     throw new BrowserMediaError('device_unavailable', 'The requested track was not provided.');
   }
+  // A browser must not make an undeclared microphone or camera track recordable.
+  if (kind === 'camera' && args.audio !== true && stream.getAudioTracks().length) {
+    stream.getAudioTracks().forEach(track => track.stop());
+    stream = new MediaStream(stream.getVideoTracks());
+  } else if (kind === 'microphone' && stream.getVideoTracks().length) {
+    stream.getVideoTracks().forEach(track => track.stop());
+    stream = new MediaStream(stream.getAudioTracks());
+  }
   let source: BrowserSource;
   try { source = registerStream(context, kind, stream); }
   catch (error) { stream.getTracks().forEach(track => track.stop()); throw error; }
@@ -278,12 +286,18 @@ async function clickedShare(context: BrowserOperationContext, ui: CaptureUi): Pr
     if (!context.isCurrent() || terminal.has((await context.status(operation.operation_id)).status)) {
       stream.getTracks().forEach(track => track.stop()); return;
     }
+    if (!stream.getVideoTracks().length)
+      throw new BrowserMediaError('device_unavailable', 'The display chooser returned no video track.');
     if (pending?.audio && !stream.getAudioTracks().length) {
       stream.getTracks().forEach(track => track.stop());
       pending.audio = false;
       ui.share.textContent = 'Share without audio';
       ui.message.textContent = 'Screen audio was unavailable. Click again to choose silent sharing.';
       return;
+    }
+    if (!pending?.audio && stream.getAudioTracks().length) {
+      stream.getAudioTracks().forEach(track => track.stop());
+      stream = new MediaStream(stream.getVideoTracks());
     }
     source = registerStream(context, 'screen', stream);
     await context.transition(operation.operation_id, 'running');

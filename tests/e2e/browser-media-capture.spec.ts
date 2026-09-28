@@ -78,13 +78,15 @@ async function syntheticDevices(page: Page): Promise<void> {
       getUserMedia: async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
         if (constraints.audio) {
           const sound = microphone();
-          return constraints.video ? new MediaStream([...video().getVideoTracks(), ...sound.getAudioTracks()]) : sound;
+          return new MediaStream([...video().getVideoTracks(), ...sound.getAudioTracks()]);
         }
-        return video();
+        // Include an unsolicited audio track to prove video-only calls discard it.
+        return new MediaStream([...video().getVideoTracks(), ...microphone().getAudioTracks()]);
       },
       getDisplayMedia: async (constraints: MediaStreamConstraints): Promise<MediaStream> => {
         displayRequests.push(Boolean(constraints.audio));
-        return video();
+        return constraints.audio ? video() :
+          new MediaStream([...video().getVideoTracks(), ...microphone().getAudioTracks()]);
       }
     };
     Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: media });
@@ -111,6 +113,7 @@ test('deterministic camera still and shared recorder deliver typed Python result
   await runCell(page, 0);
   const ready = await inspectLater(page, 1, 'CAMERA_READY');
   expect(ready).toContain('synthetic-camera');
+  expect(ready).toContain("'audio': False");
   await runCell(page, 2);
   expect(await inspectLater(page, 3, 'PngImageFile (64, 48)')).toContain('completed');
   await runCell(page, 4);
@@ -163,7 +166,9 @@ test('deterministic microphone levels and convenience audio recording stay local
     'closed = stop_source(microphone_id)'
   ]);
   await runCell(page, 0);
-  expect(await inspectLater(page, 1, 'MIC_READY')).toContain('source_id');
+  const microphone = await inspectLater(page, 1, 'MIC_READY');
+  expect(microphone).toContain('source_id');
+  expect(microphone).toContain("'video': False");
   await runCell(page, 2);
   expect(await inspectLater(page, 3, 'rms')).toContain('completed');
   await runCell(page, 4);
