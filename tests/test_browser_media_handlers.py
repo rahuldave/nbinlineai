@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import io
 import json
+import mimetypes
 import os
 import socket
 import tempfile
@@ -19,7 +20,11 @@ from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 
 from nbinlineai.browser_media import Media, MediaRegistry
-from nbinlineai.handlers import BrowserMediaBytesHandler, BrowserMediaHandler
+from nbinlineai.handlers import (
+    BrowserMediaBytesHandler,
+    BrowserMediaFileHandler,
+    BrowserMediaHandler,
+)
 
 
 class _Sessions:
@@ -61,6 +66,8 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
             [(r'/nbinlineai/browser-media-bytes/([^/]+)', BrowserMediaBytesHandler,
               {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
              (r'/nbinlineai/browser-media/([a-z]+)', BrowserMediaHandler,
+              {'dispatcher': self.dispatcher, 'media_registry': self.registry}),
+             (r'/nbinlineai/browser-media-file', BrowserMediaFileHandler,
               {'dispatcher': self.dispatcher, 'media_registry': self.registry})],
             authorizer=self.authorizer, identity_provider=identity, login_url='/login',
             base_url='/', cookie_secret='test-only', disable_check_xsrf=True
@@ -126,6 +133,40 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
             assert self.registry.recording_claims[self.owner] == a.id
             self.registry.cancel(self.owner, a.id)
             assert self.owner not in self.registry.recording_claims
+
+        self.io_loop.run_sync(check)
+
+    def test_binary_routes_preserve_exact_bytes_hash_and_mime(self):
+        async def check():
+            image = Image.new('RGB', (2, 2), 'blue')
+            encoded = io.BytesIO()
+            image.save(encoded, format='PNG')
+            png = encoded.getvalue()
+            png_hash = hashlib.sha256(png).hexdigest()
+            self.registry.media['memory-png'] = Media('memory-png', self.owner, png, 'image/png',
+                                                      png_hash, self.registry._now() + 600)
+            memory = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url('/nbinlineai/browser-media-bytes/memory-png'), method='GET',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'X-NBInlineAI-Session': 'session', 'X-NBInlineAI-Client': 'client',
+                         'X-NBInlineAI-Model': 'model'}))
+            assert memory.body == png
+            assert memory.headers['Content-Type'] == 'image/png'
+            assert memory.headers['X-NBInlineAI-SHA256'] == png_hash
+
+            wav = b'RIFF' + (36).to_bytes(4, 'little') + b'WAVEfmt ' + b'\x00' * 28
+            await asyncio.to_thread((Path(self._root.name) / 'sample.wav').write_bytes, wav)
+            wav_hash = hashlib.sha256(wav).hexdigest()
+            saved = await AsyncHTTPClient().fetch(HTTPRequest(
+                self.get_url('/nbinlineai/browser-media-file'), method='POST',
+                headers={'Authorization': 'Bearer test', 'X-NBInlineAI-Owner': self.owner.secret,
+                         'Content-Type': 'application/json'},
+                body=json.dumps({'session_id': 'session', 'client_id': 'client', 'model_id': 'model',
+                                 'media': {'path': 'sample.wav', 'sha256': wav_hash}})))
+            assert saved.body == wav
+            assert saved.headers['Content-Type'] == mimetypes.guess_type('sample.wav')[0]
+            assert saved.headers['Content-Type'] != 'application/json'
+            assert saved.headers['X-NBInlineAI-SHA256'] == wav_hash
 
         self.io_loop.run_sync(check)
 

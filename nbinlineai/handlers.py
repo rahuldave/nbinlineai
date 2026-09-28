@@ -573,10 +573,9 @@ class BrowserMediaBytesHandler(BrowserMediaHandler):
         try:
             owner = await self._byte_owner()
             media = self.media_registry.media_ref(owner, media_id, consume=True)
-            self.set_header('Content-Type', media.mime_type)
             self.set_header('X-NBInlineAI-SHA256', media.sha256)
             self.set_header('Cache-Control', 'no-store')
-            self.finish(media.data)
+            self.finish(media.data, set_content_type=media.mime_type)
         except MediaError as exc:
             self._error(exc)
 
@@ -600,10 +599,9 @@ class BrowserMediaFileHandler(BrowserMediaHandler):
 
             data, mime_type, digest = await asyncio.to_thread(self.media_registry.resolve_ref,
                                                                owner, body.get('media'), reserve_file)
-            self.set_header('Content-Type', mime_type)
             self.set_header('X-NBInlineAI-SHA256', digest)
             self.set_header('Cache-Control', 'no-store')
-            self.finish(data)
+            self.finish(data, set_content_type=mime_type)
         except MediaError as exc:
             self._error(exc)
         finally:
