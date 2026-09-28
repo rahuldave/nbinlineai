@@ -88,7 +88,11 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
             for cell in notebook["cells"]:
                 source = "".join(cell["source"])
                 if cell["cell_type"] == "code":
+                    tags = set(cell.get("metadata", {}).get("tags", []))
+                    if "nbinlineai-ui-only" in tags:
+                        assert (relative_path, cell["id"]) in HEADLESS_UI_CELLS
                     if (relative_path, cell["id"]) in HEADLESS_UI_CELLS:
+                        assert "nbinlineai-ui-only" in tags
                         assert "insert_tools(" in source
                     else:
                         outputs.append(await _run_code(kernel, source))

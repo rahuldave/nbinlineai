@@ -27,12 +27,18 @@ implementation record, not an approved pre-work specification or a release recor
 
 `examples/tool-coverage.json` maps every current `TOOL_FUNCTIONS` name and the
 three separate setup helpers to an example notebook, exact section, stable cell
-ID and execution classification. The mapping is intentionally data driven:
+ID, execution classification, platform note where needed, corresponding test
+file and checkpoint evidence for that specific tool. Safe code calls ran in the
+isolated-kernel example check; browser and public-network tools have AI questions
+only. Their listed browser/unit test paths are checks to run, not a claim that
+those cases passed in this worktree. The mapping is intentionally data driven:
 `tests/test_tool_catalog_coverage.py` compares it with the imported registry and
 checks the signatures and notebook links in `docs/tools.md`. The test does not
 freeze the old tool count or claim that proposed browser/media tools already
-exist. Every new registered alias needs its own mapping and page row. Each
-notebook uses at most 20 declarations at a time.
+exist. It rejects name-only mentions, disabled/answer-cell declarations,
+excess inherited question references and a link attached to the wrong tool row.
+Every new registered alias needs its own mapping and page row. Each notebook
+uses at most 20 declarations at a time.
 
 The saved-file, saved-notebook, inspection and process notebooks execute safe
 calls with disposable values and paths. Document sections use an address copied
@@ -57,7 +63,14 @@ Focused source checks for this checkpoint: `uv run --no-sync python -m pytest
 -q tests/test_tool_catalog_coverage.py tests/test_examples.py` (isolated kernel,
 no provider/network) and `uv run --no-sync ruff check` on changed Python tests.
 Browser tests and frontend/package builds require the orchestrator's exclusive
-lease and are not claimed here. The new family owners will hand registered names,
+lease and are not claimed here. `tests/e2e/tool-catalog-live.spec.ts` uploads a
+disposable copy of the exact shipped live-catalog notebook to exercise its
+`list_cells` question with a deterministic provider marker inserted only into
+the uploaded copy. That test still requires the shared fake-provider fixture
+change from its owner and execution under the lease. Existing browser suites
+exercise the remaining shipped live edit/insert tools and `insert_tools`; their
+paths are recorded in the coverage mapping, and the catalog owner will rerun
+the affected cases under the lease. The new family owners will hand registered names,
 signatures, notebook sections/cell IDs, capability limitations and tests to the
 catalog owner. The catalog owner then extends the manifest, public tools page,
 example index and browser verification mapping after those implementation
