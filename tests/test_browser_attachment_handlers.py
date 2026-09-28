@@ -108,3 +108,15 @@ class AttachmentHttpTests(AsyncHTTPTestCase):
         report = json.loads(accepted.body)
         assert report['round_wire_chars'] > 0
         assert 'owner_secret' not in accepted.body.decode()
+        revoke = {'session_id': 'session', 'client_id': 'client', 'model_id': 'model',
+                  'question_cell_id': 'question', 'grant_id': result['grant_id']}
+        denied = self.fetch('/nbinlineai/browser-media/revokeattachment', method='POST',
+                            headers=self.headers('stolen'), body=json.dumps(revoke))
+        assert denied.code == 409
+        removed = self.fetch('/nbinlineai/browser-media/revokeattachment', method='POST',
+                             headers=self.headers(), body=json.dumps(revoke))
+        assert removed.code == 200
+        assert result['grant_id'] not in self.registry.attachment_grants
+        expired = self.fetch('/nbinlineai/context-preview', method='POST',
+                             headers=self.headers(), body=json.dumps(preview))
+        assert expired.code == 400

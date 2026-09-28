@@ -179,6 +179,10 @@ export class BrowserOperationContext {
       question_cell_id: questionCellId, detail });
   }
 
+  async revokeAttachment(questionCellId: string, grantId: string): Promise<void> {
+    await this.command('revokeattachment', { question_cell_id: questionCellId, grant_id: grantId });
+  }
+
   async create(request: BrowserOperationRequest, waiting = false): Promise<BrowserOperationStatus> {
     await this.ready();
     const state = await this.command('create', { ...request, waiting });

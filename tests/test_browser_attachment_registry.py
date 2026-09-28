@@ -135,8 +135,15 @@ def test_memory_grants_reuse_exact_confirmation_and_cap_per_question(tmp_path):
                              if grant.id == grants[0]['grant_id'])}
     retry = waiting(registry, browser, first, 'attach-again')
     assert registry.confirm_attachment(browser, first, 'question', 'auto', retry.id)['grant_id'] == grants[0]['grant_id']
-    registry.release_media(browser, first['media_id'])
+    with pytest.raises(MediaError, match='unavailable'):
+        registry.revoke_attachment(owner(registry, 'other'), 'question', grants[0]['grant_id'])
+    registry.revoke_attachment(browser, 'question', grants[0]['grant_id'])
+    with pytest.raises(MediaError, match='expired'):
+        registry.resolve_attachment(browser, 'question', {key: value for key, value in grants[0].items()
+                                                          if key != 'display'})
     assert len(registry.attachment_grants) == 3
+    replacement = waiting(registry, browser, first, 'attach-after-remove')
+    assert registry.confirm_attachment(browser, first, 'question', 'auto', replacement.id)['grant_id'] != grants[0]['grant_id']
 
 
 def test_attachment_read_reservation_lives_until_closed(tmp_path):

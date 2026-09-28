@@ -27,6 +27,11 @@
 .nbinlineai-controls input { width: 145px; }
 .nbinlineai-controls button { cursor: pointer; }
 .nbinlineai-controls button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-attachment-confirmation { position: absolute; right: 12px; bottom: 12px; z-index: 16; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 6px; max-width: min(360px, calc(100% - 24px)); padding: 8px; border: 1px solid var(--jp-border-color2); border-radius: 4px; background: var(--jp-layout-color1); box-shadow: var(--jp-elevation-z4); font: var(--jp-ui-font-size1) var(--jp-ui-font-family); }
+.nbinlineai-attachment-confirmation img { grid-column: 1 / -1; max-width: 100%; max-height: 160px; object-fit: contain; justify-self: center; }
+.nbinlineai-attachment-confirmation button, .nbinlineai-attachment-indicator button { border: 1px solid var(--jp-border-color2); border-radius: 3px; padding: 2px 6px; background: var(--jp-layout-color1); color: var(--jp-ui-font-color1); cursor: pointer; }
+.nbinlineai-attachment-indicator { display: inline-flex; align-items: center; gap: 5px; color: var(--jp-ui-font-color2); }
+.nbinlineai-attachment-indicator[hidden] { display: none; }
 .nbinlineai-starters { display: flex; flex: 0 0 100%; flex-wrap: wrap; align-items: center; gap: 5px; padding: 2px 0 0; }
 .nbinlineai-starters[hidden] { display: none; }
 .nbinlineai-starters button { font-size: .92em; color: var(--jp-ui-font-color2); }

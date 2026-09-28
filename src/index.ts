@@ -1028,7 +1028,28 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   style.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }); decorate(panel); });
   effort.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { reasoningEffort: effort.value || undefined }); decorate(panel); });
   editor.append(provider, modelSelect, modelInput, style, effort, inherit);
-  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, starters, editor);
+  const attachment = document.createElement('span');
+  attachment.className = 'nbinlineai-attachment-indicator';
+  attachment.dataset.nbinlineaiAttachment = '';
+  const attachmentText = document.createElement('span');
+  const removeAttachment = document.createElement('button');
+  removeAttachment.type = 'button';
+  removeAttachment.textContent = 'Remove image';
+  removeAttachment.addEventListener('click', () => {
+    const cell = getCell(panel, id);
+    if (!cell || !isPrompt(cell) || pendingPromptRuns.has(runKey(panel, id)) || runs.has(runKey(panel, id))) return;
+    const previous = metadata(cell).mediaAttachment as Record<string, unknown> | undefined;
+    const updated = { ...metadata(cell) };
+    delete updated.mediaAttachment;
+    cell.setMetadata(metadataKey, updated);
+    if (previous?.kind === 'memory' && typeof previous.grant_id === 'string') {
+      const kernel = panel.sessionContext.session?.kernel;
+      if (kernel) void mediaContext(panel, kernel).revokeAttachment(id, previous.grant_id).catch(() => undefined);
+    }
+    decorate(panel);
+  });
+  attachment.append(attachmentText, removeAttachment);
+  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, attachment, starters, editor);
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -1094,6 +1115,20 @@ function decorate(panel: NotebookPanel): void {
     const running = pendingPromptRuns.has(runKey(panel, cell.id));
     const runButton = controls.querySelector('[data-nbinlineai-run]') as HTMLButtonElement;
     const cancelButton = controls.querySelector('[data-nbinlineai-cancel]') as HTMLButtonElement;
+    const attachmentIndicator = controls.querySelector('[data-nbinlineai-attachment]') as HTMLElement;
+    const attachmentText = attachmentIndicator.querySelector('span') as HTMLElement;
+    const attachmentRemove = attachmentIndicator.querySelector('button') as HTMLButtonElement;
+    const attached = meta.mediaAttachment as Record<string, unknown> | undefined;
+    attachmentIndicator.hidden = !attached;
+    if (attached) {
+      attachmentText.textContent = attached.kind === 'saved' ? 'Image attached (saved; checked when run)' :
+        attached.kind === 'memory' ? 'Image attached (temporary; save to keep)' :
+          'Image attachment needs reconfirmation';
+      attachmentRemove.disabled = running;
+      attachmentIndicator.title = attached.kind === 'memory' ?
+        'Temporary image grants can expire. If unavailable, remove and attach again or save the image first.' :
+        'Removing this reference does not delete a saved file.';
+    }
     const keep = controls.querySelector('[data-nbinlineai-keep-answer]') as HTMLInputElement;
     keep.checked = effectiveKeepAnswer(meta.keepAnswer, notebookDefaults(panel).keepAnswers);
     keep.title = meta.keepAnswer === undefined ? 'Inherited from notebook. Change to override this cell.' : 'This cell overrides the notebook Keep answers setting.';

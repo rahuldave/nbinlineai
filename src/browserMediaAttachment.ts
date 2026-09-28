@@ -90,7 +90,7 @@ async function attach(context: BrowserOperationContext, request: BrowserOperatio
   const cancel = document.createElement('button');
   cancel.type = 'button'; cancel.textContent = 'Cancel';
   widget.node.append(label, preview, accept, cancel);
-  context.panel.contentHeader.addWidget(widget);
+  Widget.attach(widget, context.panel.node);
   let ended = false;
   const cleanup = (): void => { if (ended) return; ended = true; URL.revokeObjectURL(objectUrl); widget.dispose(); };
   context.addOperationCleanup(operation.operation_id, cleanup);
@@ -105,16 +105,20 @@ async function attach(context: BrowserOperationContext, request: BrowserOperatio
       const state = await context.status(operation.operation_id);
       if (state.status !== 'waiting_for_user') fail('stale_target', 'Image confirmation expired.');
       const granted = await context.grantAttachment(operation.operation_id, reference, id, chosenDetail);
-      const current = question(context, id, source);
       const confirmed = confirmation(granted, id, hash, chosenDetail);
       const stillWaiting = await context.status(operation.operation_id);
       if (stillWaiting.status !== 'waiting_for_user') fail('stale_target', 'Image confirmation expired.');
+      const current = question(context, id, source);
       const before = (current.getMetadata('nbinlineai') as Record<string, unknown> | undefined) || {};
       current.setMetadata('nbinlineai', { ...before, mediaAttachment: confirmed });
       try {
         const complete = await context.transition(operation.operation_id, 'completed', {
           confirmed: true, question_cell_id: id, sha256: hash, detail: chosenDetail });
         if (complete.status !== 'completed') fail('stale_target', 'Image confirmation was cancelled.');
+        const former = before.mediaAttachment as Record<string, unknown> | undefined;
+        if (former?.kind === 'memory' && typeof former.grant_id === 'string' &&
+            former.grant_id !== confirmed.grant_id)
+          void context.revokeAttachment(id, former.grant_id).catch(() => undefined);
       } catch (error) {
         if (context.isCurrent()) {
           const observed = current.getMetadata('nbinlineai') as Record<string, unknown> | undefined;

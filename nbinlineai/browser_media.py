@@ -1038,6 +1038,23 @@ class MediaRegistry:
         finally:
             read.close()
 
+    @_locked
+    def revoke_attachment(self, owner: Owner, question_cell_id: str, grant_id: str) -> None:
+        """Drop one exact owner/question grant without deleting its source media."""
+        from .browser_attachment import validate_question
+
+        self.require(owner)
+        question_cell_id = validate_question(question_cell_id)
+        if not isinstance(grant_id, str) or not 0 < len(grant_id) <= 100:
+            raise MediaError('invalid_argument', 'Invalid attachment grant')
+        grant = self.attachment_grants.get(grant_id)
+        if grant is None or grant.owner is not owner or grant.question_cell_id != question_cell_id:
+            raise MediaError('stale_target', 'Attachment grant is unavailable')
+        del self.attachment_grants[grant_id]
+        for key, (_, result, _) in list(self.attachment_requests.items()):
+            if key[0] is owner and result.get('grant_id') == grant_id:
+                del self.attachment_requests[key]
+
     def resolve_ref(self, owner: Owner, reference: dict[str, Any],
                     reserve: Callable[[int], None] | None = None) -> tuple[bytes, str, str]:
         """Read exact owned memory or server-root file bytes for a downstream family."""

@@ -463,6 +463,9 @@ class BrowserMediaHandler(APIHandler):
                                                  body.get('media'), body.get('question_cell_id'),
                                                  body.get('detail', 'auto'), body.get('operation_id'))
                 self.finish(result)
+            elif command == 'revokeattachment':
+                registry.revoke_attachment(owner, body.get('question_cell_id'), body.get('grant_id'))
+                self.finish({'revoked': True})
             else:
                 raise MediaError('unsupported', 'Unknown browser operation command')
         except MediaError as exc:
