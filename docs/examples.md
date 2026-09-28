@@ -80,6 +80,12 @@ The [browser-media foundation notebook](https://github.com/rahuldave/nbinlineai/
 
 Run each call cell separately, then inspect its mutable receipt in the **following** code cell after the browser has replied. A printed receipt from the requesting cell is only a snapshot. The save example writes a new file under the disposable server root. The status example reads one operation snapshot; it does not wait. The cancellation example checks that a completed save remains a file, while the release example frees managed bytes and leaves that file and a loaded Python image intact. The notebook ends with an explicit cleanup cell for its disposable source and saved file. If you offer these functions to an AI question, import and declare only the names needed by that question and configure a provider as usual.
 
+## Import, playback, and clipboard from source
+
+The [playback notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/browser-media-playback.ipynb) demonstrates `choose_file`, `open_media`, `play_media`, `pause_media`, `seek_media`, `set_media_volume`, `close_media`, `copy_text`, and `paste_content`. It generates a tiny PNG and two-second WAV with actual hashes in a disposable project, then cleans them up. These nine functions and this notebook are source-only additions, absent from PyPI 0.1.15.
+
+Run a call cell, perform the visible file/Play/Copy/Paste action when shown, and inspect its receipt in the following cell after completion. The chooser stores the selected PNG in managed memory unless you explicitly supply `save_to`. The WAV example opens an exact `{path, sha256}` file reference, plays and controls that preview, then closes it while confirming the source file remains. The copy/paste example transfers a short disposable phrase through visible controls; it does not read your clipboard in the background. The [playback guide](browser-media-playback.md) explains supported bytes, decoding and memory limits. Pinned headless Firefox did not decode the notebook WAV despite passing the portable PNG and clipboard paths; Chromium and WebKit completed the full notebook.
+
 ## Read saved or live notebook cells
 
 For saved notebooks, import `list_notebooks`, `find_notebook_cells`, and `read_notebook_cell`, then declare them in a Markdown note. Ask the AI to locate a saved `.ipynb`, find a literal phrase, and read a returned cell ID. Save your latest edits first: these functions read disk files relative to the kernel's working directory.
@@ -146,6 +152,8 @@ Download notebooks from the [examples folder on GitHub](https://github.com/rahul
 | [Tool catalog: live notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-live-notebook.ipynb) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
 | [Tool catalog: web](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-web.ipynb) | Optional public-page reads and source-attributed note insertion. |
 | [Tool catalog: processes](https://github.com/rahuldave/nbinlineai/blob/main/examples/tool-catalog-processes.ipynb) | Run bounded local subprocesses; inspect tmux only if it is available. |
+| [Browser media: foundation](https://github.com/rahuldave/nbinlineai/blob/main/examples/browser-media-foundation.ipynb) | Check capabilities, save an exact source, inspect status, cancel and release managed bytes with disposable fixtures. Source only. |
+| [Browser media: playback](https://github.com/rahuldave/nbinlineai/blob/main/examples/browser-media-playback.ipynb) | Import a chosen PNG, preview and control a generated WAV, then copy and paste disposable text. Source only. |
 | [Jupyter AI and nbinlineai together](https://github.com/rahuldave/nbinlineai/blob/main/examples/jupyter-ai-and-nbinlineai.ipynb) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
 | [Codex ACP worked example](https://github.com/rahuldave/nbinlineai/blob/main/examples/codex-acp-worked-example.ipynb) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
 
