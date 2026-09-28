@@ -24,8 +24,15 @@ test('exact byte inspection rejects disguised and oversized raster sources befor
 });
 
 test('SHA-256 works without secure-origin WebCrypto and exact references reject changed bytes', async () => {
-  assert.equal(await sha256Bytes(new TextEncoder().encode('abc')),
-    'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  const savedCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  Object.defineProperty(globalThis, 'crypto', { configurable: true, value: undefined });
+  try {
+    assert.equal(await sha256Bytes(new TextEncoder().encode('abc')),
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+  } finally {
+    if (savedCrypto) Object.defineProperty(globalThis, 'crypto', savedCrypto);
+    else Reflect.deleteProperty(globalThis, 'crypto');
+  }
   const bytes = pngHeader(2, 2);
   const context = { isCurrent: () => true, fetchReference: async () => ({
     data: bytes.buffer, mimeType: 'image/png', sha256: await sha256Bytes(bytes)
