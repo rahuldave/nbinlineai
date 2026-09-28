@@ -65,15 +65,15 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
         super().tearDown()
         self._root.cleanup()
 
-    async def _partial(self, *, auth=True, secret=None, body=b'1234'):
+    async def _partial(self, *, auth=True, secret=None, body=b'1234', client='client', operation_id=None):
         sock = socket.socket()
         stream = IOStream(sock)
         await stream.connect(('127.0.0.1', self.get_http_port()))
         headers = [
-            f'POST /nbinlineai/browser-media-bytes/{self.op.id} HTTP/1.1',
+            f'POST /nbinlineai/browser-media-bytes/{operation_id or self.op.id} HTTP/1.1',
             f'Host: 127.0.0.1:{self.get_http_port()}',
             'Content-Type: image/png', 'Content-Length: 100',
-            'X-NBInlineAI-Session: session', 'X-NBInlineAI-Client: client',
+            'X-NBInlineAI-Session: session', f'X-NBInlineAI-Client: {client}',
             'X-NBInlineAI-Model: model', f'X-NBInlineAI-Owner: {secret or self.owner.secret}',
         ]
         if auth:
@@ -118,6 +118,21 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
 
         self.io_loop.run_sync(check)
 
+    def test_control_without_owner_secret_fails_closed(self):
+        async def check():
+            owners_before = len(self.registry.owners)
+            request = HTTPRequest(self.get_url('/nbinlineai/browser-media/create'), method='POST',
+                                  headers={'Authorization': 'Bearer test', 'Content-Type': 'application/json'},
+                                  body=json.dumps({'session_id': 'session', 'client_id': 'unbound-client',
+                                                   'model_id': 'model', 'request_id': 'first',
+                                                   'name': 'save_media', 'arguments': {}}))
+            response = await AsyncHTTPClient().fetch(request, raise_error=False)
+            assert response.code == 409
+            assert json.loads(response.body)['error']['code'] == 'stale_target'
+            assert len(self.registry.owners) == owners_before
+
+        self.io_loop.run_sync(check)
+
     def test_stored_bytes_and_inflight_share_one_budget(self):
         async def check():
             self.registry.media['stored'] = Media('stored', self.owner, b'x' * 12,
@@ -125,7 +140,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                                                   self.registry._now() + 600)
             # Patch the module cap to a small value so no large allocation is needed.
             from unittest.mock import patch
-            with patch('nbinlineai.handlers.MAX_SERVER_BYTES', 16):
+            with patch('nbinlineai.browser_media.MAX_SERVER_BYTES', 16):
                 held = await self._partial(body=b'1234')
                 for _ in range(20):
                     if self.registry.inflight_bytes == 4:
@@ -142,6 +157,31 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                 held.close()
                 await asyncio.sleep(0.03)
                 assert self.registry.inflight_bytes == 0
+
+        self.io_loop.run_sync(check)
+
+    def test_two_clients_of_one_notebook_share_ingress_budget(self):
+        async def check():
+            second = self.registry.bind('session', 'kernel', 'fixture.ipynb', 'model', 'second')
+            second_op = self.registry.create(second, 'second-upload', 'fixture_image', {})
+            with patch('nbinlineai.browser_media.MAX_NOTEBOOK_BYTES', 4):
+                held = await self._partial(body=b'1234')
+                for _ in range(20):
+                    if self.registry.inflight_bytes == 4:
+                        break
+                    await asyncio.sleep(0.01)
+                assert self.registry.inflight_by_session['session'] == 4
+                denied = await self._partial(body=b'5', client='second', secret=second.secret,
+                                             operation_id=second_op.id)
+                try:
+                    response = await denied.read_until(b'\r\n\r\n')
+                    assert b'413' in response
+                except StreamClosedError:
+                    pass
+                denied.close()
+                held.close()
+                await asyncio.sleep(0.03)
+                assert self.registry.inflight_by_session == {}
 
         self.io_loop.run_sync(check)
 
@@ -163,6 +203,9 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                 return real_save(*args, **kwargs)
 
             body = {'request_id': 'same', 'media': reference, 'save_to': 'auto'}
+            registered = self.registry.create(self.owner, 'same', 'save_media',
+                                              {'media': reference, 'save_to': 'auto'})
+            self.registry.transition(self.owner, registered.id, 'saving')
             with patch.object(self.registry, '_save', stalled):
                 first = asyncio.create_task(self._command('save', body))
                 for _ in range(30):
@@ -170,6 +213,7 @@ class BrowserMediaStreamTests(AsyncHTTPTestCase):
                         break
                     await asyncio.sleep(0.01)
                 assert entered.is_set()
+                assert self.registry.status(self.owner, registered.id)['status'] == 'saving'
                 second = asyncio.create_task(self._command('save', body))
                 await asyncio.sleep(0.03)
                 resume.set()

@@ -33,15 +33,24 @@ export type BrowserOperationHandler = (context: BrowserOperationContext, request
   operation: BrowserOperationStatus) => Promise<void>;
 
 const handlers = new Map<string, { handler: BrowserOperationHandler; capability: () => BrowserCapabilityFact }>();
+const controlNames = new Set(['browser_capabilities', 'operation_status', 'cancel_operation',
+  'save_media', 'release_media']);
 /** Register one family operation without changing shared dispatch code. */
 export function registerBrowserOperation(name: string, handler: BrowserOperationHandler,
   capability: () => BrowserCapabilityFact): void {
-  if (!/^[a-z][a-z0-9_]{0,39}$/.test(name) || handlers.has(name) || handlers.size >= 48)
+  if (!/^[a-z][a-z0-9_]{0,39}$/.test(name) || controlNames.has(name) || handlers.has(name) || handlers.size >= 43)
     throw new Error('Invalid, duplicate, or excessive browser operation');
   handlers.set(name, { handler, capability });
 }
-export function browserCapabilityFacts(): ReturnType<typeof boundedCapabilityFacts> {
-  return boundedCapabilityFacts(Array.from(handlers, ([name, entry]) => [name, entry.capability()]));
+export function browserCapabilityFacts(fileMediaSupported: boolean): ReturnType<typeof boundedCapabilityFacts> {
+  const controls: Array<[string, BrowserCapabilityFact]> = [
+    ['browser_capabilities', { available: true }], ['operation_status', { available: true }],
+    ['cancel_operation', { available: true }],
+    ['save_media', { available: fileMediaSupported,
+      ...(!fileMediaSupported ? { reason: 'Server filesystem cannot safely save media' } : {}) }],
+    ['release_media', { available: true }]
+  ];
+  return boundedCapabilityFacts([...controls, ...Array.from(handlers, ([name, entry]) => [name, entry.capability()] as [string, BrowserCapabilityFact])]);
 }
 export function hasBrowserOperation(name: string): boolean { return handlers.has(name); }
 export async function observedMediaPermissions(): Promise<Record<string, string>> {
@@ -79,9 +88,11 @@ export class BrowserOperationContext {
   private readonly clientId = randomId();
   private readonly modelId = randomId();
   private ownerSecret: string | undefined;
+  private fileMediaAvailable = false;
   private readyPromise: Promise<void> | undefined;
   private readonly controllers = new Map<string, AbortController>();
-  private readonly dispatched = new Set<string>();
+  private readonly dispatched = new Map<string, number>();
+  private readonly releaseFlights = new Map<string, { promise: Promise<BrowserOperationStatus>; created: number }>();
   private readonly operationCleanup = new Map<string, Set<() => void>>();
   private readonly mediaCleanup = new Map<string, Set<() => void>>();
   private readonly sources = new Map<string, BrowserSource>();
@@ -90,24 +101,31 @@ export class BrowserOperationContext {
   private readonly listeners = new Set<(operation: BrowserOperationStatus) => void>();
   private lease: number | undefined;
   private disposed = false;
+  private readonly targetChanged = (): void => { void this.dispose(); };
 
   constructor(readonly panel: NotebookPanel, readonly kernel: Kernel.IKernelConnection) {
-    panel.disposed.connect(() => { void this.dispose(); });
-    panel.sessionContext.kernelChanged.connect(() => { void this.dispose(); });
-    panel.content.modelChanged.connect(() => { void this.dispose(); });
-    window.addEventListener('pagehide', () => { void this.dispose(); }, { once: true });
+    panel.disposed.connect(this.targetChanged);
+    panel.sessionContext.kernelChanged.connect(this.targetChanged);
+    panel.content.modelChanged.connect(this.targetChanged);
+    window.addEventListener('pagehide', this.targetChanged);
   }
 
   private identity(): Record<string, string> {
     if (this.disposed || this.panel.isDisposed || this.panel.sessionContext.session?.kernel !== this.kernel ||
         this.panel.sessionContext.session?.id !== this.originalSessionId ||
-        this.panel.content.model !== this.model || !this.model) throw new Error('The originating notebook or kernel changed.');
+        this.panel.content.model !== this.model || !this.model)
+      throw new BrowserMediaError('stale_target', 'The originating notebook or kernel changed.');
     const sessionId = this.panel.sessionContext.session?.id;
-    if (!sessionId) throw new Error('Notebook session is unavailable.');
+    if (!sessionId) throw new BrowserMediaError('stale_target', 'Notebook session is unavailable.');
     return { session_id: sessionId, client_id: this.clientId, model_id: this.modelId };
   }
 
+  isCurrent(): boolean {
+    try { this.identity(); return true; } catch { return false; }
+  }
+
   private async command(command: string, body: Record<string, unknown>): Promise<any> {
+    if (command !== 'owner' && command !== 'close' && !this.ownerSecret) await this.ready();
     const response = await fetch(endpoint(`nbinlineai/browser-media/${command}`), {
       method: 'POST', credentials: 'same-origin', headers: headers(this.ownerSecret),
       body: JSON.stringify({ ...this.identity(), ...body })
@@ -124,6 +142,7 @@ export class BrowserOperationContext {
     if (!this.readyPromise) this.readyPromise = (async () => {
       const result = await this.command('owner', {});
       this.ownerSecret = result.owner_secret;
+      this.fileMediaAvailable = result.file_media_supported === true;
       this.identity();
       this.lease = window.setInterval(() => { void this.command('heartbeat', {}).catch(() => { void this.dispose(); }); }, 30_000);
     })();
@@ -137,6 +156,7 @@ export class BrowserOperationContext {
     if (!this.controllers.has(state.operation_id)) this.controllers.set(state.operation_id, new AbortController());
     return state;
   }
+  fileMediaSupported(): boolean { return this.fileMediaAvailable; }
   async status(operationId: string): Promise<BrowserOperationStatus> {
     const status = await this.command('status', { operation_id: operationId });
     this.emit(status);
@@ -169,15 +189,82 @@ export class BrowserOperationContext {
     this.emit(updated);
     return updated;
   }
-  async save(reference: { media_id: string } | { path: string; sha256: string },
+  private async save(reference: { media_id: string } | { path: string; sha256: string },
     saveTo = 'auto', requestId = randomId()): Promise<{ media: Record<string, unknown>; operation_id: string }> {
     const result = await this.command('save', { media: reference, save_to: saveTo, request_id: requestId });
     return result;
+  }
+  async startSave(reference: { media_id: string } | { path: string; sha256: string }, saveTo: string,
+    requestId: string): Promise<{ initial: BrowserOperationStatus; completion: Promise<BrowserOperationStatus> }> {
+    if (typeof saveTo !== 'string' || !saveTo)
+      throw new BrowserMediaError('invalid_argument', 'save_to must name a destination');
+    const created = await this.create({ request_id: requestId, name: 'save_media',
+      arguments: { media: reference, save_to: saveTo } });
+    if (['completed', 'failed', 'cancelled', 'expired'].includes(created.status)) {
+      this.emit(created);
+      return { initial: created, completion: Promise.resolve(created) };
+    }
+    const initial = created.status === 'saving' ? created : await this.transition(created.operation_id, 'saving');
+    this.emit(initial);
+    const saveJob = this.save(reference, saveTo, requestId)
+      .then(() => this.status(created.operation_id))
+      .catch(async error => {
+        try {
+          const current = await this.status(created.operation_id);
+          if (['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) return current;
+          return await this.transition(created.operation_id, 'failed', undefined, {
+            code: error instanceof BrowserMediaError ? error.code : 'stale_target',
+            message: error instanceof Error ? error.message.slice(0, 300) : 'Media save failed'
+          });
+        }
+        catch {
+          return { operation_id: created.operation_id, status: 'failed' as const,
+            error: { code: error instanceof BrowserMediaError ? error.code : 'stale_target',
+              message: error instanceof Error ? error.message.slice(0, 300) : 'Media save failed' } };
+        }
+      });
+    let timeoutId: number | undefined;
+    const timeout = new Promise<BrowserOperationStatus>(resolve => {
+      timeoutId = window.setTimeout(() => {
+        void this.cancel(created.operation_id).then(resolve).catch(() => resolve({
+          operation_id: created.operation_id, status: 'expired',
+          error: { code: 'timeout', message: 'Media save did not finish before its delivery deadline.' }
+        }));
+      }, 8 * 60_000);
+    });
+    const completion = Promise.race([saveJob, timeout]).finally(() => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    });
+    return { initial, completion };
   }
   async release(mediaId: string): Promise<void> {
     await this.command('release', { media_id: mediaId });
     this.mediaCleanup.get(mediaId)?.forEach(cleanup => cleanup());
     this.mediaCleanup.delete(mediaId);
+  }
+  async releaseOperation(request: BrowserOperationRequest): Promise<BrowserOperationStatus> {
+    const created = await this.create(request);
+    const oldest = Date.now() - 5 * 60_000;
+    for (const [id, entry] of this.releaseFlights) if (entry.created < oldest) this.releaseFlights.delete(id);
+    if (['completed', 'failed', 'cancelled', 'expired'].includes(created.status)) return created;
+    let flight = this.releaseFlights.get(created.operation_id)?.promise;
+    if (!flight) {
+      flight = (async () => {
+        try {
+          await this.release(String(request.arguments.media_id));
+          return await this.transition(created.operation_id, 'completed', { released: true });
+        } catch (error) {
+          const current = await this.status(created.operation_id);
+          if (['completed', 'failed', 'cancelled', 'expired'].includes(current.status)) return current;
+          return this.transition(created.operation_id, 'failed', undefined, {
+            code: error instanceof BrowserMediaError ? error.code : 'unsupported',
+            message: error instanceof Error ? error.message.slice(0, 300) : 'Media release failed'
+          });
+        }
+      })();
+      this.releaseFlights.set(created.operation_id, { promise: flight, created: Date.now() });
+    }
+    return flight;
   }
   async upload(operationId: string, data: Uint8Array, mimeType: string, sha256: string,
     metadata: Record<string, unknown> = {}, saveTo: string | null = null,
@@ -245,7 +332,6 @@ export class BrowserOperationContext {
   emit(status: BrowserOperationStatus): void {
     if (['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) {
       this.controllers.delete(status.operation_id);
-      this.dispatched.delete(status.operation_id);
       this.operationCleanup.get(status.operation_id)?.forEach(cleanup => { try { cleanup(); } catch { /* continue cleanup */ } });
       this.operationCleanup.delete(status.operation_id);
     }
@@ -303,9 +389,11 @@ export class BrowserOperationContext {
     if (!entry.capability().available) throw new Error(entry.capability().reason || 'Browser operation is unavailable.');
     const status = await this.create(request);
     this.emit(status);
+    const oldest = Date.now() - 5 * 60_000;
+    for (const [id, when] of this.dispatched) if (when < oldest) this.dispatched.delete(id);
     if (this.dispatched.has(status.operation_id) ||
         ['completed', 'failed', 'cancelled', 'expired'].includes(status.status)) return status;
-    this.dispatched.add(status.operation_id);
+    this.dispatched.set(status.operation_id, Date.now());
     void entry.handler(this, request, status).catch(async error => {
       try { this.emit(await this.transition(status.operation_id, 'failed', undefined, {
         code: error instanceof BrowserMediaError ? error.code : 'unsupported',
@@ -318,6 +406,10 @@ export class BrowserOperationContext {
     if (this.disposed) return;
     const closing = this.ownerSecret ? this.command('close', {}).catch(() => undefined) : Promise.resolve();
     this.disposed = true;
+    this.panel.disposed.disconnect(this.targetChanged);
+    this.panel.sessionContext.kernelChanged.disconnect(this.targetChanged);
+    this.panel.content.modelChanged.disconnect(this.targetChanged);
+    window.removeEventListener('pagehide', this.targetChanged);
     if (this.lease !== undefined) window.clearInterval(this.lease);
     this.controllers.forEach(controller => controller.abort());
     await Promise.allSettled(Array.from(this.sources, ([sourceId]) => this.endSource(sourceId, 'cancelled')));

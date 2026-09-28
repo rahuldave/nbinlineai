@@ -2,7 +2,8 @@ import { expect, test, type APIRequestContext, type Page } from '../support/e2e-
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-async function open(page: Page, request: APIRequestContext, source: string): Promise<string> {
+async function open(page: Page, request: APIRequestContext, source: string,
+  checkSource = "print(r.status, type(r.result).__name__, r.result.size if r.result else None, r.media.get('path') if r.media else None)"): Promise<string> {
   const name = `media-${Date.now()}-${Math.floor(Math.random() * 100000)}.ipynb`;
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
@@ -10,7 +11,7 @@ async function open(page: Page, request: APIRequestContext, source: string): Pro
   const response = await request.put(`/api/contents/${name}`, { headers: { 'X-XSRFToken': xsrf! },
     data: { type: 'notebook', format: 'json', content: { cells: [
       { id: 'start', cell_type: 'code', source, metadata: {}, outputs: [], execution_count: null },
-      { id: 'check', cell_type: 'code', source: "print(r.status, type(r.result).__name__, r.result.size if r.result else None, r.media.get('path') if r.media else None)", metadata: {}, outputs: [], execution_count: null }
+      { id: 'check', cell_type: 'code', source: checkSource, metadata: {}, outputs: [], execution_count: null }
     ], metadata: { kernelspec: { display_name: 'Python 3 (ipykernel)', language: 'python', name: 'python3' } },
       nbformat: 4, nbformat_minor: 5 } } });
   expect(response.ok(), await response.text()).toBeTruthy();
@@ -57,6 +58,41 @@ test('server saves the exact PNG while the kernel is busy', async ({ page, reque
   const saved = await (await request.get(`/api/contents/media/${file.name}?content=1`)).json();
   expect(saved.format).toBe('base64');
   expect(saved.content.length).toBeGreaterThan(20);
+});
+
+test('save_media is the first browser operation and keeps a usable owner', async ({ page, request }) => {
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  expect(xsrf).toBeTruthy();
+  const source = await request.put('/api/contents/first-source.png', { headers: { 'X-XSRFToken': xsrf! },
+    data: { type: 'file', format: 'base64',
+      content: 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP8zwACTGCSAQANHQEDgslx/wAAAABJRU5ErkJggg==' } });
+  expect(source.ok(), await source.text()).toBeTruthy();
+  await open(page, request,
+    "from nbinlineai.tools import save_media\nr = save_media({'path': 'first-source.png', 'sha256': 'de33ddc09a0ba9b83128b6b59461e3be59299575eb68ccf2c03984b504f9fa9c'})");
+  const cells = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
+  await cells.first().locator('.cm-content').click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
+  await cells.nth(1).locator('.cm-content').click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText('completed NoneType None media/');
+});
+
+test('duplicate browser starts and release retries run each effect once', async ({ page, request }) => {
+  await open(page, request,
+    "from nbinlineai.browser_receipt import request_browser_operation\na = request_browser_operation('fixture_dedup', {})\nr = request_browser_operation('fixture_release_replay', {})",
+    "print(a.status, a.result, r.status, r.result)");
+  const cells = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
+  await cells.first().locator('.cm-content').click();
+  await page.keyboard.press('Shift+Enter');
+  await expect.poll(async () => (await page.locator('.nbinlineai-media-status').textContent())
+    ?.match(/Media completed/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  await cells.nth(1).locator('.cm-content').click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'handler_runs': 1");
+  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'statuses': ['completed', 'completed', 'completed']");
+  await expect(cells.nth(1).locator('.jp-OutputArea')).toContainText("'same_operation': True");
 });
 
 test('declared model tool receives bounded capability JSON through action reply', async ({ page, request }) => {
@@ -238,6 +274,8 @@ test('the public example exercises all five controls with an exact local PNG', a
   }).toBeTruthy();
   await run(4);
   await expect(code.nth(4).locator('.jp-OutputArea')).toContainText('capture-');
+  const savedPath = (await code.nth(4).locator('.jp-OutputArea').textContent())?.match(/media\/capture-[a-f0-9]+\.png/)?.[0];
+  expect(savedPath).toBeTruthy();
   await run(5); // operation_status
   await run(6);
   await expect(code.nth(6).locator('.jp-OutputArea')).toContainText('completed');
@@ -247,6 +285,8 @@ test('the public example exercises all five controls with an exact local PNG', a
   await run(9); // release_media
   await run(10);
   await expect(code.nth(10).locator('.jp-OutputArea')).toContainText('(2, 2)');
-  await run(11); // remove only temporary source
+  expect((await request.get(`/api/contents/${savedPath}`)).ok()).toBeTruthy();
+  await run(11); // remove the exact saved copy and temporary source
   await expect(code.nth(11).locator('.jp-OutputArea')).toContainText('True');
+  expect((await request.get(`/api/contents/${savedPath}`)).status()).toBe(404);
 });

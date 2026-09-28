@@ -1,6 +1,17 @@
 /** Keep browser capability replies useful and valid within the model action budget. */
 export interface BrowserCapabilityFact { available: boolean; reason?: string; formats?: string[] }
 
+export function boundedMediaErrorText(code: string, message: string, maxChars = 500): string {
+  const safeCode = code.slice(0, 60);
+  let safeMessage = message.slice(0, maxChars);
+  let encoded = JSON.stringify({ code: safeCode, message: safeMessage });
+  while (encoded.length > maxChars && safeMessage.length > 0) {
+    safeMessage = safeMessage.slice(0, Math.max(0, safeMessage.length - (encoded.length - maxChars)));
+    encoded = JSON.stringify({ code: safeCode, message: safeMessage });
+  }
+  return encoded;
+}
+
 export function boundedCapabilityFacts(
   entries: Iterable<[string, BrowserCapabilityFact]>, maxChars = 2500
 ): { operations: Record<string, boolean>; details: Record<string, Omit<BrowserCapabilityFact, 'available'>>;

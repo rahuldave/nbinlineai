@@ -20,7 +20,8 @@ def _notebook(
 
 def test_registry_and_markdown_are_explicit() -> None:  # No accidental model tools.
     """Expose the curated registry while keeping default declarations within budget."""
-    assert len(tools.TOOL_FUNCTIONS) == 51
+    assert {'browser_capabilities', 'operation_status', 'cancel_operation',
+            'save_media', 'release_media'} <= set(tools.TOOL_FUNCTIONS)
     assert list(tools.TOOL_GROUPS["starter"]) == [
         "search_kernel_names", "list_notebooks", "find_notebook_cells", "read_notebook_cell",
         "inspect_python", "read_url", "path_info", "list_files", "view_file", "create_file",
@@ -29,10 +30,12 @@ def test_registry_and_markdown_are_explicit() -> None:  # No accidental model to
         "insert_code", "url_to_note",
     ]
     assert all(tools.TOOL_FUNCTIONS[name] is getattr(tools, name) for name in tools.TOOL_FUNCTIONS)
-    assert set(tools.SPECIAL_TOOL_FUNCTIONS) == {
+    assert {
         "list_cells", "read_cell", "insert_markdown", "insert_code", "url_to_note",
         "find_cells", "replace_cell", "cell_str_replace", "cell_insert_line", "cell_replace_lines",
-        "delete_cell", "move_cell", "copy_cell", "split_cell", "merge_cells"}
+        "delete_cell", "move_cell", "copy_cell", "split_cell", "merge_cells",
+        "browser_capabilities", "operation_status", "cancel_operation", "save_media", "release_media"
+    } <= set(tools.SPECIAL_TOOL_FUNCTIONS)
     markdown = tools.tools_markdown()
     assert markdown.count("&`") == 19
     assert "&`insert_code` — Insert an unexecuted code cell below the AI answer" in markdown

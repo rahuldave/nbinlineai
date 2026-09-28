@@ -255,6 +255,135 @@ def test_saved_file_ref_copy_release_and_exact_dedup(tmp_path):
         registry.save_media(browser, reference, 'other.png', request_id='same')
 
 
+def test_nonfilesystem_backend_keeps_memory_media_and_reports_unsupported_save():
+    registry = MediaRegistry(None)
+    browser = owner(registry)
+    assert registry.file_media_supported() is False
+    operation = registry.create(browser, 'memory-only', 'fixture_image', {})
+    data = png()
+    status = registry.upload(browser, operation.id, data, 'image/png', hashlib.sha256(data).hexdigest())
+    assert status['status'] == 'completed'
+    assert status['media']['bytes'] == len(data)
+    with pytest.raises(MediaError) as failure:
+        registry.save_media(browser, {'media_id': status['media']['media_id']}, request_id='cannot-save')
+    assert failure.value.code == 'unsupported'
+
+
+def test_cancelled_save_preflight_does_not_strand_duplicate_request(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    reference = {'media_id': 'unused'}
+    operation = registry.create(browser, 'cancel-before-save', 'save_media',
+                                {'media': reference, 'save_to': 'auto'})
+    registry.cancel(browser, operation.id)
+    for _ in range(2):
+        with pytest.raises(MediaError, match='already ended'):
+            registry.save_media(browser, reference, request_id='cancel-before-save')
+        assert (browser, 'cancel-before-save') not in registry.save_flights
+
+
+def test_same_notebook_file_saves_share_reserved_budget(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    first_owner = owner(registry)
+    second_owner = owner(registry, 'second-client')
+    data = png()
+    (tmp_path / 'source.png').write_bytes(data)
+    reference = {'path': 'source.png', 'sha256': hashlib.sha256(data).hexdigest()}
+    monkeypatch.setattr('nbinlineai.browser_media.MAX_NOTEBOOK_BYTES', len(data) + 1)
+    entered = threading.Event()
+    resume = threading.Event()
+    real_save = registry._save
+
+    def stalled(*args, **kwargs):
+        entered.set()
+        assert resume.wait(3)
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', stalled)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(registry.save_media, first_owner, reference, 'auto', 'first')
+        assert entered.wait(3)
+        with pytest.raises(MediaError, match='memory limit'):
+            registry.save_media(second_owner, reference, request_id='second')
+        single = registry.create(second_owner, 'single-during-save', 'fixture_image', {})
+        with pytest.raises(MediaError, match='memory limit'):
+            registry.upload(second_owner, single.id, data, 'image/png', reference['sha256'])
+        batch = registry.create(second_owner, 'batch-during-save', 'extract_frames', {})
+        registry.begin_batch(second_owner, batch.id, 1)
+        with pytest.raises(MediaError, match='memory limit'):
+            registry.upload_part(second_owner, batch.id, 0, data, 'image/png', reference['sha256'])
+        resume.set()
+        saved = pending.result(timeout=3)
+    assert (tmp_path / saved['path']).read_bytes() == data
+    assert registry.reserved_save_bytes == 0
+    assert registry.reserved_save_by_session == {}
+
+
+def test_concurrent_sweep_create_cancel_and_expire_while_save_is_staged(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    saving_owner = owner(registry)
+    churn_owner = owner(registry, 'churn-client')
+    data = png()
+    (tmp_path / 'source.png').write_bytes(data)
+    reference = {'path': 'source.png', 'sha256': hashlib.sha256(data).hexdigest()}
+    entered = threading.Event()
+    resume = threading.Event()
+    real_save = registry._save
+
+    def stalled(*args, **kwargs):
+        entered.set()
+        assert resume.wait(3)
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', stalled)
+
+    def churn():
+        for index in range(50):
+            op = registry.create(churn_owner, f'churn-{index}', 'fixture_pending', {})
+            registry.cancel(churn_owner, op.id)
+            registry.sweep()
+        registry.expire_owner(churn_owner)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        pending = pool.submit(registry.save_media, saving_owner, reference, 'auto', 'staged')
+        assert entered.wait(3)
+        pool.submit(churn).result(timeout=3)
+        registry.expire_owner(saving_owner)
+        resume.set()
+        with pytest.raises(MediaError, match='cancelled'):
+            pending.result(timeout=3)
+    assert not list(tmp_path.rglob('capture-*.png'))
+    assert not registry.media
+
+
+def test_direct_upload_save_cancel_rolls_back_published_file(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    operation = registry.create(browser, 'direct-save', 'fixture_image', {})
+    data = png()
+    digest = hashlib.sha256(data).hexdigest()
+    entered = threading.Event()
+    resume = threading.Event()
+    real_save = registry._save
+
+    def stalled(*args, **kwargs):
+        entered.set()
+        assert resume.wait(3)
+        return real_save(*args, **kwargs)
+
+    monkeypatch.setattr(registry, '_save', stalled)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(registry.upload, browser, operation.id, data, 'image/png', digest,
+                              save_to='auto')
+        assert entered.wait(3)
+        registry.cancel(browser, operation.id)
+        resume.set()
+        with pytest.raises(MediaError, match='cancelled'):
+            pending.result(timeout=3)
+    assert registry.status(browser, operation.id)['status'] == 'cancelled'
+    assert not list(tmp_path.rglob('capture-*.png'))
+
+
 def test_concurrent_save_request_publishes_once_and_owner_loss_cancels(tmp_path, monkeypatch):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
@@ -341,6 +470,60 @@ def test_rollback_preserves_replaced_file(tmp_path):
     os.replace(replacement, tmp_path / path)
     registry._unlink_saved(path)
     assert (tmp_path / path).read_bytes() == b'replacement'
+
+
+def test_media_root_ancestor_swap_cannot_redirect_saved_or_read_bytes(tmp_path, monkeypatch):
+    base = tmp_path / 'base'
+    root = base / 'root'
+    root.mkdir(parents=True)
+    outside = tmp_path / 'outside'
+    (outside / 'root').mkdir(parents=True)
+    registry = MediaRegistry(root)
+    browser = owner(registry)
+    data = png()
+    digest = hashlib.sha256(data).hexdigest()
+    media = Media('root-swap', browser, data, 'image/png', digest, registry._now() + 600)
+    original_destination = registry._destination
+
+    def swap_after_validation(*args, **kwargs):
+        destination = original_destination(*args, **kwargs)
+        base.rename(tmp_path / 'parked')
+        base.symlink_to(outside, target_is_directory=True)
+        return destination
+
+    monkeypatch.setattr(registry, '_destination', swap_after_validation)
+    with pytest.raises(MediaError, match='root changed|cancelled'):
+        registry._save(browser, media, 'attack.png')
+    assert not (outside / 'root' / 'attack.png').exists()
+    assert not (tmp_path / 'parked' / 'root' / 'attack.png').exists()
+    (outside / 'root' / 'source.png').write_bytes(data)
+    with pytest.raises(MediaError, match='root changed'):
+        registry.resolve_ref(browser, {'path': 'source.png', 'sha256': digest})
+
+
+def test_post_publish_temporary_cleanup_failure_rolls_back_final(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = png()
+    media = Media('part-cleanup', browser, data, 'image/png', hashlib.sha256(data).hexdigest(),
+                  registry._now() + 600)
+    actual_unlink = os.unlink
+    failed = False
+
+    def fail_once(path, *args, **kwargs):
+        nonlocal failed
+        if not failed and isinstance(path, str) and path.endswith('.part'):
+            failed = True
+            raise OSError('temporary cleanup failed')
+        return actual_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, 'unlink', fail_once)
+    with pytest.raises(MediaError, match='safely save'):
+        registry._save(browser, media, 'saved.png')
+    assert failed
+    assert not (tmp_path / 'saved.png').exists()
+    assert not list(tmp_path.glob('.nbinlineai-*.part'))
+    assert not registry._published_inodes
 
 
 def test_auto_directory_freezes_per_request_across_notebook_rename(tmp_path):

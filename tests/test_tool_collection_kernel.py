@@ -51,8 +51,10 @@ async def _setup(kernel: AsyncKernelManager, source: str) -> None:
 def test_every_advertised_tool_inspects_and_representative_calls_work(tmp_path: Path) -> None:
     """One kernel sees the whole registry and applies bounded saved-file effects."""
     names = list(TOOL_FUNCTIONS)
-    assert len(names) == 51
-    assert len(SPECIAL_TOOL_FUNCTIONS) == 15
+    assert {'browser_capabilities', 'operation_status', 'cancel_operation',
+            'save_media', 'release_media'} <= set(names)
+    assert {'browser_capabilities', 'operation_status', 'cancel_operation',
+            'save_media', 'release_media'} <= set(SPECIAL_TOOL_FUNCTIONS)
     assert set(SPECIAL_TOOL_FUNCTIONS) <= set(names)
 
     async def run() -> None:

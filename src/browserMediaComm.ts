@@ -8,7 +8,11 @@ interface Origin { panel: NotebookPanel; model: INotebookCellExecutor.IRunCellOp
 const contexts = new WeakMap<NotebookPanel, BrowserOperationContext>();
 export function mediaContext(panel: NotebookPanel, kernel: Kernel.IKernelConnection): BrowserOperationContext {
   let context = contexts.get(panel);
-  if (!context || context.kernel !== kernel) { context = new BrowserOperationContext(panel, kernel); contexts.set(panel, context); }
+  if (!context || context.kernel !== kernel || !context.isCurrent()) {
+    if (context) void context.dispose();
+    context = new BrowserOperationContext(panel, kernel);
+    contexts.set(panel, context);
+  }
   return context;
 }
 function validRequest(value: unknown): value is BrowserOperationRequest & { execute_request_id: string; source_cell_id: string } {
@@ -42,16 +46,23 @@ class BrowserCommBridge {
     const request = message.content.data;
     const parentId = message.parent_header?.msg_id;
     const origin = typeof parentId === 'string' ? this.origins.get(parentId) : undefined;
+    const hasOriginCell = (): boolean => {
+      if (!origin) return false;
+      const cells = origin.model.cells;
+      for (let i = 0; i < cells.length; i++) if (cells.get(i).id === origin.cellId) return true;
+      return false;
+    };
     if (!origin || !validRequest(request) || request.execute_request_id !== parentId ||
         request.source_cell_id !== origin.cellId || origin.panel.isDisposed ||
         origin.panel.content.model !== origin.model ||
-        origin.panel.sessionContext.session?.kernel !== origin.kernel) {
+        origin.panel.sessionContext.session?.kernel !== origin.kernel || !hasOriginCell()) {
       comm.close();
       return;
     }
     const context = mediaContext(origin.panel, origin.kernel);
     let sentStatus = '';
     const send = async (state: BrowserOperationStatus, final = false, withBytes = true): Promise<void> => {
+      if (!context.isCurrent() || origin.panel.content.model !== origin.model || !hasOriginCell()) { comm.close(); return; }
       const marker = JSON.stringify([state, final]);
       if (marker === sentStatus) return;
       sentStatus = marker;
@@ -71,6 +82,7 @@ class BrowserCommBridge {
         }
         catch (error) { state = { ...state, status: 'failed', error: { code: 'stale_target', message: String(error).slice(0, 300) } }; }
       }
+      if (!context.isCurrent() || origin.panel.content.model !== origin.model || !hasOriginCell()) { comm.close(); return; }
       // A comm_msg future can wait for a kernel reply while that kernel is busy.
       // Queue the message and let Python close the channel after delivery.
       void comm.send(state as unknown as { [key: string]: any }, {}, buffers).done.catch(() => undefined);
@@ -80,7 +92,8 @@ class BrowserCommBridge {
         const created = await context.create(request);
         await context.transition(created.operation_id, 'completed', { checked: true });
         const state: BrowserOperationStatus = { operation_id: created.operation_id, status: 'completed',
-          result: { secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
+          result: { secure_context: window.isSecureContext, permissions: await observedMediaPermissions(),
+            file_media_supported: context.fileMediaSupported(), ...browserCapabilityFacts(context.fileMediaSupported()),
             limits: { image_max_side: 4096, image_max_pixels: 16000000,
               batch_max_items: 12, batch_max_decoded_pixels: 32000000,
               notebook_media_bytes: 104857600, server_media_bytes: 268435456,
@@ -102,23 +115,16 @@ class BrowserCommBridge {
       if (request.name === 'save_media') {
         const reference = request.arguments.media as { media_id: string } | { path: string; sha256: string };
         const saveTo = request.arguments.save_to;
-        if (typeof saveTo !== 'string' || !saveTo) throw new Error('save_to must name a destination');
-        const saved = await context.save(reference, saveTo, request.request_id);
-        await send({ operation_id: saved.operation_id, status: 'completed', media: saved.media }, true, false); return;
+        if (typeof saveTo !== 'string' || !saveTo)
+          throw new BrowserMediaError('invalid_argument', 'save_to must name a destination');
+        const started = await context.startSave(reference, saveTo, request.request_id);
+        if (!['completed', 'failed', 'cancelled', 'expired'].includes(started.initial.status))
+          await send(started.initial, false, false);
+        await send(await started.completion, true, false);
+        return;
       }
       if (request.name === 'release_media') {
-        const created = await context.create(request);
-        try {
-          await context.release(String(request.arguments.media_id));
-          await context.transition(created.operation_id, 'completed', { released: true });
-          await send({ operation_id: created.operation_id, status: 'completed', result: { released: true } }, true, false);
-        } catch (error) {
-          const failed = await context.transition(created.operation_id, 'failed', undefined, {
-            code: error instanceof BrowserMediaError ? error.code : 'unsupported',
-            message: error instanceof Error ? error.message.slice(0, 300) : 'Media release failed'
-          });
-          await send(failed, true, false);
-        }
+        await send(await context.releaseOperation(request), true, false);
         return;
       }
       const state = await context.start(request);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boundedCapabilityFacts } from '../../src/browserMediaCapabilities';
+import { boundedCapabilityFacts, boundedMediaErrorText } from '../../src/browserMediaCapabilities';
 
 test('large family registry keeps every availability bit while bounding optional detail', () => {
   const entries = Array.from({ length: 45 }, (_, index): [string, { available: boolean; reason: string; formats: string[] }] => [
@@ -24,4 +24,10 @@ test('maximum registered names still retain all availability values', () => {
   const summary = boundedCapabilityFacts(entries);
   assert.equal(Object.keys(summary.operations).length, 48);
   assert.ok(JSON.stringify(summary).length <= 2500);
+});
+
+test('error text stays valid JSON within its full encoded envelope', () => {
+  const encoded = boundedMediaErrorText('stale_target', '"\\\n'.repeat(500));
+  assert.ok(encoded.length <= 500);
+  assert.equal(JSON.parse(encoded).code, 'stale_target');
 });

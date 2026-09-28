@@ -22,7 +22,8 @@ import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
 import { runTrackedStandardCell } from './insertTools';
 import { mediaContext } from './browserMediaComm';
-import { BrowserMediaError, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
+import { BrowserMediaError, BrowserOperationStatus, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
+import { boundedMediaErrorText } from './browserMediaCapabilities';
 import { installBrowserMediaStatus } from './browserMediaStatus';
 import '../style/index.css';
 
@@ -545,7 +546,8 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
               const created = await media.create({ request_id: event.request_id, name: event.name, arguments: {} });
               await media.transition(created.operation_id, 'completed', { checked: true });
               value = { operation_id: created.operation_id,
-              secure_context: window.isSecureContext, permissions: await observedMediaPermissions(), ...browserCapabilityFacts(),
+              secure_context: window.isSecureContext, permissions: await observedMediaPermissions(),
+              file_media_supported: media.fileMediaSupported(), ...browserCapabilityFacts(media.fileMediaSupported()),
               limits: { image_max_side: 4096, image_max_pixels: 16000000,
                 batch_max_items: 12, batch_max_decoded_pixels: 32000000,
                 notebook_media_bytes: 104857600, server_media_bytes: 268435456,
@@ -557,32 +559,34 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
             }
             else if (event.name === 'operation_status') value = await media.status(args.operation_id);
             else if (event.name === 'cancel_operation') value = await media.cancel(args.operation_id);
-            else if (event.name === 'save_media') value = await media.save(args.media,
-              args.save_to === undefined ? 'auto' : args.save_to, event.request_id);
+            else if (event.name === 'save_media') {
+              const started = await media.startSave(args.media,
+                args.save_to === undefined ? 'auto' : args.save_to, event.request_id);
+              const quick = await Promise.race<BrowserOperationStatus | null>([
+                started.completion, new Promise(resolve => window.setTimeout(() => resolve(null), 1000))
+              ]);
+              if (quick && ['failed', 'cancelled', 'expired'].includes(quick.status))
+                throw new BrowserMediaError(quick.error?.code || 'save_failed',
+                  quick.error?.message || 'Media save failed.');
+              value = quick ?? started.initial;
+            }
             else if (event.name === 'release_media') {
-              const created = await media.create({ request_id: event.request_id, name: event.name,
+              const released = await media.releaseOperation({ request_id: event.request_id, name: event.name,
                 arguments: { media_id: args.media_id } });
-              try {
-                await media.release(args.media_id);
-                await media.transition(created.operation_id, 'completed', { released: true });
-              } catch (error) {
-                await media.transition(created.operation_id, 'failed', undefined, {
-                  code: error instanceof BrowserMediaError ? error.code : 'unsupported',
-                  message: error instanceof Error ? error.message.slice(0, 300) : 'Media release failed'
-                });
-                throw error;
-              }
-              value = { operation_id: created.operation_id, released: true };
+              if (released.status !== 'completed')
+                throw new BrowserMediaError(released.error?.code || 'stale_target',
+                  released.error?.message || 'Media release did not complete.');
+              value = { operation_id: released.operation_id, released: released.result?.released === true };
             } else value = await media.start({ request_id: event.request_id, name: event.name,
               arguments: args });
             const encoded = JSON.stringify(value);
             result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
               truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'
             }) };
-          } catch (error) { result = { ok: false, text: JSON.stringify({
-            code: error instanceof BrowserMediaError ? error.code : 'unsupported',
-            message: error instanceof Error ? error.message.slice(0, 500) : 'Browser operation failed.'
-          }) }; }
+          } catch (error) { result = { ok: false, text: boundedMediaErrorText(
+            error instanceof BrowserMediaError ? error.code : 'unsupported',
+            error instanceof Error ? error.message : 'Browser operation failed.'
+          ) }; }
         } else result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
         status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
@@ -1166,6 +1170,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         };
         bindMediaStatus();
         panel.sessionContext.kernelChanged.connect(bindMediaStatus);
+        panel.content.modelChanged.connect(bindMediaStatus);
         const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
           const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
           return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];

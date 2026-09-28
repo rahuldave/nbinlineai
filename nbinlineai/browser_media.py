@@ -1,7 +1,7 @@
 """Owned, volatile browser operations and media for one Jupyter Server process.
 
-All methods run on the server event loop. The caller authenticates the Jupyter
-session and supplies an owner secret retained only by its browser tab.
+Authenticated handlers run on the server event loop; file saves also use worker
+threads. Shared operation, quota, and lifecycle state is protected by one lock.
 """
 
 from __future__ import annotations
@@ -15,7 +15,10 @@ import secrets
 import stat
 import threading
 import time
+import weakref
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -43,6 +46,15 @@ class MediaError(ValueError):
     def __init__(self, code: str, message: str):
         super().__init__(message[:500])
         self.code = code
+
+
+def _locked(method):
+    """Serialize short shared-state operations; never wrap slow file I/O."""
+    @wraps(method)
+    def call(self, *args, **kwargs):
+        with self._state_lock:
+            return method(self, *args, **kwargs)
+    return call
 
 
 @dataclass(frozen=True)
@@ -114,6 +126,14 @@ class MediaRegistry:
 
     def __init__(self, root: str | Path | None, clock=time.time):
         self.root = Path(root).resolve(strict=True) if root is not None else None
+        root_flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
+        self._root_fd = os.open(self.root, root_flags) if self.root is not None else None
+        self._file_primitives = (hasattr(os, 'O_NOFOLLOW') and
+                                 all(function in os.supports_dir_fd for function in
+                                     (os.open, os.mkdir, os.unlink, os.link, os.stat)) and
+                                 os.link in os.supports_follow_symlinks)
+        if self._root_fd is not None:
+            weakref.finalize(self, os.close, self._root_fd)
         self.clock = clock
         self.owners: dict[tuple[str, str], Owner] = {}
         self.leases: dict[Owner, float] = {}
@@ -121,9 +141,11 @@ class MediaRegistry:
         self.requests: dict[tuple[Owner, str], str] = {}
         self.media: dict[str, Media] = {}
         self.inflight_bytes = 0
+        self.inflight_by_session: dict[str, int] = {}
         self.save_requests: dict[tuple[Owner, str], tuple[str, str, dict[str, Any], float]] = {}
         self.save_flights: dict[tuple[Owner, str], SaveFlight] = {}
         self.reserved_save_bytes = 0
+        self.reserved_save_by_session: dict[str, int] = {}
         self.owner_cancelled: dict[Owner, threading.Event] = {}
         self.current_paths: dict[Owner, str] = {}
         self._state_lock = threading.RLock()
@@ -132,6 +154,64 @@ class MediaRegistry:
     def _now(self) -> float:
         return float(self.clock())
 
+    def _root_matches(self) -> bool:
+        if self._root_fd is None or self.root is None:
+            return False
+        try:
+            configured = os.stat(self.root)
+            anchored = os.fstat(self._root_fd)
+            return (configured.st_dev, configured.st_ino) == (anchored.st_dev, anchored.st_ino)
+        except OSError:
+            return False
+
+    def file_media_supported(self) -> bool:
+        """Report whether this filesystem has the primitives needed for anchored media I/O."""
+        return bool(self._root_fd is not None and self._file_primitives and self._root_matches())
+
+    def _admit_bytes(self, session_id: str, additional: int) -> None:
+        """Check the combined resident, in-flight, and save-reserved budgets under lock."""
+        resident = sum(len(media.data) for media in self.media.values())
+        notebook_resident = sum(len(media.data) for media in self.media.values()
+                                if media.owner.session_id == session_id)
+        if (resident + self.inflight_bytes + self.reserved_save_bytes + additional > MAX_SERVER_BYTES or
+                notebook_resident + self.inflight_by_session.get(session_id, 0) +
+                self.reserved_save_by_session.get(session_id, 0) + additional > MAX_NOTEBOOK_BYTES):
+            raise MediaError('limit_exceeded', 'Browser media memory limit exceeded')
+
+    @_locked
+    def reserve_ingress(self, owner: Owner, size: int) -> None:
+        self.require(owner)
+        self._admit_bytes(owner.session_id, size)
+        self.inflight_bytes += size
+        self.inflight_by_session[owner.session_id] = self.inflight_by_session.get(owner.session_id, 0) + size
+
+    @_locked
+    def release_ingress(self, owner: Owner, size: int) -> None:
+        self.inflight_bytes -= size
+        current = self.inflight_by_session.get(owner.session_id, 0) - size
+        if current > 0:
+            self.inflight_by_session[owner.session_id] = current
+        else:
+            self.inflight_by_session.pop(owner.session_id, None)
+
+    @_locked
+    def reserve_file_read(self, owner: Owner, size: int) -> None:
+        self.require(owner)
+        self._admit_bytes(owner.session_id, size)
+        self.reserved_save_bytes += size
+        self.reserved_save_by_session[owner.session_id] = (
+            self.reserved_save_by_session.get(owner.session_id, 0) + size)
+
+    @_locked
+    def release_file_read(self, owner: Owner, size: int) -> None:
+        self.reserved_save_bytes -= size
+        remaining = self.reserved_save_by_session.get(owner.session_id, 0) - size
+        if remaining > 0:
+            self.reserved_save_by_session[owner.session_id] = remaining
+        else:
+            self.reserved_save_by_session.pop(owner.session_id, None)
+
+    @_locked
     def bind(self, session_id: str, kernel_id: str, notebook_path: str, model_id: str,
              client_id: str, secret: str | None = None) -> Owner:
         if not all(isinstance(v, str) and v for v in (session_id, kernel_id, notebook_path, model_id, client_id)):
@@ -159,6 +239,7 @@ class MediaRegistry:
         self.leases[owner] = self._now() + OWNER_LEASE_SECONDS
         return owner
 
+    @_locked
     def require(self, owner: Owner) -> None:
         self.sweep()
         if self.owners.get((owner.session_id, owner.client_id)) is not owner:
@@ -167,10 +248,12 @@ class MediaRegistry:
             self.expire_owner(owner)
             raise MediaError('stale_target', 'Browser owner expired')
 
+    @_locked
     def heartbeat(self, owner: Owner) -> None:
         self.require(owner)
         self.leases[owner] = self._now() + OWNER_LEASE_SECONDS
 
+    @_locked
     def create(self, owner: Owner, request_id: str, name: str, arguments: dict[str, Any],
                *, waiting: bool = False) -> Operation:
         self.require(owner)
@@ -201,6 +284,7 @@ class MediaRegistry:
         self.requests[(owner, request_id)] = operation.id
         return operation
 
+    @_locked
     def operation(self, owner: Owner, operation_id: str) -> Operation:
         self.require(owner)
         op = self.operations.get(operation_id)
@@ -208,6 +292,7 @@ class MediaRegistry:
             raise MediaError('stale_target', 'Operation is unavailable')
         return op
 
+    @_locked
     def status(self, owner: Owner, operation_id: str) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         result: dict[str, Any] = {'operation_id': op.id, 'status': op.status}
@@ -246,6 +331,7 @@ class MediaRegistry:
         next_cursor = cursor + len(page) if cursor + len(page) < len(descriptors) else None
         return page, next_cursor
 
+    @_locked
     def media_page(self, owner: Owner, operation_id: str, cursor: int = 0) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         if op.batch_total is None or isinstance(cursor, bool) or not isinstance(cursor, int) or cursor < 0:
@@ -255,6 +341,7 @@ class MediaRegistry:
         page, next_cursor = self._media_page(descriptors, cursor, {})
         return {'media': page, 'next_media_cursor': next_cursor}
 
+    @_locked
     def transition(self, owner: Owner, operation_id: str, status: str,
                    result: dict[str, Any] | None = None, error: dict[str, str] | None = None) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
@@ -305,7 +392,8 @@ class MediaRegistry:
 
     def upload(self, owner: Owner, operation_id: str, data: bytes, mime_type: str,
                sha256: str, *, metadata: dict[str, Any] | None = None,
-               save_to: str | None = None, defer_save: bool = False) -> dict[str, Any]:
+               save_to: str | None = None, defer_save: bool = False,
+               ingress_credit: int = 0) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         if not isinstance(data, bytes) or not 0 < len(data) <= MAX_UPLOAD_BYTES:
             raise MediaError('limit_exceeded', 'Media size exceeds operation limit')
@@ -354,43 +442,59 @@ class MediaRegistry:
                 raise MediaError('invalid_argument', 'Encoded image is invalid') from exc
         upload_signature = json.dumps([digest, mime_type, len(data), save_to, metadata],
                                       sort_keys=True, separators=(',', ':'))
-        if op.upload_signature is not None:
-            if op.upload_signature != upload_signature:
-                raise MediaError('invalid_argument', 'Upload payload changed under the same operation')
-            return self.status(owner, operation_id)
-        if op.status in TERMINAL:
-            raise MediaError('stale_target', 'Operation already ended')
-        if op.batch_total is not None:
-            raise MediaError('invalid_argument', 'Batch operations require upload_part')
-        notebook_use = sum(len(m.data) for m in self.media.values()
-                           if m.owner.session_id == owner.session_id)
-        if notebook_use + len(data) > MAX_NOTEBOOK_BYTES:
-            raise MediaError('limit_exceeded', 'Notebook media memory limit exceeded')
-        if sum(len(m.data) for m in self.media.values()) + len(data) > MAX_SERVER_BYTES:
-            raise MediaError('limit_exceeded', 'Server media memory limit exceeded')
-        media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
-                      self._now() + MEDIA_IDLE_SECONDS, metadata)
-        self.media[media.id] = media
-        op.media_id = media.id
-        op.upload_signature = upload_signature
-        if save_to is not None:
-            op.status = 'saving'
-            if not defer_save:
-                try:
-                    media.path = self._save(owner, media, save_to, notebook_path=op.notebook_path)
-                    self._forget_saved(media.path)
-                except Exception:
+        with self._state_lock:
+            self.require(owner)
+            if (not 0 <= ingress_credit <= len(data) or
+                    ingress_credit > self.inflight_by_session.get(owner.session_id, 0)):
+                raise MediaError('invalid_argument', 'Invalid upload reservation')
+            if op.upload_signature is not None:
+                if op.upload_signature != upload_signature:
+                    raise MediaError('invalid_argument', 'Upload payload changed under the same operation')
+                return self.status(owner, operation_id)
+            if op.status in TERMINAL:
+                raise MediaError('stale_target', 'Operation already ended')
+            if op.batch_total is not None:
+                raise MediaError('invalid_argument', 'Batch operations require upload_part')
+            self._admit_bytes(owner.session_id, len(data) - ingress_credit)
+            media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
+                          self._now() + MEDIA_IDLE_SECONDS, metadata)
+            self.media[media.id] = media
+            op.media_id = media.id
+            op.upload_signature = upload_signature
+            if save_to is not None:
+                op.status = 'saving'
+            else:
+                op.status = 'completed'
+            op.updated = self._now()
+        if save_to is not None and not defer_save:
+            path: str | None = None
+            try:
+                owner_cancelled = self.owner_cancelled.get(owner)
+                path = self._save(owner, media, save_to,
+                                  lambda: not op.cancelled.is_set() and owner_cancelled is not None and
+                                  not owner_cancelled.is_set(), notebook_path=op.notebook_path)
+                with self._state_lock:
+                    if op.cancelled.is_set() or owner_cancelled is None or owner_cancelled.is_set():
+                        raise MediaError('cancelled', 'Media save was cancelled')
+                    media.path = path
+                    if op.status not in TERMINAL:
+                        op.status = 'completed'
+                        op.updated = self._now()
+                    self._forget_saved(path)
+            except Exception:
+                if path is not None:
+                    self._unlink_saved(path)
+                with self._state_lock:
                     self.media.pop(media.id, None)
                     op.media_id = None
-                    op.status = 'failed'
-                    op.error = {'code': 'save_failed', 'message': 'Media could not be saved'}
-                    op.updated = self._now()
-                    raise
-        if save_to is None or not defer_save:
-            op.status = 'completed'
-        op.updated = self._now()
+                    if op.status not in TERMINAL:
+                        op.status = 'failed'
+                        op.error = {'code': 'save_failed', 'message': 'Media could not be saved'}
+                        op.updated = self._now()
+                raise
         return self.status(owner, operation_id)
 
+    @_locked
     def begin_batch(self, owner: Owner, operation_id: str, total: int) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         if isinstance(total, bool) or not isinstance(total, int) or not 1 <= total <= 12:
@@ -403,7 +507,8 @@ class MediaRegistry:
         return self.status(owner, operation_id)
 
     def upload_part(self, owner: Owner, operation_id: str, index: int, data: bytes,
-                    mime_type: str, sha256: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
+                    mime_type: str, sha256: str, metadata: dict[str, Any] | None = None,
+                    ingress_credit: int = 0) -> dict[str, Any]:
         op = self.operation(owner, operation_id)
         if op.batch_total is None:
             raise MediaError('stale_target', 'Batch operation is unavailable')
@@ -419,16 +524,11 @@ class MediaRegistry:
         if metadata:
             raise MediaError('invalid_argument', 'Batch metadata must be supplied at completion')
         signature = json.dumps([digest, mime_type, len(data), metadata], separators=(',', ':'))
-        if isinstance(index, bool) or not isinstance(index, int) or index != len(op.batch_media_ids):
+        with self._state_lock:
             if index in op.batch_signatures:
                 if op.batch_signatures[index] == signature:
                     return self.status(owner, operation_id)
                 raise MediaError('invalid_argument', 'Batch part changed under the same index')
-            raise MediaError('invalid_argument', 'Batch parts must arrive in order')
-        if op.status in TERMINAL:
-            raise MediaError('stale_target', 'Batch operation is unavailable')
-        if index >= op.batch_total:
-            raise MediaError('limit_exceeded', 'Batch part exceeds its bounds')
         width = height = 0
         if mime_type.startswith('image/') and mime_type != 'image/svg+xml':
             from PIL import Image
@@ -444,21 +544,33 @@ class MediaRegistry:
                 raise
             except Exception as exc:
                 raise MediaError('invalid_argument', 'Encoded image is invalid') from exc
-        if op.batch_pixels + width * height > MAX_BATCH_PIXELS:
-            raise MediaError('limit_exceeded', 'Batch exceeds decoded-pixel limit')
-        notebook_use = sum(len(m.data) for m in self.media.values() if m.owner.session_id == owner.session_id)
-        server_use = sum(len(m.data) for m in self.media.values())
-        if notebook_use + len(data) > MAX_NOTEBOOK_BYTES or server_use + len(data) > MAX_SERVER_BYTES:
-            raise MediaError('limit_exceeded', 'Batch exceeds media memory limit')
-        media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
-                      self._now() + MEDIA_IDLE_SECONDS,
-                      {'width': width, 'height': height} if width and height else {})
-        self.media[media.id] = media
-        op.batch_media_ids.append(media.id)
-        op.batch_signatures[index] = signature
-        op.batch_pixels += width * height
-        op.updated = self._now()
-        return self.status(owner, operation_id)
+        with self._state_lock:
+            self.require(owner)
+            if (not 0 <= ingress_credit <= len(data) or
+                    ingress_credit > self.inflight_by_session.get(owner.session_id, 0)):
+                raise MediaError('invalid_argument', 'Invalid upload reservation')
+            if isinstance(index, bool) or not isinstance(index, int) or index != len(op.batch_media_ids):
+                if index in op.batch_signatures:
+                    if op.batch_signatures[index] == signature:
+                        return self.status(owner, operation_id)
+                    raise MediaError('invalid_argument', 'Batch part changed under the same index')
+                raise MediaError('invalid_argument', 'Batch parts must arrive in order')
+            if op.status in TERMINAL:
+                raise MediaError('stale_target', 'Batch operation is unavailable')
+            if index >= op.batch_total:
+                raise MediaError('limit_exceeded', 'Batch part exceeds its bounds')
+            if op.batch_pixels + width * height > MAX_BATCH_PIXELS:
+                raise MediaError('limit_exceeded', 'Batch exceeds decoded-pixel limit')
+            self._admit_bytes(owner.session_id, len(data) - ingress_credit)
+            media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
+                          self._now() + MEDIA_IDLE_SECONDS,
+                          {'width': width, 'height': height} if width and height else {})
+            self.media[media.id] = media
+            op.batch_media_ids.append(media.id)
+            op.batch_signatures[index] = signature
+            op.batch_pixels += width * height
+            op.updated = self._now()
+            return self.status(owner, operation_id)
 
     def finish_batch(self, owner: Owner, operation_id: str, save_to: str | None = None) -> dict[str, Any]:
         with self._state_lock:
@@ -479,6 +591,7 @@ class MediaRegistry:
                 if save_to is not None:
                     op.status = 'saving'
             owner_cancelled = self.owner_cancelled.get(owner)
+            batch_media = [self.media[media_id] for media_id in op.batch_media_ids]
         if wait_for_first:
             op.batch_done.wait()
             return self.status(owner, operation_id)
@@ -486,8 +599,7 @@ class MediaRegistry:
         committed = False
         try:
             if save_to is not None:
-                for index, media_id in enumerate(op.batch_media_ids):
-                    media = self.media[media_id]
+                for index, media in enumerate(batch_media):
                     extension = mimetypes.guess_extension(media.mime_type) or '.bin'
                     destination = 'auto' if save_to == 'auto' else f'{save_to.rstrip("/")}/part-{index + 1:02d}{extension}'
                     path = self._save(owner, media, destination,
@@ -509,17 +621,20 @@ class MediaRegistry:
             if not committed:
                 for path in saved:
                     self._unlink_saved(path)
-                for media_id in op.batch_media_ids:
-                    self.media.pop(media_id, None)
-                if op.status not in TERMINAL:
-                    op.status = 'failed'
-                    op.error = {'code': 'save_failed', 'message': 'Batch media could not be saved'}
-                    op.updated = self._now()
+                with self._state_lock:
+                    for media_id in op.batch_media_ids:
+                        self.media.pop(media_id, None)
+                    if op.status not in TERMINAL:
+                        op.status = 'failed'
+                        op.error = {'code': 'save_failed', 'message': 'Batch media could not be saved'}
+                        op.updated = self._now()
             raise
         finally:
-            op.batch_finishing = False
-            op.batch_done.set()
+            with self._state_lock:
+                op.batch_finishing = False
+                op.batch_done.set()
 
+    @_locked
     def _unlink_saved(self, relative: str) -> None:
         """Roll back only the created inode in its original anchored directory."""
         published = self._published_inodes.pop(relative, None)
@@ -536,6 +651,7 @@ class MediaRegistry:
         finally:
             os.close(directory_fd)
 
+    @_locked
     def _forget_saved(self, relative: str) -> None:
         published = self._published_inodes.pop(relative, None)
         if published is not None:
@@ -569,12 +685,18 @@ class MediaRegistry:
 
     def _save(self, owner: Owner, media: Media, save_to: str,
               still_active=lambda: True, *, notebook_path: str | None = None) -> str:
+        if self._root_fd is None:
+            raise MediaError('unsupported', 'This server has no supported filesystem media root')
+        if not self._root_matches():
+            raise MediaError('stale_target', 'Configured media root changed')
+        if not self.file_media_supported():
+            raise MediaError('unsupported', 'This server filesystem cannot safely save browser media')
         path = self._destination(owner, save_to, media.mime_type, notebook_path)
         relative = path.relative_to(self.root)
         # Walk anchored directory descriptors on POSIX: a symlink swap cannot
         # redirect the final create outside the root after validation.
         dir_flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
-        directory_fd = os.open(self.root, dir_flags)
+        directory_fd = os.dup(self._root_fd)
         try:
             for component in relative.parts[:-1]:
                 try:
@@ -590,6 +712,7 @@ class MediaRegistry:
                 fd = os.open(temporary, flags, 0o600, dir_fd=directory_fd)
             except OSError as exc:
                 raise MediaError('save_failed', 'Could not create temporary media file') from exc
+            published = False
             try:
                 with os.fdopen(fd, 'wb') as stream:
                     for start in range(0, len(media.data), 1024 * 1024):
@@ -599,23 +722,42 @@ class MediaRegistry:
                     created = os.fstat(stream.fileno())
                 if not still_active():
                     raise MediaError('cancelled', 'Save was cancelled')
+                anchor_fd = os.dup(directory_fd)
                 try:
                     os.link(temporary, relative.name, src_dir_fd=directory_fd,
                             dst_dir_fd=directory_fd, follow_symlinks=False)
                 except FileExistsError as exc:
+                    os.close(anchor_fd)
                     raise MediaError('path_conflict', 'Destination already exists') from exc
-                self._published_inodes[relative.as_posix()] = (os.dup(directory_fd), created.st_dev, created.st_ino)
-                if not still_active():
-                    self._unlink_saved(relative.as_posix())
-                    raise MediaError('cancelled', 'Save was cancelled')
+                except Exception:
+                    os.close(anchor_fd)
+                    raise
+                with self._state_lock:
+                    self._published_inodes[relative.as_posix()] = (anchor_fd, created.st_dev, created.st_ino)
+                published = True
+                if not still_active() or not self._root_matches():
+                    raise MediaError('cancelled', 'Save was cancelled or its root changed')
             finally:
-                os.unlink(temporary, dir_fd=directory_fd)
+                try:
+                    os.unlink(temporary, dir_fd=directory_fd)
+                except OSError:
+                    try:
+                        os.unlink(temporary, dir_fd=directory_fd)
+                    except OSError:
+                        pass
+                    if published:
+                        self._unlink_saved(relative.as_posix())
+                    raise
+                if published and (not still_active() or not self._root_matches()):
+                    self._unlink_saved(relative.as_posix())
+                    raise MediaError('cancelled', 'Save was cancelled or its root changed')
         except (OSError, NotImplementedError) as exc:
             raise MediaError('save_failed', 'Filesystem cannot safely save this path') from exc
         finally:
             os.close(directory_fd)
         return relative.as_posix()
 
+    @_locked
     def media_ref(self, owner: Owner, media_id: str, *, consume: bool = False) -> Media:
         self.require(owner)
         media = self.media.get(media_id)
@@ -625,7 +767,8 @@ class MediaRegistry:
             media.expires = self._now() + MEDIA_IDLE_SECONDS
         return media
 
-    def resolve_ref(self, owner: Owner, reference: dict[str, Any]) -> tuple[bytes, str, str]:
+    def resolve_ref(self, owner: Owner, reference: dict[str, Any],
+                    reserve: Callable[[int], None] | None = None) -> tuple[bytes, str, str]:
         """Read exact owned memory or server-root file bytes for a downstream family."""
         self.require(owner)
         if not isinstance(reference, dict):
@@ -633,8 +776,14 @@ class MediaRegistry:
         if set(reference) == {'media_id'}:
             media = self.media_ref(owner, reference['media_id'], consume=True)
             return media.data, media.mime_type, media.sha256
-        if set(reference) != {'path', 'sha256'} or self.root is None:
+        if set(reference) != {'path', 'sha256'}:
             raise MediaError('invalid_argument', 'MediaRef needs a media_id or exact path and hash')
+        if self._root_fd is None:
+            raise MediaError('unsupported', 'This server has no supported filesystem media root')
+        if not self._root_matches():
+            raise MediaError('stale_target', 'Configured media root changed')
+        if not self.file_media_supported():
+            raise MediaError('unsupported', 'This server filesystem cannot safely read saved media')
         relative = reference['path']
         expected = reference['sha256']
         if (not isinstance(relative, str) or not 0 < len(relative) <= 500 or
@@ -644,7 +793,7 @@ class MediaRegistry:
         if posix.is_absolute() or '..' in posix.parts or '\\' in relative:
             raise MediaError('invalid_argument', 'Saved media path escapes the server root')
         flags = os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0) | getattr(os, 'O_NOFOLLOW', 0)
-        directory_fd = os.open(self.root, flags)
+        directory_fd = os.dup(self._root_fd)
         try:
             for part in posix.parts[:-1]:
                 next_fd = os.open(part, flags, dir_fd=directory_fd)
@@ -658,11 +807,17 @@ class MediaRegistry:
                     raise MediaError('unsupported', 'MediaRef must be a regular file')
                 if file_stat.st_size > MAX_UPLOAD_BYTES:
                     raise MediaError('limit_exceeded', 'Saved media exceeds 50 MiB')
-                data = stream.read(MAX_UPLOAD_BYTES + 1)
+                if reserve is not None:
+                    reserve(file_stat.st_size)
+                data = stream.read(file_stat.st_size + 1)
         except OSError as exc:
             raise MediaError('stale_target', 'Saved media file is unavailable') from exc
         finally:
             os.close(directory_fd)
+        if not self._root_matches():
+            raise MediaError('stale_target', 'Configured media root changed')
+        if len(data) != file_stat.st_size:
+            raise MediaError('stale_target', 'Saved media file changed during reading')
         actual = hashlib.sha256(data).hexdigest()
         if not secrets.compare_digest(actual, expected):
             raise MediaError('stale_target', 'Saved media hash changed')
@@ -689,6 +844,10 @@ class MediaRegistry:
                 if previous[:2] != (signature, save_to):
                     raise MediaError('invalid_argument', 'Save request ID was reused with different arguments')
                 return previous[2]
+            op_id = self.requests.get(key)
+            operation = self.operations.get(op_id) if op_id else None
+            if operation is not None and operation.name == 'save_media' and operation.status in TERMINAL:
+                raise MediaError('stale_target', 'Save operation already ended')
             flight = self.save_flights.get(key)
             if flight:
                 if flight.signature != (signature, save_to):
@@ -701,10 +860,6 @@ class MediaRegistry:
                 self.save_flights[key] = flight
                 wait_for_first = False
             owner_cancelled = self.owner_cancelled.get(owner)
-            op_id = self.requests.get(key)
-            operation = self.operations.get(op_id) if op_id else None
-            if operation is not None and operation.name == 'save_media' and operation.status in TERMINAL:
-                raise MediaError('stale_target', 'Save operation already ended')
             request_path = (operation.notebook_path if operation is not None
                             else self.current_paths.get(owner, owner.notebook_path))
         if wait_for_first:
@@ -718,27 +873,27 @@ class MediaRegistry:
         try:
             new_media = 'path' in reference
             if new_media:
-                data, mime_type, sha256 = self.resolve_ref(owner, reference)
-                with self._state_lock:
-                    notebook_use = sum(len(item.data) for item in self.media.values() if item.owner is owner)
-                    server_use = sum(len(item.data) for item in self.media.values())
-                    if (notebook_use + len(data) > MAX_NOTEBOOK_BYTES or
-                            server_use + self.reserved_save_bytes + len(data) > MAX_SERVER_BYTES):
-                        raise MediaError('limit_exceeded', 'Saving this file exceeds the media budget')
-                    self.reserved_save_bytes += len(data)
-                    reserved = len(data)
+                def reserve_file(size: int) -> None:
+                    nonlocal reserved
+                    self.reserve_file_read(owner, size)
+                    reserved = size
+
+                data, mime_type, sha256 = self.resolve_ref(owner, reference, reserve_file)
                 media = Media(secrets.token_hex(16), owner, data, mime_type, sha256,
                               self._now() + MEDIA_IDLE_SECONDS)
             else:
                 media = self.media_ref(owner, reference['media_id'], consume=True)
             active = lambda: (owner_cancelled is not None and not owner_cancelled.is_set() and
-                              (operation is None or not operation.cancelled.is_set()) and
+                              (operation is None or (operation.status == 'saving' and
+                                                     not operation.cancelled.is_set())) and
                               (new_media or self.media.get(media.id) is media))
             path = self._save(owner, media, save_to, active, notebook_path=request_path)
             with self._state_lock:
                 if not active():
                     raise MediaError('cancelled', 'Media save lost its owner or source')
                 if new_media:
+                    self.release_file_read(owner, reserved)
+                    reserved = 0
                     media.path = path
                     self.media[media.id] = media
                 descriptor = {**media.descriptor(), 'path': path}
@@ -753,24 +908,28 @@ class MediaRegistry:
         except Exception as exc:
             if path is not None:
                 self._unlink_saved(path)
-            if operation is not None and operation.status not in TERMINAL:
-                operation.status = 'failed'
-                operation.error = {'code': exc.code if isinstance(exc, MediaError) else 'save_failed',
-                                   'message': str(exc)[:300] if isinstance(exc, MediaError) else 'Media save failed'}
-                operation.updated = self._now()
-            flight.error = exc
+            with self._state_lock:
+                if operation is not None and operation.status not in TERMINAL:
+                    operation.status = 'failed'
+                    operation.error = {'code': exc.code if isinstance(exc, MediaError) else 'save_failed',
+                                       'message': str(exc)[:300] if isinstance(exc, MediaError) else 'Media save failed'}
+                    operation.updated = self._now()
+                flight.error = exc
             raise
         finally:
             with self._state_lock:
-                self.reserved_save_bytes -= reserved
+                if reserved:
+                    self.release_file_read(owner, reserved)
                 self.save_flights.pop(key, None)
                 flight.done.set()
 
+    @_locked
     def release_media(self, owner: Owner, media_id: str) -> None:
         with self._state_lock:
             self.media_ref(owner, media_id)
             self.media.pop(media_id, None)
 
+    @_locked
     def expire_owner(self, owner: Owner) -> None:
         self.owner_cancelled.pop(owner, threading.Event()).set()
         self.current_paths.pop(owner, None)
@@ -789,6 +948,7 @@ class MediaRegistry:
             if key[0] is owner:
                 self.save_requests.pop(key, None)
 
+    @_locked
     def sweep(self) -> None:
         now = self._now()
         for owner, expiry in list(self.leases.items()):

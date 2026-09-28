@@ -37,6 +37,7 @@ dependencies = [
   "python-dotenv>=1,<2",
   "filelock>=3.32,<4",
   "comm>=0.2,<1",
+  "pillow>=12.3,<13",
   "ipykernel>=6.18",
 ]
 
@@ -54,6 +55,7 @@ only-include = [
   "LICENSE", "README.md", "pyproject.toml", "uv.lock", "package.json", "yarn.lock",
   ".yarnrc.yml", "tsconfig.json", "install.json", "nbinlineai", "jupyter-config",
   "src", "style", "schema", "tests", "examples", "docs", "playwright.config.ts",
+  "playwright.media.config.ts",
 ]
 exclude = [
   ".venv", "node_modules", "lib", "dist", ".env", ".env.*", "internal_docs",
