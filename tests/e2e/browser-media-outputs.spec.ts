@@ -20,6 +20,7 @@ async function notebook(page: Page, request: APIRequestContext, cells: Cell[]): 
   await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell')).toHaveCount(cells.length);
   const select = page.getByRole('button', { name: 'Select', exact: true });
+  await select.waitFor({ state: 'visible', timeout: 3000 }).catch(() => undefined);
   if (await select.isVisible().catch(() => false)) await select.click();
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible().catch(() => false)) await no.click();
@@ -77,7 +78,9 @@ test('stock HTML canvas capture reads drawn pixels and rejects a removed canvas 
   await notebook(page, request, [
     code('canvas-output', "from IPython.display import display, HTML\ndisplay(HTML('<canvas width=8 height=8></canvas>'))"),
     code('discover', "from nbinlineai.tools import list_outputs, list_canvases, capture_canvas, start_canvas\no=list_outputs('canvas-output')"),
+    code('discover-check', "print(o.status, o.result, o.error)"),
     code('canvases', "r=o.result['outputs'][0]\nc=list_canvases(r['cell_id'],r['output_id'],r['revision'])"),
+    code('canvases-check', "print(c.status, c.result, c.error)"),
     code('capture', "canvas=c.result['canvases'][0]\nstill=capture_canvas(canvas)\nsource=start_canvas(canvas,frame_rate=12)"),
     code('inspect', "print(still.status, getattr(still.result,'size',None), still.result.getpixel((0,0))[:3] if still.result else None, source.status, source.result)"),
     code('stale', "expired=capture_canvas(canvas)"),
@@ -91,16 +94,16 @@ test('stock HTML canvas capture reads drawn pixels and rejects a removed canvas 
     context.fillStyle = '#e23a1c'; context.fillRect(0, 0, 8, 8);
   });
   await run(page, 1);
-  await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
-  await run(page, 2);
-  await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
+  expect(await laterText(page, 2, "'outputs'")).toContain('completed');
   await run(page, 3);
-  const inspected = await laterText(page, 4, '(226, 58, 28)');
+  expect(await laterText(page, 4, "'canvases'")).toContain('completed');
+  await run(page, 5);
+  const inspected = await laterText(page, 6, '(226, 58, 28)');
   expect(inspected).toContain('(8, 8)');
   expect(inspected).toContain("'kind': 'canvas'");
   await node.evaluate(element => element.remove());
-  await run(page, 5);
-  expect(await laterText(page, 6, 'stale_target')).toContain('stale_target');
+  await run(page, 7);
+  expect(await laterText(page, 8, 'stale_target')).toContain('stale_target');
 });
 
 test('region captures only fully visible stock output surfaces and refuses mixed text', async ({ page, request }) => {
