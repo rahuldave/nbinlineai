@@ -28,11 +28,24 @@ def _validated_receipt(observed: dict, *, allow_unregistered: bool = False) -> d
     return {"operationId": operation_id, "status": status}
 
 
-def receipt_state(kernel_id: str, variable: str, *, allow_unregistered: bool = False) -> dict[str, str | None]:
+def _validated_insertion(observed: dict) -> dict[str, str]:
+    status = observed.get("status")
+    cell_id = observed.get("cellId")
+    if status != "inserted" or not isinstance(cell_id, str) or not re.fullmatch(
+        r"[A-Za-z0-9_-]{1,100}", cell_id
+    ):
+        raise ValueError("Insertion receipt has no completed stable cell ID")
+    return {"status": status, "cellId": cell_id}
+
+
+def receipt_state(kernel_id: str, variable: str, *, allow_unregistered: bool = False,
+                  kind: str = "browser") -> dict[str, str | None]:
     if not re.fullmatch(r"[0-9a-f-]{36}", kernel_id):
         raise ValueError("Invalid owned kernel ID")
     if not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]{0,100}", variable):
         raise ValueError("Invalid receipt variable")
+    if kind not in {"browser", "insert_tools"}:
+        raise ValueError("Invalid receipt kind")
     runtime = Path(os.environ["JUPYTER_RUNTIME_DIR"]).resolve(strict=True)
     connection = (runtime / f"kernel-{kernel_id}.json").resolve(strict=True)
     if connection.parent != runtime:
@@ -42,10 +55,12 @@ def receipt_state(kernel_id: str, variable: str, *, allow_unregistered: bool = F
     client.start_channels()
     try:
         client.wait_for_ready(timeout=10)
+        field = ("'cellId': getattr(_worked_receipt, 'cell_id', None)"
+                 if kind == "insert_tools" else
+                 "'operationId': getattr(_worked_receipt, 'operation_id', None)")
         code = ("import json\n"
                 f"_worked_receipt = globals()[{variable!r}]\n"
-                "print(json.dumps({'operationId': getattr(_worked_receipt, 'operation_id', None), "
-                "'status': getattr(_worked_receipt, 'status', None)}))")
+                f"print(json.dumps({{'status': getattr(_worked_receipt, 'status', None), {field}}}))")
         message_id = client.execute(code, silent=False, store_history=False)
         observed: dict[str, str] | None = None
         while True:
@@ -62,6 +77,8 @@ def receipt_state(kernel_id: str, variable: str, *, allow_unregistered: bool = F
                 break
         if observed is None:
             raise RuntimeError("Live receipt inspection returned no state")
+        if kind == "insert_tools":
+            return _validated_insertion(observed)
         return _validated_receipt(observed, allow_unregistered=allow_unregistered)
     finally:
         client.stop_channels()
@@ -72,9 +89,10 @@ def main() -> None:
     parser.add_argument("kernel_id")
     parser.add_argument("variable")
     parser.add_argument("--allow-unregistered", action="store_true")
+    parser.add_argument("--kind", choices=("browser", "insert_tools"), default="browser")
     args = parser.parse_args()
     print(json.dumps(receipt_state(args.kernel_id, args.variable,
-                                   allow_unregistered=args.allow_unregistered)))
+                                   allow_unregistered=args.allow_unregistered, kind=args.kind)))
 
 
 if __name__ == "__main__":

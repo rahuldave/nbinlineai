@@ -3,7 +3,34 @@ import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
   sensitiveHardwareValues, toolResultState, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
-  prepareDisposableExecutedCells } from '../scripts/worked_notebooks_support.mjs';
+  prepareDisposableExecutedCells, verifiedInsertionCell } from '../scripts/worked_notebooks_support.mjs';
+
+test('insert_tools requires its own inserted receipt, exact cell and visible declaration', () => {
+  const cells = [
+    { id: 'call', cell_type: 'code', source: 'receipt = insert_tools(["record_bonus"])' },
+    { id: 'new-cell', cell_type: 'markdown', metadata: {}, source:
+      'Available tools (delete any line you do not want to offer):\n- &`record_bonus` — Call it.' },
+    { id: 'inspect', cell_type: 'code', outputs: [{ output_type: 'stream',
+      text: ['inserted new-cell None\n'] }] },
+  ];
+  const params = { callId: 'call', inspectId: 'inspect', variable: 'receipt',
+    receipt: { status: 'inserted', cellId: 'new-cell' } };
+  assert.deepEqual(verifiedInsertionCell(cells, params), { variable: 'receipt', status: 'inserted',
+    cellPresent: true, insertedCellId: 'new-cell', declarations: ['record_bonus'] });
+  assert.throws(() => verifiedInsertionCell(cells, { ...params, receipt: { status: 'requested', cellId: null } }),
+    /receipt is invalid/);
+  assert.throws(() => verifiedInsertionCell(cells, { ...params, receipt: { status: 'inserted', cellId: 'other' } }),
+    /not after/);
+  const wrongDeclaration = structuredClone(cells);
+  wrongDeclaration[1].source = wrongDeclaration[1].source.replace('record_bonus', 'other_tool');
+  assert.throws(() => verifiedInsertionCell(wrongDeclaration, params), /unexpected source/);
+  const wrongOrder = structuredClone(cells);
+  wrongOrder.splice(1, 0, { id: 'interloper', cell_type: 'markdown', source: 'unrelated' });
+  assert.throws(() => verifiedInsertionCell(wrongOrder, params), /not after/);
+  const missingVisible = structuredClone(cells);
+  missingVisible[2].outputs = [];
+  assert.throws(() => verifiedInsertionCell(missingVisible, params), /unexpected source/);
+});
 
 test('fresh disposable run clears only planned code history, including same-count prompts', () => {
   const notebook = { cells: [

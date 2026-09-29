@@ -34,6 +34,45 @@ export function prepareDisposableExecutedCells(notebook, steps) {
   return notebook;
 }
 
+export function verifiedInsertionCell(cells, { callId, inspectId, variable, receipt }) {
+  if (!Array.isArray(cells) || !receipt || receipt.status !== 'inserted' ||
+      typeof receipt.cellId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(receipt.cellId) ||
+      typeof variable !== 'string' || !/^[A-Za-z_][A-Za-z_0-9]{0,100}$/.test(variable)) {
+    throw new Error('Completed insertion receipt is invalid');
+  }
+  const call = liveCellIndex(cells, callId, 'code');
+  const inspect = liveCellIndex(cells, inspectId, 'code');
+  const inserted = cells.flatMap((cell, index) => cell?.id === receipt.cellId ? [index] : []);
+  if (inserted.length !== 1 || inserted[0] !== call + 1 || inserted[0] >= inspect) {
+    throw new Error('Inserted declaration cell is not after its calling cell');
+  }
+  const cell = cells[inserted[0]];
+  const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+  const callSource = Array.isArray(cells[call].source) ? cells[call].source.join('') : cells[call].source;
+  const namesLiteral = typeof callSource === 'string' &&
+    /\binsert_tools\(\s*(\[[^\]]+\])/.exec(callSource)?.[1];
+  let requested;
+  try { requested = JSON.parse(namesLiteral); } catch { /* Literal request is required. */ }
+  const lines = typeof source === 'string' ? source.trimEnd().split('\n') : [];
+  const declarations = lines.slice(1).map(line =>
+    /^- &`([A-Za-z_][A-Za-z_0-9]*)` — .+$/.exec(line)?.[1]);
+  const visible = cells[inspect].outputs?.flatMap(output => {
+    const value = output.text ?? output.data?.['text/plain'];
+    return Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+  }).join('') ?? '';
+  if (cell.cell_type !== 'markdown' || cell.metadata?.nbinlineai ||
+      lines[0] !== 'Available tools (delete any line you do not want to offer):' ||
+      !declarations.length || declarations.some(name => !name) ||
+      new Set(declarations).size !== declarations.length || source.length > 8000 ||
+      !Array.isArray(requested) || requested.length !== declarations.length ||
+      requested.some(name => typeof name !== 'string' || !declarations.includes(name)) ||
+      !visible.includes('inserted') || !visible.includes(receipt.cellId)) {
+    throw new Error('Inserted declaration cell has unexpected source');
+  }
+  return { variable, status: 'inserted', cellPresent: true,
+    insertedCellId: receipt.cellId, declarations };
+}
+
 export function rejectLimitedSubscription(choice) {
   if (choice?.state === 'limited') {
     throw new Error('Managed ChatGPT usage is limited; actual AI questions must wait for the account reset');

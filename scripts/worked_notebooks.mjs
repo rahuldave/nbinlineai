@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
-  prepareDisposableExecutedCells } from './worked_notebooks_support.mjs';
+  prepareDisposableExecutedCells, verifiedInsertionCell } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
 import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
@@ -118,12 +118,19 @@ async function runNotebook(page, request, context, entry, choice) {
   prepareDisposableExecutedCells(source, entry.steps ?? []);
   const coverage = JSON.parse(await readFile(join(root, 'examples', 'tool-coverage.json'), 'utf8'));
   const receiptVariables = new Map();
+  const insertionVariables = new Map();
+  const insertionCalls = new Map();
   const directNames = new Map();
   for (const entry of Object.values(coverage)) {
     if (entry.normal_example?.notebook !== name || !entry.receipt_inspect_cell || !entry.receipt_variable) continue;
-    const values = receiptVariables.get(entry.receipt_inspect_cell) ?? new Set();
-    values.add(entry.receipt_variable);
-    receiptVariables.set(entry.receipt_inspect_cell, values);
+    if (entry.receipt_kind === 'insert_tools') {
+      insertionVariables.set(entry.receipt_inspect_cell, entry.receipt_variable);
+      insertionCalls.set(entry.receipt_inspect_cell, entry.normal_example.cell_id);
+    } else {
+      const values = receiptVariables.get(entry.receipt_inspect_cell) ?? new Set();
+      values.add(entry.receipt_variable);
+      receiptVariables.set(entry.receipt_inspect_cell, values);
+    }
   }
   for (const [toolName, entry] of Object.entries(coverage)) {
     if (entry.normal_example?.notebook !== name || entry.normal_example.mode !== 'python' ||
@@ -174,6 +181,7 @@ async function runNotebook(page, request, context, entry, choice) {
   }
   const traces = [];
   const receiptsByCell = new Map();
+  const insertionsByCell = new Map();
   const directByCell = new Map();
   const noToolByQuestion = new Map();
   const nativeImageByQuestion = new Map();
@@ -283,6 +291,12 @@ async function runNotebook(page, request, context, entry, choice) {
             verified.push({ variable, operationId: receipt.operationId, status: receipt.status });
           }
           receiptsByCell.set(step.cellId, verified);
+        }
+        if (step.action === 'inspect' && insertionVariables.has(step.cellId)) {
+          const variable = insertionVariables.get(step.cellId);
+          const insertion = await readLiveReceipt(ownedPython, receiptScript, kernelId, variable,
+            { kind: 'insert_tools' });
+          insertionsByCell.set(step.cellId, { variable, receipt: insertion });
         }
       } catch (error) {
         executionError = error;
@@ -406,6 +420,14 @@ async function runNotebook(page, request, context, entry, choice) {
     if (!cell) throw new Error(`${name} lost inspected receipt cell ${cellId}`);
     cell.metadata ??= {};
     cell.metadata.nbinlineaiWorkedReceipts = receipts;
+  }
+  for (const [cellId, { variable, receipt }] of insertionsByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost inspected insertion cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedInsertion = verifiedInsertionCell(notebook.cells, {
+      callId: insertionCalls.get(cellId), inspectId: cellId, variable, receipt,
+    });
   }
   for (const [cellId, calls] of directByCell) {
     const cell = notebook.cells.find(item => item.id === cellId);

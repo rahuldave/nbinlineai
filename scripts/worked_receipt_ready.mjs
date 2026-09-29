@@ -9,10 +9,12 @@ const VARIABLE = /^[A-Za-z_][A-Za-z_0-9]{0,100}$/;
 const OPERATION_ID = /^[A-Za-z0-9_-]{16,100}$/;
 
 export function readLiveReceipt(python, script, kernelId, variable,
-  { timeoutMs = 25_000, allowUnregistered = false, spawnProcess = spawn } = {}) {
+  { timeoutMs = 25_000, allowUnregistered = false, kind = 'browser', spawnProcess = spawn } = {}) {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error('Invalid receipt probe timeout');
+  if (!['browser', 'insert_tools'].includes(kind)) throw new Error('Invalid receipt kind');
   return new Promise((resolveReceipt, rejectReceipt) => {
-    const args = [script, kernelId, variable, ...(allowUnregistered ? ['--allow-unregistered'] : [])];
+    const args = [script, kernelId, variable, ...(allowUnregistered ? ['--allow-unregistered'] : []),
+      ...(kind === 'insert_tools' ? ['--kind', kind] : [])];
     const child = spawnProcess(python, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let settled = false;

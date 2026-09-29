@@ -96,6 +96,24 @@ def test_receipt_reader_allows_unregistered_state_only_for_polling():
                                   allow_unregistered=True)
 
 
+def test_insertion_receipt_requires_inserted_state_and_stable_cell_id():
+    import pytest
+
+    script = Path(__file__).resolve().parents[1] / "scripts/worked_receipt_state.py"
+    spec = importlib.util.spec_from_file_location("worked_receipt_state", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module._validated_insertion({"status": "inserted", "cellId": "inserted-cell"}) == {
+        "status": "inserted", "cellId": "inserted-cell"
+    }
+    for state in ({"status": "requested", "cellId": None},
+                  {"status": "error", "cellId": None},
+                  {"status": "inserted", "cellId": "../../other"}):
+        with pytest.raises(ValueError, match="completed stable cell ID"):
+            module._validated_insertion(state)
+
+
 def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch, tmp_path):
     from jupyter_client import KernelManager
 

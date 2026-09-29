@@ -78,3 +78,19 @@ test('a timed-out receipt subprocess is killed and cannot hold the runner open',
     await closed;
   } finally { await rm(folder, { recursive: true, force: true }); }
 });
+
+test('insert_tools state uses a separate explicit probe kind', async () => {
+  const folder = await mkdtemp(join(tmpdir(), 'nbinlineai-insertion-test-'));
+  const script = join(folder, 'probe.mjs');
+  await writeFile(script, 'process.stdout.write(JSON.stringify({kind:process.argv.slice(2)}));\n');
+  try {
+    const insertion = await readLiveReceipt(process.execPath, script, 'kernel', 'receipt',
+      { kind: 'insert_tools', timeoutMs: 2000 });
+    assert.deepEqual(insertion.kind, ['kernel', 'receipt', '--kind', 'insert_tools']);
+    const browser = await readLiveReceipt(process.execPath, script, 'kernel', 'receipt',
+      { timeoutMs: 2000 });
+    assert.deepEqual(browser.kind, ['kernel', 'receipt']);
+    assert.throws(() => readLiveReceipt(process.execPath, script, 'kernel', 'receipt',
+      { kind: 'unrecognized' }), /Invalid receipt kind/);
+  } finally { await rm(folder, { recursive: true, force: true }); }
+});
