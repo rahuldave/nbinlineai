@@ -39,7 +39,8 @@ def _write_exclusive(path: Path, data: str) -> None:
 
 
 def _validate_arm(arm: Any) -> dict:
-    if not isinstance(arm, dict) or set(arm) != {"binding", "groups"}:
+    if (not isinstance(arm, dict) or
+            set(arm) not in ({"binding", "groups"}, {"binding", "groups", "optional_terminal_group"})):
         raise ValueError("Invalid observer arm")
     binding, groups = arm["binding"], arm["groups"]
     if not isinstance(binding, dict) or set(binding) != _FIELDS:
@@ -52,7 +53,22 @@ def _validate_arm(arm: Any) -> dict:
     if (not isinstance(groups, list) or not 1 <= len(groups) <= binding["max_tool_steps"]
             or any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in groups)):
         raise ValueError("Invalid observer groups")
-    for group in groups:
+    optional = arm.get("optional_terminal_group")
+    if optional is not None:
+        if (not isinstance(optional, list) or len(optional) != 1 or
+                len(groups) + 1 > binding["max_tool_steps"]):
+            raise ValueError("Invalid optional terminal group")
+        call = optional[0]
+        if (not isinstance(call, dict) or set(call) != {"name", "argument_options"} or
+                call["name"] != "list_cells" or not isinstance(call["argument_options"], list) or
+                len(call["argument_options"]) != 1 or not isinstance(call["argument_options"][0], dict)):
+            raise ValueError("Optional terminal group must be one exact list_cells call")
+        values = call["argument_options"][0]
+        if (set(values) != {"start", "limit"} or type(values["start"]) is not int or
+                type(values["limit"]) is not int or not 0 <= values["start"] <= 10000 or
+                not 1 <= values["limit"] <= 20):
+            raise ValueError("Invalid optional list_cells bounds")
+    for group in [*groups, *([optional] if optional is not None else [])]:
         for call in group:
             if (not isinstance(call, dict) or
                     set(call) not in ({"name", "arguments"}, {"name", "argument_options"})):
@@ -104,10 +120,14 @@ def _validate_arm(arm: Any) -> dict:
     return arm
 
 
-def arm_question(directory: Path, binding: dict, groups: list[list[dict]]) -> None:
+def arm_question(directory: Path, binding: dict, groups: list[list[dict]],
+                 optional_terminal_group: list[dict] | None = None) -> None:
     """Create one private arm; the next matching prompt consumes it exactly once."""
     _private_dir(directory)
-    arm = _validate_arm({"binding": binding, "groups": groups})
+    policy = {"binding": binding, "groups": groups}
+    if optional_terminal_group is not None:
+        policy["optional_terminal_group"] = optional_terminal_group
+    arm = _validate_arm(policy)
     _write_exclusive(directory / _ARM, json.dumps(arm, ensure_ascii=True, separators=(",", ":")))
 
 
@@ -222,7 +242,9 @@ class VisualObserver:
             self._log(kind="denied", reason="binding")
             self.active = False
             raise ValueError("Observer request did not match its arm")
-        self._log(kind="admitted", groups=len(arm["groups"]))
+        optional = arm.get("optional_terminal_group")
+        required_groups = arm["groups"]
+        self._log(kind="admitted", groups=len(required_groups), optional_terminal=optional is not None)
         generator = self.original(body, *args, **kwargs)
         group = -1
         call_index = 0
@@ -235,23 +257,27 @@ class VisualObserver:
                     raise ValueError("Observer blocked events after completion")
                 kind = event.get("type")
                 if kind == "context":
-                    if pending is not None or (0 <= group < len(arm["groups"]) and
-                                               call_index != len(arm["groups"][group])):
+                    if pending is not None or (0 <= group < len(required_groups) and
+                                               call_index != len(required_groups[group])):
                         self._log(kind="blocked", reason="incomplete_group")
                         raise ValueError("Observer expected another tool call")
-                    # run_prompt sends one final model round after the last tool group.
-                    if group + 1 > len(arm["groups"]):
+                    # run_prompt sends a final model round after the final tool group.
+                    if (group + 1 > len(required_groups) + (optional is not None) or
+                            group == len(required_groups) and
+                            (optional is None or call_index != 1)):
                         self._log(kind="blocked", reason="extra_group")
                         raise ValueError("Observer blocked another model round")
                     group += 1
                     call_index = 0
                 elif kind == "tool_start":
                     name = event.get("name")
-                    if (pending is not None or group < 0 or group >= len(arm["groups"]) or
-                            call_index >= len(arm["groups"][group])):
+                    active_group = (required_groups[group] if 0 <= group < len(required_groups)
+                                    else optional if group == len(required_groups) else None)
+                    if (pending is not None or active_group is None or
+                            call_index >= len(active_group)):
                         self._log(kind="blocked", reason="unexpected_call")
                         raise ValueError("Observer blocked an unexpected tool")
-                    policy = arm["groups"][group][call_index]
+                    policy = active_group[call_index]
                     if name != policy["name"]:
                         self._log(kind="blocked", reason="tool_name")
                         raise ValueError("Observer blocked a tool outside the question policy")
@@ -274,12 +300,16 @@ class VisualObserver:
                     pending = None
                     call_index += 1
                 elif kind == "done":
-                    if (pending is not None or group != len(arm["groups"]) or
-                            event.get("tool_steps") != len(arm["groups"])):
+                    required_count = len(required_groups)
+                    without_optional = group == required_count and call_index == 0
+                    with_optional = (optional is not None and group == required_count + 1 and
+                                     call_index == 0)
+                    if (pending is not None or not (without_optional or with_optional) or
+                            event.get("tool_steps") != required_count + with_optional):
                         self._log(kind="blocked", reason="count")
                         raise ValueError("Observer expected the exact tool count")
                     terminal = True
-                    self._log(kind="terminal", state="done", groups=len(arm["groups"]))
+                    self._log(kind="terminal", state="done", groups=event["tool_steps"])
                 elif kind == "error":
                     terminal = True
                     self._log(kind="terminal", state="error")

@@ -23,6 +23,9 @@ REPLACE_ARGS = {"cell_id": "cell-1", "old_str": "old private source", "new_str":
 REPLACE = {"name": "cell_str_replace", "argument_options": [
     REPLACE_ARGS, {**REPLACE_ARGS, "expected_matches": 1},
 ]}
+MOVE_ARGS = {"cell_id": "cell-1", "after_cell_id": "cell-2"}
+MOVE = {"name": "move_cell", "argument_options": [MOVE_ARGS]}
+TERMINAL_READ = [{"name": "list_cells", "argument_options": [{"start": 55, "limit": 20}]}]
 
 
 def _private(tmp_path):
@@ -362,4 +365,155 @@ def test_invalid_exact_alternatives_cannot_arm(tmp_path, policy):
     directory = _private(tmp_path)
     with pytest.raises(ValueError):
         arm_question(directory, BINDING, [[policy]])
+    assert not (directory / "arm.json").exists()
+
+
+@pytest.mark.parametrize("with_read", [False, True])
+def test_optional_terminal_read_accepts_one_or_two_groups(tmp_path, with_read):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    source = [
+        {"type": "context"},
+        {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS},
+        {"type": "tool_result", "id": "move", "name": "move_cell", "text": SECRET},
+        {"type": "context"},
+    ]
+    if with_read:
+        source.extend([
+            {"type": "tool_start", "id": "read", "name": "list_cells",
+             "arguments": {"start": 55, "limit": 20}},
+            {"type": "tool_result", "id": "read", "name": "list_cells", "text": SECRET},
+            {"type": "context"},
+        ])
+    source.append({"type": "done", "tool_steps": 2 if with_read else 1})
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert SECRET not in log and "cell-1" not in log and "cell-2" not in log
+    terminal = [json.loads(line) for line in log.splitlines() if '"kind":"terminal"' in line]
+    assert terminal == [{"kind": "terminal", "state": "done", "groups": 2 if with_read else 1}]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("move_cell", {**MOVE_ARGS, "after_cell_id": "other"}, "argument_values"),
+    ("move_cell", {**MOVE_ARGS, "unexpected": 1}, "argument_keys"),
+    ("move_cell", {**MOVE_ARGS, "start": 55, "limit": 20}, "argument_keys"),
+    ("list_cells", {"start": 55, "limit": 20}, "tool_name"),
+])
+def test_optional_terminal_policy_still_blocks_wrong_first_mutation(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "bad", "name": name, "arguments": arguments}
+        effects.append("effect")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == []
+    log = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("move_cell", MOVE_ARGS, "tool_name"),
+    ("list_cells", {"start": 54, "limit": 20}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": 21}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": True}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": 20, "extra": SECRET}, "argument_keys"),
+])
+def test_optional_terminal_read_blocks_wrong_second_call_before_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("move")
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "bad", "name": name, "arguments": arguments}
+        effects.append("second")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == ["move"]
+    log_text = (directory / "events.jsonl").read_text()
+    assert SECRET not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+def test_optional_terminal_read_rejects_duplicate_and_extra_round(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def duplicate(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("move")
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "read", "name": "list_cells",
+               "arguments": {"start": 55, "limit": 20}}
+        effects.append("read")
+        yield {"type": "tool_result", "id": "read", "name": "list_cells", "text": "listed"}
+        yield {"type": "tool_start", "id": "again", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("again")
+
+    observer = VisualObserver(directory, duplicate)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == ["move", "read"]
+
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+
+    async def extra_round(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "context"}
+
+    observer = VisualObserver(directory, extra_round)
+    try:
+        with pytest.raises(ValueError, match="another model round"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+
+
+@pytest.mark.parametrize("optional,binding", [
+    ([MOVE], BINDING),
+    (TERMINAL_READ * 2, BINDING),
+    ([{"name": "list_cells", "argument_options": [{"start": 55, "limit": 21}]}], BINDING),
+    (TERMINAL_READ, {**BINDING, "max_tool_steps": 1}),
+])
+def test_optional_terminal_group_must_be_single_bounded_read(tmp_path, optional, binding):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, [[MOVE]], optional_terminal_group=optional)
     assert not (directory / "arm.json").exists()
