@@ -4,7 +4,7 @@ title: Architecture
 
 # Architecture
 
-This describes version 0.1.15's API and ChatGPT subscription connections, including context selection, prompt focus, and the expanded tool interface. For everyday use and screenshots, see the [user guide](user-guide.md).
+This describes the API and ChatGPT connections, context selection, prompt focus, notebook tools, and browser-media operations. For everyday use and screenshots, see the [user guide](user-guide.md).
 
 ## Notebook host and connection routes
 
@@ -101,7 +101,7 @@ Selection uses the shared backend path for both preview and execution. Default p
 
 The current question and every linked answer are excluded by ID everywhere. Earlier completed pairs become history only when both cells are selected and above; deterministic duplicate handling chooses one completed answer. Independently selected AI cells and AI material below or straddling the question are explicitly labeled source with role, link and position. Running, failed, cancelled and orphaned answers remain ineligible. Default retains its legacy pair-only eligibility.
 
-Source appears with system instructions; complete earlier pairs become user/assistant messages. Each representation preserves notebook order. Code outputs, raw-cell content, image pixels and automatic file contents are absent, and linked pages are not fetched. [Troubleshooting and limits](manual/troubleshooting.md) lists limits.
+Source appears with system instructions; complete earlier pairs become user/assistant messages. Each representation preserves notebook order. Code outputs, raw-cell content, image pixels and automatic file contents are absent from ordinary context selection, and linked pages are not fetched. A user-confirmed image attachment is a separate input to its chosen question. [Troubleshooting and limits](manual/troubleshooting.md) lists limits.
 
 Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads the running kernel namespace, not a value inferred from source. Only current-question `$` references retrieve bounded representations. Enabled earlier ordinary Markdown/AI-question tool declarations remain in scope independently of selected prose; selected below-question declarations never register tools.
 
@@ -109,7 +109,7 @@ Live state is separate. A variable can come from a cell executed below the promp
 
 Shared instructions distinguish the current task from the selected notebook background. A request to explain the nearest code cell should use earlier definitions to explain that cell, rather than summarize all available source. The instructions apply alongside Compact, Full, Learning, and any user-edited style wording; no separate intent-classification request is made.
 
-`nbinlineai/prompt_focus.py` derives a bounded set of landmarks from the frozen, complete notebook snapshot: the current question's position, immediate physical predecessor, nearest earlier code cell, nearest earlier ordinary Markdown cell, and nearest ordinary Markdown heading cell. Positions are one-based. Section detection recognizes `#` through `######` headings outside backtick/tilde fences, excluding four-space-indented code. Setext underline headings are not section anchors in this version. A section extends from its heading cell through the cell immediately before the question.
+`nbinlineai/prompt_focus.py` derives a bounded set of landmarks from the frozen, complete notebook snapshot: the current question's position, immediate physical predecessor, nearest earlier code cell, nearest earlier ordinary Markdown cell, and nearest ordinary Markdown heading cell. Positions are one-based. Section detection recognizes `#` through `######` headings outside backtick/tilde fences, excluding four-space-indented code. Setext underline headings are not section anchors. A section extends from its heading cell through the cell immediately before the question.
 
 After each budget pass, each landmark reports full, partial, omitted-by-budget, excluded/ineligible, or absent source. IDs, positions and availability are sent without copying excluded source or heading text. For a landmark retained as part of earlier chat history, the payload identifies the conversation pair and question/answer role; original history text is preserved. Context choices stay authoritative: naming the nearest code cell does not silently reinclude unchecked code.
 
@@ -186,15 +186,15 @@ FastLLM accepts this flat OpenAI Responses-style description and adapts it for A
 
 When a tool call returns, the server checks the function name against the current request's allowlist, parses bounded JSON arguments, and verifies that the notebook still uses the same kernel. Inside the kernel, `inspect.signature(...).bind(**arguments)` checks argument names and required parameters before invoking the function. Type annotations describe the schema; Python annotations are not a runtime type-enforcement system.
 
-The tool result combines captured standard output with the return value's representation, up to 4,000 characters. Ordinary synchronous functions with named parameters are supported. Positional-only arguments, `*args`, `**kwargs`, and async functions are not supported in this version. Functions run with the notebook kernel's permissions and can change state or perform whatever actions their implementations allow.
+The tool result combines captured standard output with the return value's representation, up to 4,000 characters. Ordinary synchronous functions with named parameters are supported. Positional-only arguments, `*args`, `**kwargs`, and async functions are not supported. Functions run with the notebook kernel's permissions and can change state or perform whatever actions their implementations allow.
 
 ### Bundled tools
 
-Version 0.1.15 exposes **51** explicitly curated functions through `nbinlineai.tools`. The original eleven, eight fastcore file/documentation tools, and new source, inspection, live-cell, web-section, and execution tools share the same named-argument tool loop. `TOOL_FUNCTIONS` is the only built-in registry; importing the package does not offer the functions to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` is a plain listing with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [tools reference](tools.md) for all exact signatures and bounds.
+`nbinlineai.tools` exports the curated notebook and browser-media functions. `TOOL_FUNCTIONS` is the built-in registry; importing a callable does not offer it to a model. `TOOL_GROUPS` groups names for setup helpers. `tool_catalog(group="")` lists names with no `&` declarations. `tools_markdown(names=None, custom=None, group="starter")` and `insert_tools(names=None, custom=None, group="starter")` select the 19-tool starter group by default; explicit names override the group. The 20 combined tool/variable reference limit still applies. See the [Tool catalog](tools.md) for exact signatures, bounds, and paired demonstrations.
 
 Kernel-side tools inspect live Python state or saved files, search source, parse documents, make checked text edits, or start bounded subprocesses. Saved-notebook tools require a `.ipynb` file on disk and cannot see unsaved frontend edits. Relative file paths use the **selected kernel's cwd**, which may differ from both the notebook folder and the Jupyter server cwd. Paths are locations, not a sandbox. `search_files` and `search_notebooks` use bounded Python source matching with nested `.gitignore`, `.ignore`, and `.rgignore` rules; regex matching has a hard timeout. `document_outline` reads Markdown headings or Python definitions and issues SHA-256-bound section addresses, which become stale after any file change. Other language outlines are deferred. `source_doc` parses `.py` source without import; `show_doc` with an explicit module imports and runs module initialization. `trace_function` invokes a live function; `run_python` and `run_shell` start separate processes, run with kernel-user permissions, and have 1–20 second timeouts. Their effects are real and are not undone on cancellation. The source and document parsers apply result, file-size, traversal, and time bounds.
 
-Live notebook operations use the original browser document model. In addition to listing, reading, and insertion, 0.1.11 can find and edit ordinary cells by stable ID. Source edits and deletion require an exact expected source or counted match; code edits clear stale outputs. Copy and split create new IDs; existing unrelated metadata is preserved. These actions do not execute cells, save files, or edit paired AI question/answer cells. See [the live interface below](#frontend-requestreply-interface).
+Live notebook operations use the original browser document model. They can list, read, insert, find, and edit ordinary cells by stable ID. Source edits and deletion require an exact expected source or counted match; code edits clear stale outputs. Copy and split create new IDs; existing unrelated metadata is preserved. These actions do not execute cells, save files, or edit paired AI question/answer cells. See [the live interface below](#frontend-requestreply-interface).
 
 ### Creating a tool declaration from Python
 
@@ -222,6 +222,14 @@ SSE callbacks run sequentially and await reply delivery. The browser deduplicate
 
 The interface does not provide general browser execution, arbitrary Jupyter command dispatch, cross-notebook edits, or a Python-to-browser blocking RPC. Context selection and preview use the snapshot builder independently of these mutation transports.
 
+### Browser-media operations and attachments
+
+Browser-media work has its own authenticated operation registry and binary channel. A direct Python call returns a mutable `BrowserReceipt` promptly through an execution-bound comm. The browser registers the operation with the original document, session, kernel and model; the server keeps a short-lived owner lease and enforces bounds, status transitions, cancellation, and expiry. The original receipt receives a typed Pillow image, media clip, markup, or list after binary transfer. A later Python cell reads that same receipt; waiting inside the initiating kernel turn would block delivery.
+
+When the model calls a browser-media tool, the server uses the authenticated action route and returns a bounded initial descriptor. The operation can outlive that model turn. A later `operation_status` call reads one snapshot; it does not fetch media bytes or wait for completion. Browser and server checks reject a changed notebook binding instead of redirecting work to the focused tab. Managed bytes remain temporary until release or expiry. Safe `save_media` writes a new file under the authenticated Jupyter server root only on explicit request; memory-only work can remain available when that filesystem route is unsupported. See [Browser media operations](browser-media-foundation.md).
+
+Capturing, previewing, or saving an image does not put its pixels into a model question. `attach_media` binds an exact still image to one chosen question after visible confirmation. Confirmation neither executes the question nor starts a provider request. The subsequent run serializes the approved image as native image input and budgets it with that question. Removing the attachment affects later runs; it cannot retract an earlier submission. See [Image attachments](browser-media-attachment.md).
+
 ## Settings and credentials
 
 | Data | Stored where |
@@ -236,11 +244,11 @@ The interface does not provide general browser execution, arbitrary Jupyter comm
 
 Effective notebook defaults are captured on first AI use, once a provider is configured. Merely opening an ordinary notebook does not create AI settings. Configure AI's **Defaults** tab holds **Default connection for new notebooks** and the user response style; **Connections & models** holds provider setup, keys, and ChatGPT model and effort. The setup picker only changes the setup view. An existing notebook's **AI defaults** row or ChatGPT's **Use for this notebook** changes that notebook. Later cells inherit notebook defaults; legacy explicit cell choices remain overrides until reset. A cell's **Notebook default** provider option clears its provider, model, and effort overrides, while **Use notebook defaults** also clears its style override.
 
-For Keep answer, a missing cell value means inheritance; an explicit `true` or `false` remains an override even if the notebook default changes. Existing explicit choices from 0.1.4 are preserved. Resetting model/style overrides does not reset the Keep answer choice.
+For Keep answer, a missing cell value means inheritance; an explicit `true` or `false` remains an override even if the notebook default changes. Resetting model/style overrides does not reset the Keep answer choice.
 
 ## Native notebook execution
 
-Version 0.1.5 supplies a JupyterLab `INotebookCellExecutor` provider. It recognizes AI prompt Markdown cells and delegates ordinary cells to JupyterLab's exported executor. This connects AI prompts to native Run All, range execution, and keyboard execution without replacing command IDs or maintaining a separate Shift+Enter interception path.
+A JupyterLab `INotebookCellExecutor` provider recognizes AI prompt Markdown cells and delegates ordinary cells to JupyterLab's exported executor. This connects AI prompts to native Run All, range execution, and keyboard execution without replacing command IDs or maintaining a separate Shift+Enter interception path.
 
 JupyterLab schedules multiple cell-executor calls concurrently. nbinlineai queues them per notebook so that code, AI responses, and function calls finish in order. A failed or cancelled cell stops later queued work in the same batch; a later batch can run after the previous one drains. Different notebooks have independent queues.
 
