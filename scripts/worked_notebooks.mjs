@@ -5,7 +5,7 @@ import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
-  addTraceAppendix, assertSafeNotebook } from './worked_notebooks_support.mjs';
+  addTraceAppendix, assertSafeNotebook, liveCellIndex } from './worked_notebooks_support.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -135,6 +135,13 @@ async function runNotebook(page, request, context, entry, choice) {
     headers: { 'X-XSRFToken': xsrf },
     data: { type: 'notebook', format: 'json', content: source } });
   if (!uploaded.ok()) throw new Error(`${name} could not be copied into the isolated project`);
+  // Start the owned kernel before opening Lab. Some valid source notebooks have
+  // no kernelspec; waiting for a UI kernel chooser would otherwise deadlock.
+  const session = await request.post('/api/sessions', {
+    headers: { 'X-XSRFToken': xsrf },
+    data: { name, path: name, type: 'notebook', kernel: { name: 'python3' } },
+  });
+  if (!session.ok()) throw new Error(`${name} could not start its isolated kernel`);
   await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
   const panel = page.locator('.jp-NotebookPanel:visible');
   await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
@@ -145,28 +152,47 @@ async function runNotebook(page, request, context, entry, choice) {
     kernelId = (await response.json()).find(session => session.path === name && session.kernel?.id)?.kernel?.id;
     return !!kernelId;
   }, 60_000, `${name} kernel`);
-  const select = page.getByRole('button', { name: 'Select', exact: true });
-  if (await select.isVisible().catch(() => false)) await select.click();
-  const no = page.getByRole('button', { name: 'No', exact: true });
-  if (await no.isVisible().catch(() => false)) await no.click();
+  const kernelDialog = page.getByRole('dialog').filter({ hasText: 'Select Kernel' });
+  if (await kernelDialog.isVisible().catch(() => false)) {
+    throw new Error(`${name} unexpectedly requested kernel selection after isolated startup`);
+  }
   const traces = [];
   const receiptsByCell = new Map();
   const directByCell = new Map();
   const privateHardwareValues = new Set();
-  const code = id => {
-    const index = codeIds.indexOf(id);
-    if (index < 0) throw new Error(`${name} has no code cell ${id}`);
-    return panel.locator('.jp-CodeCell').nth(index);
-  };
-  const question = id => {
-    const index = questionIds.indexOf(id);
-    if (index < 0) throw new Error(`${name} has no AI question ${id}`);
-    return panel.locator('.nbinlineai-prompt-cell').nth(index);
+  const liveCell = async (id, kind) => {
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(id) ||
+        !(kind === 'code' ? codeIds : questionIds).includes(id)) {
+      throw new Error(`${name} has no safe ${kind} cell ${id}`);
+    }
+    // JupyterLab does not expose stable cell IDs as DOM attributes. Save the
+    // owned disposable document and map its current model order to widgets;
+    // AI insertions can shift every later code and question widget.
+    const savedResponse = page.waitForResponse(item =>
+      item.request().method() === 'PUT' &&
+      new URL(item.url()).pathname.endsWith(`/api/contents/${encodeURIComponent(name)}`),
+    { timeout: 5000 });
+    void savedResponse.catch(() => {});
+    await page.keyboard.press('Meta+S');
+    await savedResponse.catch(() => null);
+    const response = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+    if (!response.ok()) throw new Error(`${name} current cell model could not be read`);
+    const cells = (await response.json()).content.cells;
+    const index = liveCellIndex(cells, id, kind);
+    const widgets = panel.locator('.jp-Notebook .jp-Cell');
+    const count = await widgets.count();
+    if (count !== cells.length) throw new Error(`${name} live cell widgets disagree with saved model order`);
+    const target = widgets.nth(index);
+    const className = kind === 'code' ? 'jp-CodeCell' : 'nbinlineai-prompt-cell';
+    if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
+      throw new Error(`${name} current cell ${id} has wrong widget type`);
+    }
+    return target;
   };
   for (const step of entry.steps ?? []) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
     if (step.action === 'code' || step.action === 'inspect') {
-      const target = code(step.cellId);
+      const target = await liveCell(step.cellId, 'code');
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
       let probeAttempted = false;
       let executionError = null;
@@ -222,10 +248,17 @@ async function runNotebook(page, request, context, entry, choice) {
         }
       }
     } else if (step.action === 'ai') {
-      const target = question(step.cellId);
+      const target = await liveCell(step.cellId, 'question');
+      const runButton = target.locator('[data-nbinlineai-run]');
+      if (!(await runButton.isEnabled())) {
+        throw new Error(`${name} ${step.cellId} is not runnable in the isolated notebook`);
+      }
       const response = page.waitForResponse(item => item.url().endsWith('/nbinlineai/prompt') &&
         item.request().method() === 'POST', { timeout: Math.max(timeout, 180_000) });
-      await target.locator('[data-nbinlineai-run]').click();
+      // Keep a rejection handler attached if a UI click fails before the
+      // response is awaited, so a later timeout cannot crash the whole run.
+      void response.catch(() => {});
+      await runButton.click();
       const completed = await response;
       const requestBody = completed.request().postDataJSON();
       if (requestBody.backend !== 'openai_codex_subscription' || requestBody.prompt_cell_id !== step.cellId) {

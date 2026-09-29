@@ -1,4 +1,17 @@
 // Pure helpers for public-safe worked notebook evidence.
+export function liveCellIndex(cells, id, kind) {
+  if (!Array.isArray(cells) || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
+    throw new Error('Current cell model is invalid');
+  }
+  const matches = cells.flatMap((cell, index) => cell?.id === id ? [index] : []);
+  if (matches.length !== 1) throw new Error(`Current cell ${id} is missing or duplicated`);
+  const cell = cells[matches[0]];
+  if (kind === 'code' ? cell.cell_type !== 'code' :
+      kind === 'question' ? cell.cell_type !== 'markdown' || cell.metadata?.nbinlineai?.isPromptCell !== true : true) {
+    throw new Error(`Current cell ${id} has the wrong type`);
+  }
+  return matches[0];
+}
 export function redact(value) {
   let text = typeof value === 'string' ? value : JSON.stringify(value);
   text = text.replace(/(?:Bearer\s+|token[=:]\s*)[^\s"']+/ig, '[redacted]')

@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
-  sensitiveHardwareValues, toolResultState } from '../scripts/worked_notebooks_support.mjs';
+  sensitiveHardwareValues, toolResultState, liveCellIndex } from '../scripts/worked_notebooks_support.mjs';
+
+test('current live cell IDs select the changed model order, not source ordinals', () => {
+  const cells = [
+    { id: 'intro', cell_type: 'markdown', metadata: {} },
+    { id: 'inserted', cell_type: 'code', metadata: {} },
+    { id: 'question', cell_type: 'markdown', metadata: { nbinlineai: { isPromptCell: true } } },
+    { id: 'setup', cell_type: 'code', metadata: {} },
+  ];
+  assert.equal(liveCellIndex(cells, 'setup', 'code'), 3);
+  assert.equal(liveCellIndex(cells, 'question', 'question'), 2);
+  assert.throws(() => liveCellIndex([...cells, cells[3]], 'setup', 'code'), /duplicated/);
+  assert.throws(() => liveCellIndex(cells, 'intro', 'question'), /wrong type/);
+  assert.throws(() => liveCellIndex(cells, '"bad-selector', 'code'), /invalid/);
+});
 
 test('tool events distinguish action correlation, error, and accepted receipt', () => {
   const calls = observedTrace('question', [
