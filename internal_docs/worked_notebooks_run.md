@@ -95,11 +95,11 @@ notebook.
 
 ## Screen-share direct status
 
-On 2026-09-29, repeated bounded direct attempts completed `setup_share` and
+On 2026-09-29, earlier bounded direct attempts completed `setup_share` and
 reached `start_share`'s `waiting_for_user` state, then used the notebook's
 visible Share control. A separate setup-only pass saved the genuine completed
 `setup_share` call and later inspection (`share_controls: true`,
-`screen_available: true`). No direct `start_share` attempt completed.
+`screen_available: true`). Those earlier `start_share` attempts did not complete.
 
 The initial computer-use route attached to an old, unrelated Chrome for
 Testing process showing **New Tab**. An intervening attempt confirmed this
@@ -117,10 +117,19 @@ in the native chooser, and each `start_share` receipt failed its bounded
 completion check. All owned browser/server processes were stopped and port
 8897 was free afterward.
 
-`capture_screen`, `capture_tool`, and `stop_share` remain unrun in these direct
-attempts. The separate actual owned-tab video used by transform examples is
-independently decoded and public-safe; it does not count as success for those
-capture-tool calls.
+One later isolated direct attempt reached the same chooser with a single
+disposable JupyterLab tab. Full-display observations before and after
+`start_share` showed no unexpected system permission alert during that session.
+The user selected the sole tab in the browser chooser; the agent made no
+chooser selection. The original `start_share` operation then completed with
+`display_surface: browser`, video enabled, and audio disabled. In the same
+notebook/kernel session, later inspections confirmed completed `capture_screen`
+and `capture_tool` operations, each displaying the actual 1280×670 image of
+the disposable target notebook. `stop_share` and its later inspection completed
+with `stopped: true`. Only these genuine direct-call outputs and receipt
+inspections were added to the public capture notebook. Its AI examples remain
+unrun. The separate actual owned-tab video used by transform examples remains
+independent evidence.
 
 ## Native Run All observation
 
