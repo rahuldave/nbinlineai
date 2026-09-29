@@ -4,37 +4,36 @@ title: Attach an image to an AI question
 
 # Attach an image to an AI question
 
-`attach_media(media, question_cell_id, detail="auto")` proposes one exact still image for one identified AI question. It accepts an owned memory result with a `media_id` or a saved-file reference with its server-root-relative `path` and SHA-256. A visible preview asks you to confirm the image and names the target question. Clicking **Attach image** records the image reference and hash on that question; it does not run the question or call a model. If that question already has an image, the confirmation explicitly says it will replace it. Cancel leaves the earlier attachment in place.
+Use `attach_media(media, question_cell_id, detail="auto")` to propose one exact image for one AI question. You see the image and the target question ID before you click **Attach image**. Confirmation adds a reference to that question; it does not run the question or send pixels to a model. You decide when to run it.
 
-## Attach, inspect, then ask
+The [worked attachment notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) has two ways to make the request: a direct Python call and an AI question that calls the tool. It generates a disposable blue PNG locally, computes the file's actual SHA-256, and names its target AI question `attachment-question`. Its saved AI trace shows a completed confirmation and hash; the target image question is left for you to run. Use a disposable notebook with a live kernel and a configured image-capable connection.
 
-First prepare an actual image result or saved file reference and identify the target AI question's stable cell ID. The [attachment walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-call) prepares a small PNG with its real hash as `source_ref` and uses its question ID. After running that setup, call the tool in its own code cell:
+## Call it from Python
+
+Run the notebook's [image setup cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-setup) first. It creates `source_ref = {"path": ..., "sha256": ...}` from the bytes it just wrote. Then run its [direct call](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-call):
 
 ```python
 from nbinlineai.tools import attach_media
 attached = attach_media(source_ref, question_cell_id="attachment-question")
+attached
 ```
 
-Review the visible preview and click **Attach image** for the intended question. In a later code cell, check the same receipt before running the question:
+The call returns a `BrowserReceipt` promptly, usually with `waiting_for_user`. Check the preview and question ID, then click **Attach image**. Inspect the *same* receipt in a [later cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-inspect), rerunning that cell after confirmation if needed:
 
 ```python
-print(attached.status, attached.error)
-assert attached.status == "completed", "Confirm the image, then rerun this cell."
-print(attached.result)
+attached.status, attached.operation_id, attached.result, attached.error
 ```
 
-The question now shows **Image attached**. Run it only when you want to send that image to the selected image-capable model. The [AI attachment question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-question) demonstrates a separate model-initiated attach request; its first reply is a snapshot, so it uses a later status check after confirmation.
+Successful `attached.result` includes `confirmed`, `question_cell_id`, `image_sha256`, and `detail`. Expect `completed` only after confirmation; cancellation or failure reports a different status and leaves any previous attachment in place. If you attach another image to the same question, the dialog says it will replace the current one. A notebook without a known target ID can discover live cell IDs with the AI tool `list_cells`; a displayed cell number is not a stable ID.
 
-## Confirmation and privacy details
+## Ask the AI to call it
 
-The Python call returns a `BrowserReceipt` promptly. In a later cell, inspect `attached.status`, `attached.result`, and `attached.error`. A waiting receipt becomes `completed` after the visible confirmation, or `cancelled` or `failed` if you decline or the image is unavailable. To discover the target question's actual cell ID, offer `list_cells` to an AI question in the open notebook; it is a live-cell model tool, not a direct Python call. Do not use a displayed index in place of an ID. The [disposable notebook example](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) creates a tiny PNG and its actual hash, demonstrates the labeled call and later receipt inspection, and removes the temporary file after the question.
+The notebook's [AI tool question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-question) declares `` &`attach_media` `` and passes the live Python value as `` $`source_ref` `` to target `attachment-question`. The first answer reports the operation ID and `waiting_for_user`; it cannot claim that you confirmed the image. Click **Attach image**, then use the [follow-up AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-ready), which calls `operation_status` on that ID. The saved trace shows `completed` with the actual question ID and SHA-256. These AI questions demonstrate the tool and receipt; they do not run the target image question. If you also run the direct Python call, it asks for a separate confirmation of that same image and replaces the earlier attachment.
 
-After confirmation, that question shows **Image attached** and **Remove image**. Removing clears this question's attachment; it does not delete the saved file or original managed media. You can confirm a replacement image later. An unfinished or declined confirmation does not occupy a lasting attachment slot. Temporary attachments can expire when their media, browser tab, or kernel ends. At most four can be outstanding for one question and eight for the current browser session.
+## Run, remove, or keep the image
 
-Only the confirmed question sends the image when you run it; an earlier question's attachment does not carry over. Context preview checks the selected model and file without attaching or running anything. A changed or missing saved file fails the later question rather than sending different pixels. An in-memory image expires with its media, tab, or kernel, so save it first if the question must work after reopening. The notebook keeps the exact saved path, hash, question ID, and detail for that confirmation, but neither image pixels nor browser credentials.
+After confirmation, the [target question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-question) shows **Image attached** and **Remove image**. You can preview its context to check the selected model and attachment without sending it. The pixels reach the selected provider only when you run that *identified* AI question. An attachment on an earlier question is not inherited by later questions. The model receives the image as a native image input, rather than as image bytes in tool text.
 
-### Formats and model choices
+**Remove image** clears the question's reference; it does not delete the original media or saved file. The notebook's [cleanup cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-cleanup) deletes its disposable PNG after you finish. Deleting it earlier makes a later preview or run fail. A saved-file reference is a server-root-relative `path` plus the SHA-256 of those exact bytes; the file is read and hash-checked again when the question runs. Changed or missing bytes fail instead of sending a different image. An in-memory reference uses an owned `media_id` and can expire when the media, browser tab, or kernel ends; save it first if you need to reopen the notebook. The notebook stores the question ID, hash, detail, and saved path or temporary grant, without storing image pixels or browser credentials.
 
-PNG, JPEG, WebP, and single-frame GIF are supported, within the existing 4,096-pixel side and 16-megapixel still-image limits. SVG, audio, animated GIF and full video are refused for model input. Capturing or previewing media alone never sends it to a model. The offered OpenAI API and Anthropic API models use genuine native image content. OpenAI API accepts `auto`, `low`, or `high` detail; Anthropic accepts `auto` only because its native image part has no equivalent generic detail setting. The ChatGPT subscription connection uses a private native local-image item and accepts all three detail choices. An unknown or text-only model fails with `provider_unsupported`; select a supported model explicitly. If the exact image plus question and tool schemas exceed the submission budget, create and confirm an explicit smaller derivative. The extension never resizes an accepted image behind your back.
-
-The ordinary preparation and confirmation steps do not send a model request. Running the attached AI question uses your selected connection and its normal usage terms. Review the image and question before confirming; remove the attachment if you change your mind.
+PNG, JPEG, WebP, and single-frame GIF are accepted up to 4,096 pixels on either side and 16 megapixels. SVG, audio, animated GIF, and full video are not image inputs. The offered OpenAI API, Anthropic API, and ChatGPT subscription image-capable models have native image transport. Use `detail="auto"` for Anthropic; `low` and `high` require an explicit OpenAI API or ChatGPT question choice. An unknown or text-only model reports `provider_unsupported`. If the exact image makes the submission too large, prepare and confirm a smaller image yourself; attachment does not silently resize it.
