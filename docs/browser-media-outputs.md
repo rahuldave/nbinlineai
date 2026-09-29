@@ -2,69 +2,88 @@
 title: Live notebook outputs and canvas
 ---
 
-# Inspect and capture notebook outputs
+# Work with outputs in the open notebook
 
-These browser tools inspect the **open notebook that started the request**. They read live JupyterLab cell and output models, so unsaved and offscreen outputs can be listed without running a cell or opening a renderer. Direct calls in a code cell return a `BrowserReceipt` immediately. Run a later cell to inspect its `status`, `result`, `media`, or `error`; image exports arrive as Pillow images, and native SVG exports arrive as markup text. AI tool calls receive bounded JSON descriptors, never image bytes in the answer text.
+The output tools inspect **what the current notebook has already produced**. They read the live JupyterLab model, including unsaved and offscreen outputs, without running cells. Start with the [worked output notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html): it creates a red PNG, a line of text, an SVG, structured data, and a small drawn canvas. Run the fixture cells before trying the calls below. Each direct Python call has a later inspection cell with a saved result. The completed AI sections show the question, answer, and observed tool call; running an AI question uses your selected connection and the `&` tool declaration in that question.
 
-Import the functions from `nbinlineai.tools`. Offer only the functions needed by a particular AI question using ordinary Markdown `&` references; importing them alone does not authorize a model call. The [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) pairs direct code-cell requests with later inspection cells and also includes AI questions. Direct calls do not need an AI connection; AI questions use the selected connection. See the [Tool catalog](tools.md) for the complete list and the [examples guide](examples.md) for declaration rules.
+## Find and read an existing output
 
-## Export an image that is already in the notebook
-
-Display a raster image first. In the [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-raster), that code cell has ID `output-raster`. List its existing outputs without executing it again:
+The notebook's [`output-text` cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-text) prints `Existing output text: red square and blue vector`. To discover that existing result, run the [listing call](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-list-call) and inspect the completed receipt in the next cell:
 
 ```python
-from nbinlineai.tools import list_outputs, export_output
-listing = list_outputs("output-raster")
-```
+from nbinlineai.tools import list_outputs, read_output
 
-When `listing` completes, inspect its references in a later cell and request the PNG output using the returned ID and revision:
-
-```python
+listing = list_outputs("output-text")
+# In a later cell, after its Media row completes:
 print(listing.status, listing.error)
-assert listing.status == "completed", "Wait for the listing, then rerun this cell."
-print(listing.result["outputs"])
-image_ref = listing.result["outputs"][0]  # The walkthrough's first output is the PNG.
-exported = export_output(image_ref["cell_id"], image_ref["output_id"], image_ref["revision"])
+text_ref = listing.result["outputs"][0]
 ```
 
-After `exported` completes, display its Pillow image in another cell. The [AI listing question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-list-read) lists an existing text output; the [AI export question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-export) uses the separately discovered raster reference. An AI reply gets a descriptor, not image pixels.
+Keep the returned `cell_id`, `output_id`, and `revision` together. The [read call](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-read-call) uses that reference, and its [saved result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-read-inspect) contains the printed line:
 
 ```python
-from IPython.display import display
-print(exported.status, exported.error)
-assert exported.status == "completed", "Wait for the export, then rerun this cell."
-display(exported.result)
+text_read = read_output(
+    text_ref["cell_id"], text_ref["output_id"], text_ref["revision"],
+    max_chars=120,
+)
+# In a later cell:
+print(text_read.status, text_read.result, text_read.error)
 ```
 
-## What can be read or captured
+The [AI listing question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-list-read) asks for an operation receipt first. Its [status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-list-ready) obtains the real output reference. The [AI read question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-read) then uses that reference, and its [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-read-ready) quotes the existing text. A model can read the bounded text returned by `read_output`; it does not gain image pixels from an output listing.
 
-| Tool | Existing state read or result |
-| --- | --- |
-| `read_notebook_view()` | Active/selected cell IDs and visible materialized range. |
-| `read_selection(max_chars=2000)` | Selected text only from the focused editor in this notebook. |
-| `list_outputs(cell_id, cursor="", limit=10)` | Existing `OutputRef` IDs, revisions, and MIME choices. |
-| `read_output(cell_id, output_id, revision, mime="text/plain", start=0, max_chars=2000)` | Bounded existing text or structured JSON; `next_start` paginates. |
-| `export_output(cell_id, output_id, revision, save_to=None, mime="")` | Existing PNG/JPEG as Pillow image, original SVG markup, or supported text/JSON/data-resource MIME as UTF-8 bytes. |
-| `list_canvases(cell_id, output_id, revision, cursor="", limit=10)` | Canvas refs from supported materialized stock HTML output. |
-| `capture_canvas(canvas, save_to=None, max_size=1280)` | Origin-clean PNG still and Pillow image. |
-| `export_canvas(canvas, save_to="auto", max_size=1280)` | Same still, saved to a new file by default. |
-| `start_canvas(canvas, frame_rate=30)` | Video-only source for the shared recorder, 1–60 requested fps. |
-| `capture_notebook_region(cell_ids, save_to=None, max_size=1280)` | Output-only PNG composition for the supported visible renderer matrix. |
+`read_output` also supports existing Markdown, JSON, and data-resource JSON. If a result is longer than `max_chars`, continue from its `next_start`. Use that returned offset rather than guessing where a Unicode character ends. Large structured results can be refused; produce a smaller table in the notebook. The tool does not evaluate HTML or run the source cell. Listing cursors and output revisions become stale when the outputs change, so list again after rerunning or replacing a cell.
 
-### Read an existing output
+## Export a raster, SVG, or structured result
 
-`read_notebook_view()` reports the active cell, selected IDs, and the first and last materialized cells visible in the notebook viewport. `read_selection(max_chars=2000)` returns text only when the active editor in that same notebook has focus; otherwise it returns an empty selection. Neither call changes focus or notebook content.
+The [raster fixture](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-raster) and [SVG fixture](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-vector) create two different output types. The [direct export calls](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-export-call) use references discovered by `list_outputs`; the [inspection cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-export-inspect) displays the 8 × 8 PNG as a Pillow image and verifies that the SVG result equals its original markup. `export_output(..., mime="image/svg+xml")` preserves the vector markup; it does not turn a bitmap into a vector drawing.
 
-`list_outputs(cell_id, cursor="", limit=10)` lists existing output references and MIME choices, including outputs not on screen. Keep the returned `cell_id`, `output_id`, and `revision` together. `read_output(...)` returns bounded existing plain text, Markdown, JSON, or data-resource JSON with `next_start` for longer content. Offsets are JavaScript string positions; use the returned `next_start` so a Unicode character is not split between pages. It does not evaluate HTML or execute a cell. Very large structured tables are refused before serialization; produce a smaller output instead. `export_output(...)` exports an existing PNG, JPEG, SVG, plain text, Markdown, JSON, or Jupyter data-resource JSON MIME. PNG/JPEG becomes a Pillow image in Python; SVG stays original markup; text and structured MIME results are UTF-8 bytes with the actual MIME in `receipt.media`. Saving a data-resource result uses a new `.json` file. HTML and script MIME are not exported. If an output changes or is replaced, list it again, even if the new bytes happen to match. Pagination cursors expire when the output list changes.
+```python
+from nbinlineai.tools import export_output, list_outputs
 
-### Capture a canvas or visible output region
+listing = list_outputs("output-raster")
+# In a later cell, after completion:
+raster_ref = listing.result["outputs"][0]
+# Then start the export in its own cell:
+exported = export_output(
+    raster_ref["cell_id"], raster_ref["output_id"], raster_ref["revision"],
+    save_to=None,
+)
+# In a later cell, after completion:
+from IPython.display import display
+print(exported.status, exported.media, exported.error)
+if exported.status == "completed":
+    display(exported.result)  # A Pillow image in Python.
+```
 
-`list_canvases(cell_id, output_id, revision)` passively finds `<canvas>` nodes only in a materialized, stock HTML output renderer of the originating cell. A canvas in a widget, iframe, custom app, or an offscreen/unrendered cell is unavailable. A `CanvasRef` names the exact output, rendered view, and DOM node. `capture_canvas(canvas, save_to=None, max_size=1280)` returns an origin-clean PNG still as a Pillow image; `export_canvas` defaults to `save_to="auto"`. `start_canvas(canvas, frame_rate=30)` opens a video-only source for the shared recorder. It requests 1–60 frames per second and reports the track's actual rate when available; background throttling may change the delivered rate. It never adds microphone audio. Removing or rerendering that canvas ends the source, including an active recording with `source_ended`. Stop an unneeded source with `stop_source(source_id)` when the recording tools are installed. A cross-origin-tainted canvas reports an error on readback.
+The [AI export question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-export) uses the discovered PNG reference. Its [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-export-ready) reports the actual 8 × 8 dimensions, MIME type, hash, and managed media ID. Those descriptors are text; the image itself stays in managed media until you explicitly [attach it to a question](browser-media-attachment.md). Capturing or exporting alone does not send pixels to a model.
 
-`capture_notebook_region(cell_ids, save_to=None, max_size=1280)` composes only existing rendered **output surfaces** at their displayed positions. Its initial supported matrix is fully visible, materialized stock PNG/JPEG/SVG outputs and a single origin-clean canvas in an otherwise empty stock HTML output. The selected cells must have outputs and be visible; every output must be supported. Mixed HTML, text, widgets, iframes, unavailable/offscreen surfaces, and partially visible outputs cause an explicit error with the cell ID. It never starts a screen chooser, captures code/input, runs a cell, or silently omits a selected output. Existing SVG markup is rasterized only for this region image; `export_output(..., mime="image/svg+xml")` remains the vector-preserving path.
+The notebook also [exports an existing data-resource output](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#data-export-call). Its [inspection cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#data-export-inspect) checks exact UTF-8 JSON bytes and a newly saved `.json` path. PNG/JPEG export yields a Pillow image, SVG yields markup, and supported text or structured MIME exports yield UTF-8 bytes. HTML and script output cannot be exported this way.
 
-### Save or keep a capture in memory
+## Read the notebook view or selected text
 
-For captures, `save_to=None` retains managed bytes temporarily and sends the image to Python. `save_to="auto"` saves a new file in `media/` beside the initiating notebook; an explicit nonempty path names a new server-root-relative file. Existing files are not overwritten. A saved path is reported only after the server confirms the save. Managed memory expires after idle time, while already delivered Pillow objects and saved files remain usable. File saving can be unavailable on a server backend without the required safe filesystem operations. Call `capabilities = browser_capabilities()` in one cell, then inspect `capabilities.result['file_media_supported']` in a later cell **after** `capabilities.status` becomes `completed`.
+`read_notebook_view()` reports the originating notebook's active cell, selected cell IDs, and visible materialized range. The [direct call](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#view-call) and [AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-view-selection) show the same kind of snapshot. The AI [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-view-ready) describes the actual active and visible cells. It does not change selection or focus.
 
-The [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) starts with rendered notebook outputs, then discovers their actual IDs before reading or exporting them. Canvas tools require a supported, materialized canvas in the open notebook; unsupported renderers report an error.
+`read_selection(max_chars=2000)` reads text only when an editor **in that same notebook** is focused and has a selection. The notebook first shows an [empty-selection result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-inspect). Its [direct selected-line example](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-call) gives you time to select the line in the nearby code editor; the [saved inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-inspect) reports that cell ID and `SELECT_ME = "blue square"`. The [AI selection question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-selection-nonempty) is a live exercise: select the text while its request is pending and use the following status question to see what the browser actually read. An empty result means the editor selection was unavailable; it is not a reason to infer text from notebook source. This tool does not read the global clipboard or another tab.
+
+## Capture a notebook canvas
+
+The [canvas fixture](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-canvas) draws red and blue blocks in an ordinary HTML output. First call `list_outputs("output-canvas")`, then pass its output reference to [`list_canvases`](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-list-call). The [saved result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-list-inspect) found one 64 × 32 canvas with its own `canvas_id` and rendered-view revision. The [AI canvas listing](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-list-capture) and [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-list-ready) show the same discovery path.
+
+Pass the returned canvas descriptor to [`capture_canvas`](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-capture-call) for an in-memory PNG. Its [saved inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-capture-inspect) displays the image and samples a red pixel. [`export_canvas`](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-export-call) captures the same raster surface but defaults to a new saved file; pass `save_to=None` to keep it only in managed memory. The [AI capture](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-capture) and [AI export](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-export) questions have separate completed status answers with dimensions and hashes.
+
+[`start_canvas`](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-start-call) opens a **video-only source** for the shared recorder. The [direct result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#canvas-start-inspect) reports a source ID and actual frame rate; the [AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-start) has its own [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-canvas-start-ready). Pass a live source ID to `start_recording` if you want a clip, then stop it with `stop_source` when finished. A canvas source adds no microphone sound. Replacing or rerendering its output makes the descriptor stale and ends the source. Only a supported, materialized stock HTML output can expose a canvas here; widgets, iframes, unavailable renderers, and cross-origin-tainted canvases report an error.
+
+## Capture a visible output region
+
+Run the [nearby raster fixture](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#region-raster) and keep its output fully visible. The [direct region call](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#region-call) captures `['region-raster']`, and its [saved result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#region-inspect) displays the 8 × 8 output image. The [AI region question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-region) uses a second nearby fixture; its [completed status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-region-ready) reports an 8 × 8 managed image.
+
+`capture_notebook_region(cell_ids, save_to=None, max_size=1280)` composes existing **output surfaces** at their displayed positions. It captures neither code nor input cells and opens no screen-share chooser. The supported matrix is fully visible stock PNG/JPEG/SVG output and one origin-clean canvas in an otherwise empty stock HTML output. Mixed HTML or text, widgets, iframes, offscreen or partly hidden output, and unsupported surfaces produce an explicit error with the cell ID. For an existing image output that need not be on screen, `export_output` is usually simpler.
+
+## Follow the receipt and clean up
+
+Direct calls return a `BrowserReceipt` promptly. Run the call in one cell and inspect **that same receipt** in a later cell after its Media row finishes. Check `status` and `error` before using `result` or `media`. AI calls may initially return `running`; a later question using `operation_status(operation_id)` establishes the completed result. An operation can finish after the first AI answer. See [browser media receipts](browser-media-foundation.md) for state meanings, expiry, saving, and cancellation.
+
+`save_to=None` retains bounded managed media temporarily; `save_to="auto"` creates a unique file in `media/` beside the initiating notebook; an explicit path is server-root-relative. The path appears only after a successful save, and an existing file is never overwritten. The [notebook cleanup cells](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-cleanup) stop its canvas source, release managed media, and remove the disposable files it created. Releasing media does not erase an already delivered Pillow image or a saved notebook display.
+
+Run the interactive sequence one step at a time. **Run All does not wait** for browser receipts, editor selection, or a visible output region before advancing to dependent cells. Recheck a reference after rerunning an output cell, and keep a canvas or region output visible when that operation requires a rendered surface.
