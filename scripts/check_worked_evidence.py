@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,31 @@ def _calls_name(source: str, name: str) -> bool:
         and node.func.id == name
         for node in ast.walk(tree)
     )
+
+
+def _literal_insert_names(source: str) -> set[str]:
+    """Read the explicit names in this worked helper call, without executing it."""
+    tree = ast.parse(source)
+    calls = [node for node in ast.walk(tree)
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+             and node.func.id == "insert_tools"]
+    if len(calls) != 1:
+        raise ValueError("insert_tools example needs one explicit request")
+    call = calls[0]
+    names_arg = call.args[0] if call.args else next(
+        (keyword.value for keyword in call.keywords if keyword.arg == "names"), None
+    )
+    if names_arg is None:
+        raise ValueError("insert_tools example needs explicit literal names")
+    try:
+        names = ast.literal_eval(names_arg)
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError) as exc:
+        raise ValueError("insert_tools example needs explicit literal names") from exc
+    if (not isinstance(names, (list, tuple)) or not names
+            or any(not isinstance(name, str) or not name for name in names)
+            or len(set(names)) != len(names)):
+        raise ValueError("insert_tools example needs distinct literal names")
+    return set(names)
 
 
 def _offered_before(cells: list[dict[str, Any]], index: int, name: str) -> bool:
@@ -273,12 +299,17 @@ def validate_examples(
                             raise ValueError("insertion receipt has no inserted cell ID")
                         inserted_index, inserted_cell = _cell(normal_cells, inserted_id)
                         declarations = insertion.get("declarations")
+                        requested_names = _literal_insert_names(_source(normal_cell))
+                        inserted_names = set(re.findall(
+                            r"&`([A-Za-z_][A-Za-z0-9_]*)`", _source(inserted_cell)
+                        ))
                         if (not normal_index < inserted_index < inspect_index
                                 or inserted_cell.get("cell_type") != "markdown"
                                 or not isinstance(declarations, list) or not declarations
-                                or any(not isinstance(declaration, str)
-                                       or f"&`{declaration}`" not in _source(inserted_cell)
-                                       for declaration in declarations)):
+                                or any(not isinstance(declaration, str) or not declaration
+                                       for declaration in declarations)
+                                or set(declarations) != requested_names
+                                or inserted_names != requested_names):
                             raise ValueError("inserted declaration cell does not match receipt")
                     else:
                         receipts = inspect.get("metadata", {}).get("nbinlineaiWorkedReceipts", [])

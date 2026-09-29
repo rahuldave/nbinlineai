@@ -209,6 +209,7 @@ def test_insert_tools_requires_later_receipt_and_actual_declaration(tmp_path: Pa
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
     helper_index = next(i for i, cell in enumerate(notebook["cells"])
                         if cell["id"] == "insert_tools")
+    notebook["cells"][helper_index]["source"] = "receipt = insert_tools(['example_tool'])\nprint(receipt)"
     notebook["cells"].insert(helper_index + 1, _markdown("declaration", "&`example_tool`"))
     notebook["cells"].extend([
         _code("insert-inspect", "print(receipt.status, receipt.cell_id)", metadata={
@@ -226,6 +227,17 @@ def test_insert_tools_requires_later_receipt_and_actual_declaration(tmp_path: Pa
     assert _check(path) == []
 
     notebook["cells"][helper_index + 1]["source"] = "A different declaration"
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "inserted declaration cell does not match receipt" in "\n".join(_check(path))
+
+    notebook["cells"][helper_index + 1]["source"] = "&`other_tool`"
+    insertion = notebook["cells"][-1]["metadata"]["nbinlineaiWorkedInsertion"]
+    insertion["declarations"] = ["other_tool"]
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "inserted declaration cell does not match receipt" in "\n".join(_check(path))
+
+    insertion["declarations"] = ["example_tool"]
+    notebook["cells"][helper_index + 1]["source"] = "&`example_tool` and &`other_tool`"
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
     assert "inserted declaration cell does not match receipt" in "\n".join(_check(path))
 
