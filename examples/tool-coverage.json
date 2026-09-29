@@ -1225,5 +1225,20 @@
     "receipt_inspect_cell": "transform-annotate-inspect",
     "receipt_variable": "annotated",
     "expected_behavior": "Paint an opaque redaction on a new PNG without changing the source."
+  },
+  "attach_media": {
+    "notebook": "browser-media-attachment.ipynb",
+    "section": "attach_media — confirm the image for this question",
+    "cell_id": "attachment-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook, bound Python kernel, visible user confirmation, and a supported still-image reference. Confirmation does not run a model. Source-only; absent from PyPI 0.1.15. Paid providers, real camera hardware, mobile browsers, and branded browser devices were not exercised.",
+    "verification": {
+      "unit": "tests/test_browser_attachment_tools.py",
+      "browser": "tests/e2e/browser-media-attachment.spec.ts"
+    },
+    "checkpoint_evidence": "The exact public attachment notebook completed in isolated Chromium JupyterLab/kernel E2E: visible image confirmation, later completed receipt inspection, and removal passed with a disposable PNG. Deterministic provider transport fixtures covered native image serialization separately; no paid or live provider call was made.",
+    "receipt_inspect_cell": "attachment-inspect",
+    "receipt_variable": "attached",
+    "expected_behavior": "Confirm one exact still image for the identified AI question without running it; inspect the completed receipt later and remove the attachment explicitly."
   }
 }

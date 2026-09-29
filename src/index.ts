@@ -32,6 +32,7 @@ import { registerBrowserNotebookRegion } from './browserNotebookRegion';
 import { registerBrowserMediaCapture } from './browserMediaCapture';
 import { registerPlaybackOperations } from './browserMediaPlayback';
 import { registerTransformOperations } from './browserMediaTransforms';
+import { registerBrowserMediaAttachment } from './browserMediaAttachment';
 import '../style/index.css';
 
 registerBrowserMediaCapture();
@@ -46,6 +47,7 @@ interface CellMetadata {
   reasoningEffort?: string;
   keepAnswer?: boolean;
   status?: string;
+  mediaAttachment?: unknown;
 }
 interface RunState { controller: AbortController; panel: NotebookPanel; output: ICellModel; text: string; done: boolean; context: ContextReport | null; contextTrimmed: boolean }
 const metadataKey = 'nbinlineai';
@@ -302,6 +304,26 @@ function authHeaders(): Headers {
   if (xsrf) headers.set('X-XSRFToken', decodeURIComponent(xsrf.slice(6)));
   return headers;
 }
+function snapshotHasAttachment(cells: ReturnType<typeof notebookCells>, promptId: string): boolean {
+  const cell = cells.find(item => item.id === promptId);
+  const ai = cell?.metadata?.nbinlineai;
+  return !!ai && typeof ai === 'object' &&
+    Object.prototype.hasOwnProperty.call(ai, 'mediaAttachment');
+}
+async function promptHeaders(panel: NotebookPanel, cells: ReturnType<typeof notebookCells>,
+  promptId: string): Promise<Headers> {
+  if (!snapshotHasAttachment(cells, promptId)) return authHeaders();
+  const kernel = panel.sessionContext.session?.kernel;
+  if (!kernel) throw new BrowserMediaError('stale_target', 'The originating notebook kernel is unavailable.');
+  const prompt = getCell(panel, promptId);
+  const snapshot = cells.find(item => item.id === promptId);
+  if (!prompt || !snapshot) throw new BrowserMediaError('stale_target', 'Confirmed question changed.');
+  const current = metadata(prompt);
+  if (JSON.stringify(current.mediaAttachment) !==
+      JSON.stringify((snapshot.metadata?.nbinlineai as Record<string, unknown>)?.mediaAttachment))
+    throw new BrowserMediaError('stale_target', 'Confirmed image changed before submission.');
+  return mediaContext(panel, kernel).attachmentHeaders();
+}
 async function fetchStatus(): Promise<void> {
   try {
     const response = await fetch(serverUrl('nbinlineai/status'), { credentials: 'same-origin', headers: authHeaders() });
@@ -322,8 +344,9 @@ async function fetchContextPreview(panel: NotebookPanel, body: PreviewRequest, s
   if (!prompt) throw new Error('The selected AI question was removed.');
   const effective = resolvedFor(panel, prompt);
   const instructions = confirmedInstructions[effective.promptMode];
+  const requestHeaders = await promptHeaders(panel, body.notebook_cells, body.prompt_cell_id);
   const response = await fetch(serverUrl('nbinlineai/context-preview'), {
-    method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal,
+    method: 'POST', credentials: 'same-origin', headers: requestHeaders, signal,
     body: JSON.stringify({ ...body, backend: effective.backend, model: effective.model || undefined,
       prompt_mode: effective.promptMode, ...(instructions ? { prompt_instructions: instructions } : {}) })
   });
@@ -490,8 +513,9 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
   const supportedEfforts = serverStatus?.model_capabilities?.[backend]?.[modelId]?.efforts || [];
   const effort = supportedEffort(effective.reasoningEffort, supportedEfforts);
   try {
+    const requestHeaders = await promptHeaders(panel, cells, promptId);
     const response = await fetch(serverUrl('nbinlineai/prompt'), {
-      method: 'POST', credentials: 'same-origin', headers: authHeaders(), signal: controller.signal,
+      method: 'POST', credentials: 'same-origin', headers: requestHeaders, signal: controller.signal,
       body: JSON.stringify({
         prompt: promptText, session_id: sessionId, prompt_cell_id: promptId,
         snapshot_version: 1, notebook_cells: cells, context_mode: notebookContextMode(panel),
@@ -1017,7 +1041,28 @@ function makeControls(panel: NotebookPanel, id: string): HTMLElement {
   style.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { promptMode: style.value ? normalizePromptMode(style.value) : undefined }); decorate(panel); });
   effort.addEventListener('change', () => { const cell = getCell(panel, id); if (cell) patchCellOverrides(cell, { reasoningEffort: effort.value || undefined }); decorate(panel); });
   editor.append(provider, modelSelect, modelInput, style, effort, inherit);
-  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, starters, editor);
+  const attachment = document.createElement('span');
+  attachment.className = 'nbinlineai-attachment-indicator';
+  attachment.dataset.nbinlineaiAttachment = '';
+  const attachmentText = document.createElement('span');
+  const removeAttachment = document.createElement('button');
+  removeAttachment.type = 'button';
+  removeAttachment.textContent = 'Remove image';
+  removeAttachment.addEventListener('click', () => {
+    const cell = getCell(panel, id);
+    if (!cell || !isPrompt(cell) || pendingPromptRuns.has(runKey(panel, id)) || runs.has(runKey(panel, id))) return;
+    const previous = metadata(cell).mediaAttachment as Record<string, unknown> | undefined;
+    const updated = { ...metadata(cell) };
+    delete updated.mediaAttachment;
+    cell.setMetadata(metadataKey, updated);
+    if (previous?.kind === 'memory' && typeof previous.grant_id === 'string') {
+      const kernel = panel.sessionContext.session?.kernel;
+      if (kernel) void mediaContext(panel, kernel).revokeAttachment(id, previous.grant_id).catch(() => undefined);
+    }
+    decorate(panel);
+  });
+  attachment.append(attachmentText, removeAttachment);
+  controls.append(run, cancel, keepLabel, keepInherit, toggle, summary, label, attachment, starters, editor);
   return controls;
 }
 function decorate(panel: NotebookPanel): void {
@@ -1083,6 +1128,20 @@ function decorate(panel: NotebookPanel): void {
     const running = pendingPromptRuns.has(runKey(panel, cell.id));
     const runButton = controls.querySelector('[data-nbinlineai-run]') as HTMLButtonElement;
     const cancelButton = controls.querySelector('[data-nbinlineai-cancel]') as HTMLButtonElement;
+    const attachmentIndicator = controls.querySelector('[data-nbinlineai-attachment]') as HTMLElement;
+    const attachmentText = attachmentIndicator.querySelector('span') as HTMLElement;
+    const attachmentRemove = attachmentIndicator.querySelector('button') as HTMLButtonElement;
+    const attached = meta.mediaAttachment as Record<string, unknown> | undefined;
+    attachmentIndicator.hidden = !attached;
+    if (attached) {
+      attachmentText.textContent = attached.kind === 'saved' ? 'Image attached (saved; checked when run)' :
+        attached.kind === 'memory' ? 'Image attached (temporary; save to keep)' :
+          'Image attachment needs reconfirmation';
+      attachmentRemove.disabled = running;
+      attachmentIndicator.title = attached.kind === 'memory' ?
+        'Temporary image grants can expire. If unavailable, remove and attach again or save the image first.' :
+        'Removing this reference does not delete a saved file.';
+    }
     const keep = controls.querySelector('[data-nbinlineai-keep-answer]') as HTMLInputElement;
     keep.checked = effectiveKeepAnswer(meta.keepAnswer, notebookDefaults(panel).keepAnswers);
     keep.title = meta.keepAnswer === undefined ? 'Inherited from notebook. Change to override this cell.' : 'This cell overrides the notebook Keep answers setting.';
@@ -1149,6 +1208,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     registerBrowserNotebookRegion();
     registerPlaybackOperations();
     registerTransformOperations();
+    registerBrowserMediaAttachment((panel, id) =>
+      pendingPromptRuns.has(runKey(panel, id)) || runs.has(runKey(panel, id)));
     if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
         new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
       void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })

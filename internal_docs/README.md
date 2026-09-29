@@ -11,10 +11,34 @@ are read from the branch containing that code. See [revision selection and
 documentation PRs](workflow.md#documentation-by-branch), including dirty or
 stale primary checkouts. Public docs and examples also follow their code.
 
-Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Jekyll site.
+Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Quarto documentation site.
 
 The [current handoff](developer_handoff.md) records the published 0.1.15
 Configure AI tabs and earlier releases. Verify applicability to your code branch.
+
+## Browser and media source implementation
+
+The approved [API spec](browser_media_tool_spec.md) was recorded at main
+`61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected
+[task prompt](browser_media_tool_task_prompt.md) is commit
+`e3fcf33b20ec10cd511129cd1672b98d307e4a5c` (merged by PR #26).
+The [foundation](browser_media_foundation_handoff.md),
+[capture](browser_media_capture_handoff.md),
+[live outputs](browser_media_outputs_handoff.md),
+[playback](browser_media_playback_handoff.md),
+[transformations](browser_media_transforms_handoff.md), and
+[image attachment](browser_media_attachment_handoff.md) handoffs describe
+their respective implementation branches and test boundaries. The
+[working acceptance record](browser_media_acceptance.md) tracks the combined
+96-tool source inventory and remaining verification; it is not a release
+record. Read each handoff at the commit containing its code, since a handoff's
+earlier pending-PR statement may be historical.
+
+Quarto notebook-gallery source merged by PR #30 as `8ce8e2e`; the browser/media
+foundation merged by PR #29 as `90c5aee`, and capture plus live outputs source
+merged by PR #31 as `11eae2b`. All 45 approved new public APIs are implemented
+across the source topics; combined final delivery is staged for review and CI.
+The published PyPI package remains 0.1.15 and does not contain these additions.
 
 ## A new task's reading order
 

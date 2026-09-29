@@ -6,7 +6,8 @@ from .backend_registry import get_backend
 from .config import MODEL_CAPABILITIES, resolve_api_key
 
 
-async def complete(backend: str, model: str, messages: list, tools: list, *, reasoning_effort: str | None = None):
+async def complete(backend: str, model: str, messages: list, tools: list, *,
+                   reasoning_effort: str | None = None, image_detail: str = 'auto'):
     route = get_backend(backend)
     if route.transport != "api_key":
         raise ValueError("ChatGPT subscription requires its own connection")
@@ -19,6 +20,15 @@ async def complete(backend: str, model: str, messages: list, tools: list, *, rea
     effective_effort = reasoning_effort or MODEL_CAPABILITIES.get(backend, {}).get(model, {}).get("default_effort")
     max_tokens = 65536 if effective_effort in ("xhigh", "max") else 32768 if effective_effort == "high" else 16384
     options = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
+    if image_detail != 'auto':
+        from .model_image import api_payload
+
+        # FastLLM 0.0.63 drops InputImage.detail while converting to Responses.
+        # Override only its native input array; the pinned completion transport,
+        # authentication and streaming collector remain the same.
+        options['xtra_body'] = {'input': api_payload(
+            backend, model, messages, tools, reasoning_effort=reasoning_effort,
+            image_detail=image_detail)['input']}
     return await acomplete(
         conversation,
         model,

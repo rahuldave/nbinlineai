@@ -1,6 +1,26 @@
 # Developer handoff
 
-**2026-09-28 example notebook pages (mainline topic):**
+**2026-09-28 browser/media source status:** The approved
+[API spec](browser_media_tool_spec.md) is pinned to main
+`61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected
+[implementation prompt](browser_media_tool_task_prompt.md) at
+`e3fcf33b20ec10cd511129cd1672b98d307e4a5c` merged in PR #26.
+Quarto notebook-gallery source merged in PR #30 (`8ce8e2e`), the five-tool
+foundation in PR #29 (`90c5aee`), and capture plus live-output source in
+PR #31 (`11eae2b`). All 45 approved new public APIs now have implementation
+topics; the complete source combination and its final review/CI are staged.
+Read the implementation-specific [foundation](browser_media_foundation_handoff.md),
+[capture](browser_media_capture_handoff.md),
+[outputs](browser_media_outputs_handoff.md),
+[playback](browser_media_playback_handoff.md),
+[transformations](browser_media_transforms_handoff.md), and
+[attachment](browser_media_attachment_handoff.md) handoffs with their code
+commits. The [working acceptance record](browser_media_acceptance.md) tracks
+the 96 public tools, concrete notebook examples and pending checks; PR/Gest
+evidence controls final acceptance. This is source-only work. PyPI remains
+0.1.15, and no combined-feature release or site publication is implied.
+
+**2026-09-28 example notebook pages (mainline source, PR #30 merged):**
 `scripts/render_example_notebooks.py` renders each top-level public example
 notebook directly to HTML after the main Quarto site. The Quarto ipynb filter
 in `scripts/quarto_notebook_filter.py` derives page metadata and marks AI
@@ -9,14 +29,14 @@ prompt/answer cells from their saved `metadata.nbinlineai` in memory.
 to HTML pages. Each page links back to its source `.ipynb` for download. The
 site build checks page coverage, AI styling, local links, and anchors. Rendering
 explicitly disables cell execution. No intermediate `.ipynb`, package change,
-or PyPI release is part of this topic. The implementation travels with its
-mainline PR.
+or PyPI release is part of this documentation change.
 
 **2026-09-28 Quarto documentation site (mainline source):** The site source in
 `docs/` is a Quarto 1.8.26 website. `.github/workflows/docs-site.yml` renders and
 checks every PR, then deploys the output on `main` pushes through GitHub Pages
 Actions. `docs/.nojekyll` is copied into the output. The rendered tools index
-contains 51 HTML table rows, and `scripts/check_docs_site.py` checks pages,
+initially contained 51 HTML table rows; `scripts/check_docs_site.py` now derives
+exact public tool identities from the maintained coverage map and checks pages,
 local links, anchors, and the table regression. `docs/development.md` records
 the local commands. This is documentation infrastructure only; PyPI remains
 0.1.15. The earlier Jekyll branch-source setup was removed because it exposed

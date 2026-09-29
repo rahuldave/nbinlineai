@@ -33,6 +33,7 @@ EXAMPLES = [
     "browser-media-capture.ipynb",
     "browser-media-playback.ipynb",
     "browser-media-transforms.ipynb",
+    "browser-media-integration.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -104,6 +105,21 @@ HEADLESS_UI_CELLS = {
     ("browser-media-transforms.ipynb", "transform-crop-inspect"): "crop.status",
     ("browser-media-transforms.ipynb", "transform-annotate-call"): "annotate_image(",
     ("browser-media-transforms.ipynb", "transform-annotate-inspect"): "annotated.status",
+    ("browser-media-integration.ipynb", "integration-list-call"): "list_outputs(",
+    ("browser-media-integration.ipynb", "integration-list-inspect"): "listing.status",
+    ("browser-media-integration.ipynb", "integration-export-call"): "export_output(",
+    ("browser-media-integration.ipynb", "integration-export-inspect"): "exported.status",
+    ("browser-media-integration.ipynb", "integration-preview-call"): "open_media(",
+    ("browser-media-integration.ipynb", "integration-preview-inspect"): "preview.status",
+    ("browser-media-integration.ipynb", "integration-crop-call"): "crop_image(",
+    ("browser-media-integration.ipynb", "integration-crop-inspect"): "crop.status",
+    ("browser-media-integration.ipynb", "integration-save-call"): "save_media(",
+    ("browser-media-integration.ipynb", "integration-save-inspect"): "saved.status",
+    ("browser-media-integration.ipynb", "integration-attach-call"): "attach_media(",
+    ("browser-media-integration.ipynb", "integration-attach-inspect"): "attached.status",
+    ("browser-media-integration.ipynb", "integration-close-call"): "close_media(",
+    ("browser-media-integration.ipynb", "integration-close-inspect"): "closed_preview.status",
+    ("browser-media-integration.ipynb", "integration-file-cleanup"): "saved_path.unlink()",
 }
 CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",
@@ -263,6 +279,8 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         text = "\n".join(outputs)
         assert "Disposable transform files removed" in text
         assert "Disposable exact PNG and 16×16 two-color VP9 clip" in text
+    if relative_path == "browser-media-integration.ipynb":
+        assert "Disposable 8x8 output image ready; no file saved." in "\n".join(outputs)
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)

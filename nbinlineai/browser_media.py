@@ -152,6 +152,8 @@ class MediaRegistry:
         self.reserved_save_by_session: dict[str, int] = {}
         self.owner_cancelled: dict[Owner, threading.Event] = {}
         self.current_paths: dict[Owner, str] = {}
+        self.attachment_grants: dict[str, Any] = {}
+        self.attachment_requests: dict[tuple[Owner, str], tuple[str, dict[str, Any], float]] = {}
         self._state_lock = threading.RLock()
         self._published_inodes: dict[str, tuple[int, int, int]] = {}
         self.recording_claims: dict[Owner, str] = {}
@@ -443,7 +445,9 @@ class MediaRegistry:
             'paused': {'running', 'saving', 'completed', 'cancelled', 'failed', 'expired'},
             'saving': {'completed', 'cancelled', 'failed', 'expired'},
         }
-        if status not in permitted[op.status] and status != op.status:
+        attachment_completion = (op.name == 'attach_media' and op.status == 'waiting_for_user' and
+                                 status == 'completed' and (owner, op.id) in self.attachment_requests)
+        if status not in permitted[op.status] and status != op.status and not attachment_completion:
             raise MediaError('invalid_argument', 'Invalid operation state transition')
         if status == 'completed' and not op.media_id and not op.result:
             raise MediaError('invalid_argument', 'Completed operation needs a result')
@@ -452,7 +456,34 @@ class MediaRegistry:
         op.deadline = None
         if status in TERMINAL:
             self._drop_recording(op)
+            if op.name == 'attach_media':
+                self._settle_attachment(op)
         return self.status(owner, operation_id)
+
+    def _settle_attachment(self, op: Operation) -> None:
+        """Keep only committed or still-requested memory grants after an attempt ends.
+
+        Call with _state_lock held. A second waiting operation may reuse a grant
+        minted by this one; its eventual outcome then decides that grant's fate.
+        """
+        record = self.attachment_requests.pop((op.owner, op.id), None)
+        if record is None:
+            return
+        grant_id = record[1].get('grant_id')
+        grant = self.attachment_grants.get(grant_id)
+        if grant is None:
+            return
+        if op.status == 'completed':
+            grant.committed = True
+            return
+        if grant.committed:
+            return
+        for (request_owner, request_id), (_, result, _) in self.attachment_requests.items():
+            pending = self.operations.get(request_id)
+            if (request_owner is op.owner and result.get('grant_id') == grant_id and
+                    pending is not None and pending.status == 'waiting_for_user'):
+                return
+        self.attachment_grants.pop(grant_id, None)
 
     def cancel(self, owner: Owner, operation_id: str) -> dict[str, Any]:
         with self._state_lock:
@@ -467,6 +498,8 @@ class MediaRegistry:
                     self.media.pop(op.media_id, None)
                 for media_id in op.batch_media_ids:
                     self.media.pop(media_id, None)
+                if op.name == 'attach_media':
+                    self._settle_attachment(op)
             return self.status(owner, operation_id)
 
     def upload(self, owner: Owner, operation_id: str, data: bytes, mime_type: str,
@@ -960,6 +993,173 @@ class MediaRegistry:
             media.expires = self._now() + MEDIA_IDLE_SECONDS
         return media
 
+    def confirm_attachment(self, owner: Owner, reference: dict[str, Any],
+                           question_cell_id: str, detail: str, operation_id: str) -> dict[str, Any]:
+        """Bind a user-confirmed still without writing pixels into notebook metadata."""
+        from .browser_attachment import (
+            MAX_ATTACHMENT_GRANTS,
+            MAX_OWNER_GRANTS,
+            MAX_QUESTION_GRANTS,
+            AttachmentGrant,
+            still_image_info,
+            validate_detail,
+            validate_question,
+        )
+
+        self.require(owner)
+        question_cell_id = validate_question(question_cell_id)
+        detail = validate_detail(detail)
+        if not isinstance(reference, dict):
+            raise MediaError('invalid_argument', 'MediaRef must be an object')
+        try:
+            signature = json.dumps([reference, question_cell_id, detail], sort_keys=True,
+                                   separators=(',', ':'), allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise MediaError('invalid_argument', 'Invalid attachment reference') from exc
+        if len(signature) > 1200:
+            raise MediaError('limit_exceeded', 'Attachment reference is too large')
+        with self._state_lock:
+            op = self.operation(owner, operation_id)
+            expected = json.dumps(['attach_media', {'media': reference,
+                            'question_cell_id': question_cell_id, 'detail': detail}],
+                            sort_keys=True, separators=(',', ':'))
+            if op.name != 'attach_media' or op.signature != expected:
+                raise MediaError('stale_target', 'Attachment operation does not match the confirmed image')
+            if op.status != 'waiting_for_user':
+                raise MediaError('stale_target', 'Attachment confirmation ended or expired')
+            previous = self.attachment_requests.get((owner, operation_id))
+            if previous:
+                if previous[0] != signature:
+                    raise MediaError('invalid_argument', 'Attachment request ID was reused with different media')
+                if ('grant_id' in previous[1] and
+                        previous[1]['grant_id'] not in self.attachment_grants):
+                    raise MediaError('stale_target', 'Attachment media expired before confirmation')
+                return previous[1]
+
+        reserved = 0
+        def reserve(size: int) -> None:
+            nonlocal reserved
+            self.reserve_file_read(owner, size)
+            reserved = size
+        try:
+            data, mime_type, digest = self.resolve_ref(owner, reference, reserve)
+            facts = still_image_info(data, mime_type)
+        finally:
+            if reserved:
+                self.release_file_read(owner, reserved)
+        with self._state_lock:
+            self.require(owner)
+            op = self.operation(owner, operation_id)
+            if op.status != 'waiting_for_user' or op.signature != expected:
+                raise MediaError('stale_target', 'Attachment confirmation ended or changed')
+            previous = self.attachment_requests.get((owner, operation_id))
+            if previous:
+                if previous[0] != signature:
+                    raise MediaError('invalid_argument', 'Attachment request ID was reused with different media')
+                if ('grant_id' in previous[1] and
+                        previous[1]['grant_id'] not in self.attachment_grants):
+                    raise MediaError('stale_target', 'Attachment media expired before confirmation')
+                return previous[1]
+            common = {'version': 1, 'question_cell_id': question_cell_id,
+                      'sha256': digest, 'detail': detail}
+            if set(reference) == {'media_id'}:
+                media = self.media_ref(owner, reference['media_id'])
+                if media.sha256 != digest:
+                    raise MediaError('stale_target', 'Attachment media changed')
+                matching = next((grant for grant in self.attachment_grants.values()
+                                 if grant.owner is owner and grant.question_cell_id == question_cell_id
+                                 and grant.media_id == media.id and grant.sha256 == digest
+                                 and grant.mime_type == mime_type and grant.detail == detail), None)
+                if matching is None:
+                    if (len(self.attachment_grants) >= MAX_ATTACHMENT_GRANTS or
+                            sum(grant.owner is owner for grant in self.attachment_grants.values()) >= MAX_OWNER_GRANTS or
+                            sum(grant.owner is owner and grant.question_cell_id == question_cell_id
+                                for grant in self.attachment_grants.values()) >= MAX_QUESTION_GRANTS):
+                        raise MediaError('limit_exceeded', 'Too many pending image attachments for this question')
+                    grant_id = secrets.token_urlsafe(24)
+                    self.attachment_grants[grant_id] = AttachmentGrant(
+                        grant_id, owner, question_cell_id, media.id, digest, mime_type, detail)
+                else:
+                    grant_id = matching.id
+                confirmed = {**common, 'kind': 'memory', 'grant_id': grant_id}
+            elif set(reference) == {'path', 'sha256'}:
+                confirmed = {**common, 'kind': 'saved', 'path': reference['path']}
+            else:
+                raise MediaError('invalid_argument', 'Invalid attachment MediaRef')
+            result = {**confirmed, 'display': facts}
+            self.attachment_requests[(owner, operation_id)] = (signature, result, self._now())
+            return result
+
+    def acquire_attachment(self, owner: Owner, question_cell_id: str,
+                           confirmation: dict[str, Any]):
+        """Re-read and account for the exact image until its caller closes the read."""
+        from .browser_attachment import AttachmentRead, still_image_info, validate_confirmation
+
+        self.require(owner)
+        accepted = validate_confirmation(confirmation, question_cell_id)
+        if accepted['kind'] == 'memory':
+            with self._state_lock:
+                grant = self.attachment_grants.get(accepted['grant_id'])
+                if (grant is None or not grant.committed or grant.owner is not owner or
+                        grant.question_cell_id != question_cell_id or
+                        grant.sha256 != accepted['sha256'] or grant.detail != accepted['detail']):
+                    raise MediaError('stale_target', 'In-memory attachment expired; attach it again or save it first')
+                media = self.media_ref(owner, grant.media_id, consume=True)
+                if media.sha256 != grant.sha256 or media.mime_type != grant.mime_type:
+                    raise MediaError('stale_target', 'In-memory attachment changed')
+                data, mime_type, digest = media.data, media.mime_type, media.sha256
+                self.reserve_file_read(owner, len(data))
+                reserved = len(data)
+        else:
+            reserved = 0
+            def reserve(size: int) -> None:
+                nonlocal reserved
+                self.reserve_file_read(owner, size)
+                reserved = size
+            try:
+                data, mime_type, digest = self.resolve_ref(owner, {
+                    'path': accepted['path'], 'sha256': accepted['sha256']}, reserve)
+            except BaseException:
+                if reserved:
+                    self.release_file_read(owner, reserved)
+                raise
+        try:
+            if digest != accepted['sha256']:
+                raise MediaError('stale_target', 'Attachment hash changed')
+            facts = still_image_info(data, mime_type)
+            return AttachmentRead(data, facts['mime_type'], accepted['detail'],
+                                  lambda: self.release_file_read(owner, reserved))
+        except BaseException:
+            if reserved:
+                self.release_file_read(owner, reserved)
+            raise
+
+    def resolve_attachment(self, owner: Owner, question_cell_id: str,
+                           confirmation: dict[str, Any]) -> tuple[bytes, str, str]:
+        """Compatibility read for callers that do not hold a model round open."""
+        read = self.acquire_attachment(owner, question_cell_id, confirmation)
+        try:
+            return read.data, read.mime_type, read.detail
+        finally:
+            read.close()
+
+    @_locked
+    def revoke_attachment(self, owner: Owner, question_cell_id: str, grant_id: str) -> None:
+        """Drop one exact owner/question grant without deleting its source media."""
+        from .browser_attachment import validate_question
+
+        self.require(owner)
+        question_cell_id = validate_question(question_cell_id)
+        if not isinstance(grant_id, str) or not 0 < len(grant_id) <= 100:
+            raise MediaError('invalid_argument', 'Invalid attachment grant')
+        grant = self.attachment_grants.get(grant_id)
+        if grant is None or grant.owner is not owner or grant.question_cell_id != question_cell_id:
+            raise MediaError('stale_target', 'Attachment grant is unavailable')
+        del self.attachment_grants[grant_id]
+        for key, (_, result, _) in list(self.attachment_requests.items()):
+            if key[0] is owner and result.get('grant_id') == grant_id:
+                del self.attachment_requests[key]
+
     def resolve_ref(self, owner: Owner, reference: dict[str, Any],
                     reserve: Callable[[int], None] | None = None) -> tuple[bytes, str, str]:
         """Read exact owned memory or server-root file bytes for a downstream family."""
@@ -1129,6 +1329,9 @@ class MediaRegistry:
         with self._state_lock:
             self.media_ref(owner, media_id)
             self.media.pop(media_id, None)
+            for grant_id, grant in list(self.attachment_grants.items()):
+                if grant.owner is owner and grant.media_id == media_id:
+                    self.attachment_grants.pop(grant_id, None)
 
     @_locked
     def expire_owner(self, owner: Owner) -> None:
@@ -1149,6 +1352,12 @@ class MediaRegistry:
         for key in list(self.save_requests):
             if key[0] is owner:
                 self.save_requests.pop(key, None)
+        for grant_id, grant in list(self.attachment_grants.items()):
+            if grant.owner is owner:
+                self.attachment_grants.pop(grant_id, None)
+        for key in list(self.attachment_requests):
+            if key[0] is owner:
+                self.attachment_requests.pop(key, None)
 
     @_locked
     def sweep(self) -> None:
@@ -1162,9 +1371,17 @@ class MediaRegistry:
                 op.error = {'code': 'timeout', 'message': 'Permission request timed out'}
                 op.updated = now
                 self._drop_recording(op)
+                if op.name == 'attach_media':
+                    self._settle_attachment(op)
         for media_id, media in list(self.media.items()):
             if media.expires <= now:
                 self.media.pop(media_id, None)
+        for grant_id, grant in list(self.attachment_grants.items()):
+            if grant.media_id not in self.media:
+                self.attachment_grants.pop(grant_id, None)
+        for key, record in list(self.attachment_requests.items()):
+            if record[2] + STATUS_SECONDS <= now:
+                self.attachment_requests.pop(key, None)
         for op_id, op in list(self.operations.items()):
             if op.status in TERMINAL and op.updated + STATUS_SECONDS <= now:
                 self.operations.pop(op_id, None)

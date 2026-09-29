@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import base64
+import hashlib
 import json
 import os
 import re
@@ -15,7 +17,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from aidialog.msg_parts import Completion, Msg, Text, ToolResult, ToolUse
+from aidialog.msg_parts import Completion, InputImage, Msg, Text, ToolResult, ToolUse
 
 
 async def fake_complete(
@@ -43,6 +45,29 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    if "E2E_MEDIA_NATIVE_IMAGE" in current_user:
+        # Observe the provider-entry message, not a tool result or a rendered preview.
+        parts = getattr(messages[-1], "content", [])
+        images = [part for part in parts if isinstance(part, InputImage)]
+        assert all(not isinstance(part, InputImage)
+                   for message in messages[:-1]
+                   for part in getattr(message, "content", []))
+        assert len(images) <= 1
+        assert all("data:image/" not in part.text for message in messages
+                   for part in getattr(message, "content", [])
+                   if isinstance(part, (Text, ToolResult)))
+        if not images:
+            report = "NATIVE_IMAGE count=0"
+        else:
+            uri = images[0].text
+            assert uri.startswith("data:image/png;base64,")
+            encoded = uri.removeprefix("data:image/png;base64,")
+            assert len(encoded) <= 8_000_000
+            raw = base64.b64decode(encoded, validate=True)
+            assert raw.startswith(b"\x89PNG\r\n\x1a\n")
+            report = (f"NATIVE_IMAGE count=1 mime=image/png bytes={len(raw)} "
+                      f"sha256={hashlib.sha256(raw).hexdigest()}")
+        return Completion(model=model, message=Msg("assistant", [Text(report)]))
     if "E2E_CATALOG_LIST_CELLS" in current_user:
         results = [part for message in messages for part in getattr(message, "content", [])
                    if isinstance(part, ToolResult)]

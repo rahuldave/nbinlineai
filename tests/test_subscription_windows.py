@@ -23,7 +23,10 @@ class _SyntheticCore(runtime.SubscriptionRuntime):
         self.preflight_cleaned = threading.Event()
         self.executor_thread: threading.Thread | None = None
 
-    async def complete_round(self, _model, _messages, _tools, *, reasoning_effort, scope, run_id):
+    async def complete_round(self, _model, _messages, _tools, *, reasoning_effort, scope, run_id,
+                             image=None, image_mime=None, image_sha256=None, image_detail='auto'):
+        assert image is image_mime is image_sha256 is None
+        assert image_detail == 'auto'
         if run_id == "preflight":
             # Real account/model discovery happens before the core registers a
             # run. A canceled facade future must not hide unfinished cleanup.

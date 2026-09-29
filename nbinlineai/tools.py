@@ -25,6 +25,7 @@ from ._tool_helpers import (
     _resolve_python_name,
     _text,
 )
+from .browser_attachment_tools import BROWSER_ATTACHMENT_TOOL_FUNCTIONS
 from .browser_capture_tools import BROWSER_CAPTURE_TOOL_FUNCTIONS
 from .browser_media_tools import BROWSER_MEDIA_TOOL_FUNCTIONS
 from .browser_output_tools import BROWSER_OUTPUT_TOOL_FUNCTIONS
@@ -370,6 +371,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     **BROWSER_CAPTURE_TOOL_FUNCTIONS,
     **BROWSER_PLAYBACK_TOOL_FUNCTIONS,
     **BROWSER_TRANSFORM_TOOL_FUNCTIONS,
+    **BROWSER_ATTACHMENT_TOOL_FUNCTIONS,
 })
 
 
@@ -440,6 +442,7 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
                          "seek_media", "set_media_volume", "close_media", "copy_text",
                          "paste_content"),
     "browser_transforms": ("extract_frames", "crop_image", "annotate_image"),
+    "browser_attachment": ("attach_media",),
 })
 
 

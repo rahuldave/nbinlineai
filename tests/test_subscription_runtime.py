@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -94,6 +95,7 @@ def test_managed_state_rejects_custom_runtime_config(tmp_path):
 
 
 FAKE_SERVER = r'''#!/usr/bin/env python3
+import hashlib
 import json
 import os
 import sys
@@ -133,6 +135,17 @@ for line in sys.stdin:
         result = {"thread": {"id": "thread-1", "modelProvider": "openai",
                               "ephemeral": True}}
     elif method == "turn/start":
+        if len(params.get("input", [])) == 2:
+            image = params["input"][1]
+            if image.get("type") != "localImage" or not os.path.isfile(image.get("path", "")):
+                send({"id": item["id"], "error": {"code": -1}})
+                continue
+            with open(image["path"], "rb") as stream:
+                image_data = stream.read()
+            with open(os.path.join(os.environ["CODEX_HOME"], "seen-image.json"), "w") as proof:
+                json.dump({"path": image["path"], "sha256": hashlib.sha256(image_data).hexdigest(),
+                           "detail": image.get("detail"),
+                           "text_has_data_url": "data:image" in params["input"][0]["text"]}, proof)
         result = {"turn": {"id": "turn-1"}}
     else:
         result = {}
@@ -166,6 +179,92 @@ for line in sys.stdin:
 
 def test_round_uses_private_cwd_and_cancels_only_its_child(tmp_path, monkeypatch):
     asyncio.run(_exercise_private_rounds(tmp_path, monkeypatch))
+
+
+def test_native_local_image_uses_exact_private_file_and_cleans_on_completion_and_cancel(tmp_path, monkeypatch):
+    asyncio.run(_exercise_native_image(tmp_path, monkeypatch))
+
+
+@pytest.mark.parametrize(('wire_modalities', 'expected'), [
+    (None, ['text', 'image']),
+    ([], []),
+    (['text'], ['text']),
+    (['text', 'image'], ['text', 'image']),
+    ('image', []),
+    (['text', {'unexpected': 'object'}], []),
+])
+def test_pinned_subscription_model_modality_fallback_is_fail_closed(tmp_path, monkeypatch,
+                                                                    wire_modalities, expected):
+    async def check():
+        manager = runtime.SubscriptionRuntime(state_directory=tmp_path / 'private')
+
+        class Client:
+            async def request(self, method, params):
+                assert method == 'model/list'
+                model = {'id': 'gpt-6-sol', 'model': 'gpt-6-sol', 'hidden': False}
+                if wire_modalities is not None:
+                    model['inputModalities'] = wire_modalities
+                return {'data': [model, {'id': 'custom-model', 'model': 'custom-model'}],
+                        'nextCursor': None}
+
+        async def control():
+            return Client()
+
+        async def bundled():
+            return {'gpt-6-sol': {'slug': 'gpt-6-sol'},
+                    'custom-model': {'slug': 'custom-model'}}
+
+        monkeypatch.setattr(manager, '_ensure_control', control)
+        monkeypatch.setattr(manager, '_bundled_models', bundled)
+        models = await manager._models()
+        assert len(models) == 1
+        assert models[0]['input_modalities'] == expected
+    asyncio.run(check())
+
+
+async def _exercise_native_image(tmp_path, monkeypatch):
+    fake = tmp_path / 'fake_image_server.py'
+    fake.write_text(FAKE_SERVER)
+    monkeypatch.setattr(runtime, '_command', lambda *_: [sys.executable, str(fake)])
+    manager = runtime.SubscriptionRuntime(state_directory=tmp_path / 'private', binary=fake)
+
+    async def bundled():
+        return {'gpt-6-sol': {'slug': 'gpt-6-sol', 'tool_mode': 'code_mode_only'}}
+
+    monkeypatch.setattr(manager, '_bundled_models', bundled)
+    project = tmp_path / 'project'
+    project.mkdir()
+    scope = _scope(project)
+    image = b'\x89PNG\r\n\x1a\nsynthetic-image-bytes'
+    digest = hashlib.sha256(image).hexdigest()
+    answer = await manager.complete_round(
+        'gpt-6-sol', [Msg('user', [Text('What is shown?')])], [], reasoning_effort=None,
+        scope=scope, run_id='image-round', image=image, image_mime='image/png',
+        image_sha256=digest, image_detail='high')
+    assert answer.message.text == 'OK'
+    proof_file = tmp_path / 'private' / 'seen-image.json'
+    proof = json.loads(proof_file.read_text())
+    assert proof['sha256'] == digest and proof['detail'] == 'high'
+    assert proof['text_has_data_url'] is False
+    assert not Path(proof['path']).exists()
+
+    proof_file.unlink()
+    waiting = asyncio.create_task(manager.complete_round(
+        'gpt-6-sol', [Msg('user', [Text('WAIT_FOREVER')])], [], reasoning_effort=None,
+        scope=scope, run_id='image-cancel', image=image, image_mime='image/png',
+        image_sha256=digest))
+    for _ in range(200):
+        if proof_file.exists():
+            break
+        await asyncio.sleep(0.01)
+    assert proof_file.exists()
+    pending_path = Path(json.loads(proof_file.read_text())['path'])
+    assert pending_path.exists()
+    await manager.cancel('image-cancel')
+    with pytest.raises(asyncio.CancelledError):
+        await waiting
+    assert not pending_path.exists()
+    await manager.close()
 
 
 async def _exercise_private_rounds(tmp_path, monkeypatch):
