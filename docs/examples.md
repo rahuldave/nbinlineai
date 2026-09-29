@@ -1,181 +1,77 @@
 ---
-title: Examples guide
+title: Notebook examples
 ---
 
-# Examples guide
+# Notebook examples
 
-These walkthroughs show how tool declarations and example notebooks fit into a working JupyterLab session. The [tools reference](tools.md) lists every function, its exact signature, and its limits. Version **0.1.15** includes project/source search, checked edits, live notebook edits, web sections, inspection, and subprocess tools. The examples below use disposable local data; model questions use your configured provider.
+Open a notebook from the [gallery](#walkthroughs) in JupyterLab and make a copy before editing it. Each example starts with disposable inputs. Run its setup cells, then work downward one step at a time. A normal Python call shows what the function returns in the kernel; a nearby AI question asks the model to use the same tool and records the answer in the notebook. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
 
-## Import and share tools
+AI questions use your selected ChatGPT connection or configured API provider. A question can call an offered tool, so ask for a specific call when you want to observe it. The saved answer and its observed-tool table show what actually happened; a suggested call in the answer is not evidence that the tool ran. Python-only setup needs no provider. Some browser-backed tools have no direct Python-call equivalent: their normal comparison is an ordinary JupyterLab action on a second disposable copy.
 
-Run a Python code cell:
+## Work through a notebook
 
-```python
-from nbinlineai.tools import search_kernel_names, inspect_python, tools_markdown
+1. Copy the notebook and keep `data/` beside it when the notebook uses a fixture. The [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples) has the editable `.ipynb` files. The gallery pages below let you read them first.
+2. Run setup code and read the next cell's instructions. For live browser actions, grant permission or use the visible chooser only when you want that action.
+3. Run one AI question at a time. Inspect its saved answer and the observed-tool table before using an ID or result in the next question. Keep answers on when you want to preserve a completed tool action.
+4. Run cleanup cells after you finish. They remove disposable files, active media sources, or managed bytes as the notebook specifies.
 
-print(tools_markdown(["search_kernel_names", "inspect_python"]))
-```
+A browser-media Python call returns a **mutable receipt immediately**. Its first printed value can say `running` or `waiting_for_user`; that is an acknowledgement, not an image, recording, or saved file. Let the browser finish, then run the later inspection cell to read the same receipt's current `status`, `result`, and `media`. One media-producing operation can return several typed media items. An AI tool response is an **initial snapshot**; use `operation_status` in a later question to learn the terminal result. Status lookup itself returns one snapshot and does not wait. [Browser-media foundation](browser-media-foundation.md) explains the receipt and ownership rules.
 
-Paste the printed lines into an **ordinary Markdown** note above AI questions. Keep only the tools you need. An AI question below can say, “Use the search tool to find live variables containing score and tell me their types.” The declaration note's **Tools** checkbox must be on. Importing alone does not offer a tool; the model may choose whether to call an offered tool, so ask explicitly when the lookup matters.
-
-You can also make the declaration note from Python:
-
-```python
-from nbinlineai.tools import search_kernel_names, insert_tools
-
-receipt = insert_tools(["search_kernel_names"])
-```
-
-The helper requests a Markdown note below that code cell and returns an asynchronous receipt. Inspect `receipt.status` in a later code cell and save the notebook after insertion. It does not make an AI request. [Setup and receipt details](tools.md#choose-and-declare-tools).
-
-![A Markdown tool declaration shared by AI questions below it](images/inherited-tools.png)
-
-This image uses a simulated provider and a real Python kernel; the custom function actually changes the live bonus counter.
+Run All follows the notebook's ordinary execution order, but a browser receipt does not hold the kernel until permission, recording, or transfer finishes. Run interactive media calls and their dependent inspection cells separately. A generated `insert_code` cell remains editable and unexecuted; review it before choosing to run it yourself. The Codex ACP exercise intentionally begins with a failing diagnostic, which the exercise asks you to repair.
 
 ## Ask after declaring a tool
 
-Here is a complete example using `show_doc`. First run this **Python code cell**:
+Import a tool into the live kernel, then put its `&` reference in an ordinary Markdown declaration above the AI question, or in the question itself. For example:
 
 ```python
-from nbinlineai.tools import show_doc
+from nbinlineai.tools import show_doc, tools_markdown
+print(tools_markdown(["show_doc"]))
 ```
 
-Then put this reference in an **ordinary Markdown cell above your AI question**, with its Tools checkbox enabled:
+Paste the printed reference into an ordinary Markdown cell with **Tools** enabled. A later question can ask: “Use `show_doc` to explain the `encoding` parameter of `Path.read_text` and give one short example.” The declaration offers the callable; the question tells the model when to use it. An imported name alone is not offered. Keep the question's total offered tool and variable names within 20. [Variables and tools](manual/variables-and-tools.md) covers inheritance and live values.
 
-```text
-Available documentation tool: &`show_doc`
-```
+`insert_tools(["show_doc"])` can insert an editable declaration below its Python call. It returns an asynchronous receipt and does not call a model; inspect the receipt later and save the notebook to keep the new note. The [live variables notebook](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html) demonstrates this optional helper.
 
-In a new **AI question cell below that note**, ask:
+## Walkthroughs
 
-```text
-Use show_doc to show the documentation for Path.read_text from the
-installed pathlib module. Explain its encoding parameter and give
-me one short usage example.
-```
+These notebooks develop a task across several cells. Their setup uses disposable data; their AI questions are meant to be run and read in order.
 
-The model can call `show_doc(name="Path.read_text", module="pathlib")`. You do not need another `&` reference in this question or later questions that inherit the same enabled declaration. Plain tool names in a question are instructions to the model; the earlier declaration is what makes the function available. Importing `pathlib` this way runs its module initialization, but showing the method's docs does not read a file.
-
-The [function index](tools.md#function-index) gives an example question for every registered tool, assuming its reference has already been declared. For example, after importing and declaring `source_doc` instead, ask:
-
-```text
-Use source_doc to explain the written signature and documentation of
-normalize in demo_project/analysis.py without importing the file.
-```
-
-That second example assumes the saved file and function exist. For a multi-tool task, import and declare each tool the question needs; a reference to `show_doc` alone does not also offer `source_doc`.
-
-For a runnable path through every shipped tool, use the catalog notebooks below.
-The six tool-catalog notebooks are new **source examples**; they are not in the unchanged PyPI 0.1.15 archive. Open or copy them from the GitHub source repository after this change merges, or from a Git checkout. They demonstrate the existing tools and do not imply a new package release.
-Their sections and stable demonstration cell IDs are linked from each row of the
-[function index](tools.md#function-index). The inspection, saved-file, saved-notebook,
-and process notebooks call safe tools against disposable inputs. The live-notebook
-and web notebooks contain explicit AI questions for browser-backed or public-page
-tools. Copy the live-notebook example before editing it; run optional network
-questions only when you want to fetch that page.
-
-## Browser-media foundation from source
-
-The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates the five new source-only calls in an open JupyterLab notebook. They are **not in the unchanged PyPI 0.1.15 package**. Start with a disposable project whose Jupyter server and selected kernel use the same working directory. The setup creates a tiny local PNG and computes its actual file hash; no camera, microphone, network page, provider call, or personal file is needed.
-
-The [capture notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) shows all 17 camera, microphone, recording, and display calls with later receipt inspections. Device and display steps require a compatible browser and your permission. The [live outputs notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) demonstrates ten read, export, canvas, and visible-region calls against disposable stock notebook outputs. See the [capture guide](browser-media-capture.md) and [outputs guide](browser-media-outputs.md) for supported surfaces, bounds, and cleanup. Both notebooks are source-only and absent from PyPI 0.1.15.
-
-The [playback notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-playback.html) demonstrates nine imports, previews, playback controls, and explicit clipboard actions with a generated PNG and WAV. The [transforms notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) demonstrates three source-preserving frame, crop, and annotation calls against disposable exact fixtures. See the [playback guide](browser-media-playback.md) and [transform guide](browser-media-transforms.md). These are source-only examples, absent from PyPI 0.1.15.
-
-The [image attachment notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) demonstrates `attach_media` with a generated PNG, its actual hash, an explicit confirmation for one AI question, a later receipt inspection, and removal. Confirming the image does not run the question or call a provider. See the [attachment guide](browser-media-attachment.md) for supported still-image formats, model choices, and expiry. This example is source-only and absent from PyPI 0.1.15; running its AI question later may use your selected provider.
-
-The [combined image-to-question notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-integration.html) uses a disposable stock notebook output: it exports the image, previews it, crops a derivative, offers an optional explicit save, and asks you to confirm attachment to one question. A preceding question has no attached image. Run the receipt-inspection cells before dependent calls; the two AI questions require a configured provider if you choose to run them. Confirmation alone does not call the provider. This source-only notebook is not in PyPI 0.1.15.
-
-Run each call cell separately, then inspect its mutable receipt in the **following** code cell after the browser has replied. A printed receipt from the requesting cell is only a snapshot. The save example writes a new file under the disposable server root. The status example reads one operation snapshot; it does not wait. The cancellation example checks that a completed save remains a file, while the release example frees managed bytes and leaves that file and a loaded Python image intact. The notebook ends with an explicit cleanup cell for its disposable source and saved file. If you offer these functions to an AI question, import and declare only the names needed by that question and configure a provider as usual.
-
-## Read saved or live notebook cells
-
-For saved notebooks, import `list_notebooks`, `find_notebook_cells`, and `read_notebook_cell`, then declare them in a Markdown note. Ask the AI to locate a saved `.ipynb`, find a literal phrase, and read a returned cell ID. Save your latest edits first: these functions read disk files relative to the kernel's working directory.
-
-For the **open** notebook, use the live tools:
-
-```text
-Use &`list_cells` to find the exercise below this question.
-Use &`read_cell` to read it, then use &`insert_markdown`
-to add one hint after your answer. Do not solve the exercise.
-```
-
-Import all three functions into the Python kernel before running the AI question. The frontend reads unsaved cells by stable ID and inserts an editable note after the answer. Save normally to retain the note. It remains separate from the paired AI answer, so rerunning the question may insert another note.
-
-![An AI prompt calls an imported tool and creates a separate editable Markdown note](images/live-notebook-tools.png)
-
-The provider response here is simulated; the extension performs the notebook insertion.
-
-## Draft code and gather a reading note
-
-After importing and declaring `insert_code`, ask: “Use `insert_code` to add a short Python cell that plots the values in `measurements`. Leave the cell for me to review and run.” The new cell follows the AI answer by default. It is editable and **unexecuted**, including when the question runs as part of Run All.
-
-![Illustrative AI answer followed by its separate unexecuted code draft](images/insert-code.png)
-
-With `read_url`, the model can consult a public page during its response. With `url_to_note`, it can place a source-attributed excerpt in its own Markdown cell. For example:
-
-```text
-Use &`url_to_note` to add a reading note from
-https://docs.python.org/3/tutorial/datastructures.html
-Use &`read_cell` to read the inserted cell, then ask me one
-question to consider while reading it.
-```
-
-Import both tools first. The note is a bounded text conversion with its source URL, not a complete offline copy or an AI summary. A later question may see it as ordinary notebook source.
-
-![A public-page excerpt with a source link inserted as its own Markdown note](images/web-tools.png)
-
-This image uses a simulated provider and sample page content; insertion uses the real frontend interface.
-
-## Explore a disposable project
-
-The [Fastcore tools notebook](https://rahuldave.com/nbinlineai/notebooks/fastcore-tools.html) demonstrates `show_doc`, file discovery, and bounded edits. The [project tools notebook](https://rahuldave.com/nbinlineai/notebooks/project-tools.html) creates a temporary project and demonstrates saved-file search, static Python source documentation, Markdown/Python document sections, and digest-checked edits. Its setup code works without a provider or network request.
-
-Use `tool_catalog()` to inspect group names without declaring anything. `tools_markdown(group="code")` prints removable declarations for a task-focused group; the default `starter` group has 19 tools. Select at most 20 tool and variable names combined in one AI question. `source_doc(path)` parses source without importing it; `show_doc(name, module="...")` imports a named module explicitly and can run its initialization. Search paths are relative to the selected kernel's current working directory, not necessarily the notebook folder. See the [tools reference](tools.md) for exact signatures and limits.
-
-## Notebook gallery
-
-Browse the notebooks below as readable HTML pages. Blue panels mark AI prompts and green panels mark saved AI responses. The pages show saved notebook content without running code or calling a provider. Each page links to its original `.ipynb` for download.
-
-Download notebooks from the [examples folder on GitHub](https://github.com/rahuldave/nbinlineai/tree/main/examples), and keep their `data/` folder beside them. The package also installs examples under `share/doc/nbinlineai/examples/` in its Python environment; copy that directory into your project before editing it. These notebooks include setup code and prompts, with no API keys or pre-generated AI answers. Configure your provider as usual. Run the Learning example one step at a time so you can answer the tutor before continuing.
-
-| Notebook | Try it |
+| Notebook | What you will do |
 | --- | --- |
-| [Context selection](https://rahuldave.com/nbinlineai/notebooks/context-selection.html) | Compare context modes and control declaration cells with Tools. |
-| [Quick start](https://rahuldave.com/nbinlineai/notebooks/quickstart.html) | One live variable, one custom function, and your first AI call. |
-| [Live variables and tools](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html) | Compare a live value with a function call and inspect a real Python state change. |
-| [Socratic learning dialogue](https://rahuldave.com/nbinlineai/notebooks/socratic-learning-dialog.html) | Answer the tutor in successive AI cells and explore Keep overrides. |
-| [Bundled tools](https://rahuldave.com/nbinlineai/notebooks/bundled-tools.html) | Generate references, find live names, and search/read a supplied saved notebook. |
-| [Live notebook tools](https://rahuldave.com/nbinlineai/notebooks/live-notebook-tools.html) | Read unsaved cells below a question and insert a hint without selecting its target. |
-| [Python and web tools](https://rahuldave.com/nbinlineai/notebooks/python-and-web-tools.html) | Inspect Python documentation/source, consult a page, and make a notebook note. |
-| [Fastcore tools](https://rahuldave.com/nbinlineai/notebooks/fastcore-tools.html) | Inspect documentation and make bounded edits to disposable text files. |
-| [Project tools](https://rahuldave.com/nbinlineai/notebooks/project-tools.html) | Search and document a temporary source project; preview and check text edits. |
-| [Tool catalog: live Python](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-inspection.html) | Call inspection and tracing tools on disposable kernel values; optionally read a discovered registered skill. |
-| [Tool catalog: saved files](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-files.html) | Call each saved-file/source tool inside a temporary folder with fresh addresses and digests. |
-| [Tool catalog: saved notebooks](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-saved-notebooks.html) | Search and read a temporary notebook containing a real stable cell ID. |
-| [Tool catalog: live notebook](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
-| [Tool catalog: web](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-web.html) | Optional public-page reads and source-attributed note insertion. |
-| [Tool catalog: processes](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-processes.html) | Run bounded local subprocesses; inspect tmux only if it is available. |
-| [Camera, microphone, and display](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) | Try 17 source-only capture and recording calls with explicit browser permission and later receipt inspections. |
-| [Live outputs and canvas](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) | Inspect existing outputs and capture supported canvas or visible output regions in a disposable notebook. |
-| [Import, playback, and clipboard](https://rahuldave.com/nbinlineai/notebooks/browser-media-playback.html) | Import a disposable PNG, preview and control a generated WAV, then copy and paste text explicitly. |
-| [Media transformations](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) | Extract actual video frames, save a new crop, and inspect opaque redaction pixels from disposable fixtures. |
-| [Attach an image to one question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) | Confirm one disposable still image for a specific AI question, inspect the receipt, and remove it without running a provider in setup. |
-| [Output image to confirmed question](https://rahuldave.com/nbinlineai/notebooks/browser-media-integration.html) | Export a disposable output, preview and crop it, then explicitly confirm the derivative for one AI question. A preceding question carries no image. |
-| [Jupyter AI and nbinlineai together](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
-| [Codex ACP worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
+| [Quick start](https://rahuldave.com/nbinlineai/notebooks/quickstart.html) | Read a live Python value, offer one custom function, and ask a first concise question. |
+| [Context selection](https://rahuldave.com/nbinlineai/notebooks/context-selection.html) | Compare what each context choice sends and control a declaration cell with Tools. |
+| [Live variables and tools](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html) | Compare a live value with a function call and observe a change in Python state. |
+| [Socratic learning dialogue](https://rahuldave.com/nbinlineai/notebooks/socratic-learning-dialog.html) | Answer a tutor turn by turn; edit your own attempt before continuing. |
+| [Bundled tools](https://rahuldave.com/nbinlineai/notebooks/bundled-tools.html) | Find live names and inspect a supplied saved notebook; leave a generated code draft unrun. |
+| [Live notebook tools](https://rahuldave.com/nbinlineai/notebooks/live-notebook-tools.html) | Read unsaved cells and insert an editable hint in the open notebook. |
+| [Python and web tools](https://rahuldave.com/nbinlineai/notebooks/python-and-web-tools.html) | Inspect Python help and source, read a public page, and add a source-linked note. |
+| [Fastcore tools](https://rahuldave.com/nbinlineai/notebooks/fastcore-tools.html) | Inspect documentation and make checked edits to temporary text files. |
+| [Project tools](https://rahuldave.com/nbinlineai/notebooks/project-tools.html) | Search a disposable source project and preview digest-checked changes. |
+| [Image from output to question](https://rahuldave.com/nbinlineai/notebooks/browser-media-integration.html) | Export, preview, and crop a disposable output, then explicitly confirm one image for one AI question. |
+| [Jupyter AI and nbinlineai together](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html) | Compare optional Jupyter AI chat work with inline learning questions. |
+| [Codex ACP worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) | Diagnose and repair an intentional teaching bug, then explain the result inline. |
 
-For the combined-extension examples, work step by step and paste chat prompts into **Jupyter Chat**. Jupyter AI's Codex authentication belongs to its adapter and does not configure nbinlineai. Inline questions can use nbinlineai's own ChatGPT connection or a separately configured API provider. The [Codex run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md) describes the earlier authenticated Jupyter AI trial and its limits.
+Jupyter AI's Codex sign-in is separate from nbinlineai's model connection. The combined-extension notebooks do not transfer chat history into an inline question automatically.
 
-For a locally installed copy, this Python code prints the example directory:
+## Tool catalog notebooks
 
-```python
-from pathlib import Path
-import sysconfig
+These notebooks give every registered tool a concrete demonstration. Their normal Python examples and concise AI questions use the same disposable inputs where both routes exist. The live editor tools instead compare the AI action with a manual JupyterLab edit on a second copy.
 
-print(Path(sysconfig.get_path("data")) / "share/doc/nbinlineai/examples")
-```
+| Notebook | What you will try |
+| --- | --- |
+| [Live Python inspection](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-inspection.html) | Inspect disposable kernel values, callable signatures, docs, and traces. |
+| [Saved files and source](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-files.html) | Search temporary files and make bounded, checked source edits. |
+| [Saved notebooks](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-saved-notebooks.html) | Find and read a temporary notebook by its saved stable cell ID. |
+| [Live notebook cells](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html) | Read and edit separate scratch cells in a copied open notebook. |
+| [Public web pages](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-web.html) | Read a public page and insert a bounded note with its source link. |
+| [Local processes](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-processes.html) | Run bounded commands and inspect a disposable tmux pane when available. |
+| [Browser-media foundation](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) | Check capabilities and exercise save, status, cancel, and release on a tiny PNG. |
+| [Camera, microphone, and display](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) | Use real permission controls and later receipts for captures and recordings. |
+| [Notebook outputs and canvas](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) | Read existing outputs and capture supported canvas or visible regions. |
+| [Import, playback, and clipboard](https://rahuldave.com/nbinlineai/notebooks/browser-media-playback.html) | Import a generated file, preview a WAV, and use visible copy/paste controls. |
+| [Media transformations](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) | Extract real video frames and make source-preserving crops and annotations. |
+| [Attach an image](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) | Confirm a generated still image for one question, inspect it, and remove it. |
 
-An AI call uses your configured provider and incurs normal API usage. **Keep answer** preserves a completed answer and skips repeating its tool actions. The custom-tool example visibly changes Python state; its setup can restore the initial state.
+The media guides describe formats, limits, and cleanup: [capture](browser-media-capture.md), [outputs](browser-media-outputs.md), [playback](browser-media-playback.md), [transforms](browser-media-transforms.md), and [attachment](browser-media-attachment.md). `attach_media` confirmation alone does not run a question or call the provider; run the question when you are ready. Real device steps use the media you explicitly choose to share.
 
-[Tools reference](tools.md) · [User guide](user-guide.md) · [FAQ](faq.md)
+[User guide](user-guide.md) · [Tool catalog](tools.md) · [FAQ](faq.md)
