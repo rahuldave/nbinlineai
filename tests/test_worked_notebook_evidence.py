@@ -5,6 +5,8 @@ from pathlib import Path
 
 from scripts.check_worked_evidence import validate_examples
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
 
 def _code(cell_id: str, source: str, *, executed: bool = True, metadata: dict | None = None) -> dict:
     return {"cell_type": "code", "id": cell_id, "source": source,
@@ -280,3 +282,9 @@ def test_scoped_execution_rejects_unknown_or_unsafe_notebook(tmp_path: Path) -> 
         assert validate_examples(path, require_executed=True,
                                  public_tools={"example_tool"},
                                  only_notebook=notebook)
+
+
+def test_published_examples_have_saved_real_execution_evidence() -> None:
+    """The published catalog must retain observed normal and AI evidence for every tool."""
+    errors = validate_examples(PROJECT_ROOT / "examples", require_executed=True)
+    assert not errors, "\n".join(errors)
