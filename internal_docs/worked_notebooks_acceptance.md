@@ -1,7 +1,7 @@
 # Worked notebook and documentation acceptance (in progress)
 
 This is the source-work acceptance record for [draft PR #35](https://github.com/rahuldave/nbinlineai/pull/35), not a release
-record. This integration checkpoint is `0b02ecc` on `codex/worked-guide`;
+record. This inventory is pinned to integrated `5f24ced` on `codex/worked-guide`;
 the implementation began from `main` at `22b0a83`.
 The browser/media API contract was approved at `main`
 `61fa3fe517999d8f88ff328a99fc86a34dfb470b`, with selected task prompt
@@ -17,7 +17,7 @@ here. No version change or package release is part of this draft.
 
 | Work | Owned physical checkout | Responsibility |
 | --- | --- | --- |
-| Nonmedia examples, manuals, evidence checker, this record | `/Users/rahul/Projects/nbinlineai-worked-notebooks`, `codex/worked-notebooks` | Seventeen older/example notebooks, `examples/README.md`, public pages other than the final user guide/FAQ, strict coverage checks. |
+| Nonmedia examples, manuals, evidence checker, this record | `/Users/rahul/Projects/nbinlineai-worked-notebooks`, `codex/worked-notebooks`; record refresh in `/Users/rahul/Projects/nbinlineai-worked-acceptance-followup`, `codex/worked-acceptance-current` | Seventeen older/example notebooks, `examples/README.md`, public pages other than the final user guide/FAQ, strict coverage checks and this pinned evidence record. |
 | Live execution and saved evidence | `/Users/rahul/Projects/nbinlineai-worked-execution` | Disposable JupyterLab/browser/subscription runs, genuine code output and AI tool traces, runner, `worked_notebooks_run.md` and `todo.md`. |
 | Media examples and catalog mapping | `/Users/rahul/Projects/nbinlineai-worked-media` | Seven browser-media notebooks, `tool-coverage.json`, paired tool-catalog links. |
 | Genuine web/ACP publication and UI annotation publisher | `/Users/rahul/Projects/nbinlineai-worked-publication`, `codex/worked-publication` | Source-preserving merge of two saved runs; post-merge publisher for later actual manual UI observations. |
@@ -32,9 +32,9 @@ this record summarizes accepted checkpoints rather than duplicating traces.
 
 ## Accepted source and evidence checkpoints
 
-The canonical `examples/*.ipynb` inventory at `0b02ecc` contains 24 notebooks.
-Thirteen retain genuine code output or completed AI answers; eleven remain
-source-only. Counts below come from the saved notebook cells, not from draft
+The canonical `examples/*.ipynb` inventory at `5f24ced` contains 24 notebooks.
+Sixteen retain genuine code output or completed AI answers; eight remain
+source-only. Counts below come from the saved notebook cells, not from private
 runner artifacts. “Calls” counts structured observed tool-result events; the
 ACP lesson correctly has no tool trace because its two questions offer no
 notebook tools.
@@ -45,14 +45,14 @@ notebook tools.
 | `browser-media-capture` | 0 | 0 | 0 | 0 |
 | `browser-media-foundation` | 12 | 7 | 7 | 0 |
 | `browser-media-integration` | 0 | 0 | 0 | 0 |
-| `browser-media-outputs` | 0 | 0 | 0 | 0 |
+| `browser-media-outputs` | 36 | 24 | 30 | 0 |
 | `browser-media-playback` | 0 | 0 | 0 | 0 |
-| `browser-media-transforms` | 0 | 0 | 0 | 0 |
+| `browser-media-transforms` | 8 | 8 | 14 | 0 |
 | `bundled-tools` | 2 | 4 | 5 | 0 |
 | `codex-acp-worked-example` | 3 | 2 | 0 | 0 |
 | `context-selection` | 1 | 1 | 1 | 0 |
 | `fastcore-tools` | 5 | 2 | 4 | 0 |
-| `jupyter-ai-and-nbinlineai` | 0 | 0 | 0 | 0 |
+| `jupyter-ai-and-nbinlineai` | 4 | 3 | 1 | 0 |
 | `live-notebook-tools` | 0 | 0 | 0 | 0 |
 | `live-variables-and-tools` | 0 | 0 | 0 | 0 |
 | `project-tools` | 4 | 1 | 4 | 0 |
@@ -66,7 +66,7 @@ notebook tools.
 | `tool-catalog-saved-notebooks` | 6 | 3 | 5 | 0 |
 | `tool-catalog-web` | 3 | 3 | 3 | 0 |
 
-The saved total is **43 done AI answers, 67 observed calls, and zero manual UI
+The saved total is **78 done AI answers, 112 observed calls, and zero manual UI
 action markers**. The first ten nonmedia runs entered through `9b7ee81`,
 `7dd39c1`, and `57e5683`. The real foundation run entered at `108450c`;
 the original-source-preserving web and ACP publications were independently
@@ -94,15 +94,15 @@ unfinished actual evidence; it must pass against the final canonical saved
 notebooks before acceptance and must not be skipped for publication.
 
 The current mapping has **96 public tools and three setup helpers**. All
-source mappings pass the structural checker. Saved execution passes for 41
-public normal examples and 42 public AI examples; one setup helper
+source mappings pass the structural checker. At `5f24ced`, saved execution
+passes for 53 public normal examples and 54 public AI examples; one setup helper
 (`tool_catalog`) passes. Exactly `start_camera`, `capture_camera`, and
 `record_camera` have the user-authorized dated **normal-and-AI camera
 deferral**, tied to [the actual camera probe](worked_notebooks_run.md#camera).
 The probe attempted acquisition for `start_camera`; the other two are
 dependency-blocked, not individually claimed as executed. No other tool or
-notebook is waived. The strict checker currently reports 54 tool/helper
-failures, representing 54 unfinished normal modes and 51 unfinished AI modes;
+notebook is waived. The strict checker currently reports 42 tool/helper
+failures, representing 42 unfinished normal modes and 39 unfinished AI modes;
 its one-error-per-tool output reports the first failure only. The exact
 remaining names are:
 
@@ -110,9 +110,8 @@ remaining names are:
 | --- | --- | --- |
 | `browser-media-attachment` | normal + AI | `attach_media` |
 | `browser-media-capture` | normal + AI | `capture_screen`, `capture_tool`, `list_media_sources`, `pause_recording`, `read_audio_levels`, `record_microphone`, `resume_recording`, `setup_share`, `start_microphone`, `start_recording`, `start_share`, `stop_recording`, `stop_share`, `stop_source` |
-| `browser-media-outputs` | normal + AI | `capture_canvas`, `capture_notebook_region`, `export_canvas`, `export_output`, `list_canvases`, `list_outputs`, `read_notebook_view`, `read_output`, `read_selection`, `start_canvas` |
+| `browser-media-outputs` | normal + AI | `read_selection` (new nonempty selected-text demonstration; the earlier empty-state result remains saved) |
 | `browser-media-playback` | normal + AI | `choose_file`, `close_media`, `copy_text`, `open_media`, `paste_content`, `pause_media`, `play_media`, `seek_media`, `set_media_volume` |
-| `browser-media-transforms` | normal + AI | `annotate_image`, `crop_image`, `extract_frames` |
 | `tool-catalog-live-notebook` | normal + AI | `cell_insert_line`, `cell_replace_lines`, `cell_str_replace`, `copy_cell`, `delete_cell`, `find_cells`, `insert_code`, `insert_markdown`, `list_cells`, `merge_cells`, `move_cell`, `read_cell`, `replace_cell`, `split_cell` |
 | `tool-catalog-web` | normal UI only | `url_to_note` |
 | `live-variables-and-tools` | normal helper only | `insert_tools` (later `inserted` receipt and actual declaration cell required) |
@@ -122,10 +121,14 @@ The 15 frontend-only normal comparisons are the fourteen live-notebook names
 above plus `url_to_note`; their AI modes remain independently required. The
 web `url_to_note` AI mode already has a real observed completed call. The
 other setup helper, `tool_catalog`, is complete; setup helpers have explicit
-AI exceptions rather than fabricated AI calls. After the pinned `0b02ecc`
+AI exceptions rather than fabricated AI calls. Since the earlier `0b02ecc`
 inventory, `b070ebb` (integrated as `7d8ba14`) gave passive
 `list_media_sources` its own AI question before the deferred camera question.
 Its actual answer is still required; the camera exception does not apply to it.
+At `5f24ced`, `read_selection` maps to a new nonempty line-selection example;
+its direct and AI outcomes are pending, while the earlier saved empty-state
+output remains honest. The exact selected-line source correction `9493b34`
+and any new run are outside this pinned inventory.
 
 The public notebook and manual source had independent review and focused
 repairs. Media receipt references were corrected at `986bb8e` and `72cce25`;
@@ -166,6 +169,17 @@ intentional “Needs work” diagnostics, and no phantom tool table. Those three
 pages have their download links and no broken local references. This focused
 render is not the final full-site check.
 
+The later canonical output, transform, and Jupyter AI coexistence notebooks
+account for the three additional saved notebooks above. The output notebook
+retains 24 done answers and 30 observed calls; its saved `read_selection`
+result is empty, hence the separate pending nonempty example. The transform
+notebook retains eight done answers and fourteen calls against the owned-tab
+video. Its direct browser receipts came from a distinct genuine run, so their
+temporary operation IDs can differ from the AI questions. The coexistence
+notebook retains three done answers and one observed call; its inserted code
+remains unexecuted for the reader. Focused Quarto renders checked actual
+output displays and anchors.
+
 A **private, unpublished** partial capture run contains a real microphone
 recording. The staged notebook's embedded Opus/WebM bytes match its separate
 320,211-byte artifact (SHA-256
@@ -174,6 +188,16 @@ FFmpeg decoding, rather than unavailable WebM container duration metadata,
 gave 317,760 mono 16-kHz PCM samples, or 19.86 seconds, with two separated
 approximately 440-Hz signal intervals. This is byte, decoding, and signal
 inspection, not a listening claim or completion of the capture notebook.
+An independently reviewed second private direct microphone staging contains
+two embedded clips that decode to 20.64 and 6.96 seconds. Its real direct
+source, pause/resume/stop and one-shot receipt inspections remain private;
+neither the clip bytes nor these observations are counted as a published
+capture notebook or a completed AI demonstration.
+Private playback pilots also exercised its nine normal browser tools with
+real chooser, controls and clipboard actions and later receipt inspections.
+B's direct-only canonical playback candidate `caf49b4` arrived after the
+`5f24ced` inventory and is not counted until its source/evidence review and
+integration finish; its AI questions are still unrun.
 
 A separate owned-tab screen recording is a checked-in companion input for the
 transform notebook at source commit `c48f99d` (integrated as `8a6545b`).
@@ -187,8 +211,8 @@ checks actual presented times and differing pixels, and preserves exact
 source-hash references. Its local-first setup, pinned bounded download
 fallback, corrupt-file rejection, and disposable cleanup were independently
 checked; the isolated headless setup passed with the pinned file, and its
-test fixture was integrated as `1d8a780`. The final
-canonical browser `extract_frames` run and saved frames remain pending.
+test fixture was integrated as `1d8a780`. The canonical transform notebook
+now contains the real `extract_frames` result and saved frame displays.
 
 At the pushed `0b02ecc` PR checkpoint, Quarto render/site checks and runtime
 compatibility passed. Full source validation run `36538854955` had 503 tests
@@ -198,17 +222,25 @@ failed; no other Python failure appeared in that log. Publication was
 correctly skipped for the PR. This expected red gate is an open acceptance
 requirement, not a reason to hide or skip the test.
 
+A separate main-based ChatGPT credit-admission correction runs through
+`0e61aa6` from `main` `22b0a83`. Independent review accepted its narrow
+known-snapshot contract and 39 deterministic focused tests. Draft PR #36
+remains subject to its own CI and a separately authorized live paid-credit
+decision; this worked-notebook checkpoint claims no paid model turn or spend.
+
 ## Remaining acceptance work
 
-- Save and inspect genuine runs for the five source-only nonmedia notebooks:
-  `jupyter-ai-and-nbinlineai.ipynb`, `live-notebook-tools.ipynb`,
-  `live-variables-and-tools.ipynb`, `socratic-learning-dialog.ipynb`, and
-  `tool-catalog-live-notebook.ipynb`. The saved ACP lesson already preserves
+- Save and inspect genuine runs for the four source-only nonmedia notebooks:
+  `live-notebook-tools.ipynb`, `live-variables-and-tools.ipynb`,
+  `socratic-learning-dialog.ipynb`, and `tool-catalog-live-notebook.ipynb`.
+  The saved ACP lesson already preserves
   its expected diagnostic rather than silently fixing the teaching bug.
-- Save and independently inspect the six remaining source-only media
-  notebooks: capture, outputs, playback, transforms, attachment, and the
-  integration walkthrough. The private microphone artifact is only a partial
-  run. Use actual microphone and owned-tab screen sources for noncamera
+- Save and independently inspect the four remaining source-only media
+  notebooks: capture, playback, attachment, and the integration walkthrough.
+  Complete the new nonempty selected-text direct and AI demonstrations in the
+  already-saved output notebook. Independently accepted private microphone
+  and playback normal runs are not canonical publication at this pinned head.
+  Use actual microphone and owned-tab screen sources for noncamera
   workflows; the exact three camera-dependent tools remain dated exceptions
   until the user and hardware can complete them. A pending permission request
   is not evidence of capture. Do not publish private labels, IDs, paths, or
