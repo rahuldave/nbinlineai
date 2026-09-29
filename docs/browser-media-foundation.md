@@ -4,9 +4,19 @@ title: Browser media receipts
 
 # Browser media receipts
 
-A browser tool starts work in the open notebook tab and returns to Python promptly. Its `BrowserReceipt` changes as the browser finishes. **Run the call, let the media row finish, then inspect the same receipt in a later cell before using its result.** The first printed receipt shows only its state at that moment.
+Browser work can take longer than a notebook cell: you may need to allow a device, choose a window, finish a recording, or wait for a file save. A direct Python call therefore returns a **`BrowserReceipt` promptly**. It is a live Python object whose fields can change after the cell ends. Printing it in the calling cell captures only that moment; it does not wait for a photo, clip, or saved file.
 
-This worked example makes a disposable 2×2 PNG and saves a separate copy. Run each code block as its own notebook cell with the kernel working directory at the Jupyter server root:
+The sequence is:
+
+1. Run the call in an open JupyterLab notebook. Keep the returned receipt in a variable. It may initially say `running` with no `operation_id` yet.
+2. Complete any visible permission or chooser step. The notebook's **Media** row shows progress and offers **Stop** while work is active.
+3. When the row finishes, run a **later cell** that reads the *same* receipt's `status`, `result`, `media`, and `error`. If it is still active, inspect it again later. Use a result only after `completed`.
+
+Run All cannot supply this pause between dependent media cells: it moves to the next cell after the Python call or AI answer, even if the browser operation continues. Run those cells individually. The [foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates direct Python calls and AI tool calls, with a later inspection or status question for each.
+
+## A save you can try
+
+This example creates a disposable 2×2 PNG and saves a separate copy. Run each code block as its own cell in a disposable notebook whose kernel is working at the Jupyter server root:
 
 ```python
 from pathlib import Path
@@ -19,10 +29,10 @@ source = Path.cwd() / f"receipt-source-{uuid4().hex[:8]}.png"
 Image.new("RGB", (2, 2), "red").save(source)
 source_ref = {"path": source.name, "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}
 saved = save_media(source_ref, save_to="auto")
-print(saved)  # An immediate snapshot; the save may still be running.
+print(saved)  # The save may still be running.
 ```
 
-Look for the notebook's Media row. When it says **completed**, run this *later* cell. If it still says `running` or `saving`, leave file-dependent work for later and rerun this inspection cell after the row changes:
+After the Media row says **completed**, run this later cell. If the status is still `running` or `saving`, wait and run it again:
 
 ```python
 from IPython.display import display
@@ -36,36 +46,45 @@ if saved.status == "completed":
     display(Image.open(saved_path).resize((80, 80)))
 ```
 
-The displayed red image and matching hash come from the file the browser actually saved. The [foundation notebook's save call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-call) and [later inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-inspect) walk through this sequence with cleanup. Do not block in the call cell waiting for its own result, and do not use Run All for dependent media cells: the next cell can execute while the browser is still asking for a click, recording, or saving.
+The displayed red image and matching hash come from the file that was saved. The notebook has the [save call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-call), [later inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-inspect), and [cleanup](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-cleanup) as separate cells. A direct call needs a live JupyterLab notebook and Python kernel, but it does not need an AI connection.
 
-## What the receipt fields mean
+## Read the receipt
 
-| Field | What to check |
+| Field | Meaning |
 | --- | --- |
-| `operation_id` | The ID for this browser operation. It can be `None` immediately after the Python call, until the browser registers it. Use it for a later status lookup or cancellation. |
-| `status` | `waiting_for_user` needs a visible action; `running`, `paused`, and `saving` are still active. `completed` means finished. `failed`, `cancelled`, and `expired` are terminal outcomes. |
-| `result` | A successful typed Python result: for example, a Pillow image, an audio/video `MediaClip`, a list of decoded frames, or small control metadata. A pending receipt has no final result yet. |
-| `media` | One owned descriptor, or a list of descriptors for a frame batch, when bytes were delivered or saved. Each can include a `media_id`, MIME type, SHA-256, size, and saved path. Keep an exact saved path and hash together. |
-| `error` | A structured code and message when work fails, is cancelled, or expires. Read it before retrying. |
+| `operation_id` | Identifies this operation for a later status check or cancellation. It can be `None` just after a Python call, before the browser registers the operation. |
+| `status` | `waiting_for_user` needs a visible action; `running`, `paused`, and `saving` are active. `completed` means finished. `failed`, `cancelled`, and `expired` are terminal outcomes. |
+| `result` | The completed Python value, such as a Pillow image, encoded audio/video `MediaClip`, decoded frames, a source ID, or small control data. It is not ready while the operation is pending. |
+| `media` | One managed media descriptor, or a list for a batch. A descriptor can include an opaque `media_id`, MIME type, byte count, SHA-256, dimensions, duration, expiry, and a `path` **only after a successful save**. |
+| `error` | A structured code and message when the operation fails, is cancelled, or expires. Read it before retrying. |
 
-A model-initiated browser tool call behaves differently from a Python variable: its tool result is a **snapshot** at that instant. It does not update inside a saved AI answer. If it reports `running` or `waiting_for_user`, complete the visible action first, then ask a later AI question to call `operation_status` with the exact operation ID. Only the later result can establish whether work completed and returned a source ID, file, or other result. Never infer success from the initial snapshot.
+A completed `start_camera`, `start_microphone`, `start_share`, or `start_canvas` operation gives a `source_id`. **Completed means the source opened**, not that its camera, microphone, screen share, or canvas stream has stopped. Stop the source explicitly when finished. A recording has its own operation and can remain `running` or `paused` while that source stays live.
 
-`operation_status(operation_id)` also returns a new Python `BrowserReceipt`. Once that lookup receipt completes, **its** `result` is a one-time snapshot of the **target** operation. The two statuses are distinct: `lookup.status == "completed"` means the lookup finished, while `lookup.result["status"]` says whether the target is still running, paused, or completed. The lookup does not wait for the target or retrieve media bytes.
+The receipt can update while Python is idle. If the kernel is busy, its browser messages may arrive only when the kernel can handle them again. Do not spin or block in the calling cell waiting for its receipt: that can prevent the update from being processed.
+
+## AI answers and status checks
+
+An AI browser-tool result is an **initial snapshot**, not a mutable Python receipt. The saved answer will not change when a permission is granted or a recording finishes. It may contain an operation ID and `waiting_for_user` or `running` even though the Media row later says **completed**. Complete the visible action, then ask a later AI question to call `operation_status` on that exact ID. If the status check still shows active work, check again later. The [save AI call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-question) and [follow-up status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-ready) show both steps. AI questions use the notebook's selected AI connection.
+
+Python can also request a status snapshot:
 
 ```python
 from nbinlineai.tools import operation_status
 
-if saved.operation_id:
-    lookup = operation_status(saved.operation_id)
-    # Inspect lookup.status and lookup.result in another cell after it finishes.
+lookup = operation_status(saved.operation_id)
+# Inspect lookup.status and lookup.result in a later cell.
 ```
 
-## Save, cancel, release, and reopen
+This lookup has **two states**. After `lookup.status == "completed"`, its `lookup.result["status"]` is the target operation's state *at the time of lookup*. The target may still be `running`, `saving`, or `waiting_for_user`. The lookup does not wait for it or fetch image/audio/video bytes. It also does not extend temporary media's expiry. See the notebook's [status call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-status-call) and [later inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-status-inspect).
 
-`save_media(media, save_to="auto")` creates a new unused file beside the notebook in `media/`. It accepts an owned in-memory descriptor or an exact saved-file reference containing both `path` and `sha256`. An explicit destination is relative to the Jupyter server root; a conflicting path is rejected. A capture with `save_to=None` stays in memory, while `save_media` always writes a file. File saving is available only when a completed `browser_capabilities()` receipt reports `file_media_supported` in its result. Call it in one code cell and inspect that same receipt in a later cell; the check itself does not request device access.
+## Memory, files, and ownership {#save-cancel-release-and-reopen}
 
-`cancel_operation(operation_id)` stops unfinished work. Cancelling an already completed operation does not remove its saved file or delivered Python result. `release_media(media_id)` frees managed bytes; it does not delete a saved file or a Pillow image or `MediaClip` already delivered into Python. The Media row's **Stop** control acts on live work in that notebook.
+For media-producing tools, `save_to=None` keeps bounded temporary media in memory. `save_to="auto"` requests a unique file in `media/` beside the initiating notebook; an explicit nonempty path is relative to the Jupyter server root. A path is reported only after the server confirms the save. A still image can also be returned as a Pillow object when a file was requested. Recordings saved to a file need not produce a second full `MediaClip` in Python.
 
-Close the tab or change kernels and live operations or managed IDs can expire. The saved PNG above remains a normal file after reopening; a new notebook session can use its current path and recomputed SHA-256. A Python image or clip persists only while that Python kernel still holds it. When finished with the disposable example, remove the exact generated saved path and `source`; keep any real file you intentionally saved.
+`save_media(media, save_to="auto")` writes an existing result to a **new** file. Pass either an owned memory descriptor containing `media_id` or an exact saved-file reference with both `path` and `sha256`, as in the example. It never overwrites a file. `save_media` does not accept `save_to=None`; it is specifically a save operation. Check `browser_capabilities().result["file_media_supported"]` in a later cell before relying on local file saving. The capability check does not ask for device permission.
 
-Camera and microphone access may require HTTPS when JupyterLab is reached from another device. The [capture](browser-media-capture.md), [outputs](browser-media-outputs.md), [playback](browser-media-playback.md), [transforms](browser-media-transforms.md), and [attachment](browser-media-attachment.md) guides use the same receipt pattern with their own permissions and result types.
+Managed bytes belong to the originating notebook tab, session, and kernel. Their descriptors have an `expires_at` time; the idle lifetime is 10 minutes, and merely checking status does not renew it. Closing the owner or changing kernels can expire pending work and memory IDs. A saved file survives that cleanup and can be reopened later using its current path and recomputed SHA-256. A Pillow image or `MediaClip` already delivered into Python remains an ordinary Python object while that kernel holds it.
+
+`release_media(media_id)` frees the managed temporary bytes and invalidates uses of that ID, including dependent previews. It does **not** delete an already saved file or an image/clip already copied into Python. `cancel_operation(operation_id)` stops unfinished work; cancelling a completed operation does not erase its file or Python result. The Media row's **Stop** control stops live work in that notebook. See the notebook's [release](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-release-call) and [cancel](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-cancel-call) demonstrations. Remove only the disposable files you created when finished with the save example.
+
+Device capture and screen sharing require visible browser permission or a share chooser. The result stays with the notebook and local Jupyter server; ordinary browser-tool text gives the AI bounded status and descriptors, not media bytes. Sending an image to the selected AI requires a separate, explicit [image attachment](browser-media-attachment.md). For complete workflows, continue with [camera and recording](browser-media-capture.md), [notebook outputs](browser-media-outputs.md), [import and playback](browser-media-playback.md), or [transformations](browser-media-transforms.md). Camera and microphone access from another device may require an HTTPS JupyterLab address.
