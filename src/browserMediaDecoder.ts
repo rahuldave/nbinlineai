@@ -162,6 +162,75 @@ async function waitForMedia(element: HTMLMediaElement, signal?: AbortSignal): Pr
   });
 }
 
+/** MediaRecorder WebM may omit Duration; ask the browser to seek past our limit
+ * so it measures the actual blob end. Never substitute a recorder claim. */
+async function measuredDuration(element: HTMLMediaElement, context: BrowserOperationContext,
+  signal?: AbortSignal): Promise<number> {
+  let duration = element.duration;
+  if (duration === Infinity) {
+    await new Promise<void>((resolve, reject) => {
+      let done = false;
+      let sought = false;
+      const cleanup = () => { done = true; window.clearTimeout(timer);
+        element.removeEventListener('seeked', onSeek);
+        element.removeEventListener('durationchange', check);
+        element.removeEventListener('error', onError);
+        signal?.removeEventListener('abort', onAbort); };
+      const fail = (error: Error) => { if (done) return; cleanup(); reject(error); };
+      const check = () => {
+        if (done) return;
+        try { requireCurrent(context, signal); }
+        catch (error) { fail(error as Error); return; }
+        if (sought && Number.isFinite(element.duration)) {
+          cleanup(); resolve();
+        }
+      };
+      const onSeek = () => { sought = true; check(); };
+      const onError = () => fail(new BrowserMediaError('unsupported', 'Browser could not measure this media duration.'));
+      const onAbort = () => fail(new BrowserMediaError('cancelled', 'Media operation was cancelled.'));
+      const timer = window.setTimeout(() => fail(new BrowserMediaError('unsupported',
+        'Browser could not verify a finite media duration.')), 10_000);
+      element.addEventListener('seeked', onSeek);
+      element.addEventListener('durationchange', check);
+      element.addEventListener('error', onError);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try { requireCurrent(context, signal); element.currentTime = MAX_DURATION + 1; }
+      catch (error) { fail(error as Error); }
+    });
+    duration = element.duration;
+    requireCurrent(context, signal);
+    if (!Number.isFinite(duration) || duration <= 0)
+      throw new BrowserMediaError('unsupported', 'Browser could not verify a finite media duration.');
+    if (duration > MAX_DURATION)
+      throw new BrowserMediaError('limit_exceeded', 'Media duration exceeds the 300-second decoder limit.');
+    // Do not hand a preview or frame extractor a lease left at the probed end.
+    if (element.currentTime > 0.001) await new Promise<void>((resolve, reject) => {
+      let done = false;
+      const cleanup = () => { done = true; window.clearTimeout(timer);
+        element.removeEventListener('seeked', onSeek);
+        element.removeEventListener('error', onError);
+        signal?.removeEventListener('abort', onAbort); };
+      const fail = (error: Error) => { if (done) return; cleanup(); reject(error); };
+      const onSeek = () => { if (done) return; cleanup(); resolve(); };
+      const onError = () => fail(new BrowserMediaError('unsupported', 'Browser could not reset this media.'));
+      const onAbort = () => fail(new BrowserMediaError('cancelled', 'Media operation was cancelled.'));
+      const timer = window.setTimeout(() => fail(new BrowserMediaError('timeout',
+        'Media reset after duration measurement timed out.')), 10_000);
+      element.addEventListener('seeked', onSeek, { once: true });
+      element.addEventListener('error', onError, { once: true });
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try { requireCurrent(context, signal); element.currentTime = 0;
+        if (!element.seeking && element.currentTime === 0) queueMicrotask(onSeek); }
+      catch (error) { fail(error as Error); }
+    });
+  }
+  if (!Number.isFinite(duration) || duration <= 0)
+    throw new BrowserMediaError('unsupported', 'Browser could not verify a finite media duration.');
+  if (duration > MAX_DURATION)
+    throw new BrowserMediaError('limit_exceeded', 'Media duration exceeds the 300-second decoder limit.');
+  return duration;
+}
+
 /** One verified decoder lease; callers must release it, including on cancellation. */
 export async function loadPlaybackMedia(context: BrowserOperationContext, reference: MediaRef,
   options: { signal?: AbortSignal; preview?: boolean } = {}): Promise<DecodedMediaLease> {
@@ -207,9 +276,8 @@ export async function loadPlaybackMedia(context: BrowserOperationContext, refere
   try {
     await waitForMedia(element, options.signal);
     requireCurrent(context, options.signal);
-    const duration = element.duration;
-    if (!Number.isFinite(duration) || duration < 0 || duration > MAX_DURATION)
-      throw new BrowserMediaError('limit_exceeded', 'Media duration exceeds the 300-second decoder limit.');
+    const duration = await measuredDuration(element, context, options.signal);
+    requireCurrent(context, options.signal);
     const video = element as HTMLVideoElement;
     const width = format.kind === 'video' ? video.videoWidth : 0;
     const height = format.kind === 'video' ? video.videoHeight : 0;
