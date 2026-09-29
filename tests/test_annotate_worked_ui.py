@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,8 @@ def test_publish_two_distinct_actions_on_one_mapped_cell_preserves_everything_el
     {"completed": False}, {"observedAfter": ""},
     {"observedAfter": "x" * 301},
     {"observedAfter": "Private path /Users/person/Notebook.ipynb"},
+    {"observedAfter": "The URL was http://127.0.0.1:8897/lab?token=abc123."},
+    {"observedAfter": "The source used token=abc123."},
     {"observedAfter": "A hidden [link](https://example.com)"},
     {"observedAfter": "A\nsecond line"},
 ])
@@ -114,8 +117,52 @@ def test_incremental_publication_allows_distinct_action_but_not_replay(tmp_path:
     updated = annotate(examples, [second])["catalog.ipynb"]
     assert len(updated["cells"][0]["metadata"]["nbinlineaiWorkedUIActions"]) == 2
     _write(examples / "catalog.ipynb", updated)
-    with pytest.raises(ValueError, match="already published"):
-        annotate(examples, [copy.deepcopy(row)])
+    assert annotate(examples, [copy.deepcopy(row)]) == {}
+    with pytest.raises(ValueError, match="conflicts"):
+        annotate(examples, [{**row, "observedAfter": "A different result appeared."}])
+
+
+def test_partial_multi_notebook_publish_resumes_only_exact_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    examples, _original, row = _fixture(tmp_path)
+    mapping_path = examples / "tool-coverage.json"
+    mapping = json.loads(mapping_path.read_text())
+    mapping["url_to_note"] = {"normal_example": {
+        "notebook": "web.ipynb", "cell_id": "web-manual", "mode": "jupyterlab",
+    }}
+    _write(mapping_path, mapping)
+    _write(examples / "web.ipynb", {"cells": [{
+        "id": "web-manual", "cell_type": "markdown", "metadata": {},
+        "source": ['<span id="web-manual"></span>\n',
+                   "For a manual comparison, add a public-source note in JupyterLab.\n"],
+    }]})
+    second = {"notebook": "web.ipynb", "cellId": "web-manual", "name": "url_to_note",
+              "completed": True, "observedBefore": "A disposable notebook was open.",
+              "observedAfter": "A source-linked note appeared below the selected cell."}
+    manifest = tmp_path / "private-ui.json"
+    _write(manifest, [row, second])
+    real_replace = os.replace
+    calls = 0
+
+    def interrupted_replace(source: Path, target: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("interrupted between notebook replacements")
+        real_replace(source, target)
+
+    with monkeypatch.context() as patch:
+        patch.setattr("scripts.annotate_worked_ui.os.replace", interrupted_replace)
+        with pytest.raises(OSError, match="interrupted"):
+            publish(examples, manifest)
+    first_bytes = (examples / "catalog.ipynb").read_bytes()
+    assert "nbinlineaiWorkedUIActions" not in (examples / "web.ipynb").read_text()
+    assert publish(examples, manifest) == ["web.ipynb"]
+    assert (examples / "catalog.ipynb").read_bytes() == first_bytes
+    assert publish(examples, manifest) == []
+    with pytest.raises(ValueError, match="conflicts"):
+        annotate(examples, [row, {**second, "observedBefore": "A changed claim."}])
 
 
 def test_unknown_manifest_fields_and_unverified_prose_reject(tmp_path: Path) -> None:

@@ -18,7 +18,9 @@ from typing import Any
 ROW_KEYS = frozenset({"notebook", "cellId", "name", "completed", "observedBefore", "observedAfter"})
 PRIVATE_TEXT = re.compile(
     r"(?:Bearer\s+|sk-[A-Za-z0-9_-]{20,}|/Users/|/home/|/tmp/|"
-    r"/(?:private/)?var/folders/|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})",
+    r"/(?:private/)?var/folders/|https?://|"
+    r"(?:token|api[_-]?key|secret|password|authorization|session[_-]?id)\s*[=:]\s*\S+|"
+    r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})",
     re.IGNORECASE,
 )
 
@@ -54,6 +56,7 @@ def annotate(examples_dir: Path, observations: list[dict[str, Any]]) -> dict[str
         raise ValueError("UI manifest contains more actions than mapped JupyterLab tools")
 
     notebooks: dict[str, dict[str, Any]] = {}
+    changed: set[str] = set()
     seen: set[str] = set()
     for row in observations:
         if not isinstance(row, dict) or set(row) != ROW_KEYS or row.get("completed") is not True:
@@ -109,17 +112,21 @@ def annotate(examples_dir: Path, observations: list[dict[str, Any]]) -> dict[str
                               if line.startswith("Observed in JupyterLab")]
         if existing_sentences != prior_sentences:
             raise ValueError("comparison cell has unverified observation prose")
+        action = {"name": name, "completed": True,
+                  "observedBefore": before, "observedAfter": after}
         if name in prior_names:
-            raise ValueError("UI observation repeats an already published action")
+            if next(item for item in prior if item["name"] == name) != action:
+                raise ValueError("UI observation conflicts with an already published action")
+            # An exact retry can finish another notebook after an interrupted
+            # multi-file publication. The already-published cell stays byte-for-byte.
+            continue
 
         sentence = f"Observed in JupyterLab (`{name}`): {after}"
         updated = source.rstrip("\n") + "\n\n" + sentence + "\n"
         cell["source"] = updated.splitlines(keepends=True) if isinstance(cell["source"], list) else updated
-        metadata["nbinlineaiWorkedUIActions"] = [*prior, {
-            "name": name, "completed": True,
-            "observedBefore": before, "observedAfter": after,
-        }]
-    return notebooks
+        metadata["nbinlineaiWorkedUIActions"] = [*prior, action]
+        changed.add(notebook)
+    return {notebook: notebooks[notebook] for notebook in sorted(changed)}
 
 
 def publish(examples_dir: Path, manifest: Path) -> list[str]:
