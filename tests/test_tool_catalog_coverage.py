@@ -3,6 +3,7 @@
 import ast
 import inspect
 import json
+import os
 import re
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import pytest
 import tomllib
 
 from nbinlineai.tools import TOOL_FUNCTIONS, insert_tools, tool_catalog, tools_markdown
+from scripts.check_worked_evidence import validate_examples
 
 ROOT = Path(__file__).resolve().parents[1]
 COVERAGE = json.loads((ROOT / "examples/tool-coverage.json").read_text(encoding="utf-8"))
@@ -20,6 +22,12 @@ FUNCTION_ROW = re.compile(r"^\| `(?P<signature>[a-z_]+\([^`]*\))` \| (?P<body>.*
 REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z_0-9]*)`")
 HELPERS = {"tool_catalog": tool_catalog, "tools_markdown": tools_markdown,
            "insert_tools": insert_tools}
+
+
+def test_worked_examples_pair_every_registered_tool() -> None:
+    """The saved-output gate adds evidence; this test checks the authored pairs."""
+    examples_dir = Path(os.environ.get("NBINLINEAI_WORKED_EXAMPLES_DIR", ROOT / "examples"))
+    assert not validate_examples(examples_dir)
 
 
 def test_registry_page_and_notebook_mapping_are_exact() -> None:
