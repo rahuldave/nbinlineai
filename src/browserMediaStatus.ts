@@ -2,6 +2,7 @@
 import { NotebookPanel } from '@jupyterlab/notebook';
 import { Widget } from '@lumino/widgets';
 import { BrowserOperationContext, BrowserOperationStatus } from './browserMediaClient';
+import { BrowserMediaStatusModel } from './browserMediaStatusModel';
 
 const installed = new WeakMap<NotebookPanel, Widget>();
 export function installBrowserMediaStatus(panel: NotebookPanel, context: BrowserOperationContext): void {
@@ -11,12 +12,11 @@ export function installBrowserMediaStatus(panel: NotebookPanel, context: Browser
   widget.addClass('nbinlineai-media-status');
   widget.node.setAttribute('aria-live', 'polite');
   widget.node.hidden = true;
-  const records = new Map<string, BrowserOperationStatus>();
-  const render = (): void => {
+  let model: BrowserMediaStatusModel;
+  const render = (records: BrowserOperationStatus[]): void => {
     widget.node.replaceChildren();
-    const values = Array.from(records.values()).slice(-5);
-    widget.node.hidden = values.length === 0;
-    for (const item of values) {
+    widget.node.hidden = records.length === 0;
+    for (const item of records) {
       const row = document.createElement('div');
       row.className = 'nbinlineai-media-status-row';
       const label = document.createElement('span');
@@ -28,7 +28,7 @@ export function installBrowserMediaStatus(panel: NotebookPanel, context: Browser
         stop.type = 'button';
         stop.textContent = 'Stop';
         stop.title = 'Cancel this browser operation';
-        stop.onclick = () => { void context.cancel(item.operation_id).then(next => context.emit(next)); };
+        stop.onclick = () => { void model.stop(item.operation_id); };
         row.append(stop);
       }
       if (item.error?.message) {
@@ -39,8 +39,8 @@ export function installBrowserMediaStatus(panel: NotebookPanel, context: Browser
       widget.node.append(row);
     }
   };
-  const disconnect = context.onStatus(item => { records.set(item.operation_id, item); render(); });
+  model = new BrowserMediaStatusModel(context, render);
   panel.contentHeader.addWidget(widget);
-  widget.disposed.connect(() => disconnect());
+  widget.disposed.connect(() => model.dispose());
   panel.disposed.connect(() => widget.dispose());
 }
