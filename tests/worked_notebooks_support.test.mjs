@@ -156,13 +156,22 @@ test('operation_status records a successful lookup independently of its exact ta
       text: JSON.stringify({ operation_id: target, status: 'paused' }) },
   ])[0];
   assert.equal(noFrontendAction.resultState, 'failed');
+  const wrongFrontendAction = observedTrace('status-question', [
+    { type: 'tool_start', id: 'lookup', name: 'operation_status',
+      arguments: { operation_id: target } },
+    { type: 'frontend_action', run_id: 'run', request_id: 'request', name: 'save_media' },
+    { type: 'tool_result', id: 'lookup', name: 'operation_status',
+      text: JSON.stringify({ operation_id: target, status: 'paused' }) },
+  ])[0];
+  assert.equal(wrongFrontendAction.frontendAction, false);
+  assert.equal(wrongFrontendAction.resultState, 'failed');
 });
 
 test('structured evidence links accepted operation to later status without private device data', () => {
   const operationId = 'AbCdEf0123456789_-AbCdEf01234567';
   const first = observedTrace('start-question', [
     { type: 'tool_start', id: 'start', name: 'start_camera', arguments: { audio: false } },
-    { type: 'frontend_action', run_id: 'run', request_id: 'request' },
+    { type: 'frontend_action', run_id: 'run', request_id: 'request', name: 'start_camera' },
     { type: 'tool_result', id: 'start', name: 'start_camera',
       text: JSON.stringify({ operation_id: operationId, status: 'accepted', device_id: 'Private123' }) },
   ]);

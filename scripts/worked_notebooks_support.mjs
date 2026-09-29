@@ -150,9 +150,10 @@ export function observedTrace(questionId, events) {
       calls.push(call);
       byId.set(event.id, call);
     } else if (event.type === 'frontend_action') {
-      // The action event carries run_id/request_id, not the model tool-call ID.
-      // Prompt emits start, optional action, then result for each call in order.
-      const pending = [...calls].reverse().find(call => call.result === '[no result event]');
+      // The action event carries run_id/request_id and a tool name, but not the
+      // model tool-call ID. Match its name before using event order to correlate.
+      const pending = [...calls].reverse().find(call =>
+        call.result === '[no result event]' && call.name === event.name);
       if (pending) pending.frontendAction = true;
     } else if (event.type === 'tool_result') {
       const call = byId.get(event.id);
