@@ -565,5 +565,80 @@
       "browser": "tests/e2e/inherited-tools.spec.ts"
     },
     "checkpoint_evidence": "UI receipt demo skipped headlessly; same helper passed in a focused isolated JupyterLab browser regression."
+  },
+  "browser_capabilities": {
+    "notebook": "browser-media-foundation.ipynb",
+    "section": "browser_capabilities",
+    "cell_id": "media-capabilities-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_media.py",
+      "browser": "tests/e2e/browser-media-foundation.spec.ts"
+    },
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The capability receipt was inspected in a later cell; the deterministic model-action capability test also passed.",
+    "receipt_inspect_cell": "media-capabilities-inspect",
+    "receipt_variable": "capabilities",
+    "expected_behavior": "Inspect observed browser support without requesting permission."
+  },
+  "save_media": {
+    "notebook": "browser-media-foundation.ipynb",
+    "section": "save_media",
+    "cell_id": "media-save-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_media.py",
+      "browser": "tests/e2e/browser-media-foundation.spec.ts"
+    },
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The exact local PNG save and later receipt inspection passed; standalone first-save and bounded model descriptor regressions also passed.",
+    "receipt_inspect_cell": "media-save-inspect",
+    "receipt_variable": "saved",
+    "expected_behavior": "Save an exact disposable file reference under a new server-root-relative path."
+  },
+  "operation_status": {
+    "notebook": "browser-media-foundation.ipynb",
+    "section": "operation_status",
+    "cell_id": "media-status-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_media.py",
+      "browser": "tests/e2e/browser-media-foundation.spec.ts"
+    },
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). A completed-save snapshot was inspected later; a separate running-operation one-shot snapshot regression also passed.",
+    "receipt_inspect_cell": "media-status-inspect",
+    "receipt_variable": "lookup",
+    "expected_behavior": "Read a completed save operation once without waiting."
+  },
+  "cancel_operation": {
+    "notebook": "browser-media-foundation.ipynb",
+    "section": "cancel_operation",
+    "cell_id": "media-cancel-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_media.py",
+      "browser": "tests/e2e/browser-media-foundation.spec.ts"
+    },
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Cancellation of a completed save preserved the saved file; pending cancellation has focused registry coverage.",
+    "receipt_inspect_cell": "media-cancel-inspect",
+    "receipt_variable": "cancelled",
+    "expected_behavior": "Show that cancelling a completed save retains its saved file."
+  },
+  "release_media": {
+    "notebook": "browser-media-foundation.ipynb",
+    "section": "release_media",
+    "cell_id": "media-release-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_media.py",
+      "browser": "tests/e2e/browser-media-foundation.spec.ts"
+    },
+    "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Release left the saved file and loaded Pillow image usable before exact cleanup; duplicate-release replay regression also passed.",
+    "receipt_inspect_cell": "media-release-inspect",
+    "receipt_variable": "released",
+    "expected_behavior": "Release managed bytes while the saved file and loaded Python image remain."
   }
 }

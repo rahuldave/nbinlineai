@@ -85,6 +85,27 @@ The default browser suite substitutes a deterministic API provider, so it does n
 uv run --no-sync jlpm playwright install chromium
 ```
 
+Browser media checks have a separate, opt-in configuration. After rebuilding and
+relinking the frontend, install the pinned Playwright engines into a dedicated
+cache and run each engine separately. Each command starts and stops its own
+isolated server on port 8897; wait for one command to finish before starting the
+next. The regular browser suite and CI still use Chromium only.
+
+```bash
+export PLAYWRIGHT_BROWSERS_PATH="${XDG_CACHE_HOME:-$HOME/.cache}/nbinlineai-media-playwright"
+uv run --no-sync jlpm exec playwright install chromium firefox webkit
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=chromium
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=firefox
+uv run --no-sync jlpm exec playwright test --config=playwright.media.config.ts --project=webkit
+```
+
+This focused configuration selects `browser-media-*.spec.ts` tests. Synthetic
+media fixtures can check browser/server/kernel integration, PNG capture and
+transfer, and operation receipts without provider calls or physical devices.
+They do not verify camera, microphone, screen-sharing, recording hardware or OS
+permission prompts. Playwright WebKit is not a real Safari or iOS/iPadOS run;
+those device and mobile checks remain separate.
+
 The subscription UI has stateful browser tests that intercept only the account routes. To exercise the real Jupyter Server, notebook kernel, declared tools, Run All, Keep and cancellation through a deterministic offline ChatGPT manager, run the focused suite separately after rebuilding and relinking:
 
 ```bash
@@ -120,9 +141,9 @@ python3 scripts/check_docs_site.py docs/_site
 quarto preview docs
 ```
 
-The notebook filter in `scripts/quarto_notebook_filter.py` reads each original notebook during rendering, adds its page title/description from notebook text, and styles Markdown cells marked as AI prompts or responses by `metadata.nbinlineai`. The filter runs in memory; it never creates or changes `.ipynb` files. The render script in `scripts/render_example_notebooks.py` passes `--no-execute`, and the filter also sets `execute.enabled: false`. The [Examples guide](examples.md) keeps its walkthrough text and links to those HTML pages. The `examples/data/` notebook is a support fixture, not a guide entry. For a new top-level notebook, add a clear first `#` heading and introductory paragraph, add a link and short description in the guide, and use a full `https://rahuldave.com/nbinlineai/notebooks/name.html` URL in public Markdown so links work in both GitHub and the rendered site. Each HTML page links to the source notebook for download.
+The notebook filter in `scripts/quarto_notebook_filter.py` reads each original notebook during rendering, adds its page title and description from notebook text, and styles Markdown cells marked as AI prompts or responses by `metadata.nbinlineai`. The filter runs in memory; it never creates or changes `.ipynb` files. The render script passes `--no-execute`, and the filter also disables execution. The [Examples guide](examples.md) links to these HTML pages. The `examples/data/` notebook is a support fixture, not a guide entry. For a new top-level notebook, add a clear first `#` heading and introductory paragraph, a link and short description in the guide, and a full `https://rahuldave.com/nbinlineai/notebooks/name.html` URL in public Markdown. Each HTML page links to its source notebook for download.
 
-The checker verifies the guide pages, one link and HTML page per top-level example, AI panel counts, 51 tool rows, local links, and anchors. The `docs/.nojekyll` marker is copied into the rendered site so GitHub Pages serves Quarto's files directly. The **Documentation site** workflow builds on every PR and publishes the rendered site to GitHub Pages after a push to `main`; the repository's Pages source is **GitHub Actions**. Check that workflow's build and deployment jobs after merge, then inspect the live [Examples guide](examples.html) and [Tools reference](tools.html).
+The checker verifies required core pages, every rendered HTML page's local links and anchors, one guide link and rendered page per top-level notebook, AI panel counts, and each public tool row against the maintained notebook coverage map. The `docs/.nojekyll` marker is copied into the rendered site so GitHub Pages serves Quarto's files directly. The **Documentation site** workflow builds on every PR and publishes the rendered site to GitHub Pages after a push to `main`; the repository's Pages source is **GitHub Actions**. Check that workflow's build and deployment jobs after merge, then inspect the live [Examples guide](examples.html) and [Tools reference](tools.html).
 
 - Write pages in Markdown with a title in YAML front matter. Quote titles containing a colon so Quarto can parse them.
 - Keep links to other pages relative, such as `user-guide.md` from a root page or `../faq.md` from a manual chapter; Quarto rewrites them to `.html` for the website.

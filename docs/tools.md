@@ -4,7 +4,7 @@ title: Tools reference
 
 # Tools reference
 
-Version **0.1.15** offers 51 optional tools through `nbinlineai.tools`. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
+Version **0.1.15** offers 51 optional tools through `nbinlineai.tools`. The current source branch adds five browser-media foundation tools; they have not been published to PyPI. Import the functions you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. The [examples guide](examples.md) has complete notebook workflows.
 
 A new release with frontend changes needs a **JupyterLab server restart** after installation or upgrade, followed by a browser reload. Restart the selected Python kernel and rerun imports too. The older editable-install, Python-only shortcut for the first eight fastcore tools does not apply to this release's live notebook edits. See [setup](manual/setup.md) and [development](development.md).
 
@@ -29,13 +29,25 @@ An eligible ordinary Markdown cell or earlier AI question can declare tools for 
 
 ## Function index
 
-Every row below is an import from `nbinlineai.tools`. Signatures show the callable parameters and defaults. All functions are synchronous; model calls use named arguments. `tools_markdown`, `insert_tools`, and `tool_catalog` are setup helpers, not model tools.
+Every row below is an import from `nbinlineai.tools`. Signatures show the callable parameters and defaults. The published tools return synchronously; source-only browser-media functions return an immediate mutable receipt whose result is inspected in a later code cell. Model calls use named arguments. `tools_markdown`, `insert_tools`, and `tool_catalog` are setup helpers, not model tools.
 
 The linked tool-catalog notebooks are **source examples added after the published 0.1.15 package**. The existing PyPI 0.1.15 archive does not include these new notebooks; open them from the GitHub source repository after this change merges or from a Git checkout. They demonstrate the tools in the current source registry, not a new package release.
 
 Each **Example** is a question you can ask **after importing the tool and declaring its reference** in an earlier Markdown note with Tools enabled. You do not need to repeat the `&` reference in the question. Ask the model to use the named tool when you want an explicit lookup or action; offering a tool does not force a call. See the [complete declaration-to-question example](examples.md#ask-after-declaring-a-tool).
 
 Replace the sample paths, variable names, and cell descriptions with your own. The examples assume those inputs exist; `create_file` needs an existing parent folder and a new filename. Examples referring to an earlier read, search, outline, or listing need that result in the question's selected context, or the relevant reading tool declared too. Copy actual cell IDs, section addresses, and digests from tool results. Source-checked cell edits need the **complete** current cell source; read any remaining lines before editing a long cell. The write and execution examples perform the requested action when called.
+
+### Browser-media foundation (source only)
+
+These calls need an open JupyterLab notebook and its running Python kernel. A direct Python call requests work and returns a `BrowserReceipt` promptly; run its inspection cell **later** to see `status`, `result`, `media`, or `error`. Do not wait in the requesting cell. `browser_capabilities` does not ask for device permission. The example notebook creates a disposable 2×2 image and computes its real SHA-256, then uses an exact `{path, sha256}` reference; `save_media` writes a new file under the notebook's Jupyter server root. `operation_status` takes a one-shot snapshot and does not wait for the target. Cancelling an already completed save keeps its file. `release_media` frees managed temporary bytes while saved files and Python copies remain. The notebook uses no provider or personal media; declaring these functions for an AI question requires a configured provider.
+
+| Function | Purpose |
+| --- | --- |
+| `browser_capabilities()` | Report browser availability, secure-context state, observed permissions and limits without prompting for access.<br>**Example:** “In JupyterLab, run `capabilities = browser_capabilities()`, then inspect `capabilities.status` and `capabilities.result` in a later cell.” [Notebook example: § `browser_capabilities`, cell `media-capabilities-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-capabilities-call). |
+| `save_media(media: dict, save_to: str = 'auto')` | Save owned temporary media or an exact saved-file reference to a new server-root-relative file; existing files are not overwritten.<br>**Example:** “Use the fixture's discovered `{path, sha256}` descriptor as `source_ref` in `saved = save_media(source_ref, save_to='auto')`; inspect `saved.media` later.” [Notebook example: § `save_media`, cell `media-save-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-call). |
+| `operation_status(operation_id: str)` | Return a current, bounded snapshot of an owned operation without waiting or extending media expiry.<br>**Example:** “After the save receipt finishes, run `lookup = operation_status(saved.operation_id)` and inspect `lookup.result` in the next cell.” [Notebook example: § `operation_status`, cell `media-status-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-status-call). |
+| `cancel_operation(operation_id: str)` | Request cancellation of an unfinished owned operation; a finished save stays saved.<br>**Example:** “Run `cancelled = cancel_operation(saved.operation_id)` against the completed disposable save to see that its file remains; use an unfinished operation ID when you need to stop pending work.” [Notebook example: § `cancel_operation`, cell `media-cancel-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-cancel-call). |
+| `release_media(media_id: str)` | Release managed in-memory media bytes and dependent previews without deleting saved files or delivered Python objects.<br>**Example:** “After inspecting the saved descriptor, run `released = release_media(saved.media['media_id'])` and check its receipt and the saved file in the next cell.” [Notebook example: § `release_media`, cell `media-release-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-release-call). |
 
 ### Live Python and registered skills
 

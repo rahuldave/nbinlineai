@@ -25,6 +25,7 @@ from ._tool_helpers import (
     _resolve_python_name,
     _text,
 )
+from .browser_media_tools import BROWSER_MEDIA_TOOL_FUNCTIONS
 from .execution_tools import EXECUTION_TOOL_FUNCTIONS
 from .fastcore_tools import (
     FASTCORE_TOOL_FUNCTIONS,
@@ -360,6 +361,7 @@ SPECIAL_TOOL_FUNCTIONS: Mapping[str, Callable[..., str]] = MappingProxyType({
     "insert_code": insert_code,
     "url_to_note": url_to_note,
     **NOTEBOOK_TOOL_FUNCTIONS,
+    **BROWSER_MEDIA_TOOL_FUNCTIONS,
 })
 
 
@@ -417,6 +419,8 @@ TOOL_GROUPS: Mapping[str, tuple[str, ...]] = MappingProxyType({
     ),
     "web": ("read_url", "read_url_section", "url_to_note", "insert_markdown"),
     "execution": ("run_python", "run_shell", "trace_function", "tmux_sessions", "tmux_read"),
+    "browser_media": ("browser_capabilities", "operation_status", "cancel_operation",
+                      "save_media", "release_media"),
 })
 
 

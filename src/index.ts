@@ -21,6 +21,10 @@ import { readEventStream, StreamEvent } from './sse';
 import { NotebookActionBridge } from './frontendActions';
 import { ContextReport, completedContextText, contextTooltip, contextWasTrimmed, parseContextReport, runningContextText, runningProgressText } from './contextStatus';
 import { runTrackedStandardCell } from './insertTools';
+import { mediaContext } from './browserMediaComm';
+import { BrowserMediaError, BrowserOperationStatus, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
+import { boundedMediaErrorText } from './browserMediaCapabilities';
+import { installBrowserMediaStatus } from './browserMediaStatus';
 import '../style/index.css';
 
 interface CellMetadata {
@@ -531,7 +535,59 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
             getCell(panel, promptId) !== prompt || getCell(panel, output.id) !== output) {
           throw new Error('The originating notebook, prompt, answer, or kernel changed. Notebook action cancelled.');
         }
-        const result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
+        let result;
+        if (['browser_capabilities', 'operation_status', 'cancel_operation', 'save_media', 'release_media'].includes(event.name) ||
+            hasBrowserOperation(event.name)) {
+          try {
+            const args = event.arguments as Record<string, any>;
+            const media = mediaContext(panel, panel.sessionContext.session!.kernel!);
+            let value: unknown;
+            if (event.name === 'browser_capabilities') {
+              const created = await media.create({ request_id: event.request_id, name: event.name, arguments: {} });
+              await media.transition(created.operation_id, 'completed', { checked: true });
+              value = { operation_id: created.operation_id,
+              secure_context: window.isSecureContext, permissions: await observedMediaPermissions(),
+              file_media_supported: media.fileMediaSupported(), ...browserCapabilityFacts(media.fileMediaSupported()),
+              limits: { image_max_side: 4096, image_max_pixels: 16000000,
+                batch_max_items: 12, batch_max_decoded_pixels: 32000000,
+                notebook_media_bytes: 104857600, server_media_bytes: 268435456,
+                upload_max_bytes: 52428800, media_idle_seconds: 600,
+                owner_lease_seconds: 90, permission_seconds: 120,
+                recording_saved_seconds: 300, recording_saved_bytes: 52428800,
+                recording_memory_seconds: 60, recording_memory_bytes: 16777216 }
+              };
+            }
+            else if (event.name === 'operation_status') value = await media.status(args.operation_id);
+            else if (event.name === 'cancel_operation') value = await media.cancel(args.operation_id);
+            else if (event.name === 'save_media') {
+              const started = await media.startSave(args.media,
+                args.save_to === undefined ? 'auto' : args.save_to, event.request_id);
+              const quick = await Promise.race<BrowserOperationStatus | null>([
+                started.completion, new Promise(resolve => window.setTimeout(() => resolve(null), 1000))
+              ]);
+              if (quick && ['failed', 'cancelled', 'expired'].includes(quick.status))
+                throw new BrowserMediaError(quick.error?.code || 'save_failed',
+                  quick.error?.message || 'Media save failed.');
+              value = quick ?? started.initial;
+            }
+            else if (event.name === 'release_media') {
+              const released = await media.releaseOperation({ request_id: event.request_id, name: event.name,
+                arguments: { media_id: args.media_id } });
+              if (released.status !== 'completed')
+                throw new BrowserMediaError(released.error?.code || 'stale_target',
+                  released.error?.message || 'Media release did not complete.');
+              value = { operation_id: released.operation_id, released: released.result?.released === true };
+            } else value = await media.start({ request_id: event.request_id, name: event.name,
+              arguments: args });
+            const encoded = JSON.stringify(value);
+            result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
+              truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'
+            }) };
+          } catch (error) { result = { ok: false, text: boundedMediaErrorText(
+            error instanceof BrowserMediaError ? error.code : 'unsupported',
+            error instanceof Error ? error.message : 'Browser operation failed.'
+          ) }; }
+        } else result = bridge.perform({ request_id: event.request_id, name: event.name, arguments: event.arguments });
         if (!result) return;
         status(panel, promptId, 'running', runningProgressText(`${event.name === 'insert_markdown' ? 'Adding a Markdown note' : 'Reading notebook cells'}…`, run.context));
         const reply = await fetch(serverUrl('nbinlineai/action-reply'), {
@@ -1074,6 +1130,12 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
+        new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
+      void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })
+        .then(response => response.ok ? response.json() : null)
+        .then(value => { if (value?.enabled === true) return import('./browserMediaTestFixture'); });
+    }
     notebookTracker = tracker;
     settingRegistry = registry;
     if (registry) settingsReady = registry.load(plugin.id).then(bindResponseSettings).catch(error => {
@@ -1102,6 +1164,13 @@ const plugin: JupyterFrontEndPlugin<void> = {
       if (boundModel) panelsByModel.set(boundModel, panel);
       void panel.context.ready.then(() => {
         if (panel.isDisposed) return;
+        const bindMediaStatus = () => {
+          const mediaKernel = panel.sessionContext.session?.kernel;
+          if (mediaKernel) installBrowserMediaStatus(panel, mediaContext(panel, mediaKernel));
+        };
+        bindMediaStatus();
+        panel.sessionContext.kernelChanged.connect(bindMediaStatus);
+        panel.content.modelChanged.connect(bindMediaStatus);
         const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
           const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
           return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];

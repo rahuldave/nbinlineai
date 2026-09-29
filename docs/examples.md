@@ -74,6 +74,12 @@ and web notebooks contain explicit AI questions for browser-backed or public-pag
 tools. Copy the live-notebook example before editing it; run optional network
 questions only when you want to fetch that page.
 
+## Browser-media foundation from source
+
+The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates the five new source-only calls in an open JupyterLab notebook. They are **not in the unchanged PyPI 0.1.15 package**. Start with a disposable project whose Jupyter server and selected kernel use the same working directory. The setup creates a tiny local PNG and computes its actual file hash; no camera, microphone, network page, provider call, or personal file is needed.
+
+Run each call cell separately, then inspect its mutable receipt in the **following** code cell after the browser has replied. A printed receipt from the requesting cell is only a snapshot. The save example writes a new file under the disposable server root. The status example reads one operation snapshot; it does not wait. The cancellation example checks that a completed save remains a file, while the release example frees managed bytes and leaves that file and a loaded Python image intact. The notebook ends with an explicit cleanup cell for its disposable source and saved file. If you offer these functions to an AI question, import and declare only the names needed by that question and configure a provider as usual.
+
 ## Read saved or live notebook cells
 
 For saved notebooks, import `list_notebooks`, `find_notebook_cells`, and `read_notebook_cell`, then declare them in a Markdown note. Ask the AI to locate a saved `.ipynb`, find a literal phrase, and read a returned cell ID. Save your latest edits first: these functions read disk files relative to the kernel's working directory.

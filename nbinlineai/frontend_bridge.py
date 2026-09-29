@@ -87,6 +87,32 @@ def normalize_action(
         raise ValueError("Action arguments must be JSON values") from exc
     if size > 16_000:
         raise ValueError("Action arguments are too large")
+    browser_fields = {
+        'browser_capabilities': set(),
+        'operation_status': {'operation_id'},
+        'cancel_operation': {'operation_id'},
+        'save_media': {'media', 'save_to'},
+        'release_media': {'media_id'},
+    }
+    if name in browser_fields:
+        allowed = browser_fields[name]
+        if set(arguments) - allowed or (name != 'save_media' and allowed - set(arguments)):
+            raise ValueError(f'Unexpected or missing {name} argument')
+        if name in ('operation_status', 'cancel_operation'):
+            _text(arguments['operation_id'], 'operation_id', 100)
+        if name == 'release_media':
+            _text(arguments['media_id'], 'media_id', 100)
+        if name == 'save_media':
+            if 'media' not in arguments or not isinstance(arguments['media'], dict):
+                raise ValueError('media must be a descriptor')
+            media = arguments['media']
+            if isinstance(media.get('media_id'), str):
+                _text(media['media_id'], 'media_id', 100)
+            else:
+                _text(media.get('path'), 'path', 500)
+                _text(media.get('sha256'), 'sha256', 64)
+            _text(arguments.get('save_to', 'auto'), 'save_to', 500)
+        return arguments
     if name == "list_cells":
         if set(arguments) - {"start", "limit"}:
             raise ValueError("Unexpected list_cells argument")

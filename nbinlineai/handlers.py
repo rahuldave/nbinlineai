@@ -1,6 +1,7 @@
 """Authenticated Jupyter Server HTTP endpoints for prompt cells."""
 
 import asyncio
+import inspect
 import json
 import logging
 import os
@@ -12,9 +13,11 @@ from jupyter_server.auth.decorator import authorized
 from jupyter_server.auth.identity import IdentityProvider, PasswordIdentityProvider
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
+from tornado.ioloop import PeriodicCallback
 from tornado.iostream import StreamClosedError
-from tornado.web import HTTPError, authenticated
+from tornado.web import HTTPError, authenticated, stream_request_body
 
+from .browser_media import MAX_UPLOAD_BYTES, MediaError, MediaRegistry
 from .config import DEFAULT_MODELS, MODEL_CAPABILITIES, key_settings_status, provider_status
 from .credentials import CredentialStore
 from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
@@ -315,6 +318,280 @@ class ActionReplyHandler(APIHandler):
         self.finish({"accepted": True})
 
 
+class BrowserMediaHandler(APIHandler):
+    """Authenticated operation commands; every command rechecks the live session."""
+
+    def initialize(self, dispatcher, media_registry):
+        self.dispatcher = dispatcher
+        self.media_registry = media_registry
+
+
+    async def _owner(self, body, *, create=False):
+        if not isinstance(body, dict):
+            raise MediaError('invalid_argument', 'Expected a JSON object')
+        session_id = body.get('session_id')
+        client_id = body.get('client_id')
+        model_id = body.get('model_id')
+        if not isinstance(session_id, str) or not session_id:
+            raise MediaError('invalid_argument', 'Missing notebook session')
+        kernel_id, _ = await self.dispatcher.resolve(session_id)
+        session = await self.dispatcher.sessions.get_session(session_id=session_id)
+        if session.get('type') != 'notebook' or not isinstance(session.get('path'), str):
+            raise MediaError('stale_target', 'Notebook session is unavailable')
+        secret = None if create else self.request.headers.get('X-NBInlineAI-Owner')
+        if not create and not secret:
+            raise MediaError('stale_target', 'Browser owner credential is unavailable')
+        return self.media_registry.bind(session_id, kernel_id, session['path'],
+                                        model_id, client_id, secret)
+
+    def _error(self, exc):
+        self.set_status(409 if exc.code in ('stale_target', 'path_conflict') else
+                        413 if exc.code == 'limit_exceeded' else 400)
+        self.finish({'error': {'code': exc.code, 'message': str(exc)}})
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self, command):
+        _require_single_user_server(self)
+        try:
+            body = self.get_json_body()
+            if command == 'close':
+                if not isinstance(body, dict):
+                    raise MediaError('invalid_argument', 'Expected a JSON object')
+                self.media_registry.close_owner(body.get('session_id'), body.get('client_id'),
+                                                body.get('model_id'),
+                                                self.request.headers.get('X-NBInlineAI-Owner'))
+                self.finish({'closed': True})
+                return
+            owner = await self._owner(body, create=command == 'owner')
+            registry = self.media_registry
+            if command == 'owner':
+                self.finish({'client_id': owner.client_id, 'owner_secret': owner.secret,
+                             'lease_seconds': 90,
+                             'file_media_supported': registry.file_media_supported()})
+            elif command == 'heartbeat':
+                registry.heartbeat(owner)
+                self.finish({'ok': True})
+            elif command == 'create':
+                op = registry.create(owner, body.get('request_id'), body.get('name'),
+                                     body.get('arguments'), waiting=body.get('waiting') is True)
+                self.finish(registry.status(owner, op.id))
+            elif command == 'status':
+                self.finish(registry.status(owner, body.get('operation_id')))
+            elif command == 'mediapage':
+                self.finish(registry.media_page(owner, body.get('operation_id'), body.get('cursor', 0)))
+            elif command == 'transition':
+                self.finish(registry.transition(owner, body.get('operation_id'),
+                                                body.get('status'), body.get('result'), body.get('error')))
+            elif command == 'beginbatch':
+                self.finish(registry.begin_batch(owner, body.get('operation_id'), body.get('total')))
+            elif command == 'finishbatch':
+                status = await asyncio.to_thread(registry.finish_batch, owner, body.get('operation_id'),
+                                                 body.get('save_to'))
+                self.finish(status)
+            elif command == 'cancel':
+                self.finish(registry.cancel(owner, body.get('operation_id')))
+            elif command == 'save':
+                reference = body.get('media', body.get('media_id'))
+                save_to = body.get('save_to')
+                if not isinstance(save_to, str) or not save_to:
+                    raise MediaError('invalid_argument', 'save_to must name a destination')
+                op = registry.create(owner, body.get('request_id'), 'save_media',
+                                     {'media': reference, 'save_to': save_to})
+                if op.status == 'running':
+                    registry.transition(owner, op.id, 'saving')
+                descriptor = await asyncio.to_thread(registry.save_media, owner,
+                                                     reference, save_to, body.get('request_id'))
+                self.finish({'media': descriptor, 'operation_id': op.id})
+            elif command == 'release':
+                registry.release_media(owner, body.get('media_id'))
+                self.finish({'released': True})
+            else:
+                raise MediaError('unsupported', 'Unknown browser operation command')
+        except MediaError as exc:
+            self._error(exc)
+
+
+class BrowserMediaFixtureModeHandler(APIHandler):
+    """Enable the private fixture only in the disposable E2E server process."""
+
+    @authenticated
+    async def get(self):
+        if os.getenv('NBINLINEAI_E2E_MEDIA_FIXTURE') != '1':
+            raise HTTPError(404)
+        self.finish({'enabled': True})
+
+
+@stream_request_body
+class BrowserMediaBytesHandler(BrowserMediaHandler):
+    """Raw binary ingress/egress, separate from action and model text envelopes."""
+
+    async def prepare(self):
+        self._upload = bytearray()
+        self._reserved_bytes = 0
+        await super().prepare()
+        if self.request.method == 'POST':
+            if not self.current_user:
+                raise HTTPError(403, 'Browser media upload requires authentication')
+            allowed = self.authorizer.is_authorized(self, self.current_user, 'execute', 'kernels')
+            if inspect.isawaitable(allowed):
+                allowed = await allowed
+            if not allowed:
+                raise HTTPError(403, 'Browser media upload requires kernel authorization')
+            _require_single_user_server(self)
+            try:
+                owner = await self._byte_owner()
+                self.media_registry.operation(owner, self.path_args[0])
+                self._upload_owner = owner
+            except MediaError as exc:
+                raise HTTPError(409, str(exc)) from exc
+            length = self.request.headers.get('Content-Length')
+            if length and int(length) > MAX_UPLOAD_BYTES:
+                raise HTTPError(413, 'Upload exceeds 50 MiB')
+
+    def data_received(self, chunk):
+        if len(self._upload) + len(chunk) > MAX_UPLOAD_BYTES:
+            raise HTTPError(413, 'Browser media upload limit exceeded')
+        try:
+            self.media_registry.reserve_ingress(self._upload_owner, len(chunk))
+        except MediaError as exc:
+            raise HTTPError(413 if exc.code == 'limit_exceeded' else 409, str(exc)) from exc
+        self._upload.extend(chunk)
+        self._reserved_bytes += len(chunk)
+
+    def _release_reservation(self):
+        reserved = getattr(self, '_reserved_bytes', 0)
+        self._reserved_bytes = 0
+        if reserved:
+            self.media_registry.release_ingress(self._upload_owner, reserved)
+
+    def on_connection_close(self):
+        self._release_reservation()
+        super().on_connection_close()
+
+    def on_finish(self):
+        self._release_reservation()
+        super().on_finish()
+
+    async def _byte_owner(self):
+        return await self._owner({
+            'session_id': self.request.headers.get('X-NBInlineAI-Session'),
+            'client_id': self.request.headers.get('X-NBInlineAI-Client'),
+            'model_id': self.request.headers.get('X-NBInlineAI-Model'),
+        })
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self, operation_id):
+        _require_single_user_server(self)
+        try:
+            owner = await self._byte_owner()
+            raw = bytes(self._upload)
+            if len(raw) > 50 * 1024 * 1024:
+                raise MediaError('limit_exceeded', 'Upload exceeds 50 MiB')
+            metadata_header = self.request.headers.get('X-NBInlineAI-Metadata', '{}')
+            if len(metadata_header) > 2000:
+                raise MediaError('limit_exceeded', 'Media metadata is too large')
+            metadata = json.loads(metadata_header)
+            save_to_header = self.request.headers.get('X-NBInlineAI-Save-To')
+            save_to = json.loads(save_to_header) if save_to_header is not None else None
+            batch_index = self.request.headers.get('X-NBInlineAI-Batch-Index')
+            try:
+                if batch_index is not None:
+                    status = self.media_registry.upload_part(
+                        owner, operation_id, int(batch_index), raw,
+                        self.request.headers.get('Content-Type', ''),
+                        self.request.headers.get('X-NBInlineAI-SHA256', ''), metadata=metadata,
+                        ingress_credit=self._reserved_bytes)
+                else:
+                    status = self.media_registry.upload(
+                        owner, operation_id, raw, self.request.headers.get('Content-Type', ''),
+                        self.request.headers.get('X-NBInlineAI-SHA256', ''), metadata=metadata,
+                        save_to=save_to, defer_save=save_to is not None,
+                        ingress_credit=self._reserved_bytes)
+            finally:
+                self._release_reservation()
+            if batch_index is not None:
+                self.finish(status)
+                return
+            if save_to is not None and status['status'] == 'saving':
+                op = self.media_registry.operation(owner, operation_id)
+                media = self.media_registry.media_ref(owner, op.media_id)
+                try:
+                    path = await asyncio.to_thread(self.media_registry._save, owner, media,
+                                                   save_to, lambda: not op.cancelled.is_set() and
+                                                   not self.media_registry.owner_cancelled.get(owner, op.cancelled).is_set(),
+                                                   notebook_path=op.notebook_path)
+                    with self.media_registry._state_lock:
+                        active = (op.status == 'saving' and not op.cancelled.is_set() and
+                                  owner in self.media_registry.owner_cancelled and
+                                  self.media_registry.media.get(media.id) is media)
+                        if active:
+                            media.path = path
+                            op.status = 'completed'
+                            op.updated = self.media_registry._now()
+                            self.media_registry._forget_saved(path)
+                    if not active:
+                        self.media_registry._unlink_saved(path)
+                        raise MediaError('cancelled', 'Save was cancelled')
+                    status = self.media_registry.status(owner, operation_id)
+                except Exception as exc:
+                    with self.media_registry._state_lock:
+                        self.media_registry.media.pop(media.id, None)
+                        op.media_id = None
+                        if op.status == 'saving':
+                            op.status = 'failed'
+                            op.error = {'code': exc.code if isinstance(exc, MediaError) else 'save_failed',
+                                        'message': str(exc)[:300] if isinstance(exc, MediaError) else 'Media could not be saved'}
+                            op.updated = self.media_registry._now()
+                    raise
+            self.finish(status)
+        except (ValueError, TypeError) as exc:
+            self._error(exc if isinstance(exc, MediaError) else MediaError('invalid_argument', 'Invalid upload metadata'))
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def get(self, media_id):
+        _require_single_user_server(self)
+        try:
+            owner = await self._byte_owner()
+            media = self.media_registry.media_ref(owner, media_id, consume=True)
+            self.set_header('X-NBInlineAI-SHA256', media.sha256)
+            self.set_header('Cache-Control', 'no-store')
+            self.finish(media.data, set_content_type=media.mime_type)
+        except MediaError as exc:
+            self._error(exc)
+
+
+class BrowserMediaFileHandler(BrowserMediaHandler):
+    """Read an exact saved MediaRef after root and SHA checks."""
+
+    @authenticated
+    @authorized(action="execute", resource="kernels")
+    async def post(self):
+        _require_single_user_server(self)
+        reserved = 0
+        owner = None
+        try:
+            body = self.get_json_body()
+            owner = await self._owner(body)
+            def reserve_file(size):
+                nonlocal reserved
+                self.media_registry.reserve_file_read(owner, size)
+                reserved = size
+
+            data, mime_type, digest = await asyncio.to_thread(self.media_registry.resolve_ref,
+                                                               owner, body.get('media'), reserve_file)
+            self.set_header('X-NBInlineAI-SHA256', digest)
+            self.set_header('Cache-Control', 'no-store')
+            self.finish(data, set_content_type=mime_type)
+        except MediaError as exc:
+            self._error(exc)
+        finally:
+            if owner is not None and reserved:
+                self.media_registry.release_file_read(owner, reserved)
+
+
 class KeySettingsHandler(APIHandler):
     @authenticated
     @authorized(action="execute", resource="kernels")
@@ -500,6 +777,11 @@ def setup_handlers(web_app, *, subscription_manager=None):
     dispatcher = KernelDispatcher(web_app.settings["session_manager"], web_app.settings["kernel_manager"])
     bridge = FrontendBridge()
     contents_manager = web_app.settings.get("contents_manager")
+    media_root = getattr(contents_manager, 'root_dir', None) or getattr(contents_manager, 'root_path', None)
+    media_registry = MediaRegistry(media_root if media_root and os.path.isdir(media_root) else None)
+    cleanup = PeriodicCallback(media_registry.sweep, 30_000)
+    cleanup.start()
+    web_app.settings['nbinlineai_media_cleanup'] = cleanup
     try:
         scope_resolver = NotebookScopeResolver(contents_manager) if contents_manager is not None else None
     except (OSError, ValueError):
@@ -509,6 +791,15 @@ def setup_handlers(web_app, *, subscription_manager=None):
         "scope_resolver": scope_resolver,
         "subscription_manager": subscription_manager,
     }
+    media_routes = [] if media_registry is None else [
+        (url_path_join(base_url, 'nbinlineai', 'browser-media-fixture-mode'), BrowserMediaFixtureModeHandler),
+        (url_path_join(base_url, "nbinlineai", "browser-media", r"([a-z]+)"), BrowserMediaHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+        (url_path_join(base_url, "nbinlineai", "browser-media-bytes", r"([^/]+)"), BrowserMediaBytesHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+        (url_path_join(base_url, "nbinlineai", "browser-media-file"), BrowserMediaFileHandler,
+         {"dispatcher": dispatcher, "media_registry": media_registry}),
+    ]
     web_app.add_handlers(r".*$", [
         (url_path_join(base_url, "nbinlineai", "status"), StatusHandler,
          {"subscription_manager": subscription_manager}),
@@ -520,6 +811,7 @@ def setup_handlers(web_app, *, subscription_manager=None):
           "scope_resolver": scope_resolver}),
         (url_path_join(base_url, "nbinlineai", "action-reply"), ActionReplyHandler,
          {"dispatcher": dispatcher, "bridge": bridge}),
+        *media_routes,
         (url_path_join(base_url, "nbinlineai", "settings", "keys"), KeySettingsHandler),
         (url_path_join(base_url, "nbinlineai", "settings", "keys", r"([^/]+)"), KeySettingsItemHandler),
         (url_path_join(base_url, "nbinlineai", "subscription", "status"),
