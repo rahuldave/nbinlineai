@@ -1,9 +1,10 @@
 // One visible browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
-import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat, rm } from 'node:fs/promises';
 import { resolve, join, dirname, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
@@ -19,6 +20,8 @@ const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
 const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
 const sourceDir = process.env.NBINLINEAI_WORKED_SOURCE_DIR ?? join(root, 'examples');
 const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE;
+const needsWorkedSubscription = entry => requiresSubscription(entry) ||
+  entry?.steps?.some(step => step?.action === 'ai-visual-start') === true;
 
 export function pilotQuestion(plan) {
   if (!Object.hasOwn(plan, 'pilotMaxToolSteps')) return null;
@@ -104,6 +107,80 @@ export async function installPilotRouteGuard(context, guard) {
 export async function grantWorkedHardwarePermissions(context, pilot) {
   if (!pilot) {
     await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
+  }
+}
+
+// A visual operator starts this one request in the owned window. The files are
+// private synchronization markers, never evidence of a tool result.
+export function visualSignalPaths(directory, cellId) {
+  if (!isAbsolute(directory) || !/^[A-Za-z0-9_-]{1,100}$/.test(cellId)) {
+    throw new Error('Visual handoff needs an absolute private directory and safe cell ID');
+  }
+  return { ready: join(directory, `visual-${cellId}.ready.json`),
+    continue: join(directory, `visual-${cellId}.continue.json`) };
+}
+
+export function visualPromptGate(questionCellId, sessionId) {
+  let submissions = 0;
+  let failed = false;
+  let rejectFailure;
+  const failure = new Promise((_, reject) => { rejectFailure = reject; });
+  void failure.catch(() => {});
+  return {
+    failure,
+    assertCompleted() {
+      if (failed || submissions !== 1) throw new Error('Visual handoff requires exactly one owned prompt submission');
+    },
+    async handle(route) {
+      try {
+        const url = new URL(route.request().url());
+        if (failed || submissions || route.request().method() !== 'POST' ||
+            url.origin !== baseURL || url.pathname !== '/nbinlineai/prompt' || url.search) {
+          throw new Error('Unexpected visual prompt request');
+        }
+        assertOwnedPromptRequest(route.request().postDataJSON(), questionCellId, sessionId);
+        submissions += 1;
+        await route.continue();
+      } catch {
+        failed = true;
+        await route.abort().catch(() => {});
+        rejectFailure(new Error('Visual prompt was blocked before model submission'));
+      }
+    },
+  };
+}
+
+export async function waitForVisualContinue(paths, expected, timeoutMs, read = readFile) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let data;
+    try { data = await read(paths.continue, 'utf8'); }
+    catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      await pause(100);
+      continue;
+    }
+    let signal;
+    try { signal = JSON.parse(data); } catch { throw new Error('Visual continue signal is invalid'); }
+    if (JSON.stringify(signal) !== JSON.stringify(expected)) {
+      throw new Error('Visual continue signal does not match this handoff');
+    }
+    return;
+  }
+  throw new Error('Visual handoff timed out before confirmation');
+}
+
+export function assertObservedSelection(calls, firstCalls, expectation) {
+  const first = firstCalls.find(call => call.name === 'read_selection' &&
+    call.resultState === 'receipt accepted' && call.operationId);
+  const status = calls.find(call => call.name === 'operation_status' &&
+    call.resultState === 'completed' && call.targetOperationId === first?.operationId);
+  let result;
+  try { result = JSON.parse(status?.result ?? ''); } catch { /* Missing result fails below. */ }
+  if (!first || !status || result?.status !== 'completed' ||
+      result?.result?.cell_id !== expectation.cellId ||
+      result?.result?.text !== expectation.text || !expectation.text) {
+    throw new Error('Live selected-text operation did not return the exact nonempty owned selection');
   }
 }
 
@@ -222,7 +299,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     values.add(toolName);
     directNames.set(entry.normal_example.cell_id, values);
   }
-  if (requiresSubscription(entry)) {
+  if (needsWorkedSubscription(entry)) {
     const model = entry.requiresImage ? choice?.imageModel : choice?.model;
     if (!model) throw new Error(`${name} has no compatible discovered ChatGPT model`);
     const previous = source.metadata?.nbinlineai ?? {};
@@ -269,6 +346,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     throw new Error(`${name} unexpectedly requested kernel selection after isolated startup`);
   }
   const traces = [];
+  const observedByQuestion = new Map();
   const receiptsByCell = new Map();
   const insertionsByCell = new Map();
   const directByCell = new Map();
@@ -402,7 +480,15 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
           }
         }
       }
-    } else if (step.action === 'ai') {
+    } else if (step.action === 'ai' || step.action === 'ai-visual-start') {
+      const visual = step.action === 'ai-visual-start';
+      const selectionTarget = visual ? await liveCell(step.selectionCellId, 'code') : null;
+      if (visual && (name !== 'browser-media-outputs.ipynb' ||
+          step.cellId !== 'outputs-ai-selection-nonempty' ||
+          step.selectionCellId !== 'selection-ai-target' ||
+          step.selectedText !== 'selected blue square' || step.tool !== 'read_selection' || pilot)) {
+        throw new Error('Visual handoff is limited to the owned nonempty selection example');
+      }
       const target = await liveCell(step.cellId, 'question');
       const observerBefore = step.nativeImageSha256 ? await nativeObserverRows() : null;
       const runButton = target.locator('[data-nbinlineai-run]');
@@ -415,8 +501,37 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
       // Keep a rejection handler attached if a UI click fails before the
       // response is awaited, so a later timeout cannot crash the whole run.
       void response.catch(() => {});
-      await runButton.click();
-      const completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) : await response;
+      let completed;
+      if (visual) {
+        const paths = visualSignalPaths(outputDir, step.cellId);
+        const marker = { nonce: randomUUID(), notebook: name, questionCellId: step.cellId,
+          selectionCellId: step.selectionCellId, selectedText: step.selectedText };
+        const gate = visualPromptGate(step.cellId, createdSession.id);
+        await context.route('**/nbinlineai/prompt**', route => gate.handle(route));
+        try {
+          try { await lstat(paths.continue); throw new Error('Stale visual continue signal exists'); }
+          catch (error) { if (error?.code !== 'ENOENT') throw error; }
+          await writeFile(paths.ready, JSON.stringify(marker) + '\n', { flag: 'wx', mode: 0o600 });
+          console.log(`${name}: visual handoff ready for ${step.cellId}`);
+          await Promise.race([waitForVisualContinue(paths, marker, timeout), gate.failure]);
+          const selected = await selectionTarget.locator('.cm-content').evaluate(node => ({
+            focused: node.contains(document.activeElement),
+            text: window.getSelection()?.toString() ?? '',
+          }));
+          if (!selected.focused || selected.text !== step.selectedText) {
+            throw new Error('Visual handoff did not leave the exact target text selected and focused');
+          }
+          completed = await Promise.race([response, gate.failure]);
+          gate.assertCompleted();
+        } finally {
+          await context.unroute('**/nbinlineai/prompt**');
+          await rm(paths.ready, { force: true });
+          await rm(paths.continue, { force: true });
+        }
+      } else {
+        await runButton.click();
+        completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) : await response;
+      }
       if (pilotGuard) pilotGuard.assertCompleted();
       const requestBody = completed.requestBody;
       assertOwnedPromptRequest(requestBody, step.cellId, createdSession.id);
@@ -438,12 +553,23 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
           step.cellId, step.nativeImageSha256));
       }
       const observed = observedTrace(step.cellId, events);
+      observedByQuestion.set(step.cellId, observed);
       traces.push(...observed);
       const expectedTools = step.tools ?? (step.tool ? [step.tool] : []);
       for (const expected of expectedTools) {
         if (!observed.some(item => item.name === expected && ['completed', 'receipt accepted'].includes(item.resultState))) {
           throw new Error(`${name} ${step.cellId} did not return an accepted result for expected tool ${expected}`);
         }
+      }
+      if (step.expectedSelection) {
+        const selected = step.expectedSelection;
+        if (step.cellId !== 'outputs-ai-selection-nonempty-ready' ||
+            selected.fromQuestionId !== 'outputs-ai-selection-nonempty' ||
+            selected.cellId !== 'selection-ai-target' ||
+            selected.text !== 'selected blue square') {
+          throw new Error('Unexpected selected-text verification target');
+        }
+        assertObservedSelection(observed, observedByQuestion.get(selected.fromQuestionId) ?? [], selected);
       }
       await until(async () => /Done|Answer kept/.test(await target.locator('.nbinlineai-status').textContent() ?? ''),
         timeout, `${name} ${step.cellId} answer`);
@@ -597,7 +723,7 @@ async function main() {
         const revision = JSON.stringify(entry);
         if (finished.has(key) || failed.get(key) === revision) continue;
         try {
-          if (requiresSubscription(entry) && !choice) {
+          if (needsWorkedSubscription(entry) && !choice) {
             choice = await ensureAccount(page, request);
           }
           await runNotebook(page, request, context, entry, choice, pilot, pilotGuard);
