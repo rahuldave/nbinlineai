@@ -160,7 +160,7 @@ def _later_effect(
 
 
 def _execution_deferral(name: str, entry: dict[str, Any], examples_dir: Path) -> frozenset[str]:
-    """Allow only the dated, locally evidenced camera-only execution exception."""
+    """Allow only direct camera calls to await a separate permission-backed run."""
     deferral = entry.get("execution_deferral")
     if deferral is None:
         return frozenset()
@@ -168,8 +168,8 @@ def _execution_deferral(name: str, entry: dict[str, Any], examples_dir: Path) ->
         raise ValueError("execution deferral is limited to the three camera-only tools")
     if set(deferral) != {"modes", "reason", "authorized_on", "evidence_ref"}:
         raise ValueError("camera execution deferral has missing or extra fields")
-    if deferral["modes"] != ["normal", "ai"]:
-        raise ValueError("camera execution deferral must name normal and ai modes only")
+    if deferral["modes"] != ["normal"]:
+        raise ValueError("camera execution deferral must name normal mode only")
     reason = deferral["reason"]
     if (not isinstance(reason, str) or not 30 <= len(reason.strip()) <= 500
             or name not in reason or "camera" not in reason.lower()):
@@ -180,7 +180,7 @@ def _execution_deferral(name: str, entry: dict[str, Any], examples_dir: Path) ->
     log = examples_dir.parent / "internal_docs" / "worked_notebooks_run.md"
     if not log.is_file() or not re.search(r"(?im)^#{1,6}\s+Camera\s*$", log.read_text(encoding="utf-8")):
         raise ValueError("camera execution deferral needs the run log's Camera section")
-    return frozenset({"normal", "ai"})
+    return frozenset({"normal"})
 
 
 def execution_deferral_summary(examples_dir: Path) -> str:
@@ -189,7 +189,7 @@ def execution_deferral_summary(examples_dir: Path) -> str:
     names = sorted(name for name, entry in coverage.items() if entry.get("execution_deferral") is not None)
     if not names:
         return "0 execution deferrals"
-    return f"{len(names)} camera execution deferrals (normal and ai): {', '.join(names)}"
+    return f"{len(names)} camera execution deferrals (normal only): {', '.join(names)}"
 
 
 def validate_examples(

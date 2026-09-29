@@ -1220,10 +1220,9 @@
     },
     "execution_deferral": {
       "modes": [
-        "normal",
-        "ai"
+        "normal"
       ],
-      "reason": "start_camera cannot complete its physical camera acquisition: the owned Chrome probe had permission and one video input, but both video:true and ideal-facing requests remained unresolved for 20 seconds; no completed source was available.",
+      "reason": "start_camera has a saved, observed AI call that acquired the real camera in Chrome. The separate direct camera call in the notebook remains unrun because its earlier browser permission attempt expired.",
       "authorized_on": "2026-09-29",
       "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
@@ -1277,10 +1276,9 @@
     },
     "execution_deferral": {
       "modes": [
-        "normal",
-        "ai"
+        "normal"
       ],
-      "reason": "capture_camera is dependency-blocked by physical camera acquisition: no completed start_camera source ID exists after the owned permission-granted Chrome probe, so no camera still call or output is claimed.",
+      "reason": "capture_camera has a saved, observed AI call and completed status for a real 640×480 camera still in Chrome. The separate direct camera call in the notebook remains unrun.",
       "authorized_on": "2026-09-29",
       "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
@@ -1430,10 +1428,9 @@
     },
     "execution_deferral": {
       "modes": [
-        "normal",
-        "ai"
+        "normal"
       ],
-      "reason": "record_camera is dependency-blocked by physical camera acquisition: the owned permission-granted Chrome probe did not settle a video stream, so no camera recording call or clip is claimed.",
+      "reason": "record_camera has a saved, observed AI call and completed status for a real five-second camera clip in Chrome. The separate direct camera call in the notebook remains unrun.",
       "authorized_on": "2026-09-29",
       "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }

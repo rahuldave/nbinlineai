@@ -1,18 +1,26 @@
 # Worked notebook execution record
 
 This is an in-progress record for the opt-in worked gallery. Execution uses an
-isolated JupyterLab on port 8897, one owned Chromium context, the normally
-configured nbinlineai ChatGPT subscription, and disposable notebooks. The
+isolated JupyterLab on port 8897, browser sessions including the user's Chrome
+for physical camera permission, the normally configured nbinlineai ChatGPT
+subscription, and disposable notebooks. The
 published examples must retain observed outputs and tool-call evidence; an
 accepted browser-operation receipt alone does not establish completion.
 
 ## Camera
 
-Camera capture remains unverified. In an earlier real `start_camera` attempt,
-the browser action stayed `waiting_for_user` until its server receipt expired.
-That receipt did not contain a captured still or video.
+On 2026-09-29, the user opened Chrome to the isolated JupyterLab and granted
+camera permission. In that browser, saved concise AI answers and one-use tool
+traces show `start_camera(audio=False)` acquiring a real source, followed by a
+completed `operation_status`. `capture_camera` then produced a real 640×480 PNG
+managed-media result, verified by a later completed status. After `stop_source`,
+`record_camera(audio=False, duration=5)` produced a real five-second
+`video/webm;codecs=vp9` clip of 1,196,251 bytes, also verified by a later
+completed status. The canonical capture notebook publishes the answer and
+trace evidence without embedding the camera still, video bytes, or source IDs.
+The user explicitly permitted the camera test and publication of their image.
 
-On 2026-09-29, a separate bounded diagnostic used installed Chrome with a
+Earlier on 2026-09-29, a separate bounded diagnostic used installed Chrome with a
 fresh profile and origin-scoped camera permission on the owned isolated
 JupyterLab. The browser reported camera permission `granted` and one video
 input, but both `getUserMedia({video: true, audio: false})` and the default
@@ -21,11 +29,12 @@ returned a stream or a DOM exception. The diagnostic stopped any late stream
 tracks, closed its browser and server, and left port 8897 free. Only device
 kinds and counts were retained; no device labels or identifiers are published.
 
-The worked gallery will mark `start_camera`, `capture_camera`, and
-`record_camera` as attempted or dependency-deferred, with no successful camera
-claim. Other capture examples will use actual microphone or owned-tab screen
-sources. The user offered to troubleshoot the physical camera together later;
-no simulated camera result will replace this missing evidence.
+The direct Python calls for `start_camera`, `capture_camera`, and `record_camera`
+remain runnable demonstrations but were not executed in the published capture
+notebook. Their earlier in-app browser permission attempt expired. The
+execution gate defers only those three direct calls; it requires each saved AI
+answer and observed call, with the completed source, still, and clip established
+by linked later status answers. No simulated camera result is claimed.
 
 ## Completed direct media examples
 
