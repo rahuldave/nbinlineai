@@ -88,24 +88,31 @@ notebook.
 
 ## Screen-share direct status
 
-On 2026-09-29, three bounded direct capture attempts completed `setup_share`
-and reached `start_share`'s `waiting_for_user` state, then clicked the visible
-Share control. The later attempts opened a disposable notebook tab titled
-`nbinlineai-owned-target-tab` in the same fresh context and configured Chrome's
-exact-title capture option for that tab. None delivered a completed share before
-its receipt deadline. A separate setup-only pass saved a genuine completed
+On 2026-09-29, repeated bounded direct attempts completed `setup_share` and
+reached `start_share`'s `waiting_for_user` state, then used the notebook's
+visible Share control. A separate setup-only pass saved the genuine completed
 `setup_share` call and later inspection (`share_controls: true`,
-`screen_available: true`) without claiming a stream.
+`screen_available: true`). No direct `start_share` attempt completed.
 
-In the last attempt, the owned Chrome for Testing process was PID 65835 with a
-disposable Playwright profile; native app control attached instead to an old,
-unrelated Chrome for Testing process (PID 10120) showing **New Tab**. No
-unrelated tab or native chooser row was selected. The owned browser and server
-stopped, and port 8897 was free. This identifies a process/window routing
-obstacle in that test setup, not a proven product capture failure.
-`capture_screen`, `capture_tool`, and `stop_share` were not called in those
+The initial computer-use route attached to an old, unrelated Chrome for
+Testing process showing **New Tab**. An intervening attempt confirmed this
+same-bundle mismatch: its owned disposable browser was PID 65835, while native
+app control still attached to the unrelated PID 10120. No unrelated tab or
+chooser row was selected. In three later, process-specific attempts, native
+accessibility and window inspection did identify the owned browser and chooser.
+The first showed one disposable notebook tab in the chooser, but exposed no
+accessibility element for its tab tile, so it was left unselected. In the next
+two attempts, a fresh image of the owned window identified the sole disposable
+tab row; a guarded native click inside that row did not establish a selection.
+One post-click image was unavailable; the final attempt's post-click image and
+accessibility state both showed Share still disabled. Share was never pressed
+in the native chooser, and each `start_share` receipt failed its bounded
+completion check. All owned browser/server processes were stopped and port
+8897 was free afterward.
+
+`capture_screen`, `capture_tool`, and `stop_share` remain unrun in these direct
 attempts. The separate actual owned-tab video used by transform examples is
-independently decoded and public-safe; it does not count as success for these
+independently decoded and public-safe; it does not count as success for those
 capture-tool calls.
 
 ## Native Run All observation
@@ -123,4 +130,5 @@ changed that same operation to `cancelled`, and a final status query confirmed
 the original operation ID and cancelled state. This shows that direct Run All
 continues past an immediate browser receipt while the user action remains
 pending. The corresponding AI-question Run All pass remains untested while the
-configured ChatGPT subscription is usage-limited.
+configured ChatGPT subscription is usage-limited; the question about using
+existing paid credits has not been answered.
