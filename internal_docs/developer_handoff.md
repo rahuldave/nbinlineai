@@ -20,8 +20,9 @@ Read the implementation-specific [foundation](browser_media_foundation_handoff.m
 commits. The [acceptance record](browser_media_acceptance.md) tracks the 96
 public tools, concrete notebook examples, final source verification and
 platform limits; PR/Gest evidence controls acceptance. This is source-only
-work. PyPI remains 0.1.15, and no combined-feature release or site publication
-is implied.
+work. PyPI remains 0.1.15 with no package release. The normal `main` Quarto
+workflow published the updated documentation at `d862d46` (run `36512112089`);
+both render/check and publication jobs passed.
 
 **2026-09-28 example notebook pages (mainline source, PR #30 merged):**
 `scripts/render_example_notebooks.py` renders each top-level public example
