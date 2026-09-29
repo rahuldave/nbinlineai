@@ -130,6 +130,12 @@ HEADLESS_UI_CELLS = {
     ("browser-media-attachment.ipynb", "attachment-call"): "attach_media(",
     ("browser-media-attachment.ipynb", "attachment-inspect"): "attached.status",
     ("browser-media-attachment.ipynb", "attachment-cleanup"): "source_path.unlink()",
+    ("browser-media-capture.ipynb", "canvas-recorder-output"): "display(HTML(",
+    ("browser-media-capture.ipynb", "canvas-recorder-list-outputs"): "list_outputs(",
+    ("browser-media-capture.ipynb", "canvas-recorder-list-canvases"): "list_canvases(",
+    ("browser-media-capture.ipynb", "canvas-recorder-start-canvas"): "start_canvas(",
+    ("browser-media-capture.ipynb", "canvas-recorder-source-id"): "canvas_source.result",
+    ("browser-media-capture.ipynb", "canvas-recorder-stop-source-direct"): "stop_source(",
 }
 CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",
