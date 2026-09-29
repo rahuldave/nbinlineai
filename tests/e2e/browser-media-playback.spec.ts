@@ -71,7 +71,7 @@ test('the public notebook imports, plays, controls, copies and pastes disposable
     if (await playButton.isVisible().catch(() => false)) await playButton.click();
     await inspect(6, 'completed');
     await run(7); await inspect(8, 'completed');
-    await run(9); await inspect(10, '0.5');
+    await run(9); await inspect(10, "Seek: completed {'seconds': 2.5}");
     await run(11); await inspect(12, '0.25');
     await run(13); await inspect(14, 'True'); // Closing kept the source WAV.
     await expect(page.locator('.nbinlineai-playback-panel audio')).toHaveCount(0);
@@ -294,7 +294,8 @@ test('play stays bound to its notebook and late activation cannot revive a cance
   });
   await run(3); await run(4); await inspect(5, 'cancelled');
   await page.evaluate(() => (window as any).__resolvePlay());
-  await expect.poll(async () => active.locator('audio').evaluate(audio => (audio as HTMLAudioElement).paused)).toBeTruthy();
+  await expect.poll(async () => active.locator('.nbinlineai-playback-host audio')
+    .evaluate(audio => (audio as HTMLAudioElement).paused)).toBeTruthy();
   await page.evaluate(() => {
     let calls = 0;
     (window as any).__playCalls = () => calls;

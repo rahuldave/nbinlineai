@@ -6,6 +6,9 @@ type Cell = { id: string; cell_type: string; source: string[]; execution_count?:
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-integration.ipynb'), 'utf8'));
+  // The published notebook uses the user's ChatGPT subscription. Route only this
+  // disposable copy to the deterministic API fixture configured below.
+  example.metadata.nbinlineai.defaults.backend = 'openai_api';
   const cells = example.cells as Cell[];
   for (const id of ['integration-preflight-question', 'integration-question']) {
     const question = cells.find(cell => cell.id === id);
@@ -61,6 +64,7 @@ async function copiedExample(page: Page, request: APIRequestContext) {
       await run(id);
       output = await cell(id).locator('.jp-OutputArea').textContent() ?? '';
       if (output.includes(marker)) break;
+      await page.waitForTimeout(250);
     }
     expect(output).toContain(marker);
     expect(output).not.toContain('failed');
@@ -79,7 +83,7 @@ test('output export, preview, crop and explicit attachment send one exact native
     const outputExecution = await cell('integration-output').locator('.jp-InputPrompt').textContent();
 
     await run('integration-list-call');
-    const listed = await inspect('integration-list-inspect', 'Output reference:');
+    const listed = await inspect('integration-list-inspect', "Output reference: {'cell_id': 'integration-output'");
     expect(listed).toContain('completed None');
     expect(listed).toContain("'cell_id': 'integration-output'");
     expect(listed).toMatch(/'output_id': '[0-9a-f]{32}'/);
