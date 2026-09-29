@@ -25,11 +25,14 @@ def _fixture(tmp_path: Path, *, state: str = "completed", later: bool = False) -
         }
     }
     cells = [
-        _code("normal", "print(example_tool())"),
+        _code("normal", "print(example_tool())", metadata={"nbinlineaiWorkedDirectCalls": [
+            {"name": "example_tool", "cellId": "normal", "completed": True},
+        ]}),
         _markdown("question", "Use &`example_tool` and report its result.",
                   {"nbinlineai": {"isPromptCell": True, "promptMode": "compact"}}),
         _markdown("answer", "The operation was requested.",
-                  {"nbinlineai": {"isOutputCell": True, "promptCellId": "question"}}),
+                  {"nbinlineai": {"isOutputCell": True, "promptCellId": "question",
+                                  "status": "done"}}),
         _markdown("trace", "Observed call", {"nbinlineaiWorkedEvidence": {
             "questionCellId": "question", "observedTools": [{
                 "name": "example_tool", "resultState": state, "frontendAction": True,
@@ -42,7 +45,8 @@ def _fixture(tmp_path: Path, *, state: str = "completed", later: bool = False) -
             _markdown("status-question", "Use &`operation_status` on op-1.",
                       {"nbinlineai": {"isPromptCell": True, "promptMode": "compact"}}),
             _markdown("status-answer", "It completed.",
-                      {"nbinlineai": {"isOutputCell": True, "promptCellId": "status-question"}}),
+                      {"nbinlineai": {"isOutputCell": True, "promptCellId": "status-question",
+                                      "status": "done"}}),
             _markdown("status-trace", "Observed status", {"nbinlineaiWorkedEvidence": {
                 "questionCellId": "status-question", "observedTools": [{
                     "name": "operation_status", "resultState": "completed", "frontendAction": True,
@@ -75,6 +79,27 @@ def test_completed_live_call_and_normal_python_execution_are_required(tmp_path: 
     assert "normal Python call was not executed" in "\n".join(_check(path))
 
 
+def test_dead_code_and_unrelated_stdout_are_not_direct_call_evidence(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    notebook_path = path / "example.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    notebook["cells"][0]["source"] = "if False:\n    example_tool()\nprint('unrelated')"
+    notebook["cells"][0]["metadata"]["nbinlineaiWorkedDirectCalls"] = []
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert _check(path, strict=False) == []  # Source offers an executable example.
+    assert "lacks observed direct execution" in "\n".join(_check(path))
+
+
+def test_observed_assignment_does_not_need_a_display_output(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    notebook_path = path / "example.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    notebook["cells"][0]["source"] = "saved = example_tool()"
+    notebook["cells"][0]["outputs"] = []
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert _check(path) == []
+
+
 def test_answer_prose_does_not_substitute_for_observed_call(tmp_path: Path) -> None:
     path = _fixture(tmp_path)
     notebook_path = path / "example.ipynb"
@@ -104,7 +129,26 @@ def test_failed_result_and_missing_answer_are_not_saved_evidence(tmp_path: Path)
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
     notebook["cells"][2]["metadata"] = {}
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert "expected one nonempty linked saved answer" in "\n".join(_check(path))
+    assert "expected one completed, nonempty linked saved answer" in "\n".join(_check(path))
+
+
+def test_completed_label_cannot_mask_a_pending_operation_state(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    notebook_path = path / "example.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    call = notebook["cells"][3]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"][0]
+    call["operationState"] = "running"
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "no completed result or linked later operation effect" in "\n".join(_check(path))
+
+
+def test_failed_answer_does_not_count_as_completed_evidence(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    notebook_path = path / "example.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    notebook["cells"][2]["metadata"]["nbinlineai"]["status"] = "failed"
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "expected one completed, nonempty linked saved answer" in "\n".join(_check(path))
 
 
 def test_receipt_inspection_needs_kernel_recorded_terminal_state(tmp_path: Path) -> None:

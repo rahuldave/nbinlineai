@@ -76,8 +76,9 @@ def _answer(cells: list[dict[str, Any]], question_id: str) -> tuple[int, dict[st
         if cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell")
         and cell.get("metadata", {}).get("nbinlineai", {}).get("promptCellId") == question_id
     ]
-    if len(found) != 1 or not _source(found[0][1]).strip():
-        raise ValueError(f"{question_id}: expected one nonempty linked saved answer")
+    if (len(found) != 1 or not _source(found[0][1]).strip()
+            or found[0][1]["metadata"]["nbinlineai"].get("status") != "done"):
+        raise ValueError(f"{question_id}: expected one completed, nonempty linked saved answer")
     return found[0]
 
 
@@ -195,7 +196,11 @@ def validate_examples(
                     if not calls:
                         raise ValueError("no observed live call of named tool")
                     if not any(
-                        call.get("resultState") == "completed"
+                        (call.get("resultState") == "completed"
+                         and (name == "operation_status" or call.get("operationState") not in {
+                             "requested", "waiting_for_user", "running", "paused", "saving",
+                             "cancelled", "failed", "expired",
+                         }))
                         or (call.get("resultState") == "receipt accepted"
                             and isinstance(call.get("operationId"), str)
                             and _later_effect(ai_cells, question_index, call))
@@ -208,6 +213,14 @@ def validate_examples(
                     raise ValueError("normal Python call was not executed")
                 if any(output.get("output_type") == "error" for output in normal_cell.get("outputs", [])):
                     raise ValueError("normal Python call raised an error")
+                if name not in HELPERS:
+                    direct = normal_cell.get("metadata", {}).get("nbinlineaiWorkedDirectCalls", [])
+                    if not any(
+                        item.get("name") == name and item.get("cellId") == normal["cell_id"]
+                        and item.get("completed") is True
+                        for item in direct
+                    ):
+                        raise ValueError("normal Python call lacks observed direct execution")
                 inspect_id = entry.get("receipt_inspect_cell")
                 if inspect_id:
                     inspect_index, inspect = _cell(normal_cells, inspect_id)
@@ -226,8 +239,8 @@ def validate_examples(
                         for receipt in receipts
                     ):
                         raise ValueError("receipt inspection has no verified terminal result")
-                elif not normal_cell.get("outputs"):
-                    raise ValueError("normal Python example has no displayed result")
+                elif name in HELPERS and not normal_cell.get("outputs"):
+                    raise ValueError("setup helper has no displayed result")
         except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as exc:
             errors.append(f"{name}: {exc}")
     return errors
