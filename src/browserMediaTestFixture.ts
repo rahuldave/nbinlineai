@@ -37,9 +37,22 @@ registerBrowserOperation('fixture_dedup', async (context, request, operation) =>
     Date.now = () => now() + 6 * 60_000;
     nested = await Promise.all([context.start(request), context.start(request)]);
   } finally { Date.now = now; }
+  // The production registry has room for three private test operations after
+  // all 40 public family operations register. Exercise release replay here.
+  const { bytes, digest } = await tinyPng();
+  const producer = await context.create({ request_id: `${request.request_id}-producer`,
+    name: 'fixture_image', arguments: {} });
+  const produced = await context.upload(producer.operation_id, bytes, 'image/png', digest);
+  const mediaId = String((produced.media as Record<string, unknown>).media_id);
+  const release = { request_id: `${request.request_id}-release`, name: 'release_media',
+    arguments: { media_id: mediaId } };
+  const [first, second] = await Promise.all([context.releaseOperation(release), context.releaseOperation(release)]);
+  const replay = await context.releaseOperation(release);
   await context.transition(operation.operation_id, 'completed', {
     handler_runs: dedupRuns.get(operation.operation_id),
-    same_operation: nested.every(item => item.operation_id === operation.operation_id)
+    statuses: [first.status, second.status, replay.status],
+    same_operation: nested.every(item => item.operation_id === operation.operation_id) &&
+      first.operation_id === second.operation_id && second.operation_id === replay.operation_id
   });
   // Simulate an old running create reply after the terminal tombstone window.
   const create = context.create.bind(context);
@@ -53,20 +66,4 @@ registerBrowserOperation('fixture_dedup', async (context, request, operation) =>
     runs: dedupRuns.get(operation.operation_id) ?? 0, staleReplayStatus
   };
   dedupRuns.delete(operation.operation_id);
-}, () => ({ available: true }));
-
-registerBrowserOperation('fixture_release_replay', async (context, request, operation) => {
-  const { bytes, digest } = await tinyPng();
-  const producer = await context.create({ request_id: `${request.request_id}-producer`,
-    name: 'fixture_image', arguments: {} });
-  const produced = await context.upload(producer.operation_id, bytes, 'image/png', digest);
-  const mediaId = String((produced.media as Record<string, unknown>).media_id);
-  const release = { request_id: `${request.request_id}-release`, name: 'release_media',
-    arguments: { media_id: mediaId } };
-  const [first, second] = await Promise.all([context.releaseOperation(release), context.releaseOperation(release)]);
-  const replay = await context.releaseOperation(release);
-  await context.transition(operation.operation_id, 'completed', {
-    statuses: [first.status, second.status, replay.status],
-    same_operation: first.operation_id === second.operation_id && second.operation_id === replay.operation_id
-  });
 }, () => ({ available: true }));
