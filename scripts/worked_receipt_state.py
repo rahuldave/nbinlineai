@@ -15,7 +15,20 @@ from pathlib import Path
 from jupyter_client import BlockingKernelClient
 
 
-def receipt_state(kernel_id: str, variable: str) -> dict[str, str]:
+def _validated_receipt(observed: dict, *, allow_unregistered: bool = False) -> dict[str, str | None]:
+    operation_id = observed.get("operationId")
+    status = observed.get("status")
+    if status not in {"pending", "waiting_for_user", "running", "saving", "paused",
+                      "completed", "failed", "cancelled", "expired"}:
+        raise ValueError("Invalid live operation state")
+    if operation_id is None and allow_unregistered:
+        return {"operationId": None, "status": status}
+    if not isinstance(operation_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", operation_id):
+        raise ValueError("Invalid live operation ID")
+    return {"operationId": operation_id, "status": status}
+
+
+def receipt_state(kernel_id: str, variable: str, *, allow_unregistered: bool = False) -> dict[str, str | None]:
     if not re.fullmatch(r"[0-9a-f-]{36}", kernel_id):
         raise ValueError("Invalid owned kernel ID")
     if not re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]{0,100}", variable):
@@ -49,14 +62,7 @@ def receipt_state(kernel_id: str, variable: str) -> dict[str, str]:
                 break
         if observed is None:
             raise RuntimeError("Live receipt inspection returned no state")
-        operation_id = observed.get("operationId")
-        status = observed.get("status")
-        if not isinstance(operation_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", operation_id):
-            raise ValueError("Invalid live operation ID")
-        if status not in {"pending", "waiting_for_user", "running", "saving", "paused",
-                          "completed", "failed", "cancelled", "expired"}:
-            raise ValueError("Invalid live operation state")
-        return {"operationId": operation_id, "status": status}
+        return _validated_receipt(observed, allow_unregistered=allow_unregistered)
     finally:
         client.stop_channels()
 
@@ -65,8 +71,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kernel_id")
     parser.add_argument("variable")
+    parser.add_argument("--allow-unregistered", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(receipt_state(args.kernel_id, args.variable)))
+    print(json.dumps(receipt_state(args.kernel_id, args.variable,
+                                   allow_unregistered=args.allow_unregistered)))
 
 
 if __name__ == "__main__":

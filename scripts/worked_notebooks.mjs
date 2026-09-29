@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource } from './worked_notebooks_support.mjs';
+import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -33,21 +34,8 @@ function safeName(value) {
   }
   return value;
 }
-async function readLiveReceipt(kernelId, variable) {
-  return new Promise((resolveReceipt, rejectReceipt) => {
-    const process = spawn(ownedPython, [join(root, 'scripts', 'worked_receipt_state.py'), kernelId, variable],
-      { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    process.stdout.on('data', chunk => { stdout += chunk.toString(); });
-    process.stderr.on('data', () => { /* never print kernel connection details */ });
-    process.once('error', rejectReceipt);
-    process.once('exit', code => {
-      if (code !== 0 || stdout.length > 500) return rejectReceipt(new Error('Live receipt state could not be verified'));
-      try { resolveReceipt(JSON.parse(stdout)); }
-      catch { rejectReceipt(new Error('Live receipt state was invalid')); }
-    });
-  });
-}
+const receiptScript = join(root, 'scripts', 'worked_receipt_state.py');
+const inspectReceipt = (kernelId, variable) => readLiveReceipt(ownedPython, receiptScript, kernelId, variable);
 async function directProbe(kernelId, action, names = []) {
   return new Promise((resolveProbe, rejectProbe) => {
     const child = spawn(ownedPython, [join(root, 'scripts', 'worked_direct_probe.py'),
@@ -216,26 +204,11 @@ async function runNotebook(page, request, context, entry, choice) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
     console.log(`${name}: ${step.action} ${step.cellId ?? 'control'}`);
     if (step.action === 'receipt-ready') {
-      const variables = step.variables;
-      const expectedStatus = step.status ?? 'completed';
-      if (!Array.isArray(variables) || !variables.length || variables.length > 8 ||
-          variables.some(value => typeof value !== 'string' || !/^[A-Za-z_][A-Za-z_0-9]{0,100}$/.test(value)) ||
-          !['completed', 'running', 'paused', 'waiting_for_user', 'saving', 'pending'].includes(expectedStatus)) {
-        throw new Error(`${name} has invalid receipt readiness criteria`);
-      }
       // Each probe runs in its own kernel turn, after the browser operation's
       // original call has returned. Do not wait on a comm in the call's turn.
-      const deadline = Date.now() + Math.min(timeout, 60_000);
-      while (true) {
-        const states = [];
-        for (const variable of variables) states.push({ variable, ...(await readLiveReceipt(kernelId, variable)) });
-        if (states.some(item => ['failed', 'cancelled', 'expired'].includes(item.status))) {
-          throw new Error(`${name} receipt readiness failed for ${states.filter(item => ['failed', 'cancelled', 'expired'].includes(item.status)).map(item => item.variable).join(', ')}`);
-        }
-        if (states.every(item => item.status === expectedStatus)) break;
-        if (Date.now() >= deadline) throw new Error(`${name} receipt readiness timed out`);
-        await pause(350);
-      }
+      await waitForReceiptStates({ name, variables: step.variables, expectedStatus: step.status ?? 'completed',
+        timeoutMs: timeout, read: (variable, remaining) => readLiveReceipt(ownedPython, receiptScript,
+          kernelId, variable, { timeoutMs: remaining, allowUnregistered: true }) });
     } else if (step.action === 'code' || step.action === 'inspect') {
       const target = await liveCell(step.cellId, 'code');
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
@@ -272,7 +245,7 @@ async function runNotebook(page, request, context, entry, choice) {
         if (step.action === 'inspect' && receiptVariables.has(step.cellId)) {
           const verified = [];
           for (const variable of receiptVariables.get(step.cellId)) {
-            const receipt = await readLiveReceipt(kernelId, variable);
+            const receipt = await inspectReceipt(kernelId, variable);
             verified.push({ variable, operationId: receipt.operationId, status: receipt.status });
           }
           receiptsByCell.set(step.cellId, verified);

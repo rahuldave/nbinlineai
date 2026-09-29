@@ -51,6 +51,26 @@ def test_receipt_reader_rejects_untrusted_kernel_and_variable(monkeypatch, tmp_p
         module.receipt_state("12345678-1234-1234-1234-123456789abc", "camera.__dict__")
 
 
+def test_receipt_reader_allows_unregistered_state_only_for_polling():
+    import pytest
+
+    script = Path(__file__).resolve().parents[1] / "scripts/worked_receipt_state.py"
+    spec = importlib.util.spec_from_file_location("worked_receipt_state", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    provisional = {"operationId": None, "status": "running"}
+    assert module._validated_receipt(provisional, allow_unregistered=True) == provisional
+    with pytest.raises(ValueError, match="operation ID"):
+        module._validated_receipt(provisional)
+    with pytest.raises(ValueError, match="operation ID"):
+        module._validated_receipt({"operationId": "bad", "status": "completed"},
+                                  allow_unregistered=True)
+    with pytest.raises(ValueError, match="operation state"):
+        module._validated_receipt({"operationId": None, "status": "invented"},
+                                  allow_unregistered=True)
+
+
 def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch, tmp_path):
     from jupyter_client import KernelManager
 
