@@ -1,8 +1,8 @@
 // One visible browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
-import { chromium } from '@playwright/test';
 import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat } from 'node:fs/promises';
 import { resolve, join, dirname, isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
@@ -19,10 +19,82 @@ const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
 const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
 const sourceDir = process.env.NBINLINEAI_WORKED_SOURCE_DIR ?? join(root, 'examples');
 const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE;
-if (!token || !manifestPath || !outputDir || !ownedPython) {
-  throw new Error('Worked runner environment is incomplete');
+
+export function pilotQuestion(plan) {
+  if (!Object.hasOwn(plan, 'pilotMaxToolSteps')) return null;
+  if (plan.pilotMaxToolSteps !== 1 || plan.continuous === true ||
+      !Array.isArray(plan.notebooks) || plan.notebooks.length !== 1) {
+    throw new Error('Pilot requires one notebook, one question, and maxToolSteps=1');
+  }
+  const questions = (plan.notebooks[0].steps ?? []).filter(step => step.action === 'ai');
+  if (questions.length !== 1 || typeof questions[0].cellId !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,100}$/.test(questions[0].cellId)) {
+    throw new Error('Pilot requires exactly one named AI question');
+  }
+  return { notebook: safeName(plan.notebooks[0].source), cellId: questions[0].cellId };
 }
-if (!isAbsolute(sourceDir)) throw new Error('Worked source directory must be absolute');
+
+export async function preparePilotSettings(configDir) {
+  if (typeof configDir !== 'string' || !isAbsolute(configDir)) {
+    throw new Error('Pilot requires an isolated absolute Jupyter config directory');
+  }
+  const parent = join(configDir, 'lab', 'user-settings', 'nbinlineai');
+  await mkdir(parent, { recursive: true, mode: 0o700 });
+  const path = join(parent, 'plugin.jupyterlab-settings');
+  await writeFile(path, '{"maxToolSteps":1}\n', { flag: 'wx', mode: 0o600 });
+  return path;
+}
+
+export function assertPilotPromptRequest(request, questionCellId, sessionId) {
+  const url = new URL(request.url());
+  if (request.method() !== 'POST' || url.origin !== baseURL ||
+      url.pathname !== '/nbinlineai/prompt' || url.search) {
+    throw new Error('Pilot prompt request did not target the owned server');
+  }
+  const body = request.postDataJSON();
+  assertOwnedPromptRequest(body, questionCellId, sessionId);
+  if (body.max_tool_steps !== 1) {
+    throw new Error('Pilot prompt did not enforce maxToolSteps=1');
+  }
+}
+
+export function pilotRouteGuard(questionCellId) {
+  let sessionId = null;
+  let submissions = 0;
+  let rejectFailure;
+  let blocked = false;
+  const failure = new Promise((_, reject) => { rejectFailure = reject; });
+  void failure.catch(() => {});
+  return {
+    bind(value) {
+      if (sessionId || typeof value !== 'string' || !value) {
+        throw new Error('Pilot session binding is missing or changed');
+      }
+      sessionId = value;
+    },
+    get submissions() { return submissions; },
+    failure,
+    assertCompleted() {
+      if (blocked || submissions !== 1) {
+        throw new Error('Pilot did not complete exactly one guarded prompt submission');
+      }
+    },
+    async handle(route) {
+      try {
+        if (blocked || !sessionId || submissions !== 0) {
+          throw new Error('Pilot allows only one bound prompt submission');
+        }
+        assertPilotPromptRequest(route.request(), questionCellId, sessionId);
+        submissions += 1;
+        await route.continue();
+      } catch {
+        blocked = true;
+        await route.abort().catch(() => {});
+        rejectFailure(new Error('Pilot prompt was blocked before model submission'));
+      }
+    },
+  };
+}
 
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
 async function until(check, timeout, description) {
@@ -111,7 +183,7 @@ async function ensureAccount(page, request) {
   return choice;
 }
 
-async function runNotebook(page, request, context, entry, choice) {
+async function runNotebook(page, request, context, entry, choice, pilot, pilotGuard) {
   const name = safeName(entry.source);
   const path = join(sourceDir, name);
   const source = JSON.parse(await readFile(path, 'utf8'));
@@ -165,6 +237,12 @@ async function runNotebook(page, request, context, entry, choice) {
   });
   if (!session.ok()) throw new Error(`${name} could not start its isolated kernel`);
   const createdSession = await session.json();
+  if (pilot) {
+    if (name !== pilot.notebook || !pilotGuard) {
+      throw new Error('Pilot notebook changed before execution');
+    }
+    pilotGuard.bind(createdSession.id);
+  }
   await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
   const panel = page.locator('.jp-NotebookPanel:visible');
   await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
@@ -327,7 +405,8 @@ async function runNotebook(page, request, context, entry, choice) {
       // response is awaited, so a later timeout cannot crash the whole run.
       void response.catch(() => {});
       await runButton.click();
-      const completed = await response;
+      const completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) : await response;
+      if (pilotGuard) pilotGuard.assertCompleted();
       const requestBody = completed.requestBody;
       assertOwnedPromptRequest(requestBody, step.cellId, createdSession.id);
       const events = frames(completed.body);
@@ -450,6 +529,7 @@ async function runNotebook(page, request, context, entry, choice) {
   addTraceAppendix(notebook, traces);
   normalizePublicCopy(notebook, privateHardwareValues);
   assertSafeNotebook(notebook);
+  if (pilotGuard) pilotGuard.assertCompleted();
   await mkdir(outputDir, { recursive: true, mode: 0o700 });
   await chmod(outputDir, 0o700);
   const outputPath = join(outputDir, safeName(entry.output ?? name));
@@ -461,49 +541,78 @@ async function runNotebook(page, request, context, entry, choice) {
 // The installed Chrome app may already have macOS camera consent whereas the
 // Playwright test app has a distinct macOS identity. Both use a fresh context.
 const browserChannel = process.env.WORKED_BROWSER_CHANNEL;
-if (browserChannel && browserChannel !== 'chrome') {
-  throw new Error('WORKED_BROWSER_CHANNEL only supports the installed Chrome app');
-}
-const browser = await chromium.launch({ headless: false,
-  ...(browserChannel ? { channel: browserChannel } : {}) });
-try {
-  // Use real hardware and grant the authorized localhost notebook origin only.
-  // No fake-device flags or browser-wide permission pregrant are used.
-  const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 } });
-  await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
-  const page = await context.newPage();
-  // Jupyter establishes its normal authenticated browser cookie from this one
-  // local URL. The token is never printed or stored in a notebook artifact.
-  await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
-  const request = context.request;
-  let choice = null;
-  const finished = new Set();
-  const failed = new Map();
-  while (true) {
-    const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-    for (const entry of manifest.notebooks ?? []) {
-      const key = safeName(entry.output ?? entry.source);
-      const revision = JSON.stringify(entry);
-      if (finished.has(key) || failed.get(key) === revision) continue;
-      try {
-        if (requiresSubscription(entry) && !choice) {
-          choice = await ensureAccount(page, request);
-        }
-        await runNotebook(page, request, context, entry, choice);
-        finished.add(key);
-        failed.delete(key);
-      } catch (error) {
-        failed.set(key, revision);
-        console.error(`${key}: ${error instanceof Error ? error.message : 'execution failed'}; awaiting a revised plan.`);
-        if (!manifest.continuous) throw error;
-      }
-    }
-    if (!manifest.continuous || manifest.stop === true) break;
-    await pause(2000);
+async function main() {
+  if (!token || !manifestPath || !outputDir || !ownedPython) {
+    throw new Error('Worked runner environment is incomplete');
   }
-} catch (error) {
-  console.error(`Worked notebook runner stopped: ${error instanceof Error ? error.message : 'unknown error'}`);
-  process.exitCode = 1;
-} finally {
-  await browser.close();
+  if (!isAbsolute(sourceDir)) throw new Error('Worked source directory must be absolute');
+  if (browserChannel && browserChannel !== 'chrome') {
+    throw new Error('WORKED_BROWSER_CHANNEL only supports the installed Chrome app');
+  }
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const pilot = pilotQuestion(manifest);
+  if (pilot) {
+    const configDir = process.env.JUPYTER_CONFIG_DIR;
+    const ownedRoot = process.env.NBINLINEAI_WORKED_ROOT;
+    if (!ownedRoot || !isAbsolute(ownedRoot) ||
+        configDir !== join(dirname(ownedRoot), 'config')) {
+      throw new Error('Pilot requires the launcher-owned Jupyter configuration');
+    }
+    await preparePilotSettings(configDir);
+  }
+  const { chromium } = await import('@playwright/test');
+  const browser = await chromium.launch({ headless: false,
+    ...(browserChannel ? { channel: browserChannel } : {}) });
+  try {
+    // Use real hardware and grant the authorized localhost notebook origin only.
+    // No fake-device flags or browser-wide permission pregrant are used.
+    const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 } });
+    await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
+    const page = await context.newPage();
+    const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
+    if (pilotGuard) {
+      await page.route('**/nbinlineai/prompt**', route => pilotGuard.handle(route));
+    }
+    // Jupyter establishes its normal authenticated browser cookie from this one
+    // local URL. The token is never printed or stored in a notebook artifact.
+    await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
+    const request = context.request;
+    let choice = null;
+    const finished = new Set();
+    const failed = new Map();
+    while (true) {
+      const currentManifest = pilot ? manifest : JSON.parse(await readFile(manifestPath, 'utf8'));
+      for (const entry of currentManifest.notebooks ?? []) {
+        const key = safeName(entry.output ?? entry.source);
+        const revision = JSON.stringify(entry);
+        if (finished.has(key) || failed.get(key) === revision) continue;
+        try {
+          if (requiresSubscription(entry) && !choice) {
+            choice = await ensureAccount(page, request);
+          }
+          await runNotebook(page, request, context, entry, choice, pilot, pilotGuard);
+          finished.add(key);
+          failed.delete(key);
+        } catch (error) {
+          failed.set(key, revision);
+          console.error(`${key}: ${error instanceof Error ? error.message : 'execution failed'}; awaiting a revised plan.`);
+          if (!currentManifest.continuous) throw error;
+        }
+      }
+      if (!currentManifest.continuous || currentManifest.stop === true) break;
+      await pause(2000);
+    }
+    if (pilotGuard) pilotGuard.assertCompleted();
+  } finally {
+    await browser.close();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`Worked notebook runner stopped: ${error instanceof Error ? error.message : 'unknown error'}`);
+    process.exitCode = 1;
+  }
 }
