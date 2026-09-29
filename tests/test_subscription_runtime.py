@@ -137,6 +137,12 @@ def test_existing_credit_admission_requires_consistent_pinned_snapshot(changes, 
     assert runtime._existing_credits_eligible(_credit_snapshot(**changes)) is eligible
 
 
+def test_missing_individual_limit_is_not_explicit_no_limit():
+    snapshot = _credit_snapshot()
+    snapshot.pop("individualLimit")
+    assert runtime._existing_credits_eligible(snapshot) is False
+
+
 def test_included_quota_exhaustion_with_existing_credits_stays_connected(tmp_path, monkeypatch):
     async def check():
         manager = runtime.SubscriptionRuntime(state_directory=tmp_path / "private")

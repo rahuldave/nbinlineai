@@ -59,7 +59,7 @@ def _existing_credits_eligible(snapshot: Any) -> bool:
         return False
     # The pinned individual limit amounts are untyped strings. Until their
     # format can be validated, a non-null spend limit cannot prove eligibility.
-    if snapshot.get("individualLimit") is not None:
+    if "individualLimit" not in snapshot or snapshot["individualLimit"] is not None:
         return False
     credits = snapshot.get("credits")
     if not isinstance(credits, dict) or credits.get("hasCredits") is not True:
