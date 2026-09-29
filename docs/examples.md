@@ -6,7 +6,7 @@ title: Notebook examples
 
 Open a notebook from the [gallery](#walkthroughs) in JupyterLab and make a copy before editing it. Each example starts with disposable inputs. Run its setup cells, then work downward one step at a time. A normal Python call shows what the function returns in the kernel; a nearby AI question asks the model to use the same tool and records the answer in the notebook. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
 
-AI questions use your selected ChatGPT connection or configured API provider. A question can call an offered tool, so ask for a specific call when you want to observe it. The saved answer and its observed-tool table show what actually happened; a suggested call in the answer is not evidence that the tool ran. Python-only setup needs no provider. Some browser-backed tools have no direct Python-call equivalent: their normal comparison is an ordinary JupyterLab action on a second disposable copy.
+AI questions use your selected ChatGPT connection or configured API provider. A question can call an offered tool, so ask for a specific call when you want to observe it. These worked notebooks include an observed-tool table beside each saved answer to show what happened; ordinary nbinlineai answers do not automatically save a separate tool transcript. A suggested call in answer prose is not evidence that the tool ran. Python-only setup needs no provider. Some browser-backed tools have no direct Python-call equivalent: their normal comparison is an ordinary JupyterLab action on a second disposable copy.
 
 ## Work through a notebook
 
