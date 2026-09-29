@@ -186,10 +186,20 @@ async function runNotebook(page, request, context, entry, choice) {
       throw new Error(`${name} no longer has its original kernel session`);
     }
     const index = liveCellIndex(cells, id, kind);
-    const widgets = panel.locator('.jp-Notebook .jp-Cell');
-    const count = await widgets.count();
-    if (count !== cells.length) throw new Error(`${name} live cell widgets disagree with saved model order`);
-    const target = widgets.nth(index);
+    // JupyterLab only materializes a window of large notebooks. Its rendered
+    // cells carry their actual model index; a DOM ordinal is not a model index.
+    const target = panel.locator(`.jp-Notebook .jp-Cell[data-windowed-list-index="${index}"]`);
+    const outer = panel.locator('.jp-WindowedPanel-outer');
+    for (let attempt = 0; attempt < cells.length && !(await target.count()); attempt++) {
+      const shown = await panel.locator('.jp-Notebook .jp-Cell[data-windowed-list-index]')
+        .evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-windowed-list-index')))
+          .filter(Number.isInteger));
+      if (!shown.length) throw new Error(`${name} has no indexed rendered cells`);
+      const direction = index < Math.min(...shown) ? -1 : 1;
+      await outer.evaluate((node, sign) => { node.scrollTop += sign * Math.max(300, node.clientHeight * 0.8); }, direction);
+      await pause(80);
+    }
+    if (await target.count() !== 1) throw new Error(`${name} model cell ${id} is not materialized at index ${index}`);
     const className = kind === 'code' ? 'jp-CodeCell' : 'nbinlineai-prompt-cell';
     if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
       throw new Error(`${name} current cell ${id} has wrong widget type`);
