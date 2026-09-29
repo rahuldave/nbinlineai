@@ -41,7 +41,7 @@ def _write_exclusive(path: Path, data: str) -> None:
 def _validate_arm(arm: Any) -> dict:
     if (not isinstance(arm, dict) or set(arm) not in (
         {"binding", "groups"}, {"binding", "groups", "optional_terminal_group"},
-        {"binding", "group_shapes"},
+        {"binding", "group_shapes"}, {"binding", "group_shapes", "optional_merge_terminal_read"},
     )):
         raise ValueError("Invalid observer arm")
     binding, groups = arm["binding"], arm.get("groups")
@@ -63,6 +63,11 @@ def _validate_arm(arm: Any) -> dict:
               any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in shape)
               for shape in shapes)):
         raise ValueError("Invalid observer group shapes")
+    merge_terminal_read = arm.get("optional_merge_terminal_read", False)
+    if merge_terminal_read is not False and merge_terminal_read is not True:
+        raise ValueError("Invalid optional merge read flag")
+    if merge_terminal_read and (shapes is None or binding["max_tool_steps"] < 4):
+        raise ValueError("Optional merge read requires four allowed tool steps")
     optional = arm.get("optional_terminal_group")
     if optional is not None:
         if (not isinstance(optional, list) or len(optional) != 1 or
@@ -162,14 +167,21 @@ def _validate_arm(arm: Any) -> dict:
 
 def arm_question(directory: Path, binding: dict, groups: list[list[dict]] | None = None,
                  optional_terminal_group: list[dict] | None = None,
-                 *, group_shapes: list[list[list[dict]]] | None = None) -> None:
+                 *, group_shapes: list[list[list[dict]]] | None = None,
+                 optional_merge_terminal_read: bool = False) -> None:
     """Create one private arm; the next matching prompt consumes it exactly once."""
     _private_dir(directory)
-    if (groups is None) == (group_shapes is None) or (group_shapes is not None and optional_terminal_group is not None):
+    if type(optional_merge_terminal_read) is not bool:
+        raise ValueError("Invalid optional merge read flag")
+    if ((groups is None) == (group_shapes is None) or
+            (group_shapes is not None and optional_terminal_group is not None) or
+            (optional_merge_terminal_read and group_shapes is None)):
         raise ValueError("Choose one observer group policy")
     policy = {"binding": binding}
     if group_shapes is not None:
         policy["group_shapes"] = group_shapes
+        if optional_merge_terminal_read:
+            policy["optional_merge_terminal_read"] = optional_merge_terminal_read
     else:
         policy["groups"] = groups
     if optional_terminal_group is not None:
@@ -291,7 +303,10 @@ class VisualObserver:
             raise ValueError("Observer request did not match its arm")
         optional = arm.get("optional_terminal_group")
         if "group_shapes" in arm:
-            shapes = arm["group_shapes"]
+            shapes = list(arm["group_shapes"])
+            if arm.get("optional_merge_terminal_read"):
+                terminal_read = [shapes[0][0][0]]
+                shapes.extend([*shape, terminal_read] for shape in arm["group_shapes"])
         else:
             required_groups = arm["groups"]
             shapes = [required_groups]

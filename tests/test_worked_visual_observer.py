@@ -27,6 +27,7 @@ MOVE_ARGS = {"cell_id": "cell-1", "after_cell_id": "cell-2"}
 MOVE = {"name": "move_cell", "argument_options": [MOVE_ARGS]}
 TERMINAL_READ = [{"name": "list_cells", "argument_options": [{"start": 55, "limit": 20}]}]
 MERGE_BINDING = {**BINDING, "max_tool_steps": 3, "prompt_cell_id": "catalog-demo-merge_cells"}
+MERGE_TERMINAL_BINDING = {**MERGE_BINDING, "max_tool_steps": 4}
 FIRST_ID = "catalog-scratch-merge-first"
 SECOND_ID = "catalog-scratch-merge-second"
 FIRST_SOURCE = "First disposable note.\n"
@@ -539,9 +540,11 @@ def test_optional_terminal_group_must_be_single_bounded_read(tmp_path, optional,
 
 
 @pytest.mark.parametrize("separate_reads", [False, True])
-def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, separate_reads):
+@pytest.mark.parametrize("terminal_read", [False, True])
+def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, separate_reads, terminal_read):
     directory = _private(tmp_path)
-    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
     source = [
         {"type": "context"},
         {"type": "tool_start", "id": "first", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
@@ -556,8 +559,15 @@ def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, s
         {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS},
         {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"},
         {"type": "context"},
-        {"type": "done", "tool_steps": 3 if separate_reads else 2},
     ])
+    if terminal_read:
+        source.extend([
+            {"type": "tool_start", "id": "verify", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+            {"type": "tool_result", "id": "verify", "name": "read_cell", "text": SECRET},
+            {"type": "context"},
+        ])
+    expected_steps = 2 + separate_reads + terminal_read
+    source.append({"type": "done", "tool_steps": expected_steps})
 
     async def original(*_args, **_kwargs):
         for event in source:
@@ -565,14 +575,14 @@ def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, s
 
     observer = VisualObserver(directory, original)
     try:
-        assert asyncio.run(_collect(observer, MERGE_BINDING)) == source
+        assert asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING)) == source
     finally:
         observer.close()
     log = (directory / "events.jsonl").read_text()
     assert FIRST_SOURCE not in log and SECOND_SOURCE not in log
     assert FIRST_ID not in log and SECOND_ID not in log
     terminal = [json.loads(line) for line in log.splitlines() if '"kind":"terminal"' in line]
-    assert terminal == [{"kind": "terminal", "state": "done", "groups": 3 if separate_reads else 2}]
+    assert terminal == [{"kind": "terminal", "state": "done", "groups": expected_steps}]
 
 
 @pytest.mark.parametrize("name,arguments,reason", [
@@ -713,4 +723,101 @@ def test_merge_group_shapes_reject_unsafe_policy(tmp_path, shapes, binding):
     directory = _private(tmp_path)
     with pytest.raises(ValueError):
         arm_question(directory, binding, group_shapes=shapes)
+    assert not (directory / "arm.json").exists()
+
+
+def _merged_then_terminal_context():
+    events = [{"type": "context"}]
+    for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+        events.extend([
+            {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}},
+            {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET},
+        ])
+    events.extend([
+        {"type": "context"},
+        {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS},
+        {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"},
+        {"type": "context"},
+    ])
+    return events
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("merge_cells", MERGE_ARGS, "tool_name"),
+    ("read_cell", {"cell_id": SECOND_ID}, "argument_values"),
+    ("read_cell", {"cell_id": FIRST_ID, "start_line": 1}, "argument_keys"),
+    ("read_cell", {"cell_id": FIRST_ID, "end_line": 10}, "argument_keys"),
+])
+def test_merge_terminal_read_rejects_other_call_pre_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        for event in _merged_then_terminal_context():
+            yield event
+        yield {"type": "tool_start", "id": "unexpected", "name": name, "arguments": arguments}
+        effects.append("terminal call ran")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING))
+    finally:
+        observer.close()
+    assert effects == []
+    log_text = (directory / "events.jsonl").read_text()
+    assert FIRST_ID not in log_text and SECOND_ID not in log_text
+    assert FIRST_SOURCE not in log_text and SECOND_SOURCE not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("extra", [
+    {"type": "tool_start", "id": "again", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+    {"type": "tool_start", "id": "again", "name": "merge_cells", "arguments": MERGE_ARGS},
+    {"type": "context"},
+])
+def test_merge_terminal_read_rejects_extra_call_or_group(tmp_path, extra):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        for event in _merged_then_terminal_context():
+            yield event
+        yield {"type": "tool_start", "id": "verify", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}}
+        effects.append("verify")
+        yield {"type": "tool_result", "id": "verify", "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield extra
+        effects.append("extra")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["verify"]
+
+
+@pytest.mark.parametrize("binding,flag", [
+    (MERGE_BINDING, True),
+    (MERGE_TERMINAL_BINDING, 1),
+    (MERGE_TERMINAL_BINDING, "yes"),
+])
+def test_merge_terminal_read_requires_valid_flag_and_four_steps(tmp_path, binding, flag):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, group_shapes=MERGE_SHAPES, optional_merge_terminal_read=flag)
+    assert not (directory / "arm.json").exists()
+
+
+def test_merge_terminal_read_cannot_attach_to_other_policy(tmp_path):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, MERGE_TERMINAL_BINDING, [[MOVE]], optional_merge_terminal_read=True)
     assert not (directory / "arm.json").exists()
