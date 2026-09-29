@@ -1192,7 +1192,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-camera-workflow"
+      "cell_id": "capture-ai-list-sources"
     }
   },
   "start_camera": {
