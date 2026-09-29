@@ -7,6 +7,7 @@ fresh bounded payload for every round and executes notebook tools itself.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import importlib.metadata
 import json
 import os
@@ -121,11 +122,25 @@ def _round_text(messages: list[Msg], tools: list[dict]) -> str:
     return _compact({"messages": [msg2dict(message) for message in messages], "tools": tools})
 
 
-def round_wire_cost(messages: list[Msg], tools: list[dict]) -> int:
+LOCAL_IMAGE_PATH_RESERVE = 1024
+
+
+def _round_input(messages: list[Msg], tools: list[dict], *, local_image_path: str | None = None,
+                 detail: str = 'auto') -> list[dict]:
+    result = [{"type": "text", "text": _round_text(messages, tools)}]
+    if local_image_path is not None:
+        result.append({"type": "localImage", "path": local_image_path, "detail": detail})
+    return result
+
+
+def round_wire_cost(messages: list[Msg], tools: list[dict], *, local_image: bool = False,
+                    detail: str = 'auto') -> int:
     """Count serialized model material plus bounded App Server RPC metadata."""
     payload = {
         "baseInstructions": ROUND_INSTRUCTIONS,
-        "input": [{"type": "text", "text": _round_text(messages, tools)}],
+        "input": _round_input(messages, tools,
+                              local_image_path='x' * LOCAL_IMAGE_PATH_RESERVE if local_image else None,
+                              detail=detail),
         "outputSchema": OUTPUT_SCHEMA,
     }
     return len(_compact(payload)) + RPC_METADATA_RESERVE
@@ -411,8 +426,9 @@ class SubscriptionRuntime:
         self._detached = False
         self._auth_expired = False
 
-    def round_wire_cost(self, messages: list[Msg], tools: list[dict]) -> int:
-        return round_wire_cost(messages, tools)
+    def round_wire_cost(self, messages: list[Msg], tools: list[dict], *, local_image: bool = False,
+                        detail: str = 'auto') -> int:
+        return round_wire_cost(messages, tools, local_image=local_image, detail=detail)
 
     def _binary(self) -> Path:
         return self._binary_override or _packaged_binary()
@@ -524,10 +540,16 @@ class SubscriptionRuntime:
                 efforts = [effort for effort in efforts
                            if effort in {"none", "low", "medium", "high", "xhigh", "max", "ultra"}]
                 default = item.get("defaultReasoningEffort")
+                modalities = item.get('inputModalities', ['text', 'image'])
+                if not isinstance(modalities, list) or not modalities or any(
+                        not isinstance(value, str) or
+                        value not in {'text', 'image', 'audio', 'video'} for value in modalities):
+                    modalities = []
                 models.append({"id": slug,
                                "display_name": item.get("displayName") or slug,
                                "efforts": efforts,
-                               "default_effort": default if default in efforts else None})
+                               "default_effort": default if default in efforts else None,
+                               "input_modalities": modalities})
                 seen.add(slug)
             next_cursor = result.get("nextCursor")
             if next_cursor is None:
@@ -671,6 +693,8 @@ class SubscriptionRuntime:
     async def complete_round(
         self, model: str, messages: list[Msg], tools: list[dict], *,
         reasoning_effort: str | None, scope: dict, run_id: str,
+        image: bytes | None = None, image_mime: str | None = None,
+        image_sha256: str | None = None, image_detail: str = 'auto',
     ) -> Completion:
         """Run one host-owned payload in a new ephemeral thread and child.
 
@@ -689,8 +713,9 @@ class SubscriptionRuntime:
         if not isinstance(model, str) or not MODEL_ID.fullmatch(model):
             raise SubscriptionRuntimeError("ChatGPT model is unavailable")
         _validate_scope(scope)
-        if self.round_wire_cost(messages, tools) > MAX_CONTEXT_CHARS:
-            raise SubscriptionRuntimeError("Notebook context exceeds the 64000-character limit")
+        cost = self.round_wire_cost(messages, tools, local_image=image is not None, detail=image_detail)
+        if cost > MAX_CONTEXT_CHARS:
+            raise SubscriptionRuntimeError("Exact image and notebook context exceed the 64000-character limit; use a smaller explicit derivative")
         account = await self._account()
         if not account or account.get("type") != "chatgpt":
             raise SubscriptionRuntimeError("Sign in with ChatGPT to use this connection")
@@ -700,6 +725,15 @@ class SubscriptionRuntime:
         model_info = available.get(model)
         if model_info is None:
             raise SubscriptionRuntimeError("Selected ChatGPT model is unavailable")
+        if image is not None:
+            if 'image' not in model_info.get('input_modalities', ()):
+                raise SubscriptionRuntimeError('Selected ChatGPT model does not support image input')
+            if (not isinstance(image, bytes) or not image or
+                    image_mime not in {'image/png', 'image/jpeg', 'image/webp', 'image/gif'} or
+                    not isinstance(image_sha256, str) or
+                    hashlib.sha256(image).hexdigest() != image_sha256 or
+                    image_detail not in {'auto', 'low', 'high'}):
+                raise SubscriptionRuntimeError('Confirmed image changed before ChatGPT submission')
         if (reasoning_effort is not None
                 and reasoning_effort not in model_info["efforts"]):
             raise SubscriptionRuntimeError("Reasoning effort is unavailable for this model")
@@ -712,6 +746,16 @@ class SubscriptionRuntime:
         self._run_tasks[run_id] = task
         try:
             with tempfile.TemporaryDirectory(prefix="round-", dir=home) as folder:
+                image_path: str | None = None
+                if image is not None:
+                    suffix = {'image/png': '.png', 'image/jpeg': '.jpg',
+                              'image/webp': '.webp', 'image/gif': '.gif'}[image_mime]
+                    image_path = str(Path(folder) / ('attachment' + suffix))
+                    if len(image_path) > LOCAL_IMAGE_PATH_RESERVE:
+                        raise SubscriptionRuntimeError('Private image path exceeds its transport reserve')
+                    fd = os.open(image_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                    with os.fdopen(fd, 'wb') as stream:
+                        stream.write(image)
                 catalog = Path(folder) / "catalog.json"
                 fd = os.open(catalog, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                 with os.fdopen(fd, "w", encoding="utf-8") as stream:
@@ -740,7 +784,8 @@ class SubscriptionRuntime:
                         raise SubscriptionRuntimeError("ChatGPT runtime selected an unsafe route")
                     params: dict[str, Any] = {
                         "threadId": started["id"],
-                        "input": [{"type": "text", "text": _round_text(messages, tools)}],
+                        "input": _round_input(messages, tools,
+                                              local_image_path=image_path, detail=image_detail),
                         "outputSchema": OUTPUT_SCHEMA,
                     }
                     if reasoning_effort is not None:
@@ -754,7 +799,7 @@ class SubscriptionRuntime:
                     turn_wire = {"jsonrpc": "2.0", "id": client._next_id + 1,
                                  "method": "turn/start", "params": params}
                     actual_chars = len(_compact(thread_wire)) + len(_compact(turn_wire))
-                    if (actual_chars > self.round_wire_cost(messages, tools)
+                    if (actual_chars > cost
                             or actual_chars > MAX_CONTEXT_CHARS):
                         raise SubscriptionRuntimeError(
                             "Notebook context exceeds the 64000-character limit"
@@ -898,8 +943,9 @@ class _WindowsSubscriptionRuntime:
             future.add_done_callback(self._pending.discard)
         return await asyncio.wrap_future(future)
 
-    def round_wire_cost(self, messages: list[Msg], tools: list[dict]) -> int:
-        return round_wire_cost(messages, tools)
+    def round_wire_cost(self, messages: list[Msg], tools: list[dict], *, local_image: bool = False,
+                        detail: str = 'auto') -> int:
+        return round_wire_cost(messages, tools, local_image=local_image, detail=detail)
 
     async def status(self) -> dict:
         return await self._dispatch(self._core.status())
@@ -916,10 +962,13 @@ class _WindowsSubscriptionRuntime:
     async def complete_round(
         self, model: str, messages: list[Msg], tools: list[dict], *,
         reasoning_effort: str | None, scope: dict, run_id: str,
+        image: bytes | None = None, image_mime: str | None = None,
+        image_sha256: str | None = None, image_detail: str = 'auto',
     ) -> Completion:
         return await self._dispatch(self._core.complete_round(
             model, messages, tools, reasoning_effort=reasoning_effort,
-            scope=scope, run_id=run_id,
+            scope=scope, run_id=run_id, image=image, image_mime=image_mime,
+            image_sha256=image_sha256, image_detail=image_detail,
         ))
 
     async def cancel(self, run_id: str) -> None:
