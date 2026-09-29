@@ -2,13 +2,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '../support/e2e-fixtures';
 
-type NotebookCell = { id: string; cell_type: string; source: string[] };
+type NotebookCell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 test('the exact outputs example demonstrates and inspects all ten public tools', async ({ page, request }) => {
   test.setTimeout(180_000);
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-outputs.ipynb'), 'utf8'));
   const cells = example.cells as NotebookCell[];
-  const codeIds = cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = cells.filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // The checked-in notebook is already run; the uploaded copy starts without old code results.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   const codeCell = (id: string) => {
     const index = codeIds.indexOf(id);
     expect(index, `example code cell ${id}`).toBeGreaterThanOrEqual(0);

@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
-type NotebookCell = { id: string; cell_type: string };
+type NotebookCell = { id: string; cell_type: string; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-attachment.ipynb'), 'utf8'));
-  const codeIds = (example.cells as NotebookCell[]).filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = (example.cells as NotebookCell[]).filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // The published notebook has saved results. This disposable copy must prove fresh execution.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();

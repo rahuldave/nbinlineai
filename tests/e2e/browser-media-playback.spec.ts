@@ -8,8 +8,10 @@ const samplePng = Buffer.from(
 
 test('the public notebook imports, plays, controls, copies and pastes disposable media', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-playback.ipynb'), 'utf8'));
-  const ids = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code')
-    .map((cell: { id: string }) => cell.id);
+  const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
+  const ids = codeCells.map((cell: { id: string }) => cell.id);
+  // Published counts/outputs are evidence for readers, not evidence for this fresh browser run.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   expect(ids).toEqual([
     'playback-setup', 'playback-choose-call', 'playback-choose-inspect',
     'playback-open-call', 'playback-open-inspect', 'playback-play-call', 'playback-play-inspect',

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
-type Cell = { id: string; cell_type: string; source: string[] };
+type Cell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-integration.ipynb'), 'utf8'));
@@ -13,7 +13,10 @@ async function copiedExample(page: Page, request: APIRequestContext) {
     // Only the disposable browser copy calls the deterministic provider fixture.
     question!.source.push('\nE2E_MEDIA_NATIVE_IMAGE');
   }
-  const codeIds = cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = cells.filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // Remove published outputs only from this copy, so each prompt/count and output comes from this run.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
