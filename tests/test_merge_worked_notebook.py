@@ -150,3 +150,40 @@ def test_url_to_note_preserves_requested_early_position(tmp_path):
     _write(ai, [setup, note, question, answer, trace])
     with pytest.raises(ValueError, match="changed source"):
         merge(source, direct, ai)
+
+
+@pytest.mark.parametrize("explicit_anchor", [False, True])
+def test_two_verified_insertions_keep_the_frontend_anchor_tail(tmp_path, explicit_anchor):
+    source = tmp_path / "quickstart.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    setup = {"id": "setup", "cell_type": "markdown", "source": ["Setup"], "metadata": {}}
+    question = {"id": "question", "cell_type": "markdown", "source": ["Use &`insert_markdown`."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["Both inserted."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question", "status": "done"}}}
+    argument_suffix = ',"after_cell_id":"setup"' if explicit_anchor else ''
+    rows = [
+        ('| `insert_markdown` | completed | '
+         '{"content":"First"' + argument_suffix + '} | Inserted cell first. |\n'),
+        ('| `insert_markdown` | completed | '
+         '{"content":"Second"' + argument_suffix + '} | Inserted cell second. |\n'),
+    ]
+    trace = {"id": "trace", "cell_type": "markdown", "source": rows,
+             "metadata": {"nbinlineaiWorkedTrace": True, "questionCellId": "question",
+                          "nbinlineaiWorkedEvidence": {"questionCellId": "question", "observedTools": [
+                              {"name": "insert_markdown", "resultState": "completed"}]}}}
+    first = {"id": "first", "cell_type": "markdown", "source": ["First"], "metadata": {}}
+    second = {"id": "second", "cell_type": "markdown", "source": ["Second"], "metadata": {}}
+    _write(source, [setup, question])
+    _write(direct, [setup, question])
+    cells = ([setup, first, second, question, answer, trace] if explicit_anchor
+             else [setup, question, answer, trace, first, second])
+    _write(ai, cells)
+    assert [cell["id"] for cell in merge(source, direct, ai)["cells"]] == [cell["id"] for cell in cells]
+    unrelated = {"id": "unrelated", "cell_type": "markdown", "source": ["Unrelated"], "metadata": {}}
+    misplaced = ([setup, first, unrelated, second, question, answer, trace] if explicit_anchor
+                 else [setup, question, answer, trace, first, unrelated, second])
+    _write(ai, misplaced)
+    with pytest.raises(ValueError, match="requested anchor|Unexpected"):
+        merge(source, direct, ai)

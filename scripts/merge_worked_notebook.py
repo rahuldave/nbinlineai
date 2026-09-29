@@ -154,6 +154,7 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
 
     positions = {cell["id"]: index for index, cell in enumerate(ai["cells"])}
     inserted_ids: set[str] = set()
+    insertion_tails: dict[tuple[str, str], str] = {}
     for cell in ai["cells"]:
         if (cell["id"] in original or cell in linked_answers.values()
                 or cell in traces.values()):
@@ -173,13 +174,15 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
         anchor_id = requested_anchor or linked_answers[question_id]["id"]
         if anchor_id not in positions or anchor_id == cell["id"]:
             raise ValueError("AI-inserted cell has a missing requested anchor")
-        between = ai["cells"][positions[anchor_id] + 1:positions[cell["id"]]]
-        if (positions[anchor_id] >= positions[cell["id"]]
-                or (requested_anchor and between)
-                or (not requested_anchor and any(item["id"] != traces[question_id]["id"]
-                                                for item in between))):
+        tail_key = (question_id, anchor_id)
+        prior_id = insertion_tails.get(tail_key, anchor_id)
+        between = ai["cells"][positions[prior_id] + 1:positions[cell["id"]]]
+        if (positions[prior_id] >= positions[cell["id"]]
+                or (between and (requested_anchor or prior_id != anchor_id
+                                 or [item["id"] for item in between] != [traces[question_id]["id"]]))):
             raise ValueError("AI-inserted cell is not at its requested anchor")
         inserted_ids.add(cell["id"])
+        insertion_tails[tail_key] = cell["id"]
 
     merged = []
     for cell in ai["cells"]:
