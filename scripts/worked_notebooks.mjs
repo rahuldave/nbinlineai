@@ -204,6 +204,7 @@ async function runNotebook(page, request, context, entry, choice) {
   };
   for (const step of entry.steps ?? []) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
+    console.log(`${name}: ${step.action} ${step.cellId ?? 'control'}`);
     if (step.action === 'code' || step.action === 'inspect') {
       const target = await liveCell(step.cellId, 'code');
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
@@ -267,17 +268,18 @@ async function runNotebook(page, request, context, entry, choice) {
         throw new Error(`${name} ${step.cellId} is not runnable in the isolated notebook`);
       }
       const response = page.waitForResponse(item => item.url().endsWith('/nbinlineai/prompt') &&
-        item.request().method() === 'POST', { timeout: Math.max(timeout, 180_000) });
+        item.request().method() === 'POST', { timeout: Math.max(timeout, 180_000) })
+        .then(async item => ({ requestBody: item.request().postDataJSON(), body: await item.text() }));
       // Keep a rejection handler attached if a UI click fails before the
       // response is awaited, so a later timeout cannot crash the whole run.
       void response.catch(() => {});
       await runButton.click();
       const completed = await response;
-      const requestBody = completed.request().postDataJSON();
+      const requestBody = completed.requestBody;
       if (requestBody.backend !== 'openai_codex_subscription' || requestBody.prompt_cell_id !== step.cellId) {
         throw new Error(`${name} ${step.cellId} used an unexpected model route`);
       }
-      const events = frames(await completed.text());
+      const events = frames(completed.body);
       for (const event of events) {
         if (event.type === 'tool_result') {
           for (const value of sensitiveHardwareValues(event.text ?? '')) privateHardwareValues.add(value);
