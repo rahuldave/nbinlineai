@@ -16,6 +16,30 @@ Last reviewed: **2026-09-24**, after the **0.1.14** release. Public PyPI archive
 The [current handoff](developer_handoff.md) records the published 0.1.15
 Configure AI tabs and earlier releases. Verify applicability to your code branch.
 
+## Browser and media source implementation
+
+The approved [API spec](browser_media_tool_spec.md) was recorded at main
+`61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected
+[task prompt](browser_media_tool_task_prompt.md) is commit
+`e3fcf33b20ec10cd511129cd1672b98d307e4a5c` (merged by PR #26).
+The [foundation](browser_media_foundation_handoff.md),
+[capture](browser_media_capture_handoff.md),
+[live outputs](browser_media_outputs_handoff.md),
+[playback](browser_media_playback_handoff.md),
+[transformations](browser_media_transforms_handoff.md), and
+[image attachment](browser_media_attachment_handoff.md) handoffs describe
+their respective implementation branches and test boundaries. The
+[working acceptance record](browser_media_acceptance.md) tracks the combined
+96-tool source inventory and remaining verification; it is not a release
+record. Read each handoff at the commit containing its code, since a handoff's
+earlier pending-PR statement may be historical.
+
+Quarto notebook-gallery source merged by PR #30 as `8ce8e2e`; the browser/media
+foundation merged by PR #29 as `90c5aee`, and capture plus live outputs source
+merged by PR #31 as `11eae2b`. All 45 approved new public APIs are implemented
+across the source topics; combined final delivery is staged for review and CI.
+The published PyPI package remains 0.1.15 and does not contain these additions.
+
 ## A new task's reading order
 
 1. [AGENTS.md](../AGENTS.md): constraints, invariants, tools, and verification workflow.
