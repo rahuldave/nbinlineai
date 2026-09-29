@@ -3,7 +3,7 @@ export function redact(value) {
   let text = typeof value === 'string' ? value : JSON.stringify(value);
   text = text.replace(/(?:Bearer\s+|token[=:]\s*)[^\s"']+/ig, '[redacted]')
     .replace(/(?:\/Users\/|\/home\/|\/tmp\/|\/(?:private\/)?var\/folders\/)[^\s"']+/g, '[local path]')
-    .replace(/((?:device_id|deviceId|group_id|groupId|source_id|sourceId)["']?\s*[:=]\s*["'])[^"']+/gi,
+    .replace(/(["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*["'])[^"']+/gi,
       '$1[opaque hardware reference]')
     .replace(/[A-Za-z0-9+/_-]{200,}={0,2}/g, '[large or opaque value]');
   return text.slice(0, 700);
@@ -49,20 +49,52 @@ export function toolResultState(value) {
     if (parsed && typeof parsed === 'object') {
       const status = String(parsed.status ?? parsed.state ?? '').toLowerCase();
       if (['error', 'failed', 'expired', 'unsupported', 'cancelled', 'canceled'].includes(status)) return 'failed';
-      if (parsed.ok === false || parsed.error) return 'failed';
-      if (['accepted', 'pending', 'running', 'queued'].includes(status)) return 'receipt accepted';
+      if (parsed.ok === false || parsed.error ||
+          (typeof parsed.code === 'string' && typeof parsed.message === 'string')) return 'failed';
+      if (['accepted', 'pending', 'running', 'queued', 'waiting_for_user', 'saving', 'paused'].includes(status)) {
+        return 'receipt accepted';
+      }
     }
   } catch { /* A plain successful tool text is valid. */ }
   return 'completed';
 }
-export function normalizePublicCopy(notebook) {
+export function sensitiveHardwareValues(text) {
+  const values = [];
+  const pattern = /["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*(["'])([^"']{4,200})\1/gi;
+  for (const match of String(text).matchAll(pattern)) values.push(match[2]);
+  return values;
+}
+function stringsIn(value) {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap(stringsIn);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(stringsIn);
+  return [];
+}
+export function normalizePublicCopy(notebook, privateHardwareValues = new Set()) {
   let replaced = 0;
   const localPath = /(?:\/Users\/[^\s"'<>|]+|\/home\/[^\s"'<>|]+|\/tmp\/nbinlineai-[^\s"'<>|]+|\/(?:private\/)?var\/folders\/[^\s"'<>|]+)/g;
+  for (const cell of notebook.cells) {
+    if (cell.cell_type !== 'code') continue;
+    for (const outputText of stringsIn(cell.outputs ?? [])) {
+      for (const value of sensitiveHardwareValues(outputText)) privateHardwareValues.add(value);
+    }
+  }
   const normalize = value => {
-    if (typeof value === 'string') return value.replace(localPath, () => {
-      replaced += 1;
-      return '[temporary local path]';
-    });
+    if (typeof value === 'string') {
+      let text = value.replace(localPath, () => {
+        replaced += 1;
+        return '[temporary local path]';
+      });
+      text = text.replace(/(["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*["'])[^"']+/gi,
+        (_full, prefix) => { replaced += 1; return `${prefix}[opaque hardware reference]`; });
+      for (const privateValue of privateHardwareValues) {
+        if (privateValue.length >= 4 && text.includes(privateValue)) {
+          text = text.replaceAll(privateValue, '[private device detail]');
+          replaced += 1;
+        }
+      }
+      return text;
+    }
     if (Array.isArray(value)) return value.map(normalize);
     if (value && typeof value === 'object') {
       return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, normalize(child)]));
@@ -85,7 +117,7 @@ export function normalizePublicCopy(notebook) {
   notebook.metadata ??= {};
   if (replaced) notebook.metadata.nbinlineaiWorked = {
     ...notebook.metadata.nbinlineaiWorked,
-    savedCopyNormalization: `${replaced} temporary local path reference(s) replaced in displayed results`
+    savedCopyNormalization: `${replaced} private path/device reference(s) replaced in displayed results`
   };
 }
 export function addTraceAppendix(notebook, traces) {
@@ -111,6 +143,13 @@ export function assertSafeNotebook(notebook) {
     /(?:\/Users\/|\/home\/rahul\/|\/tmp\/nbinlineai-|\/(?:private\/)?var\/folders\/)/,
     /(?:device_code|verification_url|auth_url)["']?\s*:/i]) {
     if (pattern.test(encoded)) throw new Error('Saved notebook contains a sensitive field or local path');
+  }
+  for (const cell of notebook.cells) {
+    const displayed = cell.cell_type === 'code' ? cell.outputs :
+      (cell.metadata?.nbinlineai?.isOutputCell || cell.metadata?.nbinlineaiWorkedTrace ? cell.source : []);
+    const actualHardwareValues = stringsIn(displayed).flatMap(sensitiveHardwareValues).filter(
+      value => !value.startsWith('[opaque hardware reference]') && !value.startsWith('[private device detail]'));
+    if (actualHardwareValues.length) throw new Error('Saved notebook contains a raw hardware detail');
   }
   if (encoded.length > 30_000_000) throw new Error('Saved notebook exceeds the worked-output size limit');
 }

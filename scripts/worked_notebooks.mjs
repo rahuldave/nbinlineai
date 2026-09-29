@@ -3,7 +3,8 @@
 import { chromium } from '@playwright/test';
 import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { frames, observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook } from './worked_notebooks_support.mjs';
+import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
+  addTraceAppendix, assertSafeNotebook } from './worked_notebooks_support.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -95,6 +96,7 @@ async function runNotebook(page, request, context, entry, choice) {
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible().catch(() => false)) await no.click();
   const traces = [];
+  const privateHardwareValues = new Set();
   const code = id => {
     const index = codeIds.indexOf(id);
     if (index < 0) throw new Error(`${name} has no code cell ${id}`);
@@ -110,7 +112,8 @@ async function runNotebook(page, request, context, entry, choice) {
     if (step.action === 'code' || step.action === 'inspect') {
       const target = code(step.cellId);
       let text = '';
-      for (let attempt = 0; attempt < (step.action === 'inspect' ? 12 : 1); attempt++) {
+      const inspectionDeadline = Date.now() + timeout;
+      for (let attempt = 0; ; attempt++) {
         const prompt = target.locator('.jp-InputPrompt');
         const before = await prompt.textContent();
         await target.locator('.cm-content').click();
@@ -122,7 +125,8 @@ async function runNotebook(page, request, context, entry, choice) {
         text = await target.locator('.jp-OutputArea').textContent() ?? '';
         if (!step.contains || text.includes(step.contains)) break;
         if (/\b(?:failed|expired|error)\b/i.test(text)) break;
-        await pause(250);
+        if (step.action !== 'inspect' || Date.now() >= inspectionDeadline) break;
+        await pause(350);
       }
       if (step.contains && !text.includes(step.contains)) throw new Error(`${name} ${step.cellId} did not show expected result`);
       if (await target.locator('.jp-OutputArea .jp-RenderedText[data-mime-type="application/vnd.jupyter.stderr"]').count()) {
@@ -139,6 +143,11 @@ async function runNotebook(page, request, context, entry, choice) {
         throw new Error(`${name} ${step.cellId} used an unexpected model route`);
       }
       const events = frames(await completed.text());
+      for (const event of events) {
+        if (event.type === 'tool_result') {
+          for (const value of sensitiveHardwareValues(event.text ?? '')) privateHardwareValues.add(value);
+        }
+      }
       if (events.some(event => event.type === 'error') || !events.some(event => event.type === 'done')) {
         throw new Error(`${name} ${step.cellId} did not finish its live ChatGPT round`);
       }
@@ -169,7 +178,7 @@ async function runNotebook(page, request, context, entry, choice) {
   if (!saved.ok()) throw new Error(`${name} did not save through Jupyter Contents`);
   const notebook = (await saved.json()).content;
   addTraceAppendix(notebook, traces);
-  normalizePublicCopy(notebook);
+  normalizePublicCopy(notebook, privateHardwareValues);
   assertSafeNotebook(notebook);
   await mkdir(outputDir, { recursive: true, mode: 0o700 });
   await chmod(outputDir, 0o700);
@@ -181,7 +190,10 @@ async function runNotebook(page, request, context, entry, choice) {
 
 const browser = await chromium.launch({ headless: false });
 try {
-  const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 } });
+  // Use the machine's real devices. Playwright's fake-device flags are absent;
+  // this grants only the user's explicitly authorized camera/mic origin.
+  const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
+    permissions: ['camera', 'microphone'] });
   const page = await context.newPage();
   // Jupyter establishes its normal authenticated browser cookie from this one
   // local URL. The token is never printed or stored in a notebook artifact.

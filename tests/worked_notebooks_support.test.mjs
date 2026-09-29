@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
-  toolResultState } from '../scripts/worked_notebooks_support.mjs';
+  sensitiveHardwareValues, toolResultState } from '../scripts/worked_notebooks_support.mjs';
 
 test('tool events distinguish action correlation, error, and accepted receipt', () => {
   const calls = observedTrace('question', [
@@ -16,6 +16,12 @@ test('tool events distinguish action correlation, error, and accepted receipt', 
   assert.deepEqual(calls.map(call => [call.frontendAction, call.resultState]),
     [[true, 'completed'], [false, 'receipt accepted'], [false, 'failed']]);
   assert.equal(toolResultState('{"status":"failed","error":"not ready"}'), 'failed');
+  assert.equal(toolResultState('{"code":"permission_denied","message":"Camera access denied"}'), 'failed');
+  assert.equal(toolResultState('{"code":"unsupported","message":"No renderer"}'), 'failed');
+  assert.equal(toolResultState('{"code":"needs_secure_context","message":"Use localhost"}'), 'failed');
+  for (const status of ['waiting_for_user', 'saving', 'paused', 'running']) {
+    assert.equal(toolResultState(JSON.stringify({ status })), 'receipt accepted');
+  }
 });
 
 test('public copy removes macOS paths and hardware descriptions before saving', () => {
@@ -40,4 +46,22 @@ test('public copy removes macOS paths and hardware descriptions before saving', 
   assert.ok(!encoded.includes('Household microphone'));
   assert.equal(notebook.cells[4].metadata.questionCellId, 'question');
   assert.match(notebook.metadata.nbinlineaiWorked.savedCopyNormalization, /replaced/);
+});
+
+test('real device labels and IDs are removed from JSON, Python repr, and answer prose', () => {
+  const json = '{"device_id":"OpaqueDevice123","label":"Bedroom wall camera"}';
+  const python = "{'deviceId': 'OpaqueMic456', 'label': 'Desk microphone'}";
+  const privateValues = new Set([...sensitiveHardwareValues(json), ...sensitiveHardwareValues(python)]);
+  const notebook = { metadata: {}, cells: [
+    { id: 'json', cell_type: 'code', outputs: [{ output_type: 'stream', text: [json] }] },
+    { id: 'repr', cell_type: 'code', outputs: [{ output_type: 'stream', text: [python] }] },
+    { id: 'answer', cell_type: 'markdown', metadata: { nbinlineai: { isOutputCell: true } },
+      source: ['I used Bedroom wall camera and Desk microphone.'] },
+  ] };
+  normalizePublicCopy(notebook, privateValues);
+  assertSafeNotebook(notebook);
+  const saved = JSON.stringify(notebook);
+  for (const value of ['OpaqueDevice123', 'Bedroom wall camera', 'OpaqueMic456', 'Desk microphone']) {
+    assert.ok(!saved.includes(value), `raw device value remained: ${value}`);
+  }
 });
