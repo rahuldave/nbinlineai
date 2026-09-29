@@ -50,18 +50,18 @@ test('public copy removes macOS paths and hardware descriptions before saving', 
 
 test('real device labels and IDs are removed from JSON, Python repr, and answer prose', () => {
   const json = '{"device_id":"OpaqueDevice123","label":"Bedroom wall camera"}';
-  const python = "{'deviceId': 'OpaqueMic456', 'label': 'Desk microphone'}";
+  const python = "{'deviceId': 'OpaqueMic456', 'label': 'Mic'}";
   const privateValues = new Set([...sensitiveHardwareValues(json), ...sensitiveHardwareValues(python)]);
   const notebook = { metadata: {}, cells: [
     { id: 'json', cell_type: 'code', outputs: [{ output_type: 'stream', text: [json] }] },
     { id: 'repr', cell_type: 'code', outputs: [{ output_type: 'stream', text: [python] }] },
     { id: 'answer', cell_type: 'markdown', metadata: { nbinlineai: { isOutputCell: true } },
-      source: ['I used Bedroom wall camera and Desk microphone.'] },
+      source: ['I used Bedroom wall camera and Mic.'] },
   ] };
   normalizePublicCopy(notebook, privateValues);
   assertSafeNotebook(notebook);
   const saved = JSON.stringify(notebook);
-  for (const value of ['OpaqueDevice123', 'Bedroom wall camera', 'OpaqueMic456', 'Desk microphone']) {
+  for (const value of ['OpaqueDevice123', 'Bedroom wall camera', 'OpaqueMic456', "'Mic'"]) {
     assert.ok(!saved.includes(value), `raw device value remained: ${value}`);
   }
 });

@@ -60,7 +60,7 @@ export function toolResultState(value) {
 }
 export function sensitiveHardwareValues(text) {
   const values = [];
-  const pattern = /["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*(["'])([^"']{4,200})\1/gi;
+  const pattern = /["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*(["'])([^"']{1,200})\1/gi;
   for (const match of String(text).matchAll(pattern)) values.push(match[2]);
   return values;
 }
@@ -88,10 +88,15 @@ export function normalizePublicCopy(notebook, privateHardwareValues = new Set())
       text = text.replace(/(["']?(?:device_id|deviceId|group_id|groupId|source_id|sourceId|label)["']?\s*[:=]\s*["'])[^"']+/gi,
         (_full, prefix) => { replaced += 1; return `${prefix}[opaque hardware reference]`; });
       for (const privateValue of privateHardwareValues) {
-        if (privateValue.length >= 4 && text.includes(privateValue)) {
+        if (!privateValue || !text.includes(privateValue)) continue;
+        if (privateValue.length < 4) {
+          const escaped = privateValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          text = text.replace(new RegExp(`(?<![A-Za-z0-9])${escaped}(?![A-Za-z0-9])`, 'g'),
+            '[private device detail]');
+        } else {
           text = text.replaceAll(privateValue, '[private device detail]');
-          replaced += 1;
         }
+        replaced += 1;
       }
       return text;
     }

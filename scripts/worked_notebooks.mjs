@@ -3,6 +3,7 @@
 import { chromium } from '@playwright/test';
 import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
+import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook } from './worked_notebooks_support.mjs';
 
@@ -168,6 +169,15 @@ async function runNotebook(page, request, context, entry, choice) {
         timeout, `${name} visible control`);
     } else if (step.action === 'pause') {
       await pause(Math.min(Math.max(Number(step.milliseconds) || 0, 0), 60_000));
+    } else if (step.action === 'play-test-tone') {
+      if (typeof step.path !== 'string' || !/^\/tmp\/nbinlineai-worked-tone-[A-Za-z0-9-]+\.wav$/.test(step.path)) {
+        throw new Error('Test tone must be an owned temporary WAV file');
+      }
+      await new Promise((resolveTone, rejectTone) => {
+        const player = spawn('/usr/bin/afplay', ['-v', '0.3', step.path], { stdio: 'ignore' });
+        player.once('error', rejectTone);
+        player.once('exit', code => code === 0 ? resolveTone() : rejectTone(new Error('Owned test tone did not play')));
+      });
     } else {
       throw new Error(`${name} has an unsupported plan action`);
     }
@@ -188,12 +198,19 @@ async function runNotebook(page, request, context, entry, choice) {
   console.log(`${name}: saved with ${traces.length} observed live notebook-tool calls.`);
 }
 
-const browser = await chromium.launch({ headless: false });
+// The installed Chrome app may already have macOS camera consent whereas the
+// Playwright test app has a distinct macOS identity. Both use a fresh context.
+const browserChannel = process.env.WORKED_BROWSER_CHANNEL;
+if (browserChannel && browserChannel !== 'chrome') {
+  throw new Error('WORKED_BROWSER_CHANNEL only supports the installed Chrome app');
+}
+const browser = await chromium.launch({ headless: false,
+  ...(browserChannel ? { channel: browserChannel } : {}) });
 try {
-  // Use the machine's real devices. Playwright's fake-device flags are absent;
-  // this grants only the user's explicitly authorized camera/mic origin.
-  const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
-    permissions: ['camera', 'microphone'] });
+  // Use real hardware and grant the authorized localhost notebook origin only.
+  // No fake-device flags or browser-wide permission pregrant are used.
+  const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 } });
+  await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
   const page = await context.newPage();
   // Jupyter establishes its normal authenticated browser cookie from this one
   // local URL. The token is never printed or stored in a notebook artifact.
