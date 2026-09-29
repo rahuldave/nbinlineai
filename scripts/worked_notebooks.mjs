@@ -121,24 +121,38 @@ export function visualSignalPaths(directory, cellId) {
 }
 
 export function visualPromptGate(questionCellId, sessionId) {
+  const allowed = [questionCellId, 'outputs-ai-selection-nonempty-ready'];
   let submissions = 0;
   let failed = false;
+  let statusArmed = false;
   let rejectFailure;
   const failure = new Promise((_, reject) => { rejectFailure = reject; });
   void failure.catch(() => {});
   return {
     failure,
+    assertStarted() {
+      if (failed || submissions !== 1) throw new Error('Visual handoff requires its one owned start submission');
+    },
+    armStatus() {
+      if (failed || submissions !== 1 || statusArmed) {
+        throw new Error('Visual status request cannot be armed yet');
+      }
+      statusArmed = true;
+    },
     assertCompleted() {
-      if (failed || submissions !== 1) throw new Error('Visual handoff requires exactly one owned prompt submission');
+      if (failed || submissions !== allowed.length) {
+        throw new Error('Visual handoff requires its owned start and status submissions');
+      }
     },
     async handle(route) {
       try {
         const url = new URL(route.request().url());
-        if (failed || submissions || route.request().method() !== 'POST' ||
+        if (failed || submissions >= allowed.length || (submissions === 1 && !statusArmed) ||
+            route.request().method() !== 'POST' ||
             url.origin !== baseURL || url.pathname !== '/nbinlineai/prompt' || url.search) {
           throw new Error('Unexpected visual prompt request');
         }
-        assertOwnedPromptRequest(route.request().postDataJSON(), questionCellId, sessionId);
+        assertOwnedPromptRequest(route.request().postDataJSON(), allowed[submissions], sessionId);
         submissions += 1;
         await route.continue();
       } catch {
@@ -148,6 +162,12 @@ export function visualPromptGate(questionCellId, sessionId) {
       }
     },
   };
+}
+
+export async function closeVisualPromptPage(page, context) {
+  // Keep the route blocking submissions until its only owned page is closed.
+  await page.close();
+  await context.unroute('**/nbinlineai/prompt**');
 }
 
 export async function waitForVisualContinue(paths, expected, timeoutMs, read = readFile) {
@@ -347,6 +367,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   }
   const traces = [];
   const observedByQuestion = new Map();
+  let visualGate = null;
   const receiptsByCell = new Map();
   const insertionsByCell = new Map();
   const directByCell = new Map();
@@ -508,6 +529,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
           selectionCellId: step.selectionCellId, selectedText: step.selectedText };
         const gate = visualPromptGate(step.cellId, createdSession.id);
         await context.route('**/nbinlineai/prompt**', route => gate.handle(route));
+        visualGate = gate;
         try {
           try { await lstat(paths.continue); throw new Error('Stale visual continue signal exists'); }
           catch (error) { if (error?.code !== 'ENOENT') throw error; }
@@ -522,15 +544,24 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
             throw new Error('Visual handoff did not leave the exact target text selected and focused');
           }
           completed = await Promise.race([response, gate.failure]);
-          gate.assertCompleted();
+          gate.assertStarted();
         } finally {
-          await context.unroute('**/nbinlineai/prompt**');
           await rm(paths.ready, { force: true });
           await rm(paths.continue, { force: true });
         }
       } else {
+        if (visualGate) {
+          if (step.cellId !== 'outputs-ai-selection-nonempty-ready' ||
+              step.expectedSelection?.fromQuestionId !== 'outputs-ai-selection-nonempty' ||
+              step.expectedSelection?.cellId !== 'selection-ai-target' ||
+              step.expectedSelection?.text !== 'selected blue square') {
+            throw new Error('Visual handoff permits only its exact selected-text status question');
+          }
+          visualGate.armStatus();
+        }
         await runButton.click();
-        completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) : await response;
+        completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) :
+          visualGate ? await Promise.race([response, visualGate.failure]) : await response;
       }
       if (pilotGuard) pilotGuard.assertCompleted();
       const requestBody = completed.requestBody;
@@ -667,6 +698,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   normalizePublicCopy(notebook, privateHardwareValues);
   assertSafeNotebook(notebook);
   if (pilotGuard) pilotGuard.assertCompleted();
+  if (visualGate) visualGate.assertCompleted();
   await mkdir(outputDir, { recursive: true, mode: 0o700 });
   await chmod(outputDir, 0o700);
   const outputPath = join(outputDir, safeName(entry.output ?? name));
@@ -708,7 +740,7 @@ async function main() {
     await grantWorkedHardwarePermissions(context, pilot);
     const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
     if (pilotGuard) await installPilotRouteGuard(context, pilotGuard);
-    const page = await context.newPage();
+    let page = await context.newPage();
     // Jupyter establishes its normal authenticated browser cookie from this one
     // local URL. The token is never printed or stored in a notebook artifact.
     await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
@@ -722,7 +754,12 @@ async function main() {
         const key = safeName(entry.output ?? entry.source);
         const revision = JSON.stringify(entry);
         if (finished.has(key) || failed.get(key) === revision) continue;
+        const visualEntry = entry.steps?.some(step => step?.action === 'ai-visual-start') === true;
         try {
+          if (page.isClosed()) {
+            page = await context.newPage();
+            await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
+          }
           if (needsWorkedSubscription(entry) && !choice) {
             choice = await ensureAccount(page, request);
           }
@@ -733,6 +770,8 @@ async function main() {
           failed.set(key, revision);
           console.error(`${key}: ${error instanceof Error ? error.message : 'execution failed'}; awaiting a revised plan.`);
           if (!currentManifest.continuous) throw error;
+        } finally {
+          if (visualEntry) await closeVisualPromptPage(page, context);
         }
       }
       if (!currentManifest.continuous || currentManifest.stop === true) break;

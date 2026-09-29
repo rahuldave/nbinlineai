@@ -4,7 +4,7 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { visualPromptGate, visualSignalPaths, waitForVisualContinue,
-  assertObservedSelection } from '../scripts/worked_notebooks.mjs';
+  assertObservedSelection, closeVisualPromptPage } from '../scripts/worked_notebooks.mjs';
 
 const question = 'outputs-ai-selection-nonempty';
 const session = 'owned-session';
@@ -17,20 +17,59 @@ function route(body = bound, url = 'http://127.0.0.1:8897/nbinlineai/prompt') {
   async abort() { state.aborted++; } };
 }
 
-test('visual prompt gate admits exactly one bound user submission', async () => {
+test('visual prompt gate stays active after the first response through the bound status request', async () => {
   const gate = visualPromptGate(question, session);
   const owned = route();
   await gate.handle(owned);
   assert.deepEqual(owned.state, { continued: 1, aborted: 0 });
+  gate.assertStarted();
+  assert.throws(() => gate.assertCompleted(), /start and status/);
+  gate.armStatus();
+  const status = route({ ...bound, prompt_cell_id: 'outputs-ai-selection-nonempty-ready' });
+  await gate.handle(status);
+  assert.deepEqual(status.state, { continued: 1, aborted: 0 });
   gate.assertCompleted();
-  const duplicate = route();
-  await gate.handle(duplicate);
-  assert.deepEqual(duplicate.state, { continued: 0, aborted: 1 });
+  const extra = route({ ...bound, prompt_cell_id: 'outputs-ai-selection-nonempty-ready' });
+  await gate.handle(extra);
+  assert.deepEqual(extra.state, { continued: 0, aborted: 1 });
   await assert.rejects(gate.failure, /blocked before model submission/);
-  assert.throws(() => gate.assertCompleted(), /exactly one/);
+  assert.throws(() => gate.assertCompleted(), /start and status/);
 });
 
-test('visual prompt gate blocks wrong session, question, and endpoint', async () => {
+test('visual prompt gate blocks wrong second request after the first response', async () => {
+  for (const bad of [
+    route(bound),
+    route({ ...bound, session_id: 'other', prompt_cell_id: 'outputs-ai-selection-nonempty-ready' }),
+    route({ ...bound, prompt_cell_id: 'other' }),
+    route({ ...bound, prompt_cell_id: 'outputs-ai-selection-nonempty-ready' },
+      'http://127.0.0.1:8897/nbinlineai/prompt?other=1'),
+  ]) {
+    const gate = visualPromptGate(question, session);
+    await gate.handle(route());
+    gate.assertStarted();
+    if (bad.request().postDataJSON().prompt_cell_id !== question) gate.armStatus();
+    await gate.handle(bad);
+    assert.deepEqual(bad.state, { continued: 0, aborted: 1 });
+    await assert.rejects(gate.failure, /blocked before model submission/);
+    assert.throws(() => gate.assertCompleted(), /start and status/);
+    const afterFailure = route({ ...bound, prompt_cell_id: 'outputs-ai-selection-nonempty-ready' });
+    await gate.handle(afterFailure);
+    assert.deepEqual(afterFailure.state, { continued: 0, aborted: 1 });
+  }
+});
+
+test('second submission is blocked until the runner arms the exact status step', async () => {
+  const gate = visualPromptGate(question, session);
+  await gate.handle(route());
+  gate.assertStarted();
+  const early = route({ ...bound, prompt_cell_id: 'outputs-ai-selection-nonempty-ready' });
+  await gate.handle(early);
+  assert.deepEqual(early.state, { continued: 0, aborted: 1 });
+  await assert.rejects(gate.failure, /blocked before model submission/);
+  assert.throws(() => gate.armStatus(), /cannot be armed/);
+});
+
+test('visual prompt gate blocks wrong first session, question, and endpoint', async () => {
   for (const bad of [
     route({ ...bound, session_id: 'other' }),
     route({ ...bound, prompt_cell_id: 'other' }),
@@ -41,8 +80,18 @@ test('visual prompt gate blocks wrong session, question, and endpoint', async ()
     await gate.handle(bad);
     assert.deepEqual(bad.state, { continued: 0, aborted: 1 });
     await assert.rejects(gate.failure, /blocked before model submission/);
-    assert.throws(() => gate.assertCompleted(), /exactly one/);
+    assert.throws(() => gate.assertCompleted(), /start and status/);
   }
+});
+
+test('visual route is removed only after closing its owned page, including a failing run', async () => {
+  const events = [];
+  await closeVisualPromptPage({ async close() { events.push('close'); } },
+    { async unroute() { events.push('unroute'); } });
+  assert.deepEqual(events, ['close', 'unroute']);
+  await assert.rejects(closeVisualPromptPage({ async close() { throw new Error('close failed'); } },
+    { async unroute() { events.push('unsafe unroute'); } }), /close failed/);
+  assert.deepEqual(events, ['close', 'unroute']);
 });
 
 test('private nonce signal must exactly match this visual handoff', async () => {
