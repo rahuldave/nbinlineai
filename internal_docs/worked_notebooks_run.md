@@ -28,8 +28,12 @@ The same notebook retains guarded ChatGPT calls and later status answers for
 real microphone access and levels, a seven-second microphone clip, screen-share
 setup, start, both screen-capture tools, stop, and managed-media cleanup. The
 user granted microphone access and selected what to share. Screen stills from
-the AI run were 1280×800. AI camera calls ran in the user's Chrome after camera
-permission was granted: `start_camera(audio=False)` returned a real source,
+the AI run were 1280×800.
+
+### Camera
+
+AI camera calls ran in the user's Chrome after camera permission was granted:
+`start_camera(audio=False)` returned a real source,
 `capture_camera` produced a 640×480 PNG, and `record_camera(audio=False,
 duration=5)` produced a five-second VP9/WebM clip. Later status answers verify
 each result. Camera image and video bytes, microphone bytes, and device IDs are
