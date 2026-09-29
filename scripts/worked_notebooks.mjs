@@ -1,13 +1,14 @@
 // One visible browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
 import { chromium } from '@playwright/test';
-import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { readFile, writeFile, mkdir, chmod, realpath } from 'node:fs/promises';
+import { resolve, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
+import { noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -15,6 +16,7 @@ const token = process.env.NBINLINEAI_WORKED_TOKEN;
 const manifestPath = process.env.NBINLINEAI_WORKED_MANIFEST;
 const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
 const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
+const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE;
 if (!token || !manifestPath || !outputDir || !ownedPython) {
   throw new Error('Worked runner environment is incomplete');
 }
@@ -33,6 +35,18 @@ function safeName(value) {
     throw new Error('Notebook name must be a flat .ipynb filename');
   }
   return value;
+}
+
+async function nativeObserverRows() {
+  if (!nativeObserverFile ||
+      await realpath(dirname(resolve(nativeObserverFile))) !== await realpath(outputDir)) {
+    throw new Error('Owned native image observer is unavailable');
+  }
+  const lines = (await readFile(nativeObserverFile, 'utf8')).trim().split('\n').filter(Boolean);
+  if (lines.length > 64 || lines.some(line => line.length > 512)) {
+    throw new Error('Owned native image observer exceeded its bound');
+  }
+  return lines.map(line => JSON.parse(line));
 }
 const receiptScript = join(root, 'scripts', 'worked_receipt_state.py');
 const inspectReceipt = (kernelId, variable) => readLiveReceipt(ownedPython, receiptScript, kernelId, variable);
@@ -149,6 +163,8 @@ async function runNotebook(page, request, context, entry, choice) {
   const traces = [];
   const receiptsByCell = new Map();
   const directByCell = new Map();
+  const noToolByQuestion = new Map();
+  const nativeImageByQuestion = new Map();
   const privateHardwareValues = new Set();
   const liveCell = async (id, kind) => {
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(id) ||
@@ -267,6 +283,7 @@ async function runNotebook(page, request, context, entry, choice) {
       }
     } else if (step.action === 'ai') {
       const target = await liveCell(step.cellId, 'question');
+      const observerBefore = step.nativeImageSha256 ? await nativeObserverRows() : null;
       const runButton = target.locator('[data-nbinlineai-run]');
       if (!(await runButton.isEnabled())) {
         throw new Error(`${name} ${step.cellId} is not runnable in the isolated notebook`);
@@ -292,6 +309,14 @@ async function runNotebook(page, request, context, entry, choice) {
       if (events.some(event => event.type === 'error') || !events.some(event => event.type === 'done')) {
         throw new Error(`${name} ${step.cellId} did not finish its live ChatGPT round`);
       }
+      if (step.attestNoTool === true) {
+        noToolByQuestion.set(step.cellId, noToolPlan(events, step.cellId));
+      }
+      if (observerBefore) {
+        const observerAfter = await nativeObserverRows();
+        nativeImageByQuestion.set(step.cellId, acceptedNativeImage(observerBefore, observerAfter,
+          step.cellId, step.nativeImageSha256));
+      }
       const observed = observedTrace(step.cellId, events);
       traces.push(...observed);
       const expectedTools = step.tools ?? (step.tool ? [step.tool] : []);
@@ -304,6 +329,9 @@ async function runNotebook(page, request, context, entry, choice) {
         timeout, `${name} ${step.cellId} answer`);
     } else if (step.action === 'click') {
       await page.locator(step.selector).click({ timeout });
+    } else if (step.action === 'dismiss-notification') {
+      const close = page.getByTitle('Hide notification').first();
+      if (await close.isVisible()) await close.click({ timeout });
     } else if (step.action === 'wait') {
       await until(async () => (await page.locator(step.selector).textContent() ?? '').includes(step.contains),
         timeout, `${name} visible control`);
@@ -338,6 +366,18 @@ async function runNotebook(page, request, context, entry, choice) {
     if (!cell) throw new Error(`${name} lost directly executed cell ${cellId}`);
     cell.metadata ??= {};
     cell.metadata.nbinlineaiWorkedDirectCalls = calls;
+  }
+  for (const [questionId, attestation] of noToolByQuestion) {
+    const answers = notebook.cells.filter(item => item.metadata?.nbinlineai?.promptCellId === questionId &&
+      item.metadata?.nbinlineai?.isOutputCell === true && item.metadata?.nbinlineai?.status === 'done');
+    if (answers.length !== 1) throw new Error(`${name} lost the completed answer for ${questionId}`);
+    answers[0].metadata.nbinlineaiWorkedNoToolPlan = attestation;
+  }
+  for (const [questionId, proof] of nativeImageByQuestion) {
+    const answers = notebook.cells.filter(item => item.metadata?.nbinlineai?.promptCellId === questionId &&
+      item.metadata?.nbinlineai?.isOutputCell === true && item.metadata?.nbinlineai?.status === 'done');
+    if (answers.length !== 1) throw new Error(`${name} lost the native-image answer for ${questionId}`);
+    answers[0].metadata.nbinlineaiWorkedNativeImage = proof;
   }
   addTraceAppendix(notebook, traces);
   normalizePublicCopy(notebook, privateHardwareValues);
