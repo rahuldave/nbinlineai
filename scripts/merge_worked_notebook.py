@@ -38,8 +38,11 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> bool:
-    """Tie an inserted cell to its observed ID and any submitted cell content."""
+def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> str | None:
+    """Return the requested anchor for a cell with an observed ID and content.
+
+    An empty string means the tool used its default position after the answer.
+    """
     observed = trace["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"]
     for tool, argument_text, result_text in _INSERT_ROW.findall(_source(trace)):
         result_text = result_text.replace(r"\|", "|").replace("<br>", "\n")
@@ -65,14 +68,17 @@ def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> bo
             continue
         if not isinstance(arguments, dict):
             continue
+        anchor = arguments.get("after_cell_id", "")
+        if not isinstance(anchor, str):
+            continue
         if tool in {"insert_code", "insert_markdown"} and arguments.get("content") != _source(cell):
             continue
         # url_to_note fetches the page inside the tool; the event records its
         # inserted cell ID but not the fetched body, so only attribution is checkable here.
         if tool == "url_to_note" and not _source(cell).startswith("Source: http"):
             continue
-        return True
-    return False
+        return anchor
+    return None
 
 
 def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
@@ -82,19 +88,24 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
     original = {cell["id"]: cell for cell in source["cells"]}
     direct_cells = {cell["id"]: cell for cell in direct["cells"]}
     ai_cells = {cell["id"]: cell for cell in ai["cells"]}
-    if len(original) != len(source["cells"]) or len(direct_cells) != len(direct["cells"]):
-        raise ValueError("Source or direct notebook repeats a cell ID")
+    if (len(original) != len(source["cells"]) or len(direct_cells) != len(direct["cells"])
+            or len(ai_cells) != len(ai["cells"])):
+        raise ValueError("Source, direct, or AI notebook repeats a cell ID")
+    if set(direct_cells) != set(original):
+        raise ValueError("Direct run does not match the latest source cells")
     if any(cell["id"] not in direct_cells or _source(cell) != _source(direct_cells[cell["id"]])
            for cell in source["cells"]):
         raise ValueError("Direct run does not match the latest source cells")
-    if any(_source(cell) != _source(ai_cells[cell["id"]])
-           for cell in source["cells"] if cell["id"] in ai_cells):
+    if any(cell["id"] not in ai_cells or _source(cell) != _source(ai_cells[cell["id"]])
+           for cell in source["cells"]):
         raise ValueError("Saved AI run used changed source or question text")
+    source_ids = [cell["id"] for cell in source["cells"]]
+    if [cell["id"] for cell in ai["cells"] if cell["id"] in original] != source_ids:
+        raise ValueError("Saved AI run changed source cell order")
 
     linked_answers: dict[str, dict] = {}
     traces: dict[str, dict] = {}
-    inserted: dict[str, list[dict]] = {}
-    for index, cell in enumerate(ai["cells"]):
+    for cell in ai["cells"]:
         prompt_id = cell.get("metadata", {}).get("nbinlineai", {}).get("promptCellId")
         if cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell"):
             if not isinstance(prompt_id, str) or prompt_id in linked_answers:
@@ -131,43 +142,64 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
                   or not isinstance(evidence.get("observedTools"), list) or not evidence["observedTools"]):
                 raise ValueError("Saved structured tool evidence is invalid")
             traces[question_id] = cell
-        elif cell["id"] not in original and not cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell"):
-            if index == 0:
-                raise ValueError("Unanchored inserted cell")
-            prior = ai["cells"][index - 1]
-            question_id = prior.get("metadata", {}).get("questionCellId")
-            expected_tools = ({"insert_code"} if cell["cell_type"] == "code"
-                              else {"insert_markdown", "url_to_note"} if cell["cell_type"] == "markdown"
-                              else set())
-            if (not prior.get("metadata", {}).get("nbinlineaiWorkedTrace")
-                    or not _observed_insertion(prior, cell, expected_tools)
-                    or len(_source(cell)) > 8_000
-                    or (cell["cell_type"] == "code" and (cell.get("outputs") or cell.get("execution_count") is not None))):
-                raise ValueError("Unexpected or executed AI-inserted cell")
-            inserted.setdefault(question_id, []).append(cell)
+    for question_id, answer in linked_answers.items():
+        if (question_id not in original
+                or not original[question_id].get("metadata", {}).get("nbinlineai", {}).get("isPromptCell")
+                or question_id not in traces):
+            raise ValueError("Saved AI answer or trace has no current question")
+        if ai["cells"].index(answer) <= ai["cells"].index(ai_cells[question_id]):
+            raise ValueError("Saved AI answer precedes its question")
+    if set(traces) != set(linked_answers):
+        raise ValueError("Saved AI answer or trace has no current question")
+
+    positions = {cell["id"]: index for index, cell in enumerate(ai["cells"])}
+    inserted_ids: set[str] = set()
+    for cell in ai["cells"]:
+        if (cell["id"] in original or cell in linked_answers.values()
+                or cell in traces.values()):
+            continue
+        expected_tools = ({"insert_code"} if cell["cell_type"] == "code"
+                          else {"insert_markdown", "url_to_note"} if cell["cell_type"] == "markdown"
+                          else set())
+        if (len(_source(cell)) > 8_000
+                or (cell["cell_type"] == "code"
+                    and (cell.get("outputs") or cell.get("execution_count") is not None))):
+            raise ValueError("Unexpected or executed AI-inserted cell")
+        matches = [(question_id, anchor) for question_id, trace in traces.items()
+                   if (anchor := _observed_insertion(trace, cell, expected_tools)) is not None]
+        if len(matches) != 1:
+            raise ValueError("Unexpected or executed AI-inserted cell")
+        question_id, requested_anchor = matches[0]
+        anchor_id = requested_anchor or linked_answers[question_id]["id"]
+        if anchor_id not in positions or anchor_id == cell["id"]:
+            raise ValueError("AI-inserted cell has a missing requested anchor")
+        between = ai["cells"][positions[anchor_id] + 1:positions[cell["id"]]]
+        if (positions[anchor_id] >= positions[cell["id"]]
+                or (requested_anchor and between)
+                or (not requested_anchor and any(item["id"] != traces[question_id]["id"]
+                                                for item in between))):
+            raise ValueError("AI-inserted cell is not at its requested anchor")
+        inserted_ids.add(cell["id"])
 
     merged = []
-    for cell in source["cells"]:
-        current = dict(cell)
-        if cell["cell_type"] == "code":
-            executed = direct_cells[cell["id"]]
-            current["execution_count"] = executed.get("execution_count")
-            current["outputs"] = executed.get("outputs", [])
-            current["metadata"] = {**cell.get("metadata", {}), **{
-                name: executed.get("metadata", {})[name]
-                for name in ("nbinlineaiWorkedDirectCalls", "nbinlineaiWorkedReceipts")
-                if name in executed.get("metadata", {})
-            }}
-        merged.append(current)
-        if cell["id"] in linked_answers:
-            if not cell.get("metadata", {}).get("nbinlineai", {}).get("isPromptCell"):
-                raise ValueError("Answer is not linked to a question")
-            merged.append(linked_answers.pop(cell["id"]))
-            if cell["id"] in traces:
-                merged.append(traces.pop(cell["id"]))
-                merged.extend(inserted.pop(cell["id"], []))
-    if linked_answers or traces or inserted:
-        raise ValueError("Saved AI answer or trace has no current question")
+    for cell in ai["cells"]:
+        if cell["id"] in original:
+            current = dict(original[cell["id"]])
+            if cell["cell_type"] == "code":
+                executed = direct_cells[cell["id"]]
+                current["execution_count"] = executed.get("execution_count")
+                current["outputs"] = executed.get("outputs", [])
+                current["metadata"] = {**current.get("metadata", {}), **{
+                    name: executed.get("metadata", {})[name]
+                    for name in ("nbinlineaiWorkedDirectCalls", "nbinlineaiWorkedReceipts")
+                    if name in executed.get("metadata", {})
+                }}
+            merged.append(current)
+        elif (cell in linked_answers.values() or cell in traces.values()
+              or cell["id"] in inserted_ids):
+            merged.append(cell)
+        else:
+            raise ValueError("Unexpected saved AI cell")
     result = {**source, "cells": merged}
     result["metadata"] = {**source.get("metadata", {}), **{
         name: direct.get("metadata", {}).get(name) or ai.get("metadata", {})[name]

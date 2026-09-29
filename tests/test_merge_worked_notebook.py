@@ -102,4 +102,51 @@ def test_actual_bundled_insert_trace_matches_saved_cell():
     cells = notebook["cells"]
     trace_index = next(index for index, cell in enumerate(cells)
                        if cell["id"] == "worked-trace-bundled-code-draft-question")
-    assert _observed_insertion(cells[trace_index], cells[trace_index + 1], {"insert_code"})
+    assert _observed_insertion(cells[trace_index], cells[trace_index + 1], {"insert_code"}) is not None
+
+
+def test_url_to_note_preserves_requested_early_position(tmp_path):
+    source = tmp_path / "python-and-web-tools.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    setup = {"id": "setup", "cell_type": "code", "source": ["answer = 42\n"],
+             "metadata": {}, "execution_count": None, "outputs": []}
+    later = {"id": "later", "cell_type": "markdown", "source": ["A later section"], "metadata": {}}
+    question = {"id": "question", "cell_type": "markdown", "source": ["Use &`url_to_note`."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    note = {"id": "actual-note", "cell_type": "markdown",
+            "source": ["Source: https://docs.python.org/3/library/statistics.html\n\nReal fetched page"],
+            "metadata": {}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["Inserted the note."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question", "status": "done"}}}
+    row = ('| `url_to_note` | completed | '
+           '{"url":"https://docs.python.org/3/library/statistics.html",'
+           '"after_cell_id":"setup"} | Inserted Markdown cell actual-note in the live notebook model. |\n')
+    trace = {"id": "trace", "cell_type": "markdown", "source": [row],
+             "metadata": {"nbinlineaiWorkedTrace": True, "questionCellId": "question",
+                          "nbinlineaiWorkedEvidence": {"questionCellId": "question", "observedTools": [
+                              {"name": "url_to_note", "resultState": "completed"}]}}}
+    _write(source, [setup, later, question])
+    _write(direct, [setup, later, question])
+    _write(ai, [setup, note, later, question, answer, trace])
+    assert [cell["id"] for cell in merge(source, direct, ai)["cells"]] == [
+        "setup", "actual-note", "later", "question", "answer", "trace"]
+
+    for changed_note, changed_trace, expected in [
+        ({**note, "id": "wrong-note"}, trace, "Unexpected or executed"),
+        (note, {**trace, "source": [row.replace('"setup"', '"missing"')]}, "missing requested anchor"),
+        (note, {**trace, "source": [row.replace('"setup"', '"later"')]}, "requested anchor"),
+        ({**note, "source": ["Unattributed content"]}, trace, "Unexpected or executed"),
+    ]:
+        _write(ai, [setup, changed_note, later, question, answer, changed_trace])
+        with pytest.raises(ValueError, match=expected):
+            merge(source, direct, ai)
+    _write(ai, [setup, later, note, question, answer, trace])
+    with pytest.raises(ValueError, match="requested anchor"):
+        merge(source, direct, ai)
+    _write(ai, [later, setup, note, question, answer, trace])
+    with pytest.raises(ValueError, match="source cell order"):
+        merge(source, direct, ai)
+    _write(ai, [setup, note, question, answer, trace])
+    with pytest.raises(ValueError, match="changed source"):
+        merge(source, direct, ai)
