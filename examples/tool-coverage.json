@@ -1056,7 +1056,7 @@
     "section": "browser_capabilities",
     "cell_id": "media-capabilities-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -1080,7 +1080,7 @@
     "section": "save_media",
     "cell_id": "media-save-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -1104,7 +1104,7 @@
     "section": "operation_status",
     "cell_id": "media-status-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -1128,7 +1128,7 @@
     "section": "cancel_operation",
     "cell_id": "media-cancel-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -1152,7 +1152,7 @@
     "section": "release_media",
     "cell_id": "media-release-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -1176,12 +1176,12 @@
     "section": "list_media_sources",
     "cell_id": "capture-list_media_sources-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-list_media_sources-inspect",
     "receipt_variable": "devices",
     "expected_behavior": "List camera and microphone devices without asking for permission.",
@@ -1200,12 +1200,12 @@
     "section": "start_camera",
     "cell_id": "capture-start_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_camera-inspect",
     "receipt_variable": "camera",
     "expected_behavior": "Open a notebook camera preview, optionally including microphone audio.",
@@ -1224,12 +1224,12 @@
     "section": "start_microphone",
     "cell_id": "capture-start_microphone-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_microphone-inspect",
     "receipt_variable": "microphone",
     "expected_behavior": "Open a microphone source and local level meter.",
@@ -1248,12 +1248,12 @@
     "section": "capture_camera",
     "cell_id": "capture-capture_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_camera-inspect",
     "receipt_variable": "still",
     "expected_behavior": "Capture a still from an owned camera, optionally saving it locally.",
@@ -1272,12 +1272,12 @@
     "section": "stop_source",
     "cell_id": "capture-stop_source-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_source-inspect",
     "receipt_variable": "stopped_camera",
     "expected_behavior": "Stop an owned source and finalize its recording, if any.",
@@ -1296,13 +1296,13 @@
     "section": "start_recording",
     "cell_id": "capture-start_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
-    "receipt_inspect_cell": "capture-start_recording-inspect",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
+    "receipt_inspect_cell": "capture-stop_recording-inspect",
     "receipt_variable": "recording",
     "expected_behavior": "Start one bounded recording from the source's declared tracks.",
     "normal_example": {
@@ -1320,12 +1320,12 @@
     "section": "pause_recording",
     "cell_id": "capture-pause_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-pause_recording-inspect",
     "receipt_variable": "paused",
     "expected_behavior": "Pause an active recording without resetting its wall-clock bound.",
@@ -1344,12 +1344,12 @@
     "section": "resume_recording",
     "cell_id": "capture-resume_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-resume_recording-inspect",
     "receipt_variable": "resumed",
     "expected_behavior": "Resume a paused recording.",
@@ -1368,12 +1368,12 @@
     "section": "stop_recording",
     "cell_id": "capture-stop_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_recording-inspect",
     "receipt_variable": "stopped_recording",
     "expected_behavior": "Flush and finish a recording at its selected destination.",
@@ -1392,12 +1392,12 @@
     "section": "record_camera",
     "cell_id": "capture-record_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-record_camera-inspect",
     "receipt_variable": "camera_clip",
     "expected_behavior": "Open, record, and close a camera owned by this one operation.",
@@ -1416,12 +1416,12 @@
     "section": "record_microphone",
     "cell_id": "capture-record_microphone-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-record_microphone-inspect",
     "receipt_variable": "microphone_clip",
     "expected_behavior": "Open, record, and close a microphone owned by this one operation.",
@@ -1440,12 +1440,12 @@
     "section": "read_audio_levels",
     "cell_id": "capture-read_audio_levels-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-read_audio_levels-inspect",
     "receipt_variable": "levels",
     "expected_behavior": "Observe short RMS and peak levels without raw audio or transcription.",
@@ -1464,12 +1464,12 @@
     "section": "setup_share",
     "cell_id": "capture-setup_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-setup_share-inspect",
     "receipt_variable": "sharing_controls",
     "expected_behavior": "Show this notebook's local Share and Stop controls without capturing.",
@@ -1488,12 +1488,12 @@
     "section": "start_share",
     "cell_id": "capture-start_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_share-inspect",
     "receipt_variable": "sharing",
     "expected_behavior": "Offer a user-clicked display chooser for this notebook.",
@@ -1512,12 +1512,12 @@
     "section": "capture_screen",
     "cell_id": "capture-capture_screen-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_screen-inspect",
     "receipt_variable": "screenshot",
     "expected_behavior": "Capture one frame from an already shared display source.",
@@ -1536,12 +1536,12 @@
     "section": "capture_tool",
     "cell_id": "capture-capture_tool-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_tool-inspect",
     "receipt_variable": "alias_frame",
     "expected_behavior": "Capture-screen alias; model text receives a descriptor, not image pixels.",
@@ -1560,12 +1560,12 @@
     "section": "stop_share",
     "cell_id": "capture-stop_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_share-inspect",
     "receipt_variable": "stopped_share",
     "expected_behavior": "Stop a selected or unique shared display source.",
@@ -1584,7 +1584,7 @@
     "section": "Inspect the existing notebook",
     "cell_id": "view-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1608,7 +1608,7 @@
     "section": "Inspect the existing notebook",
     "cell_id": "selection-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1632,7 +1632,7 @@
     "section": "A small drawn canvas",
     "cell_id": "canvas-output-list-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1656,7 +1656,7 @@
     "section": "Inspect the existing notebook",
     "cell_id": "output-read-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1680,7 +1680,7 @@
     "section": "Inspect the existing notebook",
     "cell_id": "output-export-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1704,7 +1704,7 @@
     "section": "A small drawn canvas",
     "cell_id": "canvas-list-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1728,7 +1728,7 @@
     "section": "A small drawn canvas",
     "cell_id": "canvas-capture-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1752,7 +1752,7 @@
     "section": "A small drawn canvas",
     "cell_id": "canvas-export-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1776,7 +1776,7 @@
     "section": "A small drawn canvas",
     "cell_id": "canvas-start-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1800,7 +1800,7 @@
     "section": "Capture a supported visible output region",
     "cell_id": "region-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1824,7 +1824,7 @@
     "section": "choose_file",
     "cell_id": "playback-choose-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1848,7 +1848,7 @@
     "section": "open_media",
     "cell_id": "playback-open-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1872,7 +1872,7 @@
     "section": "play_media",
     "cell_id": "playback-play-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1896,7 +1896,7 @@
     "section": "pause_media",
     "cell_id": "playback-pause-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1920,7 +1920,7 @@
     "section": "seek_media",
     "cell_id": "playback-seek-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1944,7 +1944,7 @@
     "section": "set_media_volume",
     "cell_id": "playback-volume-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1968,7 +1968,7 @@
     "section": "close_media",
     "cell_id": "playback-close-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1992,7 +1992,7 @@
     "section": "copy_text",
     "cell_id": "playback-copy-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -2016,7 +2016,7 @@
     "section": "paste_content",
     "cell_id": "playback-paste-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -2040,7 +2040,7 @@
     "section": "extract_frames",
     "cell_id": "transform-frames-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -2064,7 +2064,7 @@
     "section": "crop_image",
     "cell_id": "transform-crop-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -2088,7 +2088,7 @@
     "section": "annotate_image",
     "cell_id": "transform-annotate-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -2112,7 +2112,7 @@
     "section": "attach_media — confirm the image for this question",
     "cell_id": "attachment-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook, bound Python kernel, visible user confirmation, and a supported still-image reference. Confirmation does not run a model. Source-only; absent from PyPI 0.1.15. Paid providers, real camera hardware, mobile browsers, and branded browser devices were not exercised.",
+    "platform_note": "Requires an open JupyterLab notebook, bound Python kernel, a supported still-image reference, and visible user confirmation. Confirmation attaches the image; a separate Run sends it to the selected model.",
     "verification": {
       "unit": "tests/test_browser_attachment_tools.py",
       "browser": "tests/e2e/browser-media-attachment.spec.ts"
