@@ -4,15 +4,15 @@ title: Notebook examples
 
 # Notebook examples
 
-Open a notebook from the [gallery](#walkthroughs) in JupyterLab and make a copy before editing it. Each example starts with disposable inputs. Run its setup cells, then work downward one step at a time. A normal Python call shows what the function returns in the kernel; a nearby AI question asks the model to use the same tool and records the answer in the notebook. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
+Choose a [walkthrough](#walkthroughs) to follow a task or a [Tool catalog notebook](#tool-catalog-notebooks) to try a specific function. Open its editable `.ipynb` file in JupyterLab and make a copy before changing it. The notebooks use disposable inputs and put setup before the calls that depend on it. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
 
-AI questions use your selected ChatGPT connection or configured API provider. A question can call an offered tool, so ask for a specific call when you want to observe it. These worked notebooks include an observed-tool table beside each saved answer to show what happened; ordinary nbinlineai answers do not automatically save a separate tool transcript. A suggested call in answer prose is not evidence that the tool ran. Python-only setup needs no provider. Some browser-backed tools have no direct Python-call equivalent: their normal comparison is an ordinary JupyterLab action on a second disposable copy.
+The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; a question without a following answer is ready for your own run. Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
 
 ## Work through a notebook
 
-1. Copy the notebook and keep `data/` beside it when the notebook uses a fixture. The [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples) has the editable `.ipynb` files. The gallery pages below let you read them first.
+1. Read a rendered notebook from the gallery below, then get its editable `.ipynb` from that page's source link or the [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples). Open a copy in JupyterLab. Keep `data/` beside it when the notebook uses a fixture.
 2. Run setup code and read the next cell's instructions. For live browser actions, grant permission or use the visible chooser only when you want that action.
-3. Run one AI question at a time. Inspect its saved answer and the observed-tool table before using an ID or result in the next question. Keep answers on when you want to preserve a completed tool action.
+3. Run one AI question at a time. Inspect the answer and any observed-tool table before using an ID or result in the next question. Keep answers on when you want to preserve a completed tool action.
 4. Run cleanup cells after you finish. They remove disposable files, active media sources, or managed bytes as the notebook specifies.
 
 A browser-media Python call returns a **mutable receipt immediately**. Its first printed value can say `running` or `waiting_for_user`; that is an acknowledgement, not an image, recording, or saved file. Let the browser finish, then run the later inspection cell to read the same receipt's current `status`, `result`, and `media`. One media-producing operation can return several typed media items. An AI tool response is an **initial snapshot**; use `operation_status` in a later question to learn the terminal result. Status lookup itself returns one snapshot and does not wait. [Browser-media foundation](browser-media-foundation.md) explains the receipt and ownership rules.
@@ -55,7 +55,9 @@ Jupyter AI's Codex sign-in is separate from nbinlineai's model connection. The c
 
 ## Tool catalog notebooks
 
-These notebooks give every registered tool a concrete demonstration. Their normal Python examples and concise AI questions use the same disposable inputs where both routes exist. The live editor tools instead compare the AI action with a manual JupyterLab edit on a second copy.
+Every public tool has a demonstration in at least one notebook below. Related calls share a notebook when they form one workflow. Direct Python examples and AI questions use the same disposable inputs where both routes exist; live editor tools compare an AI action with a manual JupyterLab edit on a second copy. Use the [Tool catalog](tools.md#function-index) for the full function list and links to individual cells.
+
+### Python, files, notebooks, and web
 
 | Notebook | What you will try |
 | --- | --- |
@@ -65,6 +67,13 @@ These notebooks give every registered tool a concrete demonstration. Their norma
 | [Live notebook cells](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html) | Read and edit separate scratch cells in a copied open notebook. |
 | [Public web pages](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-web.html) | Read a public page and insert a bounded note with its source link. |
 | [Local processes](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-processes.html) | Run bounded commands and inspect a disposable tmux pane when available. |
+
+### Browser media
+
+Browser actions can need a permission choice or a visible control. Their direct calls return receipts to inspect later, and their AI questions can use `operation_status` to check a completed action.
+
+| Notebook | What you will try |
+| --- | --- |
 | [Browser-media foundation](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) | Check capabilities and exercise save, status, cancel, and release on a tiny PNG. |
 | [Camera, microphone, and display](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) | Use real permission controls and later receipts for captures and recordings. |
 | [Notebook outputs and canvas](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) | Read existing outputs and capture supported canvas or visible regions. |
