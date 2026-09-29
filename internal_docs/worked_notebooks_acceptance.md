@@ -80,5 +80,6 @@ AI-question Run All path remains untested and should be addressed separately;
 ordinary saved notebook outputs must not be read as a Run All guarantee.
 
 Before merge, record the independent review disposition and require PR #35's
-current CI checks to pass on its final head. A source merge does not authorize
-a tag, PyPI upload, website deployment, or package release.
+current CI checks to pass on its final head. A merge to `main` triggers the
+Quarto site deployment workflow; it does not authorize a version bump, tag,
+PyPI upload, or package release.
