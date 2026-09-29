@@ -1632,26 +1632,26 @@
   },
   "read_selection": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "Inspect the existing notebook",
-    "cell_id": "selection-call",
+    "section": "Read a selected line",
+    "cell_id": "selection-nonempty-call",
     "execution": "receipt-frontend",
     "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
     },
-    "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
-    "receipt_inspect_cell": "selection-inspect",
-    "receipt_variable": "selection",
+    "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used. The new nonempty selected-text follow-up is awaiting a real focused run; the earlier saved result remains an honest empty selection.",
+    "receipt_inspect_cell": "selection-nonempty-inspect",
+    "receipt_variable": "selected_text",
     "expected_behavior": "Read selected text only when its editor belongs to this notebook.",
     "normal_example": {
       "notebook": "browser-media-outputs.ipynb",
-      "cell_id": "selection-call",
+      "cell_id": "selection-nonempty-call",
       "mode": "python"
     },
     "ai_example": {
       "notebook": "browser-media-outputs.ipynb",
-      "cell_id": "outputs-ai-selection"
+      "cell_id": "outputs-ai-selection-nonempty"
     }
   },
   "list_outputs": {
