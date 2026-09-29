@@ -22,7 +22,8 @@ const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_F
 
 export function pilotQuestion(plan) {
   if (!Object.hasOwn(plan, 'pilotMaxToolSteps')) return null;
-  if (plan.pilotMaxToolSteps !== 1 || plan.continuous === true ||
+  if (plan.pilotMaxToolSteps !== 1 ||
+      (plan.continuous !== undefined && plan.continuous !== false) ||
       !Array.isArray(plan.notebooks) || plan.notebooks.length !== 1) {
     throw new Error('Pilot requires one notebook, one question, and maxToolSteps=1');
   }
@@ -94,6 +95,10 @@ export function pilotRouteGuard(questionCellId) {
       }
     },
   };
+}
+
+export async function installPilotRouteGuard(context, guard) {
+  await context.route('**/nbinlineai/prompt**', route => guard.handle(route));
 }
 
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
@@ -566,13 +571,12 @@ async function main() {
   try {
     // Use real hardware and grant the authorized localhost notebook origin only.
     // No fake-device flags or browser-wide permission pregrant are used.
-    const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 } });
+    const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
+      ...(pilot ? { serviceWorkers: 'block' } : {}) });
     await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
-    const page = await context.newPage();
     const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
-    if (pilotGuard) {
-      await page.route('**/nbinlineai/prompt**', route => pilotGuard.handle(route));
-    }
+    if (pilotGuard) await installPilotRouteGuard(context, pilotGuard);
+    const page = await context.newPage();
     // Jupyter establishes its normal authenticated browser cookie from this one
     // local URL. The token is never printed or stored in a notebook artifact.
     await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pilotQuestion, preparePilotSettings, assertPilotPromptRequest,
-  pilotRouteGuard } from '../scripts/worked_notebooks.mjs';
+  pilotRouteGuard, installPilotRouteGuard } from '../scripts/worked_notebooks.mjs';
 
 const owned = { backend: 'openai_codex_subscription', session_id: 'session-1',
   prompt_cell_id: 'question-1', max_tool_steps: 1 };
@@ -22,10 +22,14 @@ test('pilot plan admits exactly one named AI question with literal step limit on
   const plan = { pilotMaxToolSteps: 1, notebooks: [{ source: 'lesson.ipynb',
     steps: [{ action: 'code', cellId: 'setup' }, { action: 'ai', cellId: 'question-1' }] }] };
   assert.deepEqual(pilotQuestion(plan), { notebook: 'lesson.ipynb', cellId: 'question-1' });
+  assert.deepEqual(pilotQuestion({ ...plan, continuous: false }),
+    { notebook: 'lesson.ipynb', cellId: 'question-1' });
   assert.equal(pilotQuestion({ notebooks: plan.notebooks }), null);
   for (const changed of [
     { ...plan, pilotMaxToolSteps: 5 },
     { ...plan, continuous: true },
+    { ...plan, continuous: 1 },
+    { ...plan, continuous: 'yes' },
     { ...plan, notebooks: [...plan.notebooks, ...plan.notebooks] },
     { ...plan, notebooks: [{ ...plan.notebooks[0], steps: [
       ...plan.notebooks[0].steps, { action: 'ai', cellId: 'question-2' }] }] },
@@ -72,6 +76,26 @@ test('route guard forwards one valid prompt and aborts a duplicate', async () =>
   assert.deepEqual(duplicate.state, { continued: 0, aborted: 1 });
   await assert.rejects(guard.failure, /blocked before model submission/);
   assert.throws(() => guard.assertCompleted(), /exactly one/);
+});
+
+test('context route guards prompt requests from another page in the same context', async () => {
+  for (const secondBody of [owned, { ...owned, session_id: 'other' }]) {
+    const guard = pilotRouteGuard('question-1');
+    let routeHandler;
+    const context = { async route(pattern, handler) {
+      assert.equal(pattern, '**/nbinlineai/prompt**');
+      routeHandler = handler;
+    } };
+    await installPilotRouteGuard(context, guard);
+    guard.bind('session-1');
+    const firstPage = route();
+    await routeHandler(firstPage);
+    assert.deepEqual(firstPage.state, { continued: 1, aborted: 0 });
+    const secondPage = route(secondBody);
+    await routeHandler(secondPage);
+    assert.deepEqual(secondPage.state, { continued: 0, aborted: 1 });
+    await assert.rejects(guard.failure, /blocked before model submission/);
+  }
 });
 
 test('route guard aborts unbound and mismatched requests before forwarding', async () => {
