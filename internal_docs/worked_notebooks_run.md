@@ -49,13 +49,20 @@ receipt are also saved; the remaining screen calls, AI examples, and final
 shared cleanup cell are still unrun in that notebook. Server teardown released
 the disposable run's remaining memory media.
 
-The integration notebook now retains a direct-only run from one isolated
+The integration notebook retains a direct run from one isolated
 kernel: an 8×8 notebook PNG was listed, exported, previewed, cropped to 4×4,
 and saved with a provenance sidecar. Later receipt inspections confirmed each
 operation before dependent cells used it. The notebook checked both pixel
 values and file hashes, then completed preview/media release and removed its
-generated image and sidecar. Its attachment confirmation and AI questions are
-still unrun in this walkthrough.
+generated image and sidecar. A separate guarded ChatGPT `gpt-6-sol` pilot on
+the unchanged canonical notebook executed the two setup cells and saved one
+answer to `integration-list-ai-question`. Its retained subscription trace has
+exactly one `list_outputs` call for `integration-output` and one accepted
+receipt. Both the immediate receipt and the answer say the operation was
+`running`; neither reports an output ID or MIME type. The following
+`integration-list-ai-ready` status question has not run, so this AI tool
+example is partial until a later terminal receipt verifies its effect. The
+attachment confirmation and other AI questions are also still unrun.
 
 The attachment notebook retains an actual direct image confirmation with a
 later completed receipt, plus two earlier genuine AI tool answers and traces.
