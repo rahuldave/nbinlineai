@@ -131,7 +131,7 @@ CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",
     "capture_camera": "still", "start_recording": "recording",
     "pause_recording": "paused", "resume_recording": "resumed",
-    "stop_recording": "stopped_recording", "stop_source": "stopped_camera",
+    "stop_recording": "stopped_recording", "stop_source": "stopped_microphone",
     "start_microphone": "microphone", "read_audio_levels": "levels",
     "record_camera": "camera_clip", "record_microphone": "microphone_clip",
     "setup_share": "sharing_controls", "start_share": "sharing",
@@ -141,8 +141,8 @@ CAPTURE_DEMO_VARIABLES = {
 for name, variable in CAPTURE_DEMO_VARIABLES.items():
     HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-call")] = f"{name}("
     HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f", {variable})"
-HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup")] = "stop_source(microphone_id)"
-HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = ", microphone_cleanup)"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup")] = "stop_source(camera_id)"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = ", camera_cleanup)"
 
 
 async def _run_code(
