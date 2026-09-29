@@ -2,7 +2,39 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
   sensitiveHardwareValues, toolResultState, liveCellIndex, boundKernelSession,
-  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription } from '../scripts/worked_notebooks_support.mjs';
+  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
+  prepareDisposableExecutedCells } from '../scripts/worked_notebooks_support.mjs';
+
+test('fresh disposable run clears only planned code history, including same-count prompts', () => {
+  const notebook = { cells: [
+    { id: 'setup', cell_type: 'code', source: ['x = 1\n'], execution_count: 1,
+      outputs: [{ output_type: 'stream', text: ['old'] }], metadata: {
+        tags: ['keep'], nbinlineaiWorkedDirectCalls: [{ name: 'old' }],
+        nbinlineaiWorkedReceipts: [{ status: 'completed' }],
+        nbinlineaiWorkedInsertion: { cell_id: 'old-cell' },
+      } },
+    { id: 'historic', cell_type: 'code', source: ['print(x)'], execution_count: 7,
+      outputs: [{ output_type: 'stream', text: ['history'] }],
+      metadata: { nbinlineaiWorkedDirectCalls: [{ name: 'historic' }] } },
+    { id: 'question', cell_type: 'markdown', source: ['Question'], metadata: {} },
+  ] };
+  const original = structuredClone(notebook);
+  prepareDisposableExecutedCells(notebook, [{ action: 'code', cellId: 'setup' },
+    { action: 'inspect', cellId: 'setup' }, { action: 'ai', cellId: 'question' }]);
+  assert.equal(notebook.cells[0].execution_count, null);
+  assert.deepEqual(notebook.cells[0].outputs, []);
+  assert.deepEqual(notebook.cells[0].metadata, { tags: ['keep'] });
+  assert.deepEqual(notebook.cells.slice(1), original.cells.slice(1));
+  assert.notEqual(original.cells[0].execution_count, null);
+  // The old and fresh execution can both be numbered [1]; the uploaded copy
+  // begins blank so the runner's completion check still observes a transition.
+  assert.notEqual(notebook.cells[0].execution_count, 1);
+  for (const steps of [[{ action: 'code', cellId: 'missing' }],
+    [{ action: 'code', cellId: 'question' }], [{ action: 'code', cellId: 'bad id' }]]) {
+    assert.throws(() => prepareDisposableExecutedCells(structuredClone(original), steps),
+      /Planned code cell/);
+  }
+});
 
 test('direct-only plans run without model admission while limited AI fails clearly', () => {
   assert.equal(requiresSubscription({ steps: [{ action: 'code' }, { action: 'receipt-ready' }] }), false);

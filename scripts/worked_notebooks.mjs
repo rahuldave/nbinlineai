@@ -6,7 +6,8 @@ import { resolve, join, dirname, isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
-  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription } from './worked_notebooks_support.mjs';
+  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
+  prepareDisposableExecutedCells } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
 import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
@@ -114,6 +115,7 @@ async function runNotebook(page, request, context, entry, choice) {
   const name = safeName(entry.source);
   const path = join(sourceDir, name);
   const source = JSON.parse(await readFile(path, 'utf8'));
+  prepareDisposableExecutedCells(source, entry.steps ?? []);
   const coverage = JSON.parse(await readFile(join(root, 'examples', 'tool-coverage.json'), 'utf8'));
   const receiptVariables = new Map();
   const directNames = new Map();

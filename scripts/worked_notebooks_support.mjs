@@ -3,6 +3,37 @@ export function requiresSubscription(entry) {
   return Array.isArray(entry?.steps) && entry.steps.some(step => step?.action === 'ai');
 }
 
+// The runner uploads a parsed, disposable copy. A fresh kernel may assign the
+// same execution number as a saved historical run, so only code cells that the
+// plan will execute may carry neither their old prompt nor old output/evidence.
+export function prepareDisposableExecutedCells(notebook, steps) {
+  if (!Array.isArray(notebook?.cells) || !Array.isArray(steps)) {
+    throw new Error('Disposable notebook or execution plan is invalid');
+  }
+  const plannedIds = new Set(steps.filter(step => ['code', 'inspect'].includes(step?.action))
+    .map(step => step.cellId));
+  for (const id of plannedIds) {
+    if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
+      throw new Error('Planned code cell ID is invalid');
+    }
+    const matches = notebook.cells.filter(cell => cell?.id === id);
+    if (matches.length !== 1 || matches[0].cell_type !== 'code') {
+      throw new Error(`Planned code cell ${id} is missing, duplicated, or not code`);
+    }
+  }
+  for (const cell of notebook.cells) {
+    if (!plannedIds.has(cell.id)) continue;
+    cell.execution_count = null;
+    cell.outputs = [];
+    if (cell.metadata) {
+      delete cell.metadata.nbinlineaiWorkedDirectCalls;
+      delete cell.metadata.nbinlineaiWorkedReceipts;
+      delete cell.metadata.nbinlineaiWorkedInsertion;
+    }
+  }
+  return notebook;
+}
+
 export function rejectLimitedSubscription(choice) {
   if (choice?.state === 'limited') {
     throw new Error('Managed ChatGPT usage is limited; actual AI questions must wait for the account reset');
