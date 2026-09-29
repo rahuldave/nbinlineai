@@ -8,9 +8,9 @@ These browser tools inspect the **open notebook that started the request**. They
 
 Import the functions from `nbinlineai.tools`. Offer only the functions needed by a particular AI question using ordinary Markdown `&` references; importing them alone does not authorize a model call. The [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) pairs direct code-cell requests with later inspection cells and also includes AI questions. Direct calls do not need an AI connection; AI questions use the selected connection. See the [Tool catalog](tools.md) for the complete list and the [examples guide](examples.md) for declaration rules.
 
-## Export a plot that is already in the notebook
+## Export an image that is already in the notebook
 
-Run a plotting cell first. In the [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-raster), that code cell has ID `output-raster`. List its existing outputs without executing it again:
+Display a raster image first. In the [output walkthrough](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#output-raster), that code cell has ID `output-raster`. List its existing outputs without executing it again:
 
 ```python
 from nbinlineai.tools import list_outputs, export_output
@@ -27,7 +27,7 @@ image_ref = listing.result["outputs"][0]  # The walkthrough's first output is th
 exported = export_output(image_ref["cell_id"], image_ref["output_id"], image_ref["revision"])
 ```
 
-After `exported` completes, display its Pillow image in another cell. The [AI listing question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-list-read) and [AI export question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-export) use the same discovered reference; an AI reply gets a descriptor, not image pixels.
+After `exported` completes, display its Pillow image in another cell. The [AI listing question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-list-read) lists an existing text output; the [AI export question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-export) uses the separately discovered raster reference. An AI reply gets a descriptor, not image pixels.
 
 ```python
 from IPython.display import display
