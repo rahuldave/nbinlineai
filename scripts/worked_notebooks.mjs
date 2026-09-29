@@ -1,8 +1,9 @@
 // One visible browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
 import { chromium } from '@playwright/test';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { basename, resolve, join } from 'node:path';
+import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { frames, observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook } from './worked_notebooks_support.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -26,52 +27,6 @@ function safeName(value) {
   }
   return value;
 }
-function sourceText(cell) {
-  return Array.isArray(cell.source) ? cell.source.join('') : String(cell.source ?? '');
-}
-function redact(value) {
-  let text = typeof value === 'string' ? value : JSON.stringify(value);
-  text = text.replace(/(?:Bearer\s+|token[=:]\s*)[^\s"']+/ig, '[redacted]')
-    .replace(/(?:\/Users\/|\/home\/|\/tmp\/)[^\s"']+/g, '[local path]')
-    .replace(/[A-Za-z0-9+/_-]{200,}={0,2}/g, '[large or opaque value]');
-  return text.slice(0, 700);
-}
-function frames(body) {
-  return body.split('\n\n').flatMap(frame => {
-    const line = frame.split('\n').find(item => item.startsWith('data: '));
-    if (!line) return [];
-    try { return [JSON.parse(line.slice(6))]; } catch { return []; }
-  });
-}
-function observedTrace(questionId, events) {
-  const starts = events.filter(event => event.type === 'tool_start');
-  const results = events.filter(event => event.type === 'tool_result');
-  const actions = events.filter(event => event.type === 'frontend_action');
-  return starts.map(start => ({ questionId, name: start.name,
-    arguments: redact(start.arguments),
-    result: redact(results.find(result => result.id === start.id)?.text ?? '[no result event]'),
-    frontendAction: actions.some(action => action.id === start.id) }));
-}
-function addTraceAppendix(notebook, traces) {
-  if (!traces.length) return;
-  const rows = traces.map(item => `| ${item.questionId} | \`${item.name}\` | ${item.arguments.replaceAll('|', '\\|')} | ${item.result.replaceAll('|', '\\|')} |`);
-  notebook.cells.push({ cell_type: 'markdown', id: 'worked-observed-tool-trace',
-    metadata: { nbinlineaiWorkedTrace: true },
-    source: ['## Observed notebook-tool calls\n',
-      'This appendix was recorded from actual subscription prompt events. Long or private fields are redacted.\n\n',
-      '| Question cell | Tool | Submitted arguments | Observed result |\n',
-      '| --- | --- | --- | --- |\n', ...rows.map(row => `${row}\n`)] });
-}
-function assertSafeNotebook(notebook) {
-  const encoded = JSON.stringify(notebook);
-  for (const pattern of [/(?:Bearer\s+|sk-[A-Za-z0-9_-]{20,})/i,
-    /(?:\/Users\/|\/home\/rahul\/|\/tmp\/nbinlineai-worked-)/,
-    /(?:device_code|verification_url|auth_url)["']?\s*:/i]) {
-    if (pattern.test(encoded)) throw new Error('Saved notebook contains a sensitive field or local path');
-  }
-  if (encoded.length > 30_000_000) throw new Error('Saved notebook exceeds the worked-output size limit');
-}
-
 async function chooseSubscription(request) {
   const response = await request.get('/nbinlineai/subscription/status');
   if (!response.ok()) throw new Error('Subscription status is unavailable in the owned server');
@@ -189,8 +144,11 @@ async function runNotebook(page, request, context, entry, choice) {
       }
       const observed = observedTrace(step.cellId, events);
       traces.push(...observed);
-      if (step.tool && !observed.some(item => item.name === step.tool && item.result !== '[no result event]')) {
-        throw new Error(`${name} ${step.cellId} did not execute expected tool ${step.tool}`);
+      const expectedTools = step.tools ?? (step.tool ? [step.tool] : []);
+      for (const expected of expectedTools) {
+        if (!observed.some(item => item.name === expected && ['completed', 'receipt accepted'].includes(item.resultState))) {
+          throw new Error(`${name} ${step.cellId} did not return an accepted result for expected tool ${expected}`);
+        }
       }
       await until(async () => /Done|Answer kept/.test(await target.locator('.nbinlineai-status').textContent() ?? ''),
         timeout, `${name} ${step.cellId} answer`);
@@ -211,9 +169,13 @@ async function runNotebook(page, request, context, entry, choice) {
   if (!saved.ok()) throw new Error(`${name} did not save through Jupyter Contents`);
   const notebook = (await saved.json()).content;
   addTraceAppendix(notebook, traces);
+  normalizePublicCopy(notebook);
   assertSafeNotebook(notebook);
-  await mkdir(outputDir, { recursive: true });
-  await writeFile(join(outputDir, safeName(entry.output ?? name)), JSON.stringify(notebook, null, 1) + '\n');
+  await mkdir(outputDir, { recursive: true, mode: 0o700 });
+  await chmod(outputDir, 0o700);
+  const outputPath = join(outputDir, safeName(entry.output ?? name));
+  await writeFile(outputPath, JSON.stringify(notebook, null, 1) + '\n', { mode: 0o600 });
+  await chmod(outputPath, 0o600);
   console.log(`${name}: saved with ${traces.length} observed live notebook-tool calls.`);
 }
 

@@ -26,6 +26,10 @@ from nbinlineai.credentials import credential_directory
 
 ROOT = Path(__file__).resolve().parents[1]
 PORT = 8897
+PASSTHROUGH_ENV = frozenset({
+    "HOME", "XDG_CONFIG_HOME", "PATH", "TMPDIR", "TEMP", "TMP", "LANG",
+    "LC_ALL", "LC_CTYPE", "TZ", "PLAYWRIGHT_BROWSERS_PATH",
+})
 
 
 def _private_directory(path: Path) -> bool:
@@ -109,6 +113,19 @@ def _copy_examples(destination: Path, source: Path) -> None:
         shutil.copyfile(original, target)
 
 
+def _child_environment(base: Path, token: str) -> dict[str, str]:
+    """Keep only ordinary system paths and the supported managed account home."""
+    child_env = {name: value for name, value in os.environ.items() if name in PASSTHROUGH_ENV}
+    child_env.update({"OPENAI_API_KEY": "", "ANTHROPIC_API_KEY": "",
+                      "JUPYTER_CONFIG_DIR": str(base / "config"),
+                      "JUPYTER_RUNTIME_DIR": str(base / "runtime"),
+                      "JUPYTER_DATA_DIR": str(base / "data"),
+                      "IPYTHONDIR": str(base / "ipython"),
+                      "NBINLINEAI_WORKED_TOKEN": token,
+                      "NBINLINEAI_WORKED_ROOT": str(base / "root")})
+    return child_env
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run worked notebooks with one live ChatGPT subscription session")
     parser.add_argument("--manifest", type=Path, help="JSON execution plan for one or more source notebooks")
@@ -132,7 +149,8 @@ def main() -> None:
         raise SystemExit("Manifest needs notebooks or continuous mode")
     source = args.source_dir.resolve(strict=True)
     output = args.output_dir.resolve()
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    output.chmod(0o700)
     token = secrets.token_urlsafe(32)
     with tempfile.TemporaryDirectory(prefix="nbinlineai-worked-") as directory:
         base = Path(directory)
@@ -143,17 +161,7 @@ def main() -> None:
         config_path.write_text(json.dumps({"ServerApp": {"token": token, "password": "",
             "root_dir": str(base / "root")}}), encoding="utf-8")
         config_path.chmod(0o600)
-        child_env = os.environ.copy()
-        for name in tuple(child_env):
-            if name.endswith(("_API_KEY", "_ACCESS_TOKEN")) or name.startswith(("CODEX_", "OPENAI_")):
-                child_env.pop(name, None)
-        child_env.update({"OPENAI_API_KEY": "", "ANTHROPIC_API_KEY": "",
-                          "JUPYTER_CONFIG_DIR": str(base / "config"),
-                          "JUPYTER_RUNTIME_DIR": str(base / "runtime"),
-                          "JUPYTER_DATA_DIR": str(base / "data"),
-                          "IPYTHONDIR": str(base / "ipython"),
-                          "NBINLINEAI_WORKED_TOKEN": token,
-                          "NBINLINEAI_WORKED_ROOT": str(base / "root")})
+        child_env = _child_environment(base, token)
         # Preserve XDG_CONFIG_HOME: it is the supported normal nbinlineai
         # subscription location, unlike the disposable Jupyter directories.
         log_path = base / "server.log"
