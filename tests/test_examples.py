@@ -2,8 +2,10 @@
 
 import ast
 import asyncio
+import hashlib
 import json
 import re
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -236,6 +238,16 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         kernel_cwd = Path(scratch) if relative_path in {
             "browser-media-foundation.ipynb", "browser-media-playback.ipynb",
             "browser-media-transforms.ipynb", "browser-media-attachment.ipynb"} else ROOT
+        if relative_path == "browser-media-transforms.ipynb":
+            clip_name = "owned-notebook-tab-2087303b97be.webm"
+            clip = ROOT / "examples" / "media" / clip_name
+            assert clip.stat().st_size == 72134
+            assert hashlib.sha256(clip.read_bytes()).hexdigest() == (
+                "2087303b97be4ba56da4d95d19d1106f6c0ddb5d9030e3f74f5c47e84bc4d63a"
+            )
+            local_media = kernel_cwd / "media"
+            local_media.mkdir()
+            shutil.copyfile(clip, local_media / clip_name)
         outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
@@ -289,7 +301,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "browser-media-transforms.ipynb":
         text = "\n".join(outputs)
         assert "Disposable source and derivative files removed" in text
-        assert "Generated exact PNG and five-second 16×16 red/blue VP9 clip" in text
+        assert "Exact created PNG and recorded notebook-tab clip" in text
     if relative_path == "browser-media-integration.ipynb":
         assert "Disposable 8x8 output image ready; no file saved." in "\n".join(outputs)
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
