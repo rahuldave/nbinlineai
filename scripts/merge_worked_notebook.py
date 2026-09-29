@@ -16,6 +16,10 @@ from nbinlineai.tools import SPECIAL_TOOL_FUNCTIONS
 
 _ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| (completed|receipt accepted|failed) \|", re.MULTILINE)
 _OLD_ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| .*? \| (.*) \|$", re.MULTILINE)
+_INSERT_ROW = re.compile(
+    r"^\| `(insert_code|insert_markdown|url_to_note)` \| completed \| (.*?) \| (.*?) \|$",
+    re.MULTILINE,
+)
 _LEGACY_TRACE_NOTEBOOKS = frozenset({
     "bundled-tools.ipynb", "context-selection.ipynb", "fastcore-tools.ipynb",
     "project-tools.ipynb", "quickstart.ipynb", "tool-catalog-inspection.ipynb",
@@ -32,6 +36,43 @@ def _source(cell: dict) -> str:
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> bool:
+    """Tie an inserted cell to its observed ID and any submitted cell content."""
+    observed = trace["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"]
+    for tool, argument_text, result_text in _INSERT_ROW.findall(_source(trace)):
+        result_text = result_text.replace(r"\|", "|").replace("<br>", "\n")
+        try:
+            result = json.loads(result_text)
+        except json.JSONDecodeError:
+            result = None
+        if isinstance(result, dict):
+            inserted_id = result.get("cell_id")
+        else:
+            match = re.search(r"\bcell(?:\s+id)?\s*[:=]?\s*`?([A-Za-z0-9_-]+)",
+                              result_text, re.IGNORECASE)
+            inserted_id = match.group(1) if match else None
+        if (tool not in expected_tools
+                or not any(isinstance(item, dict) and item.get("name") == tool
+                           and item.get("resultState") == "completed"
+                           for item in observed)
+                or inserted_id != cell["id"]):
+            continue
+        try:
+            arguments = json.loads(argument_text.replace(r"\|", "|").replace("<br>", "\n"))
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(arguments, dict):
+            continue
+        if tool in {"insert_code", "insert_markdown"} and arguments.get("content") != _source(cell):
+            continue
+        # url_to_note fetches the page inside the tool; the event records its
+        # inserted cell ID but not the fetched body, so only attribution is checkable here.
+        if tool == "url_to_note" and not _source(cell).startswith("Source: http"):
+            continue
+        return True
+    return False
 
 
 def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
@@ -95,13 +136,11 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
                 raise ValueError("Unanchored inserted cell")
             prior = ai["cells"][index - 1]
             question_id = prior.get("metadata", {}).get("questionCellId")
-            prior_evidence = prior.get("metadata", {}).get("nbinlineaiWorkedEvidence", {})
             expected_tools = ({"insert_code"} if cell["cell_type"] == "code"
                               else {"insert_markdown", "url_to_note"} if cell["cell_type"] == "markdown"
                               else set())
             if (not prior.get("metadata", {}).get("nbinlineaiWorkedTrace")
-                    or not any(item.get("name") in expected_tools and item.get("resultState") == "completed"
-                               for item in prior_evidence.get("observedTools", []))
+                    or not _observed_insertion(prior, cell, expected_tools)
                     or len(_source(cell)) > 8_000
                     or (cell["cell_type"] == "code" and (cell.get("outputs") or cell.get("execution_count") is not None))):
                 raise ValueError("Unexpected or executed AI-inserted cell")

@@ -1,10 +1,11 @@
 """Merging retained live answers must preserve verified latest source and calls."""
 
 import json
+from pathlib import Path
 
 import pytest
 
-from scripts.merge_worked_notebook import merge
+from scripts.merge_worked_notebook import _observed_insertion, merge
 
 
 def _write(path, cells):
@@ -53,7 +54,10 @@ def test_merge_preserves_inserted_cell_and_structured_operation_evidence(tmp_pat
     _write(direct, [question])
     answer = {"id": "answer", "cell_type": "markdown", "source": ["Inserted a code cell."],
               "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question", "status": "done"}}}
-    trace = {"id": "trace", "cell_type": "markdown", "source": ["Observed actual insert_code result."],
+    trace = {"id": "trace", "cell_type": "markdown", "source": [
+        "| Tool | Result state | Submitted arguments | Observed result |\n",
+        "| --- | --- | --- | --- |\n",
+        '| `insert_code` | completed | {"content":"print(\'suggested\')"} | Inserted cell inserted. |\n'],
              "metadata": {"nbinlineaiWorkedTrace": True, "questionCellId": "question",
                           "nbinlineaiWorkedEvidence": {"questionCellId": "question", "observedTools": [
                               {"name": "insert_code", "resultState": "completed", "frontendAction": True,
@@ -67,6 +71,22 @@ def test_merge_preserves_inserted_cell_and_structured_operation_evidence(tmp_pat
         "operationId"] == "op-real-12345678901234567890"
     assert worked["cells"][3]["execution_count"] is None
 
+    wrong = {**inserted, "id": "wrong-id"}
+    _write(ai, [question, answer, trace, wrong])
+    with pytest.raises(ValueError, match="Unexpected or executed"):
+        merge(source, direct, ai)
+    wrong_content = {**inserted, "source": ["print('different')"]}
+    _write(ai, [question, answer, trace, wrong_content])
+    with pytest.raises(ValueError, match="Unexpected or executed"):
+        merge(source, direct, ai)
+    trace["source"][-1] = trace["source"][-1].replace("Inserted cell inserted.",
+                                                        "Inserted cell prefixinsertedsuffix.")
+    _write(ai, [question, answer, trace, inserted])
+    with pytest.raises(ValueError, match="Unexpected or executed"):
+        merge(source, direct, ai)
+    trace["source"][-1] = trace["source"][-1].replace("prefixinsertedsuffix", "inserted")
+    _write(ai, [question, answer, trace, inserted])
+
     trace["metadata"].pop("nbinlineaiWorkedEvidence")
     trace["source"] = ["| Tool | Submitted arguments | Observed result |\n",
                        "| --- | --- | --- |\n",
@@ -74,3 +94,12 @@ def test_merge_preserves_inserted_cell_and_structured_operation_evidence(tmp_pat
     _write(ai, [question, answer, trace, inserted])
     with pytest.raises(ValueError, match="Structured tool result"):
         merge(source, direct, ai)
+
+
+def test_actual_bundled_insert_trace_matches_saved_cell():
+    notebook = json.loads((Path(__file__).resolve().parents[1] / "examples" / "bundled-tools.ipynb")
+                          .read_text(encoding="utf-8"))
+    cells = notebook["cells"]
+    trace_index = next(index for index, cell in enumerate(cells)
+                       if cell["id"] == "worked-trace-bundled-code-draft-question")
+    assert _observed_insertion(cells[trace_index], cells[trace_index + 1], {"insert_code"})
