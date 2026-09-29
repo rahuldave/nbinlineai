@@ -265,7 +265,7 @@ def test_pixel_limit(tmp_path):
 def test_batch_upload_and_directory_save(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'batch', 'extract_frames', {})
+    op = registry.create(browser, 'batch', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 2)
     first = png((2, 2))
     second = png((3, 3))
@@ -318,7 +318,7 @@ def test_cancelled_staged_save_leaves_no_file(tmp_path):
 def test_batch_status_pages_descriptors(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'batch-pages', 'extract_frames', {})
+    op = registry.create(browser, 'batch-pages', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 12)
     for index in range(12):
         data = png((index + 1, 1))
@@ -340,7 +340,7 @@ def test_batch_status_pages_descriptors(tmp_path):
 def test_batch_save_conflict_rolls_back_new_files(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'conflicting-batch', 'extract_frames', {})
+    op = registry.create(browser, 'conflicting-batch', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 2)
     data = png()
     for index in range(2):
@@ -358,7 +358,7 @@ def test_batch_save_conflict_rolls_back_new_files(tmp_path):
 def test_batch_cancel_discards_partial_media(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'cancel-batch', 'extract_frames', {})
+    op = registry.create(browser, 'cancel-batch', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 2)
     data = png()
     registry.upload_part(browser, op.id, 0, data, 'image/png', hashlib.sha256(data).hexdigest())
@@ -456,7 +456,7 @@ def test_same_notebook_file_saves_share_reserved_budget(tmp_path, monkeypatch):
         single = registry.create(second_owner, 'single-during-save', 'fixture_image', {})
         with pytest.raises(MediaError, match='memory limit'):
             registry.upload(second_owner, single.id, data, 'image/png', reference['sha256'])
-        batch = registry.create(second_owner, 'batch-during-save', 'extract_frames', {})
+        batch = registry.create(second_owner, 'batch-during-save', 'fixture_batch', {})
         registry.begin_batch(second_owner, batch.id, 1)
         with pytest.raises(MediaError, match='memory limit'):
             registry.upload_part(second_owner, batch.id, 0, data, 'image/png', reference['sha256'])
@@ -571,7 +571,7 @@ def test_concurrent_save_request_publishes_once_and_owner_loss_cancels(tmp_path,
 def test_batch_cancel_during_save_cannot_complete_or_leave_file(tmp_path, monkeypatch):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'batch-cancel-race', 'extract_frames', {})
+    op = registry.create(browser, 'batch-cancel-race', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 1)
     data = png()
     registry.upload_part(browser, op.id, 0, data, 'image/png', hashlib.sha256(data).hexdigest())
@@ -701,7 +701,7 @@ def test_auto_directory_freezes_per_request_across_notebook_rename(tmp_path):
 def test_batch_rollback_uses_original_directory_after_symlink_swap(tmp_path, monkeypatch):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
-    op = registry.create(browser, 'batch-swap', 'extract_frames', {})
+    op = registry.create(browser, 'batch-swap', 'fixture_batch', {})
     registry.begin_batch(browser, op.id, 2)
     data = png()
     for index in range(2):

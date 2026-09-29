@@ -30,6 +30,8 @@ import { registerBrowserNotebookViews } from './browserNotebookViews';
 import { registerBrowserNotebookCanvas } from './browserNotebookCanvas';
 import { registerBrowserNotebookRegion } from './browserNotebookRegion';
 import { registerBrowserMediaCapture } from './browserMediaCapture';
+import { registerPlaybackOperations } from './browserMediaPlayback';
+import { registerTransformOperations } from './browserMediaTransforms';
 import '../style/index.css';
 
 registerBrowserMediaCapture();
@@ -1145,6 +1147,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
     registerBrowserNotebookViews();
     registerBrowserNotebookCanvas();
     registerBrowserNotebookRegion();
+    registerPlaybackOperations();
+    registerTransformOperations();
     if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
         new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
       void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })
