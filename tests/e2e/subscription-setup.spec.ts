@@ -209,12 +209,14 @@ test('ChatGPT setup keeps sign-in and status read-only until explicit notebook u
   await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(1);
   await page.getByRole('button', { name: 'Done' }).click();
   await page.keyboard.press('ControlOrMeta+s');
-  await expect(page.getByText('Saving completed')).toBeVisible();
-  const saved = await request.get(`/api/contents/${name}?content=1`);
-  const savedNotebook = (await saved.json()).content;
-  expect(savedNotebook.metadata.nbinlineai.defaults).toMatchObject({
-    backend: 'openai_codex_subscription', model: 'gpt-6-luna', reasoningEffort: 'low'
-  });
+  const defaults = { backend: 'openai_codex_subscription', model: 'gpt-6-luna', reasoningEffort: 'low' };
+  await expect.poll(async () => {
+    const saved = await request.get(`/api/contents/${name}?content=1`);
+    if (!saved.ok()) return null;
+    const savedNotebook = (await saved.json()).content;
+    return savedNotebook?.metadata?.nbinlineai?.defaults ?? null;
+  }).toMatchObject(defaults);
+  await expect(page.locator('.lm-TabBar-tab.jp-mod-dirty')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   await expect(setup).toBeVisible();
