@@ -26,3 +26,41 @@ The worked gallery will mark `start_camera`, `capture_camera`, and
 claim. Other capture examples will use actual microphone or owned-tab screen
 sources. The user offered to troubleshoot the physical camera together later;
 no simulated camera result will replace this missing evidence.
+
+## Completed direct media examples
+
+The playback notebook was executed in one isolated JupyterLab/kernel session.
+Its generated PNG went through the visible file chooser; its quiet 60-second
+WAV advanced from playback time 0 to 5.107 seconds before Pause. Seek returned
+2.5 seconds, volume returned 0.25, and Close and the imported-image release
+completed. The browser Copy shortcut and Paste control returned the exact
+37-character disposable sample. Nine direct calls have separate completed
+receipt inspections, and generated sample files were removed. The saved
+playback example retains the actual outputs; its AI questions remain unrun.
+
+The capture notebook currently retains a genuine **partial** microphone run:
+device listing, microphone start, positive audio levels, microphone-backed
+recording with pause/resume/stop, source stop, and a separate one-shot recording.
+The embedded Opus clips independently decode to 20.64 and 6.96 seconds of
+playable audio. The recording receipt's 24.629-second duration includes paused
+wall time and is not its playable duration. Nine direct calls and later terminal
+receipts are saved. Screen examples, AI examples, and the final shared cleanup
+cell have not yet been executed in that notebook; server teardown released the
+disposable run's remaining memory media.
+
+## Native Run All observation
+
+On 2026-09-29, a disposable direct notebook used JupyterLab's native **Run All
+Cells** menu action. The `start_share(audio=False)` call returned an initial
+receipt, and the following marker cell executed without clicking the visible
+Share control. That initial receipt did not prove a completed screen share.
+
+A second disposable pass used native **Run All Above Selected Cell** for only
+the setup, start-share, and marker cells. The marker executed at count 3. A
+separate kernel turn then observed the exact start-share operation in
+`waiting_for_user`; no chooser or screen stream was claimed. Later cancellation
+changed that same operation to `cancelled`, and a final status query confirmed
+the original operation ID and cancelled state. This shows that direct Run All
+continues past an immediate browser receipt while the user action remains
+pending. The corresponding AI-question Run All pass remains untested while the
+configured ChatGPT subscription is usage-limited.
