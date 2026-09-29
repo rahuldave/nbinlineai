@@ -173,6 +173,13 @@ def main() -> None:
                 print("Owned JupyterLab ready on port 8897; checking the managed ChatGPT connection.")
                 driver_env = {**child_env, "NBINLINEAI_WORKED_MANIFEST": str(args.manifest.resolve()),
                               "NBINLINEAI_WORKED_OUTPUT": str(output)}
+                browser_channel = os.environ.get("WORKED_BROWSER_CHANNEL", "")
+                if browser_channel:
+                    if browser_channel != "chrome":
+                        raise ValueError("Only the installed Chrome channel is supported")
+                    # This launch choice belongs to the browser driver, never the
+                    # notebook server or its kernel environment.
+                    driver_env["WORKED_BROWSER_CHANNEL"] = browser_channel
                 result = subprocess.run(["node", str(ROOT / "scripts/worked_notebooks.mjs")],
                                         cwd=ROOT, env=driver_env, check=False)
                 if result.returncode:
