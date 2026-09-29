@@ -1,7 +1,7 @@
 // One visible browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
 import { chromium } from '@playwright/test';
-import { readFile, writeFile, mkdir, chmod, realpath } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat } from 'node:fs/promises';
 import { resolve, join, dirname, isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
@@ -237,6 +237,7 @@ async function runNotebook(page, request, context, entry, choice) {
           kernelId, variable, { timeoutMs: remaining, allowUnregistered: true }) });
     } else if (step.action === 'code' || step.action === 'inspect') {
       const target = await liveCell(step.cellId, 'code');
+      const selectionFixture = step.selectionFixtureId ? await liveCell(step.selectionFixtureId, 'code') : null;
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
       let probeAttempted = false;
       let executionError = null;
@@ -253,6 +254,11 @@ async function runNotebook(page, request, context, entry, choice) {
           const before = await prompt.textContent();
           await target.locator('.cm-content').click();
           await page.keyboard.press('Control+Enter');
+          if (selectionFixture) {
+            await selectionFixture.locator('.cm-content').click();
+            await page.keyboard.press('Home');
+            await page.keyboard.press('Shift+End');
+          }
           await until(async () => {
             const now = await prompt.textContent();
             return now !== before && /\[\d+\]/.test(now ?? '');
@@ -337,6 +343,36 @@ async function runNotebook(page, request, context, entry, choice) {
         timeout, `${name} ${step.cellId} answer`);
     } else if (step.action === 'click') {
       await page.locator(step.selector).click({ timeout });
+    } else if (step.action === 'choose-owned-generated-png') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned sample picker requires playback notebook');
+      const ownedRoot = process.env.NBINLINEAI_WORKED_ROOT;
+      if (!ownedRoot || !isAbsolute(ownedRoot)) throw new Error('Owned sample root is unavailable');
+      const filenames = (await readdir(ownedRoot)).filter(item => /^playback-[a-f0-9]{32}\.png$/.test(item));
+      if (filenames.length !== 1) throw new Error('Expected exactly one generated playback PNG');
+      const selected = join(ownedRoot, filenames[0]);
+      const details = await lstat(selected);
+      if (!details.isFile() || details.size < 1 || details.size > 1_000_000) {
+        throw new Error('Generated playback PNG is invalid');
+      }
+      const chooser = page.locator('.nbinlineai-playback-panel[aria-label="Choose a file for this notebook"]:visible');
+      if (await chooser.count() !== 1) throw new Error('Visible owned file chooser is unavailable');
+      const fileChooser = page.waitForEvent('filechooser', { timeout });
+      await chooser.getByRole('button', { name: 'Choose file' }).click({ timeout });
+      await (await fileChooser).setFiles(selected);
+    } else if (step.action === 'paste-owned-clipboard') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned paste requires playback notebook');
+      const paste = page.locator('.nbinlineai-playback-panel[aria-label="Paste into this notebook"]:visible');
+      if (await paste.count() !== 1) throw new Error('Visible owned paste control is unavailable');
+      await paste.getByRole('textbox', { name: 'Paste here' }).click({ timeout });
+      await page.keyboard.press('Meta+V');
+    } else if (step.action === 'copy-owned-text-shortcut') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned copy requires playback notebook');
+      const copy = page.locator('.nbinlineai-playback-panel[aria-label="Copy text"]:visible');
+      if (await copy.count() !== 1) throw new Error('Visible owned copy control is unavailable');
+      const textarea = copy.getByRole('textbox', { name: 'Text to copy' });
+      await textarea.click({ timeout });
+      await page.keyboard.press('Meta+A');
+      await page.keyboard.press('Meta+C');
     } else if (step.action === 'dismiss-notification') {
       const close = page.getByTitle('Hide notification').first();
       if (await close.isVisible()) await close.click({ timeout });
