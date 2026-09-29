@@ -23,6 +23,8 @@ from functools import wraps
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .browser_media_provenance import TRANSFORMS, validated_provenance
+
 HEARTBEAT_SECONDS = 30
 OWNER_LEASE_SECONDS = 90
 PERMISSION_SECONDS = 120
@@ -114,6 +116,7 @@ class Media:
     expires: float
     metadata: dict[str, Any] = field(default_factory=dict)
     path: str | None = None
+    provenance: dict[str, Any] | None = None
 
     def descriptor(self) -> dict[str, Any]:
         return {'media_id': self.id, 'mime_type': self.mime_type,
@@ -157,6 +160,26 @@ class MediaRegistry:
 
     def _now(self) -> float:
         return float(self.clock())
+
+    def _transform_record(self, owner: Owner, op: Operation, metadata: dict[str, Any],
+                          *, index: int | None = None, save_to: str | None | object = ...) -> dict[str, Any]:
+        """Bind a derivative's claimed source hash to the frozen owned request."""
+        try:
+            kwargs = {'index': index}
+            if save_to is not ...:
+                kwargs['save_to'] = save_to
+            record = validated_provenance(op.name, op.signature, metadata,
+                                          metadata.get('source_sha256'), **kwargs)
+            reference = json.loads(op.signature)[1]['media']
+            if 'media_id' in reference:
+                source = self.media_ref(owner, reference['media_id'])
+                if source.sha256 != record['source_sha256']:
+                    raise MediaError('stale_target', 'Source media changed')
+            return record
+        except MediaError:
+            raise
+        except (ValueError, TypeError, KeyError) as exc:
+            raise MediaError('invalid_argument', str(exc)) from exc
 
     def _root_matches(self) -> bool:
         if self._root_fd is None or self.root is None:
@@ -494,6 +517,7 @@ class MediaRegistry:
         for key in ('source_sha256', 'transform'):
             if key in metadata and (not isinstance(metadata[key], str) or len(metadata[key]) > 100):
                 raise MediaError('invalid_argument', 'Invalid media provenance')
+        declared_metadata = metadata.copy()
         if mime_type.startswith('image/') and mime_type != 'image/svg+xml':
             try:
                 from PIL import Image
@@ -526,9 +550,14 @@ class MediaRegistry:
                 raise MediaError('stale_target', 'Operation already ended')
             if op.batch_total is not None:
                 raise MediaError('invalid_argument', 'Batch operations require upload_part')
+            provenance = None
+            if op.name in TRANSFORMS:
+                if op.name == 'extract_frames' or mime_type != 'image/png':
+                    raise MediaError('invalid_argument', 'Single derivative needs a PNG crop or annotation')
+                provenance = self._transform_record(owner, op, declared_metadata, save_to=save_to)
             self._admit_bytes(owner.session_id, len(data) - ingress_credit)
             media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
-                          self._now() + MEDIA_IDLE_SECONDS, metadata)
+                          self._now() + MEDIA_IDLE_SECONDS, metadata, provenance=provenance)
             self.media[media.id] = media
             op.media_id = media.id
             op.upload_signature = upload_signature
@@ -540,23 +569,31 @@ class MediaRegistry:
             op.updated = self._now()
         if save_to is not None and not defer_save:
             path: str | None = None
+            sidecar: str | None = None
             try:
                 owner_cancelled = self.owner_cancelled.get(owner)
-                path = self._save(owner, media, save_to,
-                                  lambda: not op.cancelled.is_set() and owner_cancelled is not None and
-                                  not owner_cancelled.is_set(), notebook_path=op.notebook_path)
+                path, sidecar = self._save_with_provenance(
+                    owner, media, save_to,
+                    lambda: not op.cancelled.is_set() and owner_cancelled is not None and
+                    not owner_cancelled.is_set(), notebook_path=op.notebook_path)
                 with self._state_lock:
                     if op.cancelled.is_set() or owner_cancelled is None or owner_cancelled.is_set():
                         raise MediaError('cancelled', 'Media save was cancelled')
                     media.path = path
+                    if sidecar is not None:
+                        media.metadata['sidecar_path'] = sidecar
                     if op.status not in TERMINAL:
                         op.status = 'completed'
                         op.updated = self._now()
                         self._drop_recording(op)
                     self._forget_saved(path)
+                    if sidecar is not None:
+                        self._forget_saved(sidecar)
             except Exception:
                 if path is not None:
                     self._unlink_saved(path)
+                if sidecar is not None:
+                    self._unlink_saved(sidecar)
                 with self._state_lock:
                     self.media.pop(media.id, None)
                     op.media_id = None
@@ -573,6 +610,15 @@ class MediaRegistry:
         op = self.operation(owner, operation_id)
         if isinstance(total, bool) or not isinstance(total, int) or not 1 <= total <= 12:
             raise MediaError('invalid_argument', 'Batch size must be 1 through 12')
+        if op.name in TRANSFORMS and op.name != 'extract_frames':
+            raise MediaError('invalid_argument', 'Only frame extraction accepts a batch')
+        if op.name == 'extract_frames':
+            try:
+                requested = json.loads(op.signature)[1]['timestamps']
+            except (TypeError, ValueError, KeyError, IndexError) as exc:
+                raise MediaError('invalid_argument', 'Invalid frame request') from exc
+            if not isinstance(requested, list) or len(requested) != total:
+                raise MediaError('invalid_argument', 'Frame count differs from frozen request')
         if op.status in TERMINAL or op.media_id:
             raise MediaError('stale_target', 'Operation already has a result')
         if op.batch_total is not None and op.batch_total != total:
@@ -595,8 +641,16 @@ class MediaRegistry:
             raise MediaError('invalid_argument', 'Batch part has invalid MIME type')
         if metadata is None:
             metadata = {}
-        if metadata:
-            raise MediaError('invalid_argument', 'Batch metadata must be supplied at completion')
+        if not isinstance(metadata, dict) or len(json.dumps(metadata)) > 1000:
+            raise MediaError('invalid_argument', 'Invalid batch metadata')
+        if op.name == 'extract_frames':
+            if mime_type != 'image/png':
+                raise MediaError('invalid_argument', 'Decoded frames must be PNG images')
+            provenance = self._transform_record(owner, op, metadata, index=index)
+        else:
+            if metadata:
+                raise MediaError('invalid_argument', 'Batch metadata is only supported for decoded frames')
+            provenance = None
         signature = json.dumps([digest, mime_type, len(data), metadata], separators=(',', ':'))
         with self._state_lock:
             if index in op.batch_signatures:
@@ -635,10 +689,15 @@ class MediaRegistry:
                 raise MediaError('limit_exceeded', 'Batch part exceeds its bounds')
             if op.batch_pixels + width * height > MAX_BATCH_PIXELS:
                 raise MediaError('limit_exceeded', 'Batch exceeds decoded-pixel limit')
+            if op.name == 'extract_frames':
+                # Pixel verification runs outside this lock. The source may have
+                # been released while PIL inspected the encoded part.
+                provenance = self._transform_record(owner, op, metadata, index=index)
             self._admit_bytes(owner.session_id, len(data) - ingress_credit)
             media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
                           self._now() + MEDIA_IDLE_SECONDS,
-                          {'width': width, 'height': height} if width and height else {})
+                          {**metadata, **({'width': width, 'height': height} if width and height else {})},
+                          provenance=provenance)
             self.media[media.id] = media
             op.batch_media_ids.append(media.id)
             op.batch_signatures[index] = signature
@@ -649,6 +708,13 @@ class MediaRegistry:
     def finish_batch(self, owner: Owner, operation_id: str, save_to: str | None = None) -> dict[str, Any]:
         with self._state_lock:
             op = self.operation(owner, operation_id)
+            if op.name == 'extract_frames':
+                try:
+                    requested_save = json.loads(op.signature)[1]['save_to']
+                except (TypeError, ValueError, KeyError, IndexError) as exc:
+                    raise MediaError('invalid_argument', 'Invalid frame request') from exc
+                if requested_save != save_to:
+                    raise MediaError('invalid_argument', 'Frame destination differs from frozen request')
             if op.batch_finished and op.batch_save_to != save_to:
                 raise MediaError('invalid_argument', 'Batch destination changed')
             if op.batch_total is None or len(op.batch_media_ids) != op.batch_total:
@@ -673,14 +739,23 @@ class MediaRegistry:
         committed = False
         try:
             if save_to is not None:
+                batch_directory = save_to
+                if op.name == 'extract_frames' and save_to == 'auto':
+                    batch_directory = (PurePosixPath(op.notebook_path).parent / 'media' /
+                                       f'frames-{op.id[:16]}').as_posix()
                 for index, media in enumerate(batch_media):
                     extension = mimetypes.guess_extension(media.mime_type) or '.bin'
-                    destination = 'auto' if save_to == 'auto' else f'{save_to.rstrip("/")}/part-{index + 1:02d}{extension}'
-                    path = self._save(owner, media, destination,
-                                      lambda: not op.cancelled.is_set() and
-                                      owner_cancelled is not None and not owner_cancelled.is_set(),
-                                      notebook_path=op.notebook_path)
+                    destination = ('auto' if save_to == 'auto' and op.name != 'extract_frames' else
+                                   f'{batch_directory.rstrip("/")}/part-{index + 1:02d}{extension}')
+                    path, sidecar = self._save_with_provenance(
+                        owner, media, destination,
+                        lambda: not op.cancelled.is_set() and
+                        owner_cancelled is not None and not owner_cancelled.is_set(),
+                        notebook_path=op.notebook_path)
                     saved.append(path)
+                    if sidecar is not None:
+                        saved.append(sidecar)
+                        media.metadata['sidecar_path'] = sidecar
                     media.path = path
             with self._state_lock:
                 if op.cancelled.is_set() or owner_cancelled is None or owner_cancelled.is_set():
@@ -846,6 +921,35 @@ class MediaRegistry:
             os.close(directory_fd)
         return relative.as_posix()
 
+    def _save_with_provenance(self, owner: Owner, media: Media, save_to: str,
+                              still_active=lambda: True, *,
+                              notebook_path: str | None = None) -> tuple[str, str | None]:
+        """Publish a derivative last, after its exclusive anchored JSON sidecar."""
+        if media.provenance is None:
+            return self._save(owner, media, save_to, still_active,
+                              notebook_path=notebook_path), None
+        destination = self._destination(owner, save_to, media.mime_type, notebook_path)
+        relative = destination.relative_to(self.root).as_posix()
+        sidecar_path = f'{relative}.json'
+        record = {**media.provenance, 'output_sha256': media.sha256,
+                  'output_mime_type': media.mime_type, 'output_bytes': len(media.data)}
+        data = (json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=False) + '\n').encode('utf-8')
+        if len(data) > 16_384:
+            raise MediaError('limit_exceeded', 'Transformation sidecar exceeds its bound')
+        sidecar = Media('', owner, data, 'application/json', hashlib.sha256(data).hexdigest(),
+                        self._now() + MEDIA_IDLE_SECONDS)
+        saved_sidecar: str | None = None
+        try:
+            saved_sidecar = self._save(owner, sidecar, sidecar_path, still_active,
+                                       notebook_path=notebook_path)
+            saved_media = self._save(owner, media, relative, still_active,
+                                     notebook_path=notebook_path)
+            return saved_media, saved_sidecar
+        except Exception:
+            if saved_sidecar is not None:
+                self._unlink_saved(saved_sidecar)
+            raise
+
     @_locked
     def media_ref(self, owner: Owner, media_id: str, *, consume: bool = False) -> Media:
         self.require(owner)
@@ -959,6 +1063,7 @@ class MediaRegistry:
             return flight.result
         reserved = 0
         path: str | None = None
+        sidecar: str | None = None
         try:
             new_media = 'path' in reference
             if new_media:
@@ -976,7 +1081,8 @@ class MediaRegistry:
                               (operation is None or (operation.status == 'saving' and
                                                      not operation.cancelled.is_set())) and
                               (new_media or self.media.get(media.id) is media))
-            path = self._save(owner, media, save_to, active, notebook_path=request_path)
+            path, sidecar = self._save_with_provenance(owner, media, save_to, active,
+                                                      notebook_path=request_path)
             with self._state_lock:
                 if not active():
                     raise MediaError('cancelled', 'Media save lost its owner or source')
@@ -985,6 +1091,8 @@ class MediaRegistry:
                     reserved = 0
                     media.path = path
                     self.media[media.id] = media
+                if sidecar is not None:
+                    media.metadata['sidecar_path'] = sidecar
                 descriptor = {**media.descriptor(), 'path': path}
                 if operation is not None:
                     operation.saved_descriptor = descriptor
@@ -993,10 +1101,14 @@ class MediaRegistry:
                 self.save_requests[key] = (signature, save_to, descriptor, self._now())
                 flight.result = descriptor
                 self._forget_saved(path)
+                if sidecar is not None:
+                    self._forget_saved(sidecar)
             return descriptor
         except Exception as exc:
             if path is not None:
                 self._unlink_saved(path)
+            if sidecar is not None:
+                self._unlink_saved(sidecar)
             with self._state_lock:
                 if operation is not None and operation.status not in TERMINAL:
                     operation.status = 'failed'

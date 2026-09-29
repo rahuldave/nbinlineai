@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import math
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -175,6 +176,81 @@ def normalize_action(
                 _text(media.get('sha256'), 'sha256', 64)
             _text(arguments.get('save_to', 'auto'), 'save_to', 500)
         return arguments
+    playback_fields = {
+        'choose_file': ({'accept', 'multiple', 'save_to'}, set()),
+        'open_media': ({'media'}, {'media'}),
+        'play_media': ({'preview_id'}, {'preview_id'}),
+        'pause_media': ({'preview_id'}, {'preview_id'}),
+        'seek_media': ({'preview_id', 'seconds'}, {'preview_id', 'seconds'}),
+        'set_media_volume': ({'preview_id', 'level'}, {'preview_id', 'level'}),
+        'close_media': ({'preview_id'}, {'preview_id'}),
+        'copy_text': ({'text'}, {'text'}),
+        'paste_content': ({'accept', 'save_to'}, set()),
+    }
+    if name in playback_fields:
+        allowed, required = playback_fields[name]
+        if set(arguments) - allowed or required - set(arguments):
+            raise ValueError(f'Unexpected or missing {name} argument')
+        if name == 'choose_file':
+            _text(arguments.get('accept', ''), 'accept', 200, allow_empty=True)
+            if not isinstance(arguments.get('multiple', False), bool):
+                raise ValueError('multiple must be a boolean')
+        if name in {'choose_file', 'paste_content'}:
+            save_to = arguments.get('save_to')
+            if save_to is not None:
+                _text(save_to, 'save_to', 500)
+        if name == 'paste_content' and arguments.get('accept', 'text,image') not in {
+                'text', 'image', 'text,image', 'image,text'}:
+            raise ValueError('accept must be text, image, or text,image')
+        if name == 'open_media':
+            media = arguments['media']
+            if not isinstance(media, dict):
+                raise ValueError('media must be an exact reference')
+            if isinstance(media.get('media_id'), str):
+                _text(media['media_id'], 'media_id', 100)
+                arguments = {**arguments, 'media': {'media_id': media['media_id']}}
+            elif 'path' in media and 'sha256' in media:
+                _text(media['path'], 'path', 500)
+                _text(media['sha256'], 'sha256', 64)
+                if any(ch not in '0123456789abcdef' for ch in media['sha256']) or len(media['sha256']) != 64:
+                    raise ValueError('sha256 must be a lowercase SHA-256 digest')
+                arguments = {**arguments, 'media': {'path': media['path'], 'sha256': media['sha256']}}
+            else:
+                raise ValueError('media must contain media_id or exact path and sha256')
+        if name in {'play_media', 'pause_media', 'seek_media', 'set_media_volume', 'close_media'}:
+            _text(arguments['preview_id'], 'preview_id', 100)
+        for key, low, high in (('seconds', 0, 300), ('level', 0, 1)):
+            if key in arguments:
+                value = arguments[key]
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not low <= value <= high:
+                    raise ValueError(f'{key} must be finite and from {low} through {high}')
+        if name == 'copy_text':
+            _text(arguments['text'], 'text', 8_000, allow_empty=True)
+        return {
+            **({'accept': '', 'multiple': False, 'save_to': None} if name == 'choose_file' else {}),
+            **({'accept': 'text,image', 'save_to': None} if name == 'paste_content' else {}),
+            **arguments,
+        }
+    if name in {'extract_frames', 'crop_image', 'annotate_image'}:
+        from .browser_playback_tools import _media_ref, _save_to
+        from .browser_transform_tools import _annotations, _bounded_number, _coordinate
+        required = {'media', 'timestamps'} if name == 'extract_frames' else (
+            {'media', 'x', 'y', 'width', 'height'} if name == 'crop_image' else {'media', 'annotations'})
+        if required - set(arguments) or set(arguments) - (required | {'save_to'}):
+            raise ValueError(f'Unexpected or missing {name} argument')
+        normalized = {'media': _media_ref(arguments['media'])}
+        if name == 'extract_frames':
+            times = arguments['timestamps']
+            if not isinstance(times, list) or not 1 <= len(times) <= 12:
+                raise ValueError('timestamps must contain 1 through 12 seconds values')
+            normalized['timestamps'] = [_bounded_number(value, 'timestamp', 0, 300) for value in times]
+        elif name == 'crop_image':
+            for key in ('x', 'y', 'width', 'height'):
+                normalized[key] = _coordinate(arguments[key], key, positive=key in {'width', 'height'})
+        else:
+            normalized['annotations'] = _annotations(arguments['annotations'])
+        normalized['save_to'] = _save_to(arguments.get('save_to'))
+        return normalized
     if name == "list_cells":
         if set(arguments) - {"start", "limit"}:
             raise ValueError("Unexpected list_cells argument")

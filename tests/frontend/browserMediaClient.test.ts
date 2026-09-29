@@ -145,3 +145,30 @@ test('stopped screen source remains identifiable for idempotent default Stop', a
     await context.dispose();
   } finally { restore(); }
 });
+
+test('exact memory and saved-file fetches pass cancellation to HTTP transport', async () => {
+  const { panel, kernel } = panelFixture();
+  const observed: Array<{ command: string; signal: AbortSignal | null | undefined }> = [];
+  const restore = browserGlobals(async (input, init) => {
+    const command = String(input).split('/').pop() ?? '';
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'close') return response({ closed: true });
+    observed.push({ command, signal: init?.signal });
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')), { once: true });
+    });
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    for (const reference of [{ media_id: 'owned' }, { path: 'clip.png', sha256: 'a'.repeat(64) }]) {
+      const controller = new AbortController();
+      const pending = context.fetchReference(reference, controller.signal);
+      await new Promise(resolve => setTimeout(resolve, 0));
+      controller.abort();
+      await assert.rejects(pending, { name: 'AbortError' });
+    }
+    assert.deepEqual(observed.map(item => item.command), ['owned', 'browser-media-file']);
+    assert.ok(observed.every(item => item.signal?.aborted));
+    await context.dispose();
+  } finally { restore(); }
+});

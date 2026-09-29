@@ -31,6 +31,8 @@ EXAMPLES = [
     "browser-media-foundation.ipynb",
     "browser-media-outputs.ipynb",
     "browser-media-capture.ipynb",
+    "browser-media-playback.ipynb",
+    "browser-media-transforms.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -78,6 +80,30 @@ HEADLESS_UI_CELLS = {
     ("browser-media-outputs.ipynb", "region-inspect"): "region.status",
     ("browser-media-outputs.ipynb", "outputs-cleanup"): "canvas_saved.media",
     ("browser-media-outputs.ipynb", "source-stop-inspect"): "stopped_source.status",
+    ("browser-media-playback.ipynb", "playback-choose-call"): "choose_file(",
+    ("browser-media-playback.ipynb", "playback-choose-inspect"): "selected.status",
+    ("browser-media-playback.ipynb", "playback-open-call"): "open_media(",
+    ("browser-media-playback.ipynb", "playback-open-inspect"): "opened.status",
+    ("browser-media-playback.ipynb", "playback-play-call"): "play_media(",
+    ("browser-media-playback.ipynb", "playback-play-inspect"): "playing.status",
+    ("browser-media-playback.ipynb", "playback-pause-call"): "pause_media(",
+    ("browser-media-playback.ipynb", "playback-pause-inspect"): "paused.status",
+    ("browser-media-playback.ipynb", "playback-seek-call"): "seek_media(",
+    ("browser-media-playback.ipynb", "playback-seek-inspect"): "seeked.status",
+    ("browser-media-playback.ipynb", "playback-volume-call"): "set_media_volume(",
+    ("browser-media-playback.ipynb", "playback-volume-inspect"): "volume.status",
+    ("browser-media-playback.ipynb", "playback-close-call"): "close_media(",
+    ("browser-media-playback.ipynb", "playback-close-inspect"): "closed.status",
+    ("browser-media-playback.ipynb", "playback-copy-call"): "copy_text(",
+    ("browser-media-playback.ipynb", "playback-copy-inspect"): "copied.status",
+    ("browser-media-playback.ipynb", "playback-paste-call"): "paste_content(",
+    ("browser-media-playback.ipynb", "playback-paste-inspect"): "pasted.status",
+    ("browser-media-transforms.ipynb", "transform-frames-call"): "extract_frames(",
+    ("browser-media-transforms.ipynb", "transform-frames-inspect"): "frames.status",
+    ("browser-media-transforms.ipynb", "transform-crop-call"): "crop_image(",
+    ("browser-media-transforms.ipynb", "transform-crop-inspect"): "crop.status",
+    ("browser-media-transforms.ipynb", "transform-annotate-call"): "annotate_image(",
+    ("browser-media-transforms.ipynb", "transform-annotate-inspect"): "annotated.status",
 }
 CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",
@@ -180,7 +206,9 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
             await kernel.shutdown_kernel(now=True)
 
     with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
-        kernel_cwd = Path(scratch) if relative_path == "browser-media-foundation.ipynb" else ROOT
+        kernel_cwd = Path(scratch) if relative_path in {
+            "browser-media-foundation.ipynb", "browser-media-playback.ipynb",
+            "browser-media-transforms.ipynb"} else ROOT
         outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
@@ -231,6 +259,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         text = "\n".join(outputs)
         assert "sha256" in text
         assert "browser-media-source-" in text
+    if relative_path == "browser-media-transforms.ipynb":
+        text = "\n".join(outputs)
+        assert "Disposable transform files removed" in text
+        assert "Disposable exact PNG and 16×16 two-color VP9 clip" in text
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
         assert "meadow: 5.50 visits per ten flowers" in "\n".join(outputs)
         assert "courtyard: 2.29 visits per ten flowers" in "\n".join(outputs)
