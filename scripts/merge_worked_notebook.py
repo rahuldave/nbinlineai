@@ -38,13 +38,13 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> str | None:
-    """Return the requested anchor for a cell with an observed ID and content.
+def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> tuple[str, int] | None:
+    """Return the requested anchor and call order for an observed inserted cell.
 
     An empty string means the tool used its default position after the answer.
     """
     observed = trace["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"]
-    for tool, argument_text, result_text in _INSERT_ROW.findall(_source(trace)):
+    for row_index, (tool, argument_text, result_text) in enumerate(_INSERT_ROW.findall(_source(trace))):
         result_text = result_text.replace(r"\|", "|").replace("<br>", "\n")
         try:
             result = json.loads(result_text)
@@ -77,7 +77,7 @@ def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> st
         # inserted cell ID but not the fetched body, so only attribution is checkable here.
         if tool == "url_to_note" and not _source(cell).startswith("Source: http"):
             continue
-        return anchor
+        return anchor, row_index
     return None
 
 
@@ -155,6 +155,7 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
     positions = {cell["id"]: index for index, cell in enumerate(ai["cells"])}
     inserted_ids: set[str] = set()
     insertion_tails: dict[tuple[str, str], str] = {}
+    insertion_row_order: dict[tuple[str, str], int] = {}
     for cell in ai["cells"]:
         if (cell["id"] in original or cell in linked_answers.values()
                 or cell in traces.values()):
@@ -166,15 +167,17 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
                 or (cell["cell_type"] == "code"
                     and (cell.get("outputs") or cell.get("execution_count") is not None))):
             raise ValueError("Unexpected or executed AI-inserted cell")
-        matches = [(question_id, anchor) for question_id, trace in traces.items()
-                   if (anchor := _observed_insertion(trace, cell, expected_tools)) is not None]
+        matches = [(question_id, match) for question_id, trace in traces.items()
+                   if (match := _observed_insertion(trace, cell, expected_tools)) is not None]
         if len(matches) != 1:
             raise ValueError("Unexpected or executed AI-inserted cell")
-        question_id, requested_anchor = matches[0]
+        question_id, (requested_anchor, row_index) = matches[0]
         anchor_id = requested_anchor or linked_answers[question_id]["id"]
         if anchor_id not in positions or anchor_id == cell["id"]:
             raise ValueError("AI-inserted cell has a missing requested anchor")
         tail_key = (question_id, anchor_id)
+        if row_index <= insertion_row_order.get(tail_key, -1):
+            raise ValueError("AI-inserted cells do not match observed call order")
         prior_id = insertion_tails.get(tail_key, anchor_id)
         between = ai["cells"][positions[prior_id] + 1:positions[cell["id"]]]
         if (positions[prior_id] >= positions[cell["id"]]
@@ -183,6 +186,7 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
             raise ValueError("AI-inserted cell is not at its requested anchor")
         inserted_ids.add(cell["id"])
         insertion_tails[tail_key] = cell["id"]
+        insertion_row_order[tail_key] = row_index
 
     merged = []
     for cell in ai["cells"]:

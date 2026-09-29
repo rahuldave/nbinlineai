@@ -181,6 +181,11 @@ def test_two_verified_insertions_keep_the_frontend_anchor_tail(tmp_path, explici
              else [setup, question, answer, trace, first, second])
     _write(ai, cells)
     assert [cell["id"] for cell in merge(source, direct, ai)["cells"]] == [cell["id"] for cell in cells]
+    swapped = ([setup, second, first, question, answer, trace] if explicit_anchor
+               else [setup, question, answer, trace, second, first])
+    _write(ai, swapped)
+    with pytest.raises(ValueError, match="observed call order"):
+        merge(source, direct, ai)
     unrelated = {"id": "unrelated", "cell_type": "markdown", "source": ["Unrelated"], "metadata": {}}
     misplaced = ([setup, first, unrelated, second, question, answer, trace] if explicit_anchor
                  else [setup, question, answer, trace, first, unrelated, second])
