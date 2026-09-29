@@ -7,8 +7,8 @@ Copy this `examples/` directory into a JupyterLab project, keeping `data/` besid
 The `tool-catalog-*.ipynb` and `browser-media-*.ipynb` notebooks are
 source examples added after the published 0.1.15 package. They are available
 in this repository; the unchanged PyPI 0.1.15 archive does not include them.
-The catalog notebooks demonstrate existing tools; the browser-media notebook
-demonstrates new source-only functions. Neither marks a new package release.
+The catalog notebooks demonstrate existing tools; the browser-media notebooks
+demonstrate new source-only functions. Neither marks a new package release.
 
 | Notebook | What to try |
 | --- | --- |
@@ -28,6 +28,8 @@ demonstrates new source-only functions. Neither marks a new package release.
 | `browser-media-foundation.ipynb` | Source-only browser/media receipts: capability check, exact-file save, status, cancellation, release, and cleanup in a disposable JupyterLab project. Not in PyPI 0.1.15. |
 | `browser-media-capture.ipynb` | Source-only camera, microphone, recording, and display calls with later receipt inspections; device and display permission are user-controlled. Not in PyPI 0.1.15. |
 | `browser-media-outputs.ipynb` | Source-only reads of live output references, text, raster/vector exports, canvas and visible-region captures from disposable stock outputs. Not in PyPI 0.1.15. |
+| `browser-media-playback.ipynb` | Source-only import, exact PNG/WAV preview, playback controls, explicit copy/paste, later receipt checks, and disposable cleanup. Not in PyPI 0.1.15. |
+| `browser-media-transforms.ipynb` | Source-only actual frame extraction, saved PNG crop with provenance, opaque redaction, later receipt checks, and disposable cleanup. Not in PyPI 0.1.15. |
 | `live-notebook-tools.ipynb` | Inspect live cells including unsaved edits and insert an editable Markdown note into the open notebook. |
 | `python-and-web-tools.ipynb` | Inspect Python help/signatures/source, offer a custom alias, read a public documentation page, and add it as a note. |
 | `jupyter-ai-and-nbinlineai.ipynb` | Analyze a small pollinator survey with standard-library Python; optionally use Jupyter AI chat for planning/refactoring and nbinlineai Learning questions for in-notebook explanation and an unexecuted code draft. |

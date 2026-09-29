@@ -1045,5 +1045,185 @@
     "receipt_inspect_cell": "region-inspect",
     "receipt_variable": "region",
     "expected_behavior": "Capture supported visible output surfaces from the originating notebook."
+  },
+  "choose_file": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "choose_file",
+    "cell_id": "playback-choose-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook; Firefox import/chooser cancellation/oversize and PNG preview browser cases passed.",
+    "receipt_inspect_cell": "playback-choose-inspect",
+    "receipt_variable": "selected",
+    "expected_behavior": "Import a selected disposable PNG into managed memory without an implicit save."
+  },
+  "open_media": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "open_media",
+    "cell_id": "playback-open-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed with actual WAV decode; Firefox pinned headless WAV did not reach playable data, while its separate PNG preview case passed.",
+    "receipt_inspect_cell": "playback-open-inspect",
+    "receipt_variable": "opened",
+    "expected_behavior": "Decode the exact generated WAV file reference into an owned preview."
+  },
+  "play_media": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "play_media",
+    "cell_id": "playback-play-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
+    "receipt_inspect_cell": "playback-play-inspect",
+    "receipt_variable": "playing",
+    "expected_behavior": "Play the owned WAV preview after clicking Play if required."
+  },
+  "pause_media": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "pause_media",
+    "cell_id": "playback-pause-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
+    "receipt_inspect_cell": "playback-pause-inspect",
+    "receipt_variable": "paused",
+    "expected_behavior": "Pause the already playing WAV preview."
+  },
+  "seek_media": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "seek_media",
+    "cell_id": "playback-seek-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
+    "receipt_inspect_cell": "playback-seek-inspect",
+    "receipt_variable": "seeked",
+    "expected_behavior": "Seek the two-second WAV preview to 0.5 seconds."
+  },
+  "set_media_volume": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "set_media_volume",
+    "cell_id": "playback-volume-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
+    "receipt_inspect_cell": "playback-volume-inspect",
+    "receipt_variable": "volume",
+    "expected_behavior": "Set the generated WAV preview volume to 0.25 when permitted."
+  },
+  "close_media": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "close_media",
+    "cell_id": "playback-close-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox separate PNG preview close case passed.",
+    "receipt_inspect_cell": "playback-close-inspect",
+    "receipt_variable": "closed",
+    "expected_behavior": "Close the WAV preview while confirming its exact source file remains."
+  },
+  "copy_text": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "copy_text",
+    "cell_id": "playback-copy-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium, WebKit and Firefox public notebook clipboard cells passed in isolated JupyterLab.",
+    "receipt_inspect_cell": "playback-copy-inspect",
+    "receipt_variable": "copied",
+    "expected_behavior": "Explicitly copy a short disposable phrase through the visible control."
+  },
+  "paste_content": {
+    "notebook": "browser-media-playback.ipynb",
+    "section": "paste_content",
+    "cell_id": "playback-paste-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "verification": {
+      "unit": "tests/test_browser_playback_tools.py",
+      "browser": "tests/e2e/browser-media-playback.spec.ts"
+    },
+    "checkpoint_evidence": "Chromium, WebKit and Firefox public notebook clipboard cells passed in isolated JupyterLab.",
+    "receipt_inspect_cell": "playback-paste-inspect",
+    "receipt_variable": "pasted",
+    "expected_behavior": "Explicitly paste the copied short phrase into the visible target."
+  },
+  "extract_frames": {
+    "notebook": "browser-media-transforms.ipynb",
+    "section": "extract_frames",
+    "cell_id": "transform-frames-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "verification": {
+      "unit": "tests/test_browser_transform_tools.py",
+      "browser": "tests/e2e/browser-media-transforms.spec.ts"
+    },
+    "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
+    "receipt_inspect_cell": "transform-frames-inspect",
+    "receipt_variable": "frames",
+    "expected_behavior": "Decode two exact requested positions from the disposable two-color VP9 clip, return actual frame timestamps and PIL images."
+  },
+  "crop_image": {
+    "notebook": "browser-media-transforms.ipynb",
+    "section": "crop_image",
+    "cell_id": "transform-crop-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "verification": {
+      "unit": "tests/test_browser_transform_tools.py",
+      "browser": "tests/e2e/browser-media-transforms.spec.ts"
+    },
+    "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
+    "receipt_inspect_cell": "transform-crop-inspect",
+    "receipt_variable": "crop",
+    "expected_behavior": "Save a new bounded PNG crop and provenance sidecar while preserving the source."
+  },
+  "annotate_image": {
+    "notebook": "browser-media-transforms.ipynb",
+    "section": "annotate_image",
+    "cell_id": "transform-annotate-call",
+    "execution": "receipt-frontend",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "verification": {
+      "unit": "tests/test_browser_transform_tools.py",
+      "browser": "tests/e2e/browser-media-transforms.spec.ts"
+    },
+    "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
+    "receipt_inspect_cell": "transform-annotate-inspect",
+    "receipt_variable": "annotated",
+    "expected_behavior": "Paint an opaque redaction on a new PNG without changing the source."
   }
 }
