@@ -134,8 +134,9 @@ def _later_effect(
 def validate_examples(
     examples_dir: Path, *, require_executed: bool = False,
     public_tools: set[str] | None = None,
+    only_notebook: str | None = None,
 ) -> list[str]:
-    """Return actionable errors; derive tool count from the live registry."""
+    """Check every mapping; optionally scope saved execution checks to one notebook."""
     coverage = json.loads((examples_dir / "tool-coverage.json").read_text(encoding="utf-8"))
     public = set(TOOL_FUNCTIONS) if public_tools is None else public_tools
     errors: list[str] = []
@@ -145,6 +146,16 @@ def validate_examples(
             f"coverage names differ: missing={sorted(expected - set(coverage))}, "
             f"unexpected={sorted(set(coverage) - expected)}"
         )
+    if only_notebook is not None:
+        if Path(only_notebook).name != only_notebook or not only_notebook.endswith(".ipynb"):
+            return [f"unsafe notebook name: {only_notebook!r}"]
+        mapped = {
+            example["notebook"] for entry in coverage.values()
+            for example in (entry.get("normal_example"), entry.get("ai_example"))
+            if isinstance(example, dict) and isinstance(example.get("notebook"), str)
+        }
+        if only_notebook not in mapped:
+            return [f"no tool demonstrations mapped to {only_notebook!r}"]
     cache: dict[str, list[dict[str, Any]]] = {}
 
     def cells_for(filename: str) -> list[dict[str, Any]]:
@@ -158,6 +169,11 @@ def validate_examples(
             normal = entry["normal_example"]
             if not isinstance(normal, dict):
                 raise TypeError("missing normal_example")
+            check_executed = require_executed and (
+                only_notebook is None or normal.get("notebook") == only_notebook
+                or (isinstance(entry.get("ai_example"), dict)
+                    and entry["ai_example"].get("notebook") == only_notebook)
+            )
             normal_cells = cells_for(normal["notebook"])
             normal_index, normal_cell = _cell(normal_cells, normal["cell_id"])
             mode = normal["mode"]
@@ -189,7 +205,7 @@ def validate_examples(
                 if name not in _source(question) or not _offered_before(ai_cells, question_index, name):
                     raise ValueError("AI question does not name and offer the tool")
 
-                if require_executed:
+                if check_executed:
                     _answer(ai_cells, ai["cell_id"])
                     calls = [call for call in _observed(ai_cells, ai["cell_id"])
                              if call.get("name") == name]
@@ -208,7 +224,7 @@ def validate_examples(
                     ):
                         raise ValueError("no completed result or linked later operation effect")
 
-            if require_executed and mode == "python":
+            if check_executed and mode == "python":
                 if normal_cell.get("execution_count") is None:
                     raise ValueError("normal Python call was not executed")
                 if any(output.get("output_type") == "error" for output in normal_cell.get("outputs", [])):
@@ -251,8 +267,11 @@ def main() -> int:
     parser.add_argument("--examples-dir", type=Path,
                         default=Path(__file__).resolve().parents[1] / "examples")
     parser.add_argument("--require-executed", action="store_true")
+    parser.add_argument("--only-notebook", metavar="NAME.ipynb",
+                        help="Scope saved execution checks, while checking all source mappings")
     args = parser.parse_args()
-    errors = validate_examples(args.examples_dir, require_executed=args.require_executed)
+    errors = validate_examples(args.examples_dir, require_executed=args.require_executed,
+                               only_notebook=args.only_notebook)
     if errors:
         for error in errors:
             print(error)

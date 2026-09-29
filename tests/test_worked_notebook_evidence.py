@@ -182,3 +182,43 @@ def test_manual_comparison_is_structural_not_fake_python_execution(tmp_path: Pat
         "JupyterLab editor to perform the same example_tool action on a disposable copy."))
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
     assert _check(path) == []
+
+
+def test_scoped_execution_still_checks_all_source_mappings(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    rows = json.loads((path / "tool-coverage.json").read_text(encoding="utf-8"))
+    rows["insert_tools"]["normal_example"]["notebook"] = "other.ipynb"
+    (path / "tool-coverage.json").write_text(json.dumps(rows), encoding="utf-8")
+    (path / "other.ipynb").write_text(json.dumps({"cells": [
+        _code("insert_tools", "print(insert_tools())", executed=False),
+    ]}), encoding="utf-8")
+
+    assert validate_examples(path, require_executed=True,
+                             public_tools={"example_tool"},
+                             only_notebook="example.ipynb") == []
+    assert "normal Python call was not executed" in "\n".join(
+        validate_examples(path, require_executed=True,
+                          public_tools={"example_tool"})
+    )
+    assert "normal Python call was not executed" in "\n".join(
+        validate_examples(path, require_executed=True,
+                          public_tools={"example_tool"},
+                          only_notebook="other.ipynb")
+    )
+
+    (path / "other.ipynb").write_text(json.dumps({"cells": [
+        _code("wrong-cell", "print(insert_tools())", executed=False),
+    ]}), encoding="utf-8")
+    assert "insert_tools: expected exactly one cell" in "\n".join(
+        validate_examples(path, require_executed=True,
+                          public_tools={"example_tool"},
+                          only_notebook="example.ipynb")
+    )
+
+
+def test_scoped_execution_rejects_unknown_or_unsafe_notebook(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    for notebook in ("missing.ipynb", "../example.ipynb"):
+        assert validate_examples(path, require_executed=True,
+                                 public_tools={"example_tool"},
+                                 only_notebook=notebook)
