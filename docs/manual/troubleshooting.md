@@ -27,7 +27,7 @@ title: Troubleshooting and limits
 | Model unavailable / key rejected / quota reached | Check the selected connection and model. For ChatGPT, reconnect if needed or wait for the displayed reset time; your selection is preserved. For API mode, check the key and that account's access or quota. |
 | A media receipt says `running` after its Python cell ended | This is the expected initial acknowledgement. Complete any visible permission or chooser step, then run the later inspection cell again. The original receipt changes as the browser finishes. |
 | An AI media answer has no image or source ID yet | The tool reply is an initial snapshot. Ask `operation_status` for its exact operation ID in a later question; wait for a completed result before using dependent IDs. Status lookup itself does not wait. |
-| A media save has no file, or reports `unsupported` | Check `browser_capabilities().result` for `file_media_supported`. An in-memory capture can still work on a server whose contents backend cannot safely save files. A file save also requires an unused server-root-relative destination. |
+| A media save has no file, or reports `unsupported` | Run `capabilities = browser_capabilities()` in one code cell. After its receipt completes, inspect `capabilities.result["file_media_supported"]` in a later cell. An in-memory capture can still work when this server cannot safely save files. A file save also requires an unused server-root-relative destination. |
 | A camera, microphone, or display action waits for permission | Use the visible browser control and chooser, on a supported secure origin when required. A passive capabilities check does not request device permission. Stop the source when finished. |
 
 Current size limits are deliberately bounded:
