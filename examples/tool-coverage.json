@@ -1259,7 +1259,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-camera-workflow"
+      "cell_id": "capture-ai-camera-still"
     }
   },
   "stop_source": {
@@ -1283,7 +1283,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-camera-workflow"
+      "cell_id": "capture-ai-camera-stop"
     }
   },
   "start_recording": {
@@ -1307,7 +1307,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-recording-workflow"
+      "cell_id": "capture-ai-recording-start"
     }
   },
   "pause_recording": {
@@ -1331,7 +1331,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-recording-workflow"
+      "cell_id": "capture-ai-recording-pause"
     }
   },
   "resume_recording": {
@@ -1355,7 +1355,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-recording-workflow"
+      "cell_id": "capture-ai-recording-resume"
     }
   },
   "stop_recording": {
@@ -1379,7 +1379,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-recording-workflow"
+      "cell_id": "capture-ai-recording-stop"
     }
   },
   "record_camera": {
@@ -1451,7 +1451,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-microphone-workflow"
+      "cell_id": "capture-ai-microphone-levels"
     }
   },
   "setup_share": {
@@ -1499,7 +1499,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-share-workflow"
+      "cell_id": "capture-ai-share-start"
     }
   },
   "capture_screen": {
@@ -1523,7 +1523,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-share-workflow"
+      "cell_id": "capture-ai-screen-still"
     }
   },
   "capture_tool": {
@@ -1547,7 +1547,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-share-workflow"
+      "cell_id": "capture-ai-tool-still"
     }
   },
   "stop_share": {
@@ -1571,7 +1571,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-share-workflow"
+      "cell_id": "capture-ai-share-stop"
     }
   },
   "read_notebook_view": {
@@ -1619,7 +1619,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-outputs.ipynb",
-      "cell_id": "outputs-ai-view-selection"
+      "cell_id": "outputs-ai-selection"
     }
   },
   "list_outputs": {
@@ -1667,7 +1667,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-outputs.ipynb",
-      "cell_id": "outputs-ai-list-read"
+      "cell_id": "outputs-ai-read"
     }
   },
   "export_output": {
@@ -1739,7 +1739,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-outputs.ipynb",
-      "cell_id": "outputs-ai-canvas-list-capture"
+      "cell_id": "outputs-ai-canvas-capture"
     }
   },
   "export_canvas": {
@@ -1979,7 +1979,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-playback.ipynb",
-      "cell_id": "playback-close-ai-question"
+      "cell_id": "playback-close-ai-close"
     }
   },
   "copy_text": {
