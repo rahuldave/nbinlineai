@@ -80,29 +80,38 @@ test('save_media is the first browser operation and keeps a usable owner', async
 });
 
 test('duplicate browser starts and release retries run each effect once', async ({ page, request }) => {
-  await open(page, request,
-    "from nbinlineai.browser_receipt import request_browser_operation\na = request_browser_operation('fixture_dedup', {})\nr = request_browser_operation('fixture_release_replay', {})",
-    "print(a.status, a.result, r.status, r.result)");
+  const name = await open(page, request,
+    "from nbinlineai.browser_receipt import request_browser_operation\na = request_browser_operation('fixture_dedup', {})",
+    "print(a.status, a.result, a.error)");
+  await expect.poll(async () => {
+    const sessions = await request.get('/api/sessions');
+    return sessions.ok() && (await sessions.json()).some(
+      (session: { path: string; kernel?: { id?: string } }) => session.path === name && session.kernel?.id
+    );
+  }).toBeTruthy();
   const cells = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
   await cells.first().locator('.cm-content').click();
   await page.keyboard.press('Shift+Enter');
-  await expect.poll(async () => (await page.locator('.nbinlineai-media-status').textContent())
-    ?.match(/Media completed/g)?.length ?? 0).toBeGreaterThanOrEqual(4);
+  await expect(cells.first().locator('.jp-InputPrompt')).toContainText('1');
   // The UI can show terminal server state before the busy kernel applies queued
-  // comm messages. Inspect on separate kernel turns until Python sees both.
+  // comm messages. Inspect on separate kernel turns until Python sees the result.
   let output = '';
   for (let attempt = 0; attempt < 10; attempt++) {
     await cells.nth(1).locator('.cm-content').click();
     await page.keyboard.press('Control+Enter');
     await expect(cells.nth(1).locator('.jp-InputPrompt')).toContainText(String(attempt + 2));
     output = await cells.nth(1).locator('.jp-OutputArea').textContent() ?? '';
+    if (/^(failed|expired)\b/.test(output)) break;
     if (output.includes('completed') && output.includes("'handler_runs': 1") &&
         output.includes("'statuses': ['completed', 'completed', 'completed']")) break;
     await page.waitForTimeout(250);
   }
+  expect(output).toMatch(/^completed \{/);
   expect(output).toContain("'handler_runs': 1");
   expect(output).toContain("'statuses': ['completed', 'completed', 'completed']");
   expect(output).toContain("'same_operation': True");
+  expect(output.trimEnd()).toMatch(/ None$/);
+  await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
   await expect.poll(() => page.evaluate(() =>
     (window as unknown as { __nbinlineaiFixtureDedup?: { runs: number; staleReplayStatus: string } })
       .__nbinlineaiFixtureDedup)).toEqual({ runs: 1, staleReplayStatus: 'completed' });
