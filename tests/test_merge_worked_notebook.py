@@ -155,6 +155,57 @@ def test_trace_free_done_answer_requires_no_offered_tools(tmp_path):
         merge(source, direct, ai)
 
 
+def test_inherited_tool_offer_needs_recorded_zero_step_response(tmp_path):
+    source = tmp_path / "browser-media-attachment.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    declaration = {"id": "declared", "cell_type": "markdown",
+                   "source": ["&`attach_media`"], "metadata": {}}
+    question = {"id": "attachment-question", "cell_type": "markdown",
+                "source": ["What color is my attached disposable image?"],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["The square is blue."],
+              "metadata": {"nbinlineai": {"isOutputCell": True,
+                                         "promptCellId": "attachment-question", "status": "done"}}}
+    proof = {"questionCellId": "attachment-question", "source": "owned_subscription_sse",
+             "toolSteps": 0, "toolEvents": 0}
+    _write(source, [declaration, question])
+    _write(direct, [declaration, question])
+    _write(ai, [declaration, question, answer])
+    with pytest.raises(ValueError, match="enabled notebook tools"):
+        merge(source, direct, ai)
+
+    attested = {**answer, "metadata": {**answer["metadata"], "nbinlineaiWorkedNoToolPlan": proof}}
+    _write(ai, [declaration, question, attested])
+    merged = merge(source, direct, ai)
+    assert [cell["id"] for cell in merged["cells"]] == ["declared", "attachment-question", "answer"]
+    assert merged["cells"][-1]["metadata"]["nbinlineaiWorkedNoToolPlan"] == proof
+
+    for bad in (
+        {**proof, "questionCellId": "another-question"},
+        {**proof, "source": "claimed_without_sse"},
+        {**proof, "toolSteps": 1},
+        {**proof, "toolEvents": 1},
+        {**proof, "toolSteps": False},
+        {**proof, "extra": "unbounded"},
+    ):
+        _write(ai, [declaration, question, {**attested, "metadata": {
+            **attested["metadata"], "nbinlineaiWorkedNoToolPlan": bad}}])
+        with pytest.raises(ValueError, match="invalid no-tool evidence"):
+            merge(source, direct, ai)
+
+    failed = {**attested, "metadata": {**attested["metadata"], "nbinlineai": {
+        "isOutputCell": True, "promptCellId": "attachment-question", "status": "failed"}}}
+    _write(ai, [declaration, question, failed])
+    with pytest.raises(ValueError, match="did not finish"):
+        merge(source, direct, ai)
+    after = {"id": "after", "cell_type": "markdown", "source": ["Unrelated text."], "metadata": {}}
+    _write(source, [declaration, question, after]); _write(direct, [declaration, question, after])
+    _write(ai, [declaration, question, after, attested])
+    with pytest.raises(ValueError, match="not adjacent"):
+        merge(source, direct, ai)
+
+
 def test_url_to_note_preserves_requested_early_position(tmp_path):
     source = tmp_path / "python-and-web-tools.ipynb"
     direct = tmp_path / "direct.ipynb"

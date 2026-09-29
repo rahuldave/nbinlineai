@@ -52,6 +52,17 @@ def _offered_any_tool(cells: list[dict], question_index: int) -> bool:
     return False
 
 
+def _recorded_no_tool_plan(answer: dict, question_id: str) -> bool:
+    """Accept only the runner's bounded summary of a completed zero-step SSE round."""
+    evidence = answer.get("metadata", {}).get("nbinlineaiWorkedNoToolPlan")
+    return (isinstance(evidence, dict)
+            and set(evidence) == {"questionCellId", "source", "toolSteps", "toolEvents"}
+            and evidence.get("questionCellId") == question_id
+            and evidence.get("source") == "owned_subscription_sse"
+            and type(evidence.get("toolSteps")) is int and evidence["toolSteps"] == 0
+            and type(evidence.get("toolEvents")) is int and evidence["toolEvents"] == 0)
+
+
 def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> tuple[str, int] | None:
     """Return the requested anchor and call order for an observed inserted cell.
 
@@ -166,10 +177,15 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
         if answer_index <= question_index:
             raise ValueError("Saved AI answer precedes its question")
         if question_id not in traces:
-            if _offered_any_tool(ai["cells"], question_index):
-                raise ValueError("Trace-free AI answer had enabled notebook tools")
+            proof = answer.get("metadata", {}).get("nbinlineaiWorkedNoToolPlan")
+            if proof is not None and not _recorded_no_tool_plan(answer, question_id):
+                raise ValueError("Trace-free AI answer has invalid no-tool evidence")
+            if _offered_any_tool(ai["cells"], question_index) and proof is None:
+                raise ValueError("Trace-free AI answer had enabled notebook tools without no-tool evidence")
             if answer_index != question_index + 1:
                 raise ValueError("Trace-free AI answer is not adjacent to its question")
+        elif answer.get("metadata", {}).get("nbinlineaiWorkedNoToolPlan") is not None:
+            raise ValueError("Tool trace conflicts with no-tool evidence")
     if set(traces) - set(linked_answers):
         raise ValueError("Saved AI answer or trace has no current question")
 
