@@ -11,6 +11,7 @@ import json
 import os
 import re
 import sys
+from html import escape
 
 GITHUB_EXAMPLES = "https://github.com/rahuldave/nbinlineai/blob/main/examples"
 
@@ -63,6 +64,24 @@ def decorate(notebook: dict, name: str) -> dict:
         },
     )
     for cell in notebook["cells"]:
+        if cell["cell_type"] == "code":
+            for output in cell.get("outputs", []):
+                if output.get("output_type") != "stream":
+                    continue
+                stream = output.get("text", "")
+                if isinstance(stream, list):
+                    stream = "".join(stream)
+                if not isinstance(stream, str) or "```" not in stream:
+                    continue
+                # Quarto's notebook Markdown bridge interprets a fence inside
+                # stdout as markup and can swallow the next cell's anchor.
+                # This escaped HTML is only for rendering; source output stays
+                # untouched and the reader sees the exact literal backticks.
+                safe_stream = escape(stream).replace("`", "&#96;")
+                output.clear()
+                output.update({"output_type": "display_data", "metadata": {},
+                               "data": {"text/html": f"<pre>{safe_stream}</pre>"}})
+            continue
         if cell["cell_type"] != "markdown":
             continue
         ai = cell.get("metadata", {}).get("nbinlineai", {})

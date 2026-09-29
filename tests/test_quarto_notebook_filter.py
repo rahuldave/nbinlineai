@@ -48,3 +48,33 @@ def test_decorate_keeps_code_and_marks_ai_cells() -> None:
     assert "#demo-prompt" in "".join(result["cells"][3]["source"])
     assert ".nbinlineai-ai-cell .nbinlineai-ai-response" in "".join(result["cells"][4]["source"])
     assert "Download this notebook" in "".join(result["cells"][-1]["source"])
+
+
+def test_stdout_fences_render_as_literal_text_without_changing_saved_output() -> None:
+    notebook = {
+        "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+        "cells": [
+            {"cell_type": "markdown", "id": "intro", "metadata": {},
+             "source": ["# Fenced output\n", "\n", "A worked result.\n"]},
+            {"cell_type": "code", "id": "documented-call", "metadata": {},
+             "source": "print(show_doc())", "execution_count": 1,
+             "outputs": [
+                 {"output_type": "stream", "name": "stdout",
+                  "text": ["### Function\n\n", "```python\n", "def example(): pass\n",
+                           "```\n", "<ordinary text>\n"]},
+                 {"output_type": "stream", "name": "stdout", "text": "ordinary output\n"},
+             ]},
+            {"cell_type": "code", "id": "following-cell", "metadata": {},
+             "source": "print('still visible')", "execution_count": 2, "outputs": []},
+        ],
+    }
+    original = copy.deepcopy(notebook)
+    rendered = decorate(copy.deepcopy(notebook), "fenced-output.ipynb")
+    assert notebook == original
+    assert rendered["cells"][2]["source"] == original["cells"][1]["source"]
+    fenced = rendered["cells"][2]["outputs"][0]
+    assert fenced["output_type"] == "display_data"
+    assert "&#96;&#96;&#96;python" in fenced["data"]["text/html"]
+    assert "&lt;ordinary text&gt;" in fenced["data"]["text/html"]
+    assert rendered["cells"][2]["outputs"][1] == original["cells"][1]["outputs"][1]
+    assert rendered["cells"][3]["id"] == "following-cell"
