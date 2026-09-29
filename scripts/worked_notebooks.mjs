@@ -101,6 +101,12 @@ export async function installPilotRouteGuard(context, guard) {
   await context.route('**/nbinlineai/prompt**', route => guard.handle(route));
 }
 
+export async function grantWorkedHardwarePermissions(context, pilot) {
+  if (!pilot) {
+    await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
+  }
+}
+
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
 async function until(check, timeout, description) {
   const deadline = Date.now() + timeout;
@@ -569,11 +575,11 @@ async function main() {
   const browser = await chromium.launch({ headless: false,
     ...(browserChannel ? { channel: browserChannel } : {}) });
   try {
-    // Use real hardware and grant the authorized localhost notebook origin only.
-    // No fake-device flags or browser-wide permission pregrant are used.
+    // Hardware examples use real devices on the owned localhost origin.
+    // The read-only AI pilot grants no hardware permissions.
     const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
       ...(pilot ? { serviceWorkers: 'block' } : {}) });
-    await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
+    await grantWorkedHardwarePermissions(context, pilot);
     const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
     if (pilotGuard) await installPilotRouteGuard(context, pilotGuard);
     const page = await context.newPage();

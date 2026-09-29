@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pilotQuestion, preparePilotSettings, assertPilotPromptRequest,
-  pilotRouteGuard, installPilotRouteGuard } from '../scripts/worked_notebooks.mjs';
+  pilotRouteGuard, installPilotRouteGuard, grantWorkedHardwarePermissions } from '../scripts/worked_notebooks.mjs';
 
 const owned = { backend: 'openai_codex_subscription', session_id: 'session-1',
   prompt_cell_id: 'question-1', max_tool_steps: 1 };
@@ -47,6 +47,15 @@ test('pilot setting is confined to a new isolated config file', async () => {
   } finally {
     await rm(config, { recursive: true, force: true });
   }
+});
+
+test('pilot does not grant camera or microphone permissions', async () => {
+  const calls = [];
+  const context = { async grantPermissions(...args) { calls.push(args); } };
+  await grantWorkedHardwarePermissions(context, { notebook: 'lesson.ipynb', cellId: 'question-1' });
+  assert.deepEqual(calls, []);
+  await grantWorkedHardwarePermissions(context, null);
+  assert.deepEqual(calls, [[['camera', 'microphone'], { origin: 'http://127.0.0.1:8897' }]]);
 });
 
 test('prompt request must match owned POST, binding, and literal max_tool_steps one', () => {
