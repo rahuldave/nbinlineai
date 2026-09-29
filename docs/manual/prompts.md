@@ -54,7 +54,7 @@ Put `` &`insert_code` `` in an ordinary Markdown note above your question, then 
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what it does.
 
-The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](../faq.md#can-i-ask-the-ai-to-call-insert_markdown), [examples guide](../examples.md), and [tools reference](../tools.md).
+The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](../faq.md#can-i-ask-the-ai-to-call-insert_markdown), [notebook examples](../examples.md), and [Tool catalog](../tools.md).
 
 ![Illustrative question, retained answer, and a separate unexecuted code cell](../images/insert-code.png)
 
