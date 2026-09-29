@@ -93,7 +93,7 @@ test('shipped bundled-tools notebook imports a read-only tool and returns its re
   expect(body.snapshot_version).toBe(1);
   expect(body.notebook_cells.some((cell: any) => cell.source.includes('&`search_kernel_names`') && cell.cell_type === 'markdown')).toBeTruthy();
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
-  const answer = notebook.locator('.nbinlineai-response-cell');
+  const answer = notebook.locator('.nbinlineai-response-cell').first();
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('study_roster_marker');
   await expect(answer.locator('.jp-RenderedHTMLCommon')).toContainText('built-in found');
   expect(await insertedDraft.locator('.jp-InputPrompt').textContent()).toBe(unrunPrompt);
