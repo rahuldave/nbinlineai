@@ -113,7 +113,7 @@ async function attach(context: BrowserOperationContext, request: BrowserOperatio
       current.setMetadata('nbinlineai', { ...before, mediaAttachment: confirmed });
       try {
         const complete = await context.transition(operation.operation_id, 'completed', {
-          confirmed: true, question_cell_id: id, sha256: hash, detail: chosenDetail });
+          confirmed: true, question_cell_id: id, image_sha256: hash, detail: chosenDetail });
         if (complete.status !== 'completed') fail('stale_target', 'Image confirmation was cancelled.');
         const former = before.mediaAttachment as Record<string, unknown> | undefined;
         if (former?.kind === 'memory' && typeof former.grant_id === 'string' &&

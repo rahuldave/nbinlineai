@@ -42,7 +42,8 @@ test('the exact attachment notebook confirms one image without running the quest
   async ({ page, request }) => {
     const { cell, run } = await copiedExample(page, request);
     await run('attachment-setup');
-    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Disposable PNG');
+    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Disposable exact image:');
+    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Image exists: True');
     await run('attachment-call');
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();
@@ -65,6 +66,7 @@ test('the exact attachment notebook confirms one image without running the quest
     }
     expect(receipt).toContain('completed');
     expect(receipt).toContain('attachment-question');
+    expect(receipt).toContain('image_sha256');
     await indicator.getByRole('button', { name: 'Remove image' }).click();
     await expect(indicator).toBeHidden();
     await run('attachment-cleanup');
