@@ -1217,6 +1217,15 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-workflow"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal",
+        "ai"
+      ],
+      "reason": "start_camera cannot complete its physical camera acquisition: the owned Chrome probe had permission and one video input, but both video:true and ideal-facing requests remained unresolved for 20 seconds; no completed source was available.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "start_microphone": {
@@ -1265,6 +1274,15 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-still"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal",
+        "ai"
+      ],
+      "reason": "capture_camera is dependency-blocked by physical camera acquisition: no completed start_camera source ID exists after the owned permission-granted Chrome probe, so no camera still call or output is claimed.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "stop_source": {
@@ -1409,6 +1427,15 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-clip"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal",
+        "ai"
+      ],
+      "reason": "record_camera is dependency-blocked by physical camera acquisition: the owned permission-granted Chrome probe did not settle a video stream, so no camera recording call or clip is claimed.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "record_microphone": {
