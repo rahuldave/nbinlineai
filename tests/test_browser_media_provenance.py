@@ -178,6 +178,39 @@ def test_frozen_destination_and_released_source_are_rejected(tmp_path):
     assert not list(tmp_path.rglob('*.png'))
 
 
+def test_release_during_frame_pixel_verification_rejects_batch_part(tmp_path, monkeypatch):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    source_hash = source_media(registry, browser)
+    op = registry.create(browser, 'release-during-frame', 'extract_frames', {
+        'media': {'media_id': 'source'}, 'timestamps': [0.5], 'save_to': None})
+    registry.begin_batch(browser, op.id, 1)
+    data = png('blue')
+    entered = threading.Event()
+    resume = threading.Event()
+    original_open = Image.open
+
+    def paused_open(*args, **kwargs):
+        entered.set()
+        assert resume.wait(5)
+        return original_open(*args, **kwargs)
+
+    monkeypatch.setattr(Image, 'open', paused_open)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(registry.upload_part, browser, op.id, 0, data,
+                              'image/png', hashlib.sha256(data).hexdigest(),
+                              {'source_sha256': source_hash, 'transform': 'extract_frames',
+                               'actual_seconds': 0.5})
+        assert entered.wait(5)
+        registry.release_media(browser, 'source')
+        resume.set()
+        with pytest.raises(MediaError) as error:
+            pending.result(timeout=5)
+    assert error.value.code == 'stale_target'
+    assert op.batch_media_ids == []
+    assert not any(media.id != 'source' for media in registry.media.values())
+
+
 def test_auto_frame_batch_uses_one_generated_directory(tmp_path):
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)

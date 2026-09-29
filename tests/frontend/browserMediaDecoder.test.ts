@@ -105,6 +105,8 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     readyState = 2;
     blockSeek = false;
     blockFrame = false;
+    staleFirst = false;
+    displayed = 'initial';
     private position = 0;
     private callback?: VideoFrameRequestCallback;
     private callbackId = 0;
@@ -112,9 +114,16 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     set currentTime(value: number) {
       this.position = value;
       if (!this.blockSeek) queueMicrotask(() => {
+        if (this.staleFirst) {
+          this.staleFirst = false;
+          this.displayed = 'old';
+          this.callback?.(0, { mediaTime: 0.5 } as VideoFrameCallbackMetadata);
+        }
         this.dispatchEvent(new Event('seeked'));
-        if (!this.blockFrame)
+        if (!this.blockFrame) {
+          this.displayed = 'new';
           this.callback?.(0, { mediaTime: Math.floor(value * 2) / 2 } as VideoFrameCallbackMetadata);
+        }
       });
     }
     requestVideoFrameCallback(callback: VideoFrameRequestCallback): number {
@@ -141,7 +150,8 @@ test('one verified video lease seeks a frame and aborts another seek without lea
   Object.defineProperty(globalThis, 'window', { configurable: true,
     value: { setTimeout, clearTimeout } });
   Object.defineProperty(globalThis, 'createImageBitmap', { configurable: true,
-    value: async () => ({ width: 16, height: 16, close: () => { closed++; } }) });
+    value: async () => ({ width: 16, height: 16, color: video.displayed,
+      close: () => { closed++; } }) });
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:verified' });
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => { revoked++; } });
   const context = { isCurrent: () => true, fetchReference: async () => ({
@@ -151,10 +161,15 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     const lease = await loadPlaybackMedia(context as never, { media_id: 'clip' }, { preview: true });
     assert.equal(lease.kind, 'video');
     if (lease.kind !== 'video') return;
-    const frame = await lease.frameAt(0.6);
+    const frame = await lease.frameAt(0.5);
     assert.equal(frame.actualSeconds, 0.5);
     assert.equal(frame.width, 16);
     frame.release();
+    video.staleFirst = true;
+    const sought = await lease.frameAt(1.5);
+    assert.equal(sought.actualSeconds, 1.5);
+    assert.equal((sought.bitmap as ImageBitmap & { color: string }).color, 'new');
+    sought.release();
     video.blockFrame = true;
     const afterSeek = new AbortController();
     const awaitingFrame = lease.frameAt(0.8, afterSeek.signal);
@@ -168,7 +183,7 @@ test('one verified video lease seeks a frame and aborts another seek without lea
     controller.abort();
     await assert.rejects(pending, (error: any) => error.code === 'cancelled');
     lease.release(); lease.release();
-    assert.equal(closed, 1);
+    assert.equal(closed, 2);
     assert.equal(revoked, 1);
   } finally {
     for (const [target, key, descriptor] of [

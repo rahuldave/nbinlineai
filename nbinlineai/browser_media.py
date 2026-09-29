@@ -632,6 +632,10 @@ class MediaRegistry:
                 raise MediaError('limit_exceeded', 'Batch part exceeds its bounds')
             if op.batch_pixels + width * height > MAX_BATCH_PIXELS:
                 raise MediaError('limit_exceeded', 'Batch exceeds decoded-pixel limit')
+            if op.name == 'extract_frames':
+                # Pixel verification runs outside this lock. The source may have
+                # been released while PIL inspected the encoded part.
+                provenance = self._transform_record(owner, op, metadata, index=index)
             self._admit_bytes(owner.session_id, len(data) - ingress_credit)
             media = Media(secrets.token_urlsafe(24), owner, data, mime_type, digest,
                           self._now() + MEDIA_IDLE_SECONDS,
