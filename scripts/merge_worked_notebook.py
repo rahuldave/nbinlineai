@@ -16,6 +16,11 @@ from nbinlineai.tools import SPECIAL_TOOL_FUNCTIONS
 
 _ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| (completed|receipt accepted|failed) \|", re.MULTILINE)
 _OLD_ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| .*? \| (.*) \|$", re.MULTILINE)
+_LEGACY_TRACE_NOTEBOOKS = frozenset({
+    "bundled-tools.ipynb", "context-selection.ipynb", "fastcore-tools.ipynb",
+    "project-tools.ipynb", "quickstart.ipynb", "tool-catalog-inspection.ipynb",
+    "tool-catalog-saved-notebooks.ipynb",
+})
 _PRIVATE = re.compile(r"(?:Bearer\s+|sk-[A-Za-z0-9_-]{20,}|/Users/|/home/rahul/|"
                       r"/tmp/nbinlineai-|/(?:private/)?var/folders/)", re.IGNORECASE)
 
@@ -47,7 +52,8 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
 
     linked_answers: dict[str, dict] = {}
     traces: dict[str, dict] = {}
-    for cell in ai["cells"]:
+    inserted: dict[str, list[dict]] = {}
+    for index, cell in enumerate(ai["cells"]):
         prompt_id = cell.get("metadata", {}).get("nbinlineai", {}).get("promptCellId")
         if cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell"):
             if not isinstance(prompt_id, str) or prompt_id in linked_answers:
@@ -59,22 +65,47 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
             question_id = cell["metadata"].get("questionCellId")
             if not isinstance(question_id, str) or question_id in traces:
                 raise ValueError("Saved tool trace is ambiguous")
-            rows = _ROW.findall(_source(cell))
-            if not rows and "| Result state |" not in _source(cell):
-                # The first live batch retained call arguments and actual
-                # result text before a dedicated Result state column existed.
-                old_rows = _OLD_ROW.findall(_source(cell))
-                rows = [(name, "failed" if result.lstrip("\"'").startswith("Error:") else "completed")
-                        for name, result in old_rows]
-            if not rows:
-                raise ValueError("Saved tool trace contains no observed calls")
-            evidence = {"questionCellId": question_id, "observedTools": [
-                {"name": name, "resultState": state, "frontendAction": name in SPECIAL_TOOL_FUNCTIONS}
-                for name, state in rows
-            ]}
-            cell["metadata"]["nbinlineaiWorkedEvidence"] = evidence
-            cell["metadata"]["nbinlineaiWorkedBackfill"] = "classified from the retained live tool-result table"
+            evidence = cell["metadata"].get("nbinlineaiWorkedEvidence")
+            if evidence is None:
+                if source_path.name not in _LEGACY_TRACE_NOTEBOOKS:
+                    raise ValueError("Unstructured trace cannot be backfilled for this notebook")
+                rows = _ROW.findall(_source(cell))
+                if not rows and "| Result state |" not in _source(cell):
+                    # Only the seven retained pre-structured, non-media runs
+                    # used a three-column actual call/result event table.
+                    old_rows = _OLD_ROW.findall(_source(cell))
+                    if any(result.lstrip("\"' ").startswith("{") for _name, result in old_rows):
+                        raise ValueError("Structured tool result needs its original event state")
+                    rows = [(name, "failed" if result.lstrip("\"' ").startswith("Error:") else "completed")
+                            for name, result in old_rows]
+                if not rows:
+                    raise ValueError("Saved tool trace contains no observed calls")
+                evidence = {"questionCellId": question_id, "observedTools": [
+                    {"name": name, "resultState": state, "frontendAction": name in SPECIAL_TOOL_FUNCTIONS}
+                    for name, state in rows
+                ]}
+                cell["metadata"]["nbinlineaiWorkedEvidence"] = evidence
+                cell["metadata"]["nbinlineaiWorkedBackfill"] = "classified from the retained live tool-result table"
+            elif (not isinstance(evidence, dict) or evidence.get("questionCellId") != question_id
+                  or not isinstance(evidence.get("observedTools"), list) or not evidence["observedTools"]):
+                raise ValueError("Saved structured tool evidence is invalid")
             traces[question_id] = cell
+        elif cell["id"] not in original and not cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell"):
+            if index == 0:
+                raise ValueError("Unanchored inserted cell")
+            prior = ai["cells"][index - 1]
+            question_id = prior.get("metadata", {}).get("questionCellId")
+            prior_evidence = prior.get("metadata", {}).get("nbinlineaiWorkedEvidence", {})
+            expected_tools = ({"insert_code"} if cell["cell_type"] == "code"
+                              else {"insert_markdown", "url_to_note"} if cell["cell_type"] == "markdown"
+                              else set())
+            if (not prior.get("metadata", {}).get("nbinlineaiWorkedTrace")
+                    or not any(item.get("name") in expected_tools and item.get("resultState") == "completed"
+                               for item in prior_evidence.get("observedTools", []))
+                    or len(_source(cell)) > 8_000
+                    or (cell["cell_type"] == "code" and (cell.get("outputs") or cell.get("execution_count") is not None))):
+                raise ValueError("Unexpected or executed AI-inserted cell")
+            inserted.setdefault(question_id, []).append(cell)
 
     merged = []
     for cell in source["cells"]:
@@ -95,7 +126,8 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
             merged.append(linked_answers.pop(cell["id"]))
             if cell["id"] in traces:
                 merged.append(traces.pop(cell["id"]))
-    if linked_answers or traces:
+                merged.extend(inserted.pop(cell["id"], []))
+    if linked_answers or traces or inserted:
         raise ValueError("Saved AI answer or trace has no current question")
     result = {**source, "cells": merged}
     result["metadata"] = {**source.get("metadata", {}), **{

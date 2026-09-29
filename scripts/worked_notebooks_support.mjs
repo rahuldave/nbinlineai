@@ -38,7 +38,10 @@ export function observedTrace(questionId, events) {
       call.resultState = toolResultState(raw);
       const result = parsedObject(raw);
       call.operationId = safeOperationId(result?.operation_id);
-      if (typeof result?.status === 'string') call.operationState = result.status;
+      if (['requested', 'accepted', 'pending', 'waiting_for_user', 'running', 'paused',
+        'saving', 'completed', 'cancelled', 'failed', 'expired', 'inserted'].includes(result?.status)) {
+        call.operationState = result.status;
+      }
       call.result = call.name === 'list_media_sources'
         ? '[real device list returned; labels and identifiers withheld from public copy]'
         : redact(raw);

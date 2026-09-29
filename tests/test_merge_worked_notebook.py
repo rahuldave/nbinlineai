@@ -12,7 +12,7 @@ def _write(path, cells):
 
 
 def test_merge_keeps_current_source_and_real_evidence(tmp_path):
-    source = tmp_path / "source.ipynb"
+    source = tmp_path / "quickstart.ipynb"
     direct = tmp_path / "direct.ipynb"
     ai = tmp_path / "ai.ipynb"
     code = {"id": "call", "cell_type": "code", "source": ["saved = search_kernel_names('x')\n"],
@@ -40,4 +40,37 @@ def test_merge_keeps_current_source_and_real_evidence(tmp_path):
 
     _write(source, [{**code, "source": ["changed_source()\n"]}, question])
     with pytest.raises(ValueError, match="latest source"):
+        merge(source, direct, ai)
+
+
+def test_merge_preserves_inserted_cell_and_structured_operation_evidence(tmp_path):
+    source = tmp_path / "quickstart.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    question = {"id": "question", "cell_type": "markdown", "source": ["Use &`insert_code`."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    _write(source, [question])
+    _write(direct, [question])
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["Inserted a code cell."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question", "status": "done"}}}
+    trace = {"id": "trace", "cell_type": "markdown", "source": ["Observed actual insert_code result."],
+             "metadata": {"nbinlineaiWorkedTrace": True, "questionCellId": "question",
+                          "nbinlineaiWorkedEvidence": {"questionCellId": "question", "observedTools": [
+                              {"name": "insert_code", "resultState": "completed", "frontendAction": True,
+                               "operationId": "op-real-12345678901234567890"}]}}}
+    inserted = {"id": "inserted", "cell_type": "code", "source": ["print('suggested')"],
+                "metadata": {}, "execution_count": None, "outputs": []}
+    _write(ai, [question, answer, trace, inserted])
+    worked = merge(source, direct, ai)
+    assert [cell["id"] for cell in worked["cells"]] == ["question", "answer", "trace", "inserted"]
+    assert worked["cells"][2]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"][0][
+        "operationId"] == "op-real-12345678901234567890"
+    assert worked["cells"][3]["execution_count"] is None
+
+    trace["metadata"].pop("nbinlineaiWorkedEvidence")
+    trace["source"] = ["| Tool | Submitted arguments | Observed result |\n",
+                       "| --- | --- | --- |\n",
+                       '| `insert_code` | {} | {"status":"failed","error":"denied"} |\n']
+    _write(ai, [question, answer, trace, inserted])
+    with pytest.raises(ValueError, match="Structured tool result"):
         merge(source, direct, ai)

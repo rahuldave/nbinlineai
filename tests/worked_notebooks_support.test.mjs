@@ -53,6 +53,12 @@ test('structured evidence links accepted operation to later status without priva
   assert.equal(status.metadata.nbinlineaiWorkedEvidence.observedTools[0].targetOperationId, operationId);
   assert.equal(status.metadata.nbinlineaiWorkedEvidence.observedTools[0].operationState, 'completed');
   assert.ok(!JSON.stringify(start.metadata).includes('Private123'));
+  const untrusted = observedTrace('question', [
+    { type: 'tool_start', id: 'x', name: 'operation_status', arguments: {} },
+    { type: 'tool_result', id: 'x', name: 'operation_status',
+      text: JSON.stringify({ status: 'private arbitrary status text '.repeat(100) }) },
+  ]);
+  assert.equal(untrusted[0].operationState, undefined);
 });
 
 test('public copy removes macOS paths and hardware descriptions before saving', () => {
