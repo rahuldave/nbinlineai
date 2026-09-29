@@ -106,13 +106,20 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   };
   const codeIds = notebook.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
   const tools = [
-    'list_media_sources', 'start_camera', 'capture_camera', 'start_recording',
+    'list_media_sources', 'start_camera', 'capture_camera',
+    'start_microphone', 'read_audio_levels', 'start_recording',
     'pause_recording', 'resume_recording', 'stop_recording', 'stop_source',
-    'start_microphone', 'read_audio_levels', 'record_camera', 'record_microphone',
+    'record_camera', 'record_microphone',
     'setup_share', 'start_share', 'capture_screen', 'capture_tool', 'stop_share'
   ];
+  const canvasRecorder = [
+    'canvas-recorder-output', 'canvas-recorder-list-outputs',
+    'canvas-recorder-list-canvases', 'canvas-recorder-start-canvas',
+    'canvas-recorder-source-id', 'canvas-recorder-stop-source-direct'
+  ];
   expect(codeIds).toEqual(['capture-setup', ...tools.flatMap(name =>
-    [`capture-${name}-call`, `capture-${name}-inspect`]), 'capture-cleanup', 'capture-cleanup-inspect']);
+    [`capture-${name}-call`, `capture-${name}-inspect`]),
+  'capture-cleanup', 'capture-cleanup-inspect', ...canvasRecorder]);
   const position = (id: string): number => {
     const index = codeIds.indexOf(id);
     expect(index, `Missing public notebook cell ${id}`).toBeGreaterThanOrEqual(0);
