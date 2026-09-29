@@ -370,7 +370,9 @@ The credit-admission topic branch distinguishes an exhausted included window
 from explicit spend or credit denials. It reports zero included usage remaining
 and a credit-use message, and permits the normal ChatGPT runtime path only
 when the pinned snapshot also confirms existing positive or unlimited credits
-and no reached spend control. Unknown or inconsistent fields remain limited.
+and no reached spend control or individual spend limit. Unknown or inconsistent
+fields remain limited; a non-null individual limit needs a separately validated
+amount format before it can admit paid-credit use.
 This is a preflight correction, not a purchase, reset, alternate billing route,
 or proof of a live paid-credit turn; the latter needs separately authorized
 acceptance.

@@ -53,23 +53,14 @@ def _existing_credits_eligible(snapshot: Any) -> bool:
     """
     if not isinstance(snapshot, dict):
         return False
-    if snapshot.get("rateLimitReachedType") not in (None, "rate_limit_reached"):
+    if snapshot.get("rateLimitReachedType") != "rate_limit_reached":
         return False
     if snapshot.get("spendControlReached") is not False:
         return False
-    individual = snapshot.get("individualLimit")
-    if individual is not None:
-        if not isinstance(individual, dict):
-            return False
-        remaining = individual.get("remainingPercent")
-        if (not isinstance(remaining, int) or isinstance(remaining, bool) or
-                not 0 < remaining <= 100):
-            return False
-        if (not all(isinstance(individual.get(key), str) and
-                    0 < len(individual[key]) <= 100 for key in ("limit", "used")) or
-                not isinstance(individual.get("resetsAt"), int) or
-                isinstance(individual["resetsAt"], bool) or individual["resetsAt"] <= 0):
-            return False
+    # The pinned individual limit amounts are untyped strings. Until their
+    # format can be validated, a non-null spend limit cannot prove eligibility.
+    if snapshot.get("individualLimit") is not None:
+        return False
     credits = snapshot.get("credits")
     if not isinstance(credits, dict) or credits.get("hasCredits") is not True:
         return False
@@ -633,6 +624,8 @@ class SubscriptionRuntime:
             reset = window.get("resetsAt")
             if isinstance(reset, (int, float)) and not isinstance(reset, bool) and reset > 0:
                 usage["reset_at"] = datetime.fromtimestamp(reset, tz=timezone.utc).isoformat()
+        if credit_fallback:
+            usage["remaining_percent"] = 0
         return usage
 
     async def status(self) -> dict:

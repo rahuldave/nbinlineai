@@ -108,7 +108,7 @@ def _credit_snapshot(**changes):
 
 @pytest.mark.parametrize(("changes", "eligible"), [
     ({}, True),
-    ({"rateLimitReachedType": None}, True),
+    ({"rateLimitReachedType": None}, False),
     ({"rateLimitReachedType": "workspace_owner_credits_depleted"}, False),
     ({"rateLimitReachedType": "workspace_member_credits_depleted"}, False),
     ({"rateLimitReachedType": "workspace_owner_usage_limit_reached"}, False),
@@ -118,8 +118,10 @@ def _credit_snapshot(**changes):
     ({"spendControlReached": None}, False),
     ({"individualLimit": {"remainingPercent": 0}}, False),
     ({"individualLimit": {"remainingPercent": 1, "limit": "10", "used": "9",
-                          "resetsAt": 1800000000}}, True),
+                          "resetsAt": 1800000000}}, False),
     ({"individualLimit": {"remainingPercent": 1}}, False),
+    ({"individualLimit": {"remainingPercent": 1, "limit": "garbage", "used": "nonsense",
+                          "resetsAt": 1800000000}}, False),
     ({"individualLimit": {"remainingPercent": 101}}, False),
     ({"individualLimit": {"remainingPercent": "1"}}, False),
     ({"credits": {"hasCredits": False, "unlimited": False, "balance": "5"}}, False),
@@ -173,6 +175,31 @@ def test_included_quota_exhaustion_with_existing_credits_stays_connected(tmp_pat
             await manager.complete_round(
                 "gpt-6-sol", [Msg("user", [Text("Synthetic")])], [],
                 reasoning_effort=None, scope=_scope(project), run_id="credit-admission")
+
+    asyncio.run(check())
+
+
+def test_credit_fallback_never_displays_remaining_included_usage(tmp_path, monkeypatch):
+    async def check():
+        manager = runtime.SubscriptionRuntime(state_directory=tmp_path / "private")
+
+        class Client:
+            async def request(self, method, params, **kwargs):
+                return {"ordinaryUsageAllowed": False, "rateLimits": _credit_snapshot(
+                    primary={"usedPercent": 50, "resetsAt": 1800000000})}
+
+        async def account():
+            return {"type": "chatgpt"}
+
+        async def control():
+            return Client()
+
+        monkeypatch.setattr(manager, "_account", account)
+        monkeypatch.setattr(manager, "_ensure_control", control)
+        usage = await manager.usage()
+        assert usage["state"] == "available"
+        assert usage["remaining_percent"] == 0
+        assert "Included usage is exhausted" in usage["message"]
 
     asyncio.run(check())
 
