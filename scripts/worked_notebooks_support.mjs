@@ -14,8 +14,11 @@ export function verifiedCodeWidgetSource(cell, renderedCode) {
   if (cell?.cell_type !== 'code' || typeof renderedCode !== 'string')
     throw new Error('Current code widget or model source is missing');
   const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
-  const compact = value => String(value ?? '').replace(/\s+/g, '').replace(/\u200b/g, '');
-  if (compact(source) !== compact(renderedCode))
+  // CodeMirror may insert zero-width layout characters and omit the final
+  // display newline. Ordinary spaces remain significant inside code strings.
+  const rendered = value => String(value ?? '').replace(/\r\n/g, '\n')
+    .replace(/\u200b/g, '').replace(/\n$/, '');
+  if (rendered(source) !== rendered(renderedCode))
     throw new Error('Current code widget disagrees with saved model source');
   return cell;
 }

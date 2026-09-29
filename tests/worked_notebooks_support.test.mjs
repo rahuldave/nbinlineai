@@ -24,6 +24,8 @@ test('save and session identity fail closed on stale same-type order or duplicat
   assert.equal(liveCellIndex([second, first], 'a', 'code'), 1);
   assert.equal(verifiedCodeWidgetSource(first, 'print(1)'), first);
   assert.throws(() => verifiedCodeWidgetSource(first, 'print(2)'), /disagree/);
+  assert.throws(() => verifiedCodeWidgetSource(
+    { id: 'spaced', cell_type: 'code', source: 'print("a b")' }, 'print("ab")'), /disagree/);
   const created = { id: 'session-new', path: 'owned.ipynb', kernel: { id: 'kernel-new' } };
   assert.equal(boundKernelSession(created, [created], 'owned.ipynb'), 'kernel-new');
   assert.throws(() => boundKernelSession(created, [created, { ...created, id: 'stale' }], 'owned.ipynb'),
