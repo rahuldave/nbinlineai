@@ -182,7 +182,12 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     nbformat.validate(notebook)
     code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
     assert code_cells, f"No code cells in {relative_path}"
-    assert all(not cell.get("outputs") for cell in code_cells)
+    saved = [cell for cell in code_cells if cell.get("outputs")]
+    if saved:
+        assert all(cell.get("execution_count") is not None for cell in saved)
+        displayed = json.dumps([cell["outputs"] for cell in saved])
+        assert not re.search(r"Bearer\s+\S+|sk-[A-Za-z0-9_-]{20,}|/Users/|"
+                             r"/(?:private/)?var/folders/|/tmp/nbinlineai-", displayed)
 
     async def run(kernel_cwd: Path) -> tuple[list[str], list[str]]:
         """Execute setup in notebook order and inspect every AI question's offered names."""
