@@ -20,6 +20,8 @@ TURN_ID = re.compile(r"[A-Za-z0-9_-]{1,200}\Z")
 
 
 def _private_new_file(path: Path) -> None:
+    if os.name != "posix":
+        raise OSError("Native image observation requires POSIX private files")
     if not path.is_absolute() or path.name in {"", ".", ".."}:
         raise ValueError("Observer output must be an absolute private file")
     parent = path.parent

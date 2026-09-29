@@ -12,6 +12,8 @@ import pytest
 
 from scripts.worked_native_image_observer import observed_app_server
 
+pytestmark = pytest.mark.skipif(os.name != "posix", reason="POSIX-only private test observer")
+
 
 def _private_output(tmp_path: Path) -> Path:
     directory = tmp_path / "observer"
