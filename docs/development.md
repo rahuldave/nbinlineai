@@ -20,7 +20,7 @@ uv run jupyter lab
 ```
 
 If the directory has no `pyproject.toml`, create a uv project there first with
-`uv init`. The `uv add` command also replaces a prior PyPI `nbinlineai`
+`uv init`. The `uv add` command also replaces an earlier `nbinlineai`
 dependency in that project with the Git source. It installs JupyterLab as a
 dependency of nbinlineai. Run JupyterLab through the same uv project so that
 its server sees both the Python and frontend extensions. If a Jupyter server
@@ -31,7 +31,7 @@ extension.
 This Git install builds the Python package and its prebuilt JupyterLab
 frontend **from source**. Have Node.js 22.12+ (or 20.19+) available for the
 frontend build. It does not require `jupyter labextension install`, which is
-the source-extension route, and it does not select the published PyPI package.
+the source-extension route.
 
 `uv.lock` pins the exact Git commit it installed. After new commits are pushed
 to the branch, update that one dependency in your JupyterLab project with:
@@ -192,6 +192,5 @@ The project-local Gest skills and the repository's internal workflow notes
 record issue scope, independent adversarial review, verification and cleanup.
 `just lint`, `just typecheck`, `just test`, and `just browser` map existing
 commands; `just browser` rebuilds and relinks first. CI additionally checks
-built archives and fresh wheel installation. Experimental PR merges update
-Git source and do not publish a PyPI release. The source commit in `uv.lock`
-identifies the installed snapshot even while the package version is unchanged.
+built archives and fresh wheel installation. The source commit in `uv.lock`
+identifies the installed snapshot even when the package version is unchanged.
