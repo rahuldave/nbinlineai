@@ -16,6 +16,8 @@ You need JupyterLab 4.2 or newer and Python 3.12 or newer. Use a ChatGPT subscri
 
 The connection picker only changes the setup view; it does not change this notebook or the default for new notebooks.
 
+To learn with disposable data after connecting, open the [Quick start notebook](https://rahuldave.com/nbinlineai/notebooks/quickstart.html) or choose a [tool-catalog notebook](../examples.md#tool-catalog-notebooks). The direct Python setup cells work without a provider; run an AI question when you want the connected model to answer and call any tool you offered.
+
 ![Connections & models tab with simulated ChatGPT setup and Use for this notebook](../images/configure-ai.png)
 
 ![Defaults tab with the new-notebook connection and response style preferences](../images/configure-ai-defaults.png)

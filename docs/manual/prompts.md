@@ -18,6 +18,8 @@ The answer streams into a separate Markdown cell, normally created immediately b
 
 An active Python kernel is required. Running an individual AI prompt does not automatically run the code above it; run the definitions first before referring to live values or functions. **Run All Cells** executes earlier code before reaching the AI prompt.
 
+When a question calls a browser-media tool, its first answer may contain only an operation ID and a `running` or `waiting_for_user` state. Complete the visible browser action, then ask `operation_status` in a later question before using the resulting source or media ID. [Browser media operations](../browser-media-foundation.md) explains why this differs from a finished ordinary function result.
+
 ## Recognize questions and answers
 
 AI questions have a subtle blue background and answers have a green background, with matching left borders. The colours adapt to JupyterLab's light and dark themes. Editors and fenced code blocks retain JupyterLab's normal editing colours. Both cells remain ordinary editable Markdown.

@@ -21,7 +21,11 @@ Notebook-level choices, including Keep AI answers, live under the notebook's `me
 
 An AI answer is **not** an entry in a code cell's `outputs` array. Consequently, Jupyter's normal code-output clearing does not remove its Markdown text. Delete the answer cell to remove it; delete the prompt separately if you want to remove the whole exchange.
 
-Someone opening the saved notebook without nbinlineai can still read the Markdown prompts and answers. The extension supplies their AI controls and execution behavior. API keys and ChatGPT credentials are not stored in the notebook. Tool-call arguments and results are used during the request; nbinlineai does not save a separate structured tool transcript in notebook metadata.
+Someone opening the saved notebook without nbinlineai can still read the Markdown prompts and answers. The extension supplies their AI controls and execution behavior. API keys and ChatGPT credentials are not stored in the notebook. Tool-call arguments and results are used during the request; nbinlineai does not normally save a separate structured tool transcript in notebook metadata. The published worked-example notebooks include an added observed-tool table for teaching and verification.
+
+Browser-media captures are separate from notebook Markdown. A completed Python receipt may hold a Pillow image or media clip in the live kernel; managed bytes on the Jupyter server expire or can be released. `save_media` writes a new file only when you request it. A saved notebook can retain a rendered code-cell display, but that display does not keep a managed media reference alive. Use the media notebook's cleanup steps for temporary sources and files. [Browser media operations](../browser-media-foundation.md) explains the receipt and save paths.
+
+An image is not sent to the model merely because you opened, captured, previewed, or saved it. `attach_media` asks you to confirm one image for one AI question. Confirmation changes that question's pending attachment; it does not run the question. Review the image and run the question when ready. Removing the attachment or deleting the question changes later submissions, not an answer that already ran. See [Attach an image](../browser-media-attachment.md).
 
 ## Where keys are stored
 
