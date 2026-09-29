@@ -1,0 +1,289 @@
+"""Opt-in, private, single-question guard for visual worked-notebook trials.
+
+The caller creates a private directory and arms one question with ``arm_question``.
+Run this module as the isolated server child in place of ``scripts.worked_notebooks``.
+No account state, prompts, cell source, tool output, or SSE payload is logged.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import os
+import re
+import stat
+from pathlib import Path
+from typing import Any
+
+_FIELDS = frozenset({"session_id", "kernel_id", "path", "prompt_cell_id", "backend", "model", "max_tool_steps"})
+_ID = re.compile(r"[A-Za-z0-9_-]{1,100}\Z")
+_ARM = "arm.json"
+_LOG = "events.jsonl"
+
+
+def _private_dir(directory: Path) -> None:
+    mode = directory.lstat().st_mode
+    if not stat.S_ISDIR(mode) or stat.S_IMODE(mode) & 0o077:
+        raise ValueError("Observer directory must be a private directory (0700)")
+
+
+def _write_exclusive(path: Path, data: str) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            output.write(data)
+    except BaseException:
+        path.unlink(missing_ok=True)
+        raise
+
+
+def _validate_arm(arm: Any) -> dict:
+    if not isinstance(arm, dict) or set(arm) != {"binding", "groups"}:
+        raise ValueError("Invalid observer arm")
+    binding, groups = arm["binding"], arm["groups"]
+    if not isinstance(binding, dict) or set(binding) != _FIELDS:
+        raise ValueError("Invalid observer binding")
+    if any(not isinstance(binding[key], str) or not binding[key] or len(binding[key]) > 300
+           for key in _FIELDS - {"max_tool_steps"}):
+        raise ValueError("Invalid observer binding value")
+    if type(binding["max_tool_steps"]) is not int or not 1 <= binding["max_tool_steps"] <= 10:
+        raise ValueError("Invalid observer step limit")
+    if (not isinstance(groups, list) or not 1 <= len(groups) <= binding["max_tool_steps"]
+            or any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in groups)):
+        raise ValueError("Invalid observer groups")
+    for group in groups:
+        for call in group:
+            if not isinstance(call, dict) or set(call) != {"name", "arguments"}:
+                raise ValueError("Invalid observer call policy")
+            if not isinstance(call["name"], str) or not _ID.fullmatch(call["name"]):
+                raise ValueError("Invalid observer tool name")
+            rules = call["arguments"]
+            if not isinstance(rules, dict) or len(rules) > 20:
+                raise ValueError("Invalid observer argument rules")
+            for key, rule in rules.items():
+                if not isinstance(key, str) or not _ID.fullmatch(key):
+                    raise ValueError("Invalid observer argument key")
+                if not isinstance(rule, dict) or len(rule) != 1:
+                    raise ValueError("Invalid observer argument rule")
+                kind, value = next(iter(rule.items()))
+                if kind == "equals":
+                    if not isinstance(value, (str, int, float, bool, type(None))) or len(str(value)) > 300:
+                        raise ValueError("Invalid equality rule")
+                elif kind == "one_of":
+                    if not isinstance(value, list) or not value or len(value) > 100 or any(
+                        not isinstance(item, str) or len(item) > 300 for item in value
+                    ):
+                        raise ValueError("Invalid choices rule")
+                elif kind == "text_max":
+                    if type(value) is not int or not 1 <= value <= 4000:
+                        raise ValueError("Invalid text rule")
+                elif kind == "int_range":
+                    if (not isinstance(value, list) or len(value) != 2 or
+                            any(type(item) is not int for item in value) or
+                            not 0 <= value[0] <= value[1] <= 10000):
+                        raise ValueError("Invalid integer rule")
+                else:
+                    raise ValueError("Unknown observer argument rule")
+    return arm
+
+
+def arm_question(directory: Path, binding: dict, groups: list[list[dict]]) -> None:
+    """Create one private arm; the next matching prompt consumes it exactly once."""
+    _private_dir(directory)
+    arm = _validate_arm({"binding": binding, "groups": groups})
+    _write_exclusive(directory / _ARM, json.dumps(arm, ensure_ascii=True, separators=(",", ":")))
+
+
+def _consume_arm(directory: Path) -> dict:
+    path = directory / _ARM
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode) or stat.S_IMODE(os.fstat(fd).st_mode) & 0o077:
+            raise ValueError("Observer arm must be a private regular file")
+        raw = os.read(fd, 32769)
+        if len(raw) > 32768:
+            raise ValueError("Observer arm is too large")
+        arm = _validate_arm(json.loads(raw))
+    finally:
+        os.close(fd)
+        path.unlink(missing_ok=True)
+    return arm
+
+
+def _arguments(raw: Any, rules: dict) -> bool:
+    if isinstance(raw, str):
+        if len(raw) > 12000:
+            return False
+        try:
+            raw = json.loads(raw)
+        except (TypeError, ValueError):
+            return False
+    if not isinstance(raw, dict) or set(raw) != set(rules):
+        return False
+    for key, rule in rules.items():
+        kind, bound = next(iter(rule.items()))
+        value = raw[key]
+        if kind == "equals" and (type(value) is not type(bound) or value != bound):
+            return False
+        if kind == "one_of" and (not isinstance(value, str) or value not in bound):
+            return False
+        if kind == "text_max" and (not isinstance(value, str) or not 1 <= len(value) <= bound):
+            return False
+        if kind == "int_range" and (type(value) is not int or not bound[0] <= value <= bound[1]):
+            return False
+    return True
+
+
+def _result_state(text: Any) -> str:
+    if isinstance(text, str):
+        if text.startswith("Error:"):
+            return "reported_error"
+        if len(text) <= 12000:
+            try:
+                parsed = json.loads(text)
+            except (TypeError, ValueError):
+                pass
+            else:
+                if (isinstance(parsed, dict) and isinstance(parsed.get("status"), str) and
+                        parsed["status"] in {"error", "failed", "rejected"}):
+                    return "reported_error"
+    return "returned"
+
+
+class VisualObserver:
+    def __init__(self, directory: Path, original):
+        _private_dir(directory)
+        self.directory = directory
+        self.original = original
+        self.active = False
+        self.lock = asyncio.Lock()
+        log_path = directory / _LOG
+        if log_path.exists() and (not log_path.is_file() or stat.S_IMODE(log_path.stat().st_mode) & 0o077):
+            raise ValueError("Observer log must be a private regular file")
+        self.log_fd = os.open(log_path, os.O_WRONLY | os.O_CREAT | os.O_APPEND |
+                              getattr(os, "O_NOFOLLOW", 0), 0o600)
+
+    def close(self) -> None:
+        os.close(self.log_fd)
+
+    def _log(self, **record) -> None:
+        # Only records assembled from constants, bounded counters and policy names reach here.
+        os.write(self.log_fd, (json.dumps(record, separators=(",", ":")) + "\n").encode())
+
+    async def __call__(self, body, *args, **kwargs):
+        async with self.lock:
+            if self.active:
+                self._log(kind="denied", reason="active")
+                raise ValueError("Observer already has an active question")
+            try:
+                arm = _consume_arm(self.directory)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                self._log(kind="denied", reason="unarmed_or_invalid")
+                raise ValueError("Observer requires a fresh valid arm") from None
+            self.active = True
+        binding = arm["binding"]
+        scope = kwargs.get("subscription_scope")
+        matched = (len(args) >= 2 and isinstance(scope, dict)
+                   and body.get("session_id") == binding["session_id"]
+                   and args[1] == binding["kernel_id"]
+                   and scope.get("session_id") == binding["session_id"]
+                   and scope.get("notebook_path") == binding["path"]
+                   and all(body.get(key) == binding[key] for key in
+                           ("prompt_cell_id", "backend", "model", "max_tool_steps")))
+        if not matched:
+            self._log(kind="denied", reason="binding")
+            self.active = False
+            raise ValueError("Observer request did not match its arm")
+        self._log(kind="admitted", groups=len(arm["groups"]))
+        generator = self.original(body, *args, **kwargs)
+        group = -1
+        call_index = 0
+        pending = None
+        terminal = False
+        try:
+            async for event in generator:
+                if terminal:
+                    self._log(kind="blocked", reason="after_terminal")
+                    raise ValueError("Observer blocked events after completion")
+                kind = event.get("type")
+                if kind == "context":
+                    if pending is not None or (0 <= group < len(arm["groups"]) and
+                                               call_index != len(arm["groups"][group])):
+                        self._log(kind="blocked", reason="incomplete_group")
+                        raise ValueError("Observer expected another tool call")
+                    # run_prompt sends one final model round after the last tool group.
+                    if group + 1 > len(arm["groups"]):
+                        self._log(kind="blocked", reason="extra_group")
+                        raise ValueError("Observer blocked another model round")
+                    group += 1
+                    call_index = 0
+                elif kind == "tool_start":
+                    name = event.get("name")
+                    if (pending is not None or group < 0 or group >= len(arm["groups"]) or
+                            call_index >= len(arm["groups"][group])):
+                        self._log(kind="blocked", reason="unexpected_call")
+                        raise ValueError("Observer blocked an unexpected tool")
+                    policy = arm["groups"][group][call_index]
+                    if (name != policy["name"] or not _arguments(event.get("arguments"), policy["arguments"]) or
+                            not isinstance(event.get("id"), str) or not event["id"] or len(event["id"]) > 200):
+                        self._log(kind="blocked", reason="tool_or_arguments")
+                        raise ValueError("Observer blocked a tool outside the question policy")
+                    pending = (event["id"], name)
+                    self._log(kind="tool_start", group=group, call=call_index, name=name,
+                              argument_fields=sorted(policy["arguments"]))
+                elif kind == "tool_result":
+                    if pending != (event.get("id"), event.get("name")):
+                        self._log(kind="blocked", reason="result_order")
+                        raise ValueError("Observer blocked an unmatched tool result")
+                    self._log(kind="tool_result", group=group, call=call_index,
+                              name=pending[1], state=_result_state(event.get("text")))
+                    pending = None
+                    call_index += 1
+                elif kind == "done":
+                    if (pending is not None or group != len(arm["groups"]) or
+                            event.get("tool_steps") != len(arm["groups"])):
+                        self._log(kind="blocked", reason="count")
+                        raise ValueError("Observer expected the exact tool count")
+                    terminal = True
+                    self._log(kind="terminal", state="done", groups=len(arm["groups"]))
+                elif kind == "error":
+                    terminal = True
+                    self._log(kind="terminal", state="error")
+                yield event
+            if not terminal:
+                self._log(kind="terminal", state="incomplete")
+                raise ValueError("Observer prompt ended without a terminal event")
+        except BaseException:
+            if not terminal:
+                self._log(kind="terminal", state="aborted")
+            raise
+        finally:
+            await generator.aclose()
+            self.active = False
+
+
+def install(directory: Path) -> VisualObserver:
+    """Patch only this isolated server process; returns an owner to close at exit."""
+    from nbinlineai import handlers
+
+    observer = VisualObserver(directory, handlers.run_prompt)
+    handlers.run_prompt = observer
+    return observer
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--directory", type=Path, required=True)
+    directory = parser.parse_args().directory
+    observer = install(directory)
+    try:
+        from scripts.worked_notebooks import _server_child
+
+        _server_child()
+    finally:
+        observer.close()
+
+
+if __name__ == "__main__":
+    main()
