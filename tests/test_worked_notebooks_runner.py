@@ -31,6 +31,31 @@ def test_child_environment_is_allowlisted(monkeypatch, tmp_path):
     assert "sentinel-must-not-reach-kernel" not in child.values()
 
 
+def test_native_image_observer_forwarding_is_explicit_and_private(monkeypatch, tmp_path):
+    import pytest
+
+    runner = _runner()
+    output = tmp_path / "private"
+    output.mkdir(mode=0o700)
+    candidate = output / "native-image.jsonl"
+    child = runner._child_environment(tmp_path, "owned-token")
+    monkeypatch.setenv("NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE", str(candidate))
+    with pytest.raises(ValueError, match="E2E_LIVE"):
+        runner._enable_native_image_observer(child, output)
+    assert "NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE" not in child
+    monkeypatch.setenv("NBINLINEAI_E2E_LIVE", "1")
+    runner._enable_native_image_observer(child, output)
+    assert child["NBINLINEAI_E2E_LIVE"] == "1"
+    assert child["NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE"] == str(candidate)
+    candidate.touch()
+    with pytest.raises(ValueError, match="new"):
+        runner._enable_native_image_observer({}, output)
+    candidate.unlink()
+    monkeypatch.setenv("NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE", str(tmp_path / "outside.jsonl"))
+    with pytest.raises(ValueError, match="private output"):
+        runner._enable_native_image_observer({}, output)
+
+
 def test_port_refuses_a_live_listener():
     runner = _runner()
     assert runner.PORT == 8897

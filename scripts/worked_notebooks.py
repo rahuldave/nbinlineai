@@ -52,6 +52,14 @@ def _port_free() -> bool:
 def _server_child() -> None:
     from nbinlineai import config, providers
 
+    observer_file = os.environ.get("NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE")
+    if observer_file:
+        if os.environ.get("NBINLINEAI_E2E_LIVE") != "1":
+            raise RuntimeError("Native image observation requires the owned live runner")
+        from scripts.worked_native_image_observer import install
+
+        install(Path(observer_file))
+
     async def reject_api(*_args: object, **_kwargs: object) -> None:
         raise RuntimeError("API transport is disabled for worked subscription notebooks")
 
@@ -126,6 +134,23 @@ def _child_environment(base: Path, token: str) -> dict[str, str]:
     return child_env
 
 
+def _enable_native_image_observer(child_env: dict[str, str], output: Path) -> None:
+    """Forward only an explicitly selected new file in the private run directory."""
+    raw = os.environ.get("NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE")
+    if not raw:
+        return
+    if os.environ.get("NBINLINEAI_E2E_LIVE") != "1":
+        raise ValueError("Native image observation requires NBINLINEAI_E2E_LIVE=1")
+    selected = Path(raw)
+    if (not selected.is_absolute() or selected.parent != output
+            or selected.exists() or selected.is_symlink()):
+        raise ValueError("Observer file must be new and inside the private output directory")
+    if not _private_directory(output):
+        raise ValueError("Observer output directory must be private")
+    child_env["NBINLINEAI_E2E_LIVE"] = "1"
+    child_env["NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE"] = str(selected)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run worked notebooks with one live ChatGPT subscription session")
     parser.add_argument("--manifest", type=Path, help="JSON execution plan for one or more source notebooks")
@@ -162,6 +187,7 @@ def main() -> None:
             "root_dir": str(base / "root")}}), encoding="utf-8")
         config_path.chmod(0o600)
         child_env = _child_environment(base, token)
+        _enable_native_image_observer(child_env, output)
         # Preserve XDG_CONFIG_HOME: it is the supported normal nbinlineai
         # subscription location, unlike the disposable Jupyter directories.
         log_path = base / "server.log"
