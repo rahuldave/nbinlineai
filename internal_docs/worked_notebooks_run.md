@@ -124,8 +124,9 @@ The user selected the sole tab in the browser chooser; the agent made no
 chooser selection. The original `start_share` operation then completed with
 `display_surface: browser`, video enabled, and audio disabled. In the same
 notebook/kernel session, later inspections confirmed completed `capture_screen`
-and `capture_tool` operations, each displaying the actual 1280×670 image of
-the disposable target notebook. `stop_share` and its later inspection completed
+and `capture_tool` operations. Each captured a 1280×670 image of the disposable
+target notebook and displayed a 320×240 preview. `stop_share` and its later
+inspection completed
 with `stopped: true`. Only these genuine direct-call outputs and receipt
 inspections were added to the public capture notebook. Its AI examples remain
 unrun. The separate actual owned-tab video used by transform examples remains
