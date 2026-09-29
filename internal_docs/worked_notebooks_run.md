@@ -1,160 +1,122 @@
 # Worked notebook execution record
 
-This is an in-progress record for the opt-in worked gallery. Execution uses an
-isolated JupyterLab on port 8897, browser sessions including the user's Chrome
-for physical camera permission, the normally configured nbinlineai ChatGPT
-subscription, and disposable notebooks. The
-published examples must retain observed outputs and tool-call evidence; an
-accepted browser-operation receipt alone does not establish completion.
+This records what was actually run for the worked gallery on 2026-09-29. The
+browser trials used disposable notebooks, real JupyterLab kernels, the isolated
+loopback server on port 8897, and the configured ChatGPT subscription with
+`gpt-6-sol` in Compact mode. AI answers and observed tool-call traces are saved
+in the example notebooks. A browser tool's initial operation receipt is not
+treated as a completed result: a later `operation_status` answer or a separately
+labeled browser observation establishes the outcome.
 
-## Camera
+Evidence revisions reviewed here: capture notebook `7eb77ec`, its focused
+recorder-resume checker `54c17dc`, and playback notebook `c26e16b` (source
+topic commits, subsequently integrated into the guide branch).
 
-On 2026-09-29, the user opened Chrome to the isolated JupyterLab and granted
-camera permission. In that browser, saved concise AI answers and one-use tool
-traces show `start_camera(audio=False)` acquiring a real source, followed by a
-completed `operation_status`. `capture_camera` then produced a real 640×480 PNG
-managed-media result, verified by a later completed status. After `stop_source`,
-`record_camera(audio=False, duration=5)` produced a real five-second
-`video/webm;codecs=vp9` clip of 1,196,251 bytes, also verified by a later
-completed status. The canonical capture notebook publishes the answer and
-trace evidence without embedding the camera still, video bytes, or source IDs.
-The user explicitly permitted the camera test and publication of their image.
+## Capture, sources, and recording
 
-Earlier on 2026-09-29, a separate bounded diagnostic used installed Chrome with a
-fresh profile and origin-scoped camera permission on the owned isolated
-JupyterLab. The browser reported camera permission `granted` and one video
-input, but both `getUserMedia({video: true, audio: false})` and the default
-ideal-facing constraint remained unresolved for 20 seconds each. Neither
-returned a stream or a DOM exception. The diagnostic stopped any late stream
-tracks, closed its browser and server, and left port 8897 free. Only device
-kinds and counts were retained; no device labels or identifiers are published.
+[`browser-media-capture.ipynb`](../examples/browser-media-capture.ipynb) contains
+real direct Python runs for microphone source discovery, start, audio levels,
+recording, pause, resume, stop, one-shot microphone recording, and source
+cleanup. The saved Opus clips independently decode to 20.64 and 6.96 seconds
+of playable audio. The longer recording's 24.629-second operation duration
+includes paused wall time; it is not playable duration. Direct screen sharing
+also completed after the user selected the disposable notebook tab in the
+browser chooser. The later receipts verify a browser-tab source, `capture_screen`
+and `capture_tool` stills, and `stop_share`.
 
-The direct Python calls for `start_camera`, `capture_camera`, and `record_camera`
-remain runnable demonstrations but were not executed in the published capture
-notebook. Their earlier in-app browser permission attempt expired. The
-execution gate defers only those three direct calls; it requires each saved AI
-answer and observed call, with the completed source, still, and clip established
-by linked later status answers. No simulated camera result is claimed.
+The same notebook retains guarded ChatGPT calls and later status answers for
+real microphone access and levels, a seven-second microphone clip, screen-share
+setup, start, both screen-capture tools, stop, and managed-media cleanup. The
+user granted microphone access and selected what to share. Screen stills from
+the AI run were 1280×800. AI camera calls ran in the user's Chrome after camera
+permission was granted: `start_camera(audio=False)` returned a real source,
+`capture_camera` produced a 640×480 PNG, and `record_camera(audio=False,
+duration=5)` produced a five-second VP9/WebM clip. Later status answers verify
+each result. Camera image and video bytes, microphone bytes, and device IDs are
+omitted from the public notebook. The three **direct Python** camera cells
+remain runnable but have no saved completed execution; the strict checker
+records only those three explicit deferrals. An earlier permission attempt in
+the in-app browser expired and does not count as camera success.
 
-## Completed direct media examples
+The shared recorder was also exercised through AI on a generated, silent 64×32
+canvas source. The first recording reached `paused` after `pause_recording`; a
+guarded `resume_recording` call changed its visible Media row from `paused` to
+`running`. It later reached the 300-second wall limit before another AI status
+check, so its resume is a labeled browser observation rather than a terminal AI
+status claim. A separate recording was explicitly stopped and confirmed by
+`operation_status`: 54.5537 seconds of VP9/WebM video. The direct microphone
+pause/resume/stop run is independent evidence for those controls. An earlier AI
+microphone recording reached the 60-second memory limit before a pause could
+be confirmed. Three old media references expired before cleanup; one later
+`release_media` call returned `released: true`, but its status lookup was
+`stale_target`, so no terminal release status is claimed for it.
 
-The playback notebook was executed in one isolated JupyterLab/kernel session.
-Its generated PNG went through the visible file chooser; its quiet 60-second
-WAV advanced from playback time 0 to 5.107 seconds before Pause. Seek returned
-2.5 seconds, volume returned 0.25, and Close and the imported-image release
-completed. The browser Copy shortcut and Paste control returned the exact
-37-character disposable sample. Nine direct calls have separate completed
-receipt inspections, and generated sample files were removed. The saved
-playback example retains the actual outputs; its AI questions remain unrun.
+## Import, playback, and clipboard
 
-The capture notebook currently retains a genuine **partial** microphone run:
-device listing, microphone start, positive audio levels, microphone-backed
-recording with pause/resume/stop, source stop, and a separate one-shot recording.
-The embedded Opus clips independently decode to 20.64 and 6.96 seconds of
-playable audio. The recording receipt's 24.629-second duration includes paused
-wall time and is not its playable duration. Nine direct calls and later terminal
-receipts are saved. A separate real `setup_share` call and later completed
-receipt are also saved; the remaining screen calls, AI examples, and final
-shared cleanup cell are still unrun in that notebook. Server teardown released
-the disposable run's remaining memory media.
+[`browser-media-playback.ipynb`](../examples/browser-media-playback.ipynb) saves
+real direct calls and completed receipt inspections for file choice, import,
+audio open/play/pause/seek/volume/close, clipboard copy/paste, and media
+release. Its generated PNG was selected in the visible file chooser. Its
+generated 60-second WAV played to 5.107 seconds before the direct Pause; Seek
+returned 2.5 seconds, volume returned 0.25, and the opened preview closed.
+The fixture files were removed after the run.
 
-The integration notebook retains a direct run from one isolated
-kernel: an 8×8 notebook PNG was listed, exported, previewed, cropped to 4×4,
-and saved with a provenance sidecar. Later receipt inspections confirmed each
-operation before dependent cells used it. The notebook checked both pixel
-values and file hashes, then completed preview/media release and removed its
-generated image and sidecar. A separate guarded ChatGPT `gpt-6-sol` pilot on
-the unchanged canonical notebook executed the two setup cells and saved one
-answer to `integration-list-ai-question`. Its retained subscription trace has
-exactly one `list_outputs` call for `integration-output` and one accepted
-receipt. Both the immediate receipt and the answer say the operation was
-`running`; neither reports an output ID or MIME type. The following
-`integration-list-ai-ready` status question has not run, so this AI tool
-example is partial until a later terminal receipt verifies its effect. The
-attachment confirmation and other AI questions are also still unrun.
+The notebook also saves concise ChatGPT questions, observed calls, and final
+status answers for every import/playback/clipboard tool. AI file choice
+completed on the generated PNG, and its managed media was released. AI
+`open_media` created a separate audio preview; `close_media` closed that preview
+without targeting the direct example's preview. AI `play_media` was confirmed
+playing at 0.11235 seconds. A fresh muted run confirmed `pause_media` at
+41.751484 seconds with `playing: false`; the preview had been set to volume
+zero before this retry. AI Seek returned 2.5 seconds and volume returned 0.25
+while paused. The visible browser Copy control completed with `copied: true`.
+For AI Paste, the computer-control test clipboard was explicitly seeded with
+the known disposable sample before a real paste keystroke into the visible
+field. The later status returned that exact text without truncation. This
+demonstrates the paste flow; it does **not** establish that the preceding Copy
+transferred text into the computer-control virtual clipboard.
 
-The attachment notebook retains an actual direct image confirmation with a
-later completed receipt, plus two earlier genuine AI tool answers and traces.
-The final image question is not published as a completed answer: its retained
-private run predates the current trace-free plan attestation, and a fresh
-authorized submission is pending. A private test observer independently
-verified that earlier submitted turn contained one native image with the
-confirmed PNG hash; this is not a claim that the canonical final question has
-been rerun.
+## Notebook outputs and canvas
 
-The `insert_tools` helper inserted a real Markdown declaration immediately
-after its calling cell. A later kernel turn inspected `status='inserted'` and
-the same cell ID, which is preserved in the saved notebook. The
-`tools_markdown` helper printed generated declarations in a separate direct
-run. The live-notebook tutorial also retains its actual setup/reference
-outputs; its AI editing questions remain unrun.
+[`browser-media-outputs.ipynb`](../examples/browser-media-outputs.ipynb)
+retains real direct runs for reading the notebook view and selection, listing
+and reading existing outputs, exporting a generated 8×8 PNG, enumerating and
+capturing a generated 64×32 canvas, exporting that canvas, starting and
+stopping its source, capturing a visible output region, and releasing the
+managed results. A later direct selection trial returned the exact selected
+line `SELECT_ME = "blue square"` from its live editor cell.
 
-## Ordinary JupyterLab comparisons
+The saved ChatGPT sequence has guarded calls and terminal status answers for
+the view, an empty selection, output list/read/export, canvas list/capture/
+export/start/stop, visible-region capture, and four successful media releases.
+The initial empty-selection answer is retained as observed, not presented as
+the nonempty demonstration. A separate AI question in a fresh browser run
+returned the selected text `selected blue square` from `selection-ai-target`;
+its later status answer was saved in the notebook.
 
-Fourteen editor actions in the live-tool catalog were performed on a second
-disposable notebook through ordinary JupyterLab controls: list, read, find,
-insert, replace, delete, move, copy, split, and merge examples. Each action
-was saved through JupyterLab and checked against the resulting notebook cells
-before its concise observation was attached to the canonical comparison cell.
-The public web tutorial was opened in a browser; a separate disposable
-notebook received an ordinary saved Markdown note citing its source. Its
-observed comparison is attached to the mapped `url_to_note` cell. The
-disposable scratch edits themselves were not copied into the runnable catalog
-notebook.
+## Other worked examples
 
-## Screen-share direct status
+The integration notebook's direct run listed, exported, previewed, cropped,
+saved, and released an 8×8 generated PNG, checking pixels and file hashes. Its
+earlier AI `list_outputs` pilot saved one accepted call, but only the immediate
+`running` receipt; a terminal output listing and its other AI questions remain
+unrun in that notebook. The attachment notebook has direct image confirmation
+and two earlier AI tool answers. Its final image question has not been
+republished with a fresh authorized submission. The helper examples executed
+real `insert_tools` insertion and `tools_markdown` generation. The live-notebook
+tutorial's setup/reference cells ran; its AI editing questions remain unrun.
 
-On 2026-09-29, earlier bounded direct attempts completed `setup_share` and
-reached `start_share`'s `waiting_for_user` state, then used the notebook's
-visible Share control. A separate setup-only pass saved the genuine completed
-`setup_share` call and later inspection (`share_controls: true`,
-`screen_available: true`). Those earlier `start_share` attempts did not complete.
+Fourteen ordinary JupyterLab editor actions and one public-page note were run
+in disposable comparison notebooks for the live-tool catalog. Their observed
+results are attached to the mapped canonical cells, but the scratch edits were
+not copied into the catalog notebook.
 
-The initial computer-use route attached to an old, unrelated Chrome for
-Testing process showing **New Tab**. An intervening attempt confirmed this
-same-bundle mismatch: its owned disposable browser was PID 65835, while native
-app control still attached to the unrelated PID 10120. No unrelated tab or
-chooser row was selected. In three later, process-specific attempts, native
-accessibility and window inspection did identify the owned browser and chooser.
-The first showed one disposable notebook tab in the chooser, but exposed no
-accessibility element for its tab tile, so it was left unselected. In the next
-two attempts, a fresh image of the owned window identified the sole disposable
-tab row; a guarded native click inside that row did not establish a selection.
-One post-click image was unavailable; the final attempt's post-click image and
-accessibility state both showed Share still disabled. Share was never pressed
-in the native chooser, and each `start_share` receipt failed its bounded
-completion check. All owned browser/server processes were stopped and port
-8897 was free afterward.
+## Native Run All limit
 
-One later isolated direct attempt reached the same chooser with a single
-disposable JupyterLab tab. Full-display observations before and after
-`start_share` showed no unexpected system permission alert during that session.
-The user selected the sole tab in the browser chooser; the agent made no
-chooser selection. The original `start_share` operation then completed with
-`display_surface: browser`, video enabled, and audio disabled. In the same
-notebook/kernel session, later inspections confirmed completed `capture_screen`
-and `capture_tool` operations. Each captured a 1280×670 image of the disposable
-target notebook and displayed a 320×240 preview. `stop_share` and its later
-inspection completed
-with `stopped: true`. Only these genuine direct-call outputs and receipt
-inspections were added to the public capture notebook. Its AI examples remain
-unrun. The separate actual owned-tab video used by transform examples remains
-independent evidence.
-
-## Native Run All observation
-
-On 2026-09-29, a disposable direct notebook used JupyterLab's native **Run All
-Cells** menu action. The `start_share(audio=False)` call returned an initial
-receipt, and the following marker cell executed without clicking the visible
-Share control. That initial receipt did not prove a completed screen share.
-
-A second disposable pass used native **Run All Above Selected Cell** for only
-the setup, start-share, and marker cells. The marker executed at count 3. A
-separate kernel turn then observed the exact start-share operation in
-`waiting_for_user`; no chooser or screen stream was claimed. Later cancellation
-changed that same operation to `cancelled`, and a final status query confirmed
-the original operation ID and cancelled state. This shows that direct Run All
-continues past an immediate browser receipt while the user action remains
-pending. The corresponding AI-question Run All pass remains untested while the
-configured ChatGPT subscription is usage-limited; the question about using
-existing paid credits has not been answered.
+A disposable native **Run All** pass ran the cell following a direct
+`start_share` call while that operation still needed a browser choice. A second
+**Run All Above Selected Cell** pass likewise reached its marker while the
+original share operation was `waiting_for_user`; later cancellation was
+confirmed on that same operation. These observations show that ordinary Run
+All advances past an immediate browser receipt, not that it waits for the
+interactive action to finish. AI-question Run All remains untested.
