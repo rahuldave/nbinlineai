@@ -62,6 +62,8 @@ HEADLESS_UI_CELLS = {
     ("browser-media-outputs.ipynb", "view-inspect"): "view.status",
     ("browser-media-outputs.ipynb", "selection-call"): "read_selection(",
     ("browser-media-outputs.ipynb", "selection-inspect"): "selection.status",
+    ("browser-media-outputs.ipynb", "selection-nonempty-call"): "read_selection(",
+    ("browser-media-outputs.ipynb", "selection-nonempty-inspect"): "selected_text.status",
     ("browser-media-outputs.ipynb", "outputs-list-call"): "list_outputs(",
     ("browser-media-outputs.ipynb", "outputs-list-inspect"): "raster_listing.result",
     ("browser-media-outputs.ipynb", "output-read-call"): "read_output(",
