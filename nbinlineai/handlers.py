@@ -260,8 +260,10 @@ class PromptHandler(APIHandler):
         self.set_header("X-Accel-Buffering", "no")
         self._run_task = asyncio.current_task()
         try:
-            kwargs = {'media_registry': self.media_registry, 'attachment_owner': attachment_owner,
-                      'subscription_modalities': subscription_modalities}
+            kwargs = {}
+            if attachment_owner is not None:
+                kwargs.update(media_registry=self.media_registry, attachment_owner=attachment_owner,
+                              subscription_modalities=subscription_modalities)
             if subscription_scope:
                 kwargs.update(subscription_runtime=self.subscription_manager,
                               subscription_scope=subscription_scope)

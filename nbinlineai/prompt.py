@@ -208,10 +208,17 @@ def _subscription_scope_preamble(scope: dict) -> str:
 
 def _confirmed_attachment(body: dict):
     """Only the current identified AI question can contribute model image input."""
-    if body.get('_legacy_snapshot'):
+    if body.get('_legacy_snapshot') is True or (
+            '_legacy_snapshot' not in body and 'snapshot_version' not in body
+            and 'notebook_cells' not in body):
         return NO_ATTACHMENT
-    question = next(cell for cell in body['notebook_cells']
-                    if cell['id'] == body['prompt_cell_id'])
+    cells = body.get('notebook_cells')
+    if not isinstance(cells, list):
+        raise TypeError('Confirmed image needs the current notebook snapshot')
+    question = next((cell for cell in cells
+                     if cell['id'] == body['prompt_cell_id']), None)
+    if question is None:
+        raise ValueError('Current AI question is missing from the notebook snapshot')
     metadata = question['metadata'].get('nbinlineai', {})
     return metadata.get('mediaAttachment', NO_ATTACHMENT)
 
