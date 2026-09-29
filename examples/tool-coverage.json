@@ -1279,8 +1279,8 @@
     },
     "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_source-inspect",
-    "receipt_variable": "stopped_camera",
-    "expected_behavior": "Stop an owned source and finalize its recording, if any.",
+    "receipt_variable": "stopped_microphone",
+    "expected_behavior": "Stop the verified microphone source after its completed recording without deleting the clip.",
     "normal_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-stop_source-call",
@@ -1288,7 +1288,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
-      "cell_id": "capture-ai-camera-stop"
+      "cell_id": "capture-ai-recording-stop-source"
     }
   },
   "start_recording": {
