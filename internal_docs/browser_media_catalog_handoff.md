@@ -1,8 +1,9 @@
 # Browser/media tool catalog handoff
 
 Status: implemented on topic `codex/browser-media-catalog` for the shipped tool
-registry; additional browser/media families are pending integration. This is an
-implementation record, not an approved pre-work specification or a release record.
+registry; the additional browser/media families later merged through PRs #29,
+#31, #32 and #33. This is a historical implementation record, not an approved
+pre-work specification or a release record.
 
 ## Revision and ownership
 

@@ -29,16 +29,18 @@ The [foundation](browser_media_foundation_handoff.md),
 [transformations](browser_media_transforms_handoff.md), and
 [image attachment](browser_media_attachment_handoff.md) handoffs describe
 their respective implementation branches and test boundaries. The
-[working acceptance record](browser_media_acceptance.md) tracks the combined
-96-tool source inventory and remaining verification; it is not a release
-record. Read each handoff at the commit containing its code, since a handoff's
-earlier pending-PR statement may be historical.
+[acceptance record](browser_media_acceptance.md) tracks the combined 96-tool
+source inventory, verified checks and remaining platform limits; it is not a
+release record. Read each handoff at the commit containing its code, since
+earlier pending-PR statements may describe historical topic checkpoints.
 
 Quarto notebook-gallery source merged by PR #30 as `8ce8e2e`; the browser/media
 foundation merged by PR #29 as `90c5aee`, and capture plus live outputs source
-merged by PR #31 as `11eae2b`. All 45 approved new public APIs are implemented
-across the source topics; combined final delivery is staged for review and CI.
-The published PyPI package remains 0.1.15 and does not contain these additions.
+merged by PR #31 as `11eae2b`; playback and transformations merged by PR #32
+as `b38d684`, and image attachment merged by PR #33 as `d862d46`. All 45
+approved new public APIs are now on `main` as source, yielding 96 public tools
+plus three setup helpers. The published PyPI package remains 0.1.15 and does
+not contain these additions.
 
 ## A new task's reading order
 
