@@ -7,6 +7,7 @@ import pytest
 
 from scripts.check_worked_evidence import (
     _later_effect,
+    _observed_resume_transition,
     execution_deferral_summary,
     validate_examples,
 )
@@ -289,6 +290,53 @@ def test_control_effect_needs_a_successful_exact_later_status_lookup(
     cells[-1]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"] = [lookup]
     cells[3]["metadata"]["nbinlineai"]["status"] = "failed"
     assert not _later_effect(cells, 0, call)
+
+
+def test_resume_accepts_exact_saved_media_row_transition_after_paused_status() -> None:
+    target = "TargetOperation0123456789abcdef01234"
+    call = {"name": "resume_recording", "resultState": "receipt accepted",
+            "operationId": "ControlOperation0123456789abcdef0123", "targetOperationId": target}
+    question_id = "resume-question"
+    action = {"name": "resume_recording", "questionCellId": question_id,
+              "targetOperationId": target, "observedBefore": "paused",
+              "observedAfter": "running", "completed": True}
+    cells = [
+        _markdown("paused-question", "Check recording status.",
+                  {"nbinlineai": {"isPromptCell": True}}),
+        _markdown("paused-answer", "Paused.",
+                  {"nbinlineai": {"isOutputCell": True, "promptCellId": "paused-question",
+                                  "status": "done"}}),
+        _markdown("paused-trace", "Observed paused status", {"nbinlineaiWorkedEvidence": {
+            "questionCellId": "paused-question", "observedTools": [{
+                "name": "operation_status", "resultState": "completed",
+                "targetOperationId": target, "operationState": "paused",
+            }],
+        }}),
+        _markdown(question_id, "Use resume_recording.",
+                  {"nbinlineai": {"isPromptCell": True}}),
+        _markdown("resume-answer", "Control receipt accepted.",
+                  {"nbinlineai": {"isOutputCell": True, "promptCellId": question_id,
+                                  "status": "done"}}),
+        _markdown("resume-observation", "The Media row changed from paused to running.",
+                  {"nbinlineaiWorkedUIActions": [action]}),
+    ]
+    assert _observed_resume_transition(cells, 3, question_id, call)
+    for change in (
+        {"resultState": "failed"}, {"operationId": None},
+        {"targetOperationId": "different-target"},
+    ):
+        assert not _observed_resume_transition(cells, 3, question_id, call | change)
+    for change in (
+        {"questionCellId": "different-question"}, {"targetOperationId": "different-target"},
+        {"observedBefore": "running"}, {"observedAfter": "completed"},
+        {"completed": False},
+    ):
+        cells[-1]["metadata"]["nbinlineaiWorkedUIActions"] = [action | change]
+        assert not _observed_resume_transition(cells, 3, question_id, call)
+    cells[-1]["metadata"]["nbinlineaiWorkedUIActions"] = [action]
+    cells[2]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"][0][
+        "operationState"] = "running"
+    assert not _observed_resume_transition(cells, 3, question_id, call)
 
 
 def test_failed_result_and_missing_answer_are_not_saved_evidence(tmp_path: Path) -> None:

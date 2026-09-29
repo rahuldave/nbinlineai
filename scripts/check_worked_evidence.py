@@ -159,6 +159,63 @@ def _later_effect(
     return False
 
 
+def _observed_resume_transition(
+    cells: list[dict[str, Any]], question_index: int, question_id: str,
+    call: dict[str, Any],
+) -> bool:
+    """Accept a real editor observation when a short running state was missed by AI status.
+
+    The initial control receipt alone cannot prove the recorder resumed. The
+    prior paused status and a later visible Media-row transition must refer to
+    the same recording targeted by the observed resume call.
+    """
+    target = call.get("targetOperationId")
+    if (call.get("name") != "resume_recording" or call.get("resultState") != "receipt accepted"
+            or not isinstance(call.get("operationId"), str)
+            or not isinstance(target, str) or not target):
+        return False
+    paused_before = False
+    for index, cell in enumerate(cells[:question_index]):
+        evidence = cell.get("metadata", {}).get("nbinlineaiWorkedEvidence")
+        if not isinstance(evidence, dict):
+            continue
+        earlier_question_id = evidence.get("questionCellId")
+        if not isinstance(earlier_question_id, str):
+            continue
+        try:
+            earlier_index, _ = _cell(cells, earlier_question_id)
+            _answer(cells, earlier_question_id)
+        except ValueError:
+            continue
+        if earlier_index >= index:
+            continue
+        paused_before = paused_before or any(
+            observed.get("name") == "operation_status"
+            and observed.get("resultState") == "completed"
+            and observed.get("targetOperationId") == target
+            and observed.get("operationState") == "paused"
+            for observed in evidence.get("observedTools", [])
+        )
+    if not paused_before:
+        return False
+    return any(
+        cell.get("cell_type") == "markdown"
+        and not cell.get("metadata", {}).get("nbinlineai", {}).get("isOutputCell")
+        and "paused" in _source(cell).lower() and "running" in _source(cell).lower()
+        and any(
+            isinstance(action, dict)
+            and action.get("name") == "resume_recording"
+            and action.get("questionCellId") == question_id
+            and action.get("targetOperationId") == target
+            and action.get("observedBefore") == "paused"
+            and action.get("observedAfter") == "running"
+            and action.get("completed") is True
+            for action in cell.get("metadata", {}).get("nbinlineaiWorkedUIActions", [])
+        )
+        for cell in cells[question_index + 1:]
+    )
+
+
 def _execution_deferral(name: str, entry: dict[str, Any], examples_dir: Path) -> frozenset[str]:
     """Allow only direct camera calls to await a separate permission-backed run."""
     deferral = entry.get("execution_deferral")
@@ -295,7 +352,9 @@ def validate_examples(
                          }))
                         or (call.get("resultState") == "receipt accepted"
                             and isinstance(call.get("operationId"), str)
-                            and _later_effect(ai_cells, question_index, call))
+                            and (_later_effect(ai_cells, question_index, call)
+                                 or _observed_resume_transition(
+                                     ai_cells, question_index, ai["cell_id"], call)))
                         for call in calls
                     ):
                         raise ValueError("no completed result or linked later operation effect")
