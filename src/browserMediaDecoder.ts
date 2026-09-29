@@ -238,27 +238,40 @@ export async function loadPlaybackMedia(context: BrowserOperationContext, refere
         let actualSeconds = alreadyAtFrame && lastFrame?.requested === seconds ? lastFrame.actual : undefined;
         if (actualSeconds === undefined) actualSeconds = await new Promise<number>((resolve, reject) => {
           let frameCallback: number | undefined;
+          let sought = false;
+          let presented: number | undefined;
+          let done = false;
           const cleanup = () => { video.removeEventListener('seeked', onSeek); video.removeEventListener('error', onError);
             signal?.removeEventListener('abort', onAbort); window.clearTimeout(timer);
-            if (frameCallback !== undefined) video.cancelVideoFrameCallback(frameCallback); };
-          const onSeek = () => {
-            frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
-              if (released || !context.isCurrent() || signal?.aborted) {
-                cleanup(); reject(new BrowserMediaError('stale_target', 'Decoder lease has closed.')); return;
-              }
-              if (!Number.isFinite(metadata.mediaTime) || metadata.mediaTime < 0 ||
-                  metadata.mediaTime > duration + 0.001) {
-                cleanup(); reject(new BrowserMediaError('unsupported', 'Decoded frame timestamp is unavailable.'));
-                return;
-              }
-              cleanup(); resolve(metadata.mediaTime);
-            });
+            if (frameCallback !== undefined) video.cancelVideoFrameCallback(frameCallback);
+            done = true; };
+          const complete = () => {
+            if (!sought || presented === undefined || done) return;
+            cleanup(); resolve(presented);
           };
+          const onSeek = () => { sought = true; complete(); };
           const onError = () => { cleanup(); reject(new BrowserMediaError('unsupported', 'Video frame could not be decoded.')); };
           const onAbort = () => { cleanup(); reject(new BrowserMediaError('cancelled', 'Frame extraction cancelled.')); };
           const timer = window.setTimeout(() => { cleanup(); reject(new BrowserMediaError('timeout', 'Decoded frame presentation timed out.')); }, 10_000);
+          const watchFrame = () => { frameCallback = video.requestVideoFrameCallback((_now, metadata) => {
+            if (done) return;
+            if (released || !context.isCurrent() || signal?.aborted) {
+              cleanup(); reject(new BrowserMediaError('stale_target', 'Decoder lease has closed.')); return;
+            }
+            if (!Number.isFinite(metadata.mediaTime) || metadata.mediaTime < 0 ||
+                metadata.mediaTime > duration + 0.001) {
+              cleanup(); reject(new BrowserMediaError('unsupported', 'Decoded frame timestamp is unavailable.'));
+              return;
+            }
+            // WebKit can present the sought frame before firing `seeked`.
+            // Retain that presentation, then wait for seek completion before capture.
+            if (Math.abs(metadata.mediaTime - seconds) <= 1) presented = metadata.mediaTime;
+            complete();
+            if (!done) watchFrame();
+          }); };
           video.addEventListener('seeked', onSeek, { once: true }); video.addEventListener('error', onError, { once: true });
           signal?.addEventListener('abort', onAbort, { once: true });
+          watchFrame();
           // Assigning the same currentTime may not seek; a tiny nudge still presents its frame.
           video.currentTime = alreadyAtFrame
             ? (seconds + 0.0001 < duration ? seconds + 0.0001 : Math.max(0, seconds - 0.0001))

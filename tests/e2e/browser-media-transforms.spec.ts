@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '../support/e2e-fixtures';
 
-test('the public notebook decodes two real video frames and saves and redacts PNG derivatives', async ({ page, request }) => {
+test('the public notebook verifies real frames where supported and saves and redacts PNG derivatives', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-transforms.ipynb'), 'utf8'));
   const ids = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code')
     .map((cell: { id: string }) => cell.id);
@@ -53,7 +53,10 @@ test('the public notebook decodes two real video frames and saves and redacts PN
 
   expect(await run(0)).toContain('Disposable exact PNG');
   await run(1);
-  await inspect(2, 'Verified decoded red and blue frames:');
+  if (browserName === 'firefox')
+    await inspect(2, 'Browser could not decode this media codec.');
+  else
+    await inspect(2, 'Verified decoded red and blue frames:');
   await run(3);
   await inspect(4, 'crop.png.json');
   await run(5);
