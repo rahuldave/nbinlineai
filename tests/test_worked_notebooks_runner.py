@@ -34,3 +34,39 @@ def test_child_environment_is_allowlisted(monkeypatch, tmp_path):
 def test_port_refuses_a_live_listener():
     runner = _runner()
     assert runner.PORT == 8897
+
+
+def test_receipt_reader_rejects_untrusted_kernel_and_variable(monkeypatch, tmp_path):
+    import pytest
+
+    script = Path(__file__).resolve().parents[1] / "scripts/worked_receipt_state.py"
+    spec = importlib.util.spec_from_file_location("worked_receipt_state", script)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setenv("JUPYTER_RUNTIME_DIR", str(tmp_path))
+    with pytest.raises(ValueError, match="kernel ID"):
+        module.receipt_state("../../personal-kernel", "camera")
+    with pytest.raises(ValueError, match="receipt variable"):
+        module.receipt_state("12345678-1234-1234-1234-123456789abc", "camera.__dict__")
+
+
+def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch, tmp_path):
+    from jupyter_client import KernelManager
+
+    from scripts.worked_direct_probe import _execute, arm, take
+
+    kernel_id = "12345678-1234-1234-1234-123456789abc"
+    monkeypatch.setenv("JUPYTER_RUNTIME_DIR", str(tmp_path))
+    manager = KernelManager(connection_file=str(tmp_path / f"kernel-{kernel_id}.json"))
+    manager.start_kernel(cwd=str(Path(__file__).resolve().parents[1]))
+    try:
+        arm(kernel_id, ["search_kernel_names"])
+        _execute(kernel_id, "from nbinlineai.tools import search_kernel_names\n"
+                 "if False: search_kernel_names('proof')")
+        assert take(kernel_id) == []
+        arm(kernel_id, ["search_kernel_names"])
+        assert _execute(kernel_id, "saved = search_kernel_names('unlikely_probe_name')") == ""
+        assert take(kernel_id) == [{"name": "search_kernel_names", "completed": True}]
+    finally:
+        manager.shutdown_kernel(now=True)

@@ -12,7 +12,10 @@ const root = resolve(import.meta.dirname, '..');
 const token = process.env.NBINLINEAI_WORKED_TOKEN;
 const manifestPath = process.env.NBINLINEAI_WORKED_MANIFEST;
 const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
-if (!token || !manifestPath || !outputDir) throw new Error('Worked runner environment is incomplete');
+const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
+if (!token || !manifestPath || !outputDir || !ownedPython) {
+  throw new Error('Worked runner environment is incomplete');
+}
 
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
 async function until(check, timeout, description) {
@@ -28,6 +31,37 @@ function safeName(value) {
     throw new Error('Notebook name must be a flat .ipynb filename');
   }
   return value;
+}
+async function readLiveReceipt(kernelId, variable) {
+  return new Promise((resolveReceipt, rejectReceipt) => {
+    const process = spawn(ownedPython, [join(root, 'scripts', 'worked_receipt_state.py'), kernelId, variable],
+      { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    process.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    process.stderr.on('data', () => { /* never print kernel connection details */ });
+    process.once('error', rejectReceipt);
+    process.once('exit', code => {
+      if (code !== 0 || stdout.length > 500) return rejectReceipt(new Error('Live receipt state could not be verified'));
+      try { resolveReceipt(JSON.parse(stdout)); }
+      catch { rejectReceipt(new Error('Live receipt state was invalid')); }
+    });
+  });
+}
+async function directProbe(kernelId, action, names = []) {
+  return new Promise((resolveProbe, rejectProbe) => {
+    const child = spawn(ownedPython, [join(root, 'scripts', 'worked_direct_probe.py'),
+      kernelId, action, ...(action === 'arm' ? [JSON.stringify(names)] : [])],
+    { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', () => { /* never print kernel connection details */ });
+    child.once('error', rejectProbe);
+    child.once('exit', code => {
+      if (code !== 0 || stdout.length > 10_000) return rejectProbe(new Error('Direct-call probe failed'));
+      try { resolveProbe(action === 'take' ? JSON.parse(stdout) : stdout.trim()); }
+      catch { rejectProbe(new Error('Direct-call probe returned invalid data')); }
+    });
+  });
 }
 async function chooseSubscription(request) {
   const response = await request.get('/nbinlineai/subscription/status');
@@ -69,6 +103,22 @@ async function runNotebook(page, request, context, entry, choice) {
   const name = safeName(entry.source);
   const path = join(root, 'examples', name);
   const source = JSON.parse(await readFile(path, 'utf8'));
+  const coverage = JSON.parse(await readFile(join(root, 'examples', 'tool-coverage.json'), 'utf8'));
+  const receiptVariables = new Map();
+  const directNames = new Map();
+  for (const entry of Object.values(coverage)) {
+    if (entry.normal_example?.notebook !== name || !entry.receipt_inspect_cell || !entry.receipt_variable) continue;
+    const values = receiptVariables.get(entry.receipt_inspect_cell) ?? new Set();
+    values.add(entry.receipt_variable);
+    receiptVariables.set(entry.receipt_inspect_cell, values);
+  }
+  for (const [toolName, entry] of Object.entries(coverage)) {
+    if (entry.normal_example?.notebook !== name || entry.normal_example.mode !== 'python' ||
+        ['insert_tools', 'tool_catalog', 'tools_markdown'].includes(toolName)) continue;
+    const values = directNames.get(entry.normal_example.cell_id) ?? new Set();
+    values.add(toolName);
+    directNames.set(entry.normal_example.cell_id, values);
+  }
   const model = entry.requiresImage ? choice.imageModel : choice.model;
   if (!model) throw new Error(`${name} has no compatible discovered ChatGPT model`);
   const previous = source.metadata?.nbinlineai ?? {};
@@ -88,15 +138,20 @@ async function runNotebook(page, request, context, entry, choice) {
   await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
   const panel = page.locator('.jp-NotebookPanel:visible');
   await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
+  let kernelId;
   await until(async () => {
     const response = await request.get('/api/sessions');
-    return response.ok() && (await response.json()).some(session => session.path === name && session.kernel?.id);
+    if (!response.ok()) return false;
+    kernelId = (await response.json()).find(session => session.path === name && session.kernel?.id)?.kernel?.id;
+    return !!kernelId;
   }, 60_000, `${name} kernel`);
   const select = page.getByRole('button', { name: 'Select', exact: true });
   if (await select.isVisible().catch(() => false)) await select.click();
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible().catch(() => false)) await no.click();
   const traces = [];
+  const receiptsByCell = new Map();
+  const directByCell = new Map();
   const privateHardwareValues = new Set();
   const code = id => {
     const index = codeIds.indexOf(id);
@@ -112,26 +167,47 @@ async function runNotebook(page, request, context, entry, choice) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
     if (step.action === 'code' || step.action === 'inspect') {
       const target = code(step.cellId);
+      const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
+      if (watched.length) await directProbe(kernelId, 'arm', watched);
+      let executionSucceeded = false;
       let text = '';
-      const inspectionDeadline = Date.now() + timeout;
-      for (let attempt = 0; ; attempt++) {
-        const prompt = target.locator('.jp-InputPrompt');
-        const before = await prompt.textContent();
-        await target.locator('.cm-content').click();
-        await page.keyboard.press('Control+Enter');
-        await until(async () => {
-          const now = await prompt.textContent();
-          return now !== before && /\[\d+\]/.test(now ?? '');
-        }, timeout, `${name} ${step.cellId} execution`);
-        text = await target.locator('.jp-OutputArea').textContent() ?? '';
-        if (!step.contains || text.includes(step.contains)) break;
-        if (/\b(?:failed|expired|error)\b/i.test(text)) break;
-        if (step.action !== 'inspect' || Date.now() >= inspectionDeadline) break;
-        await pause(350);
-      }
-      if (step.contains && !text.includes(step.contains)) throw new Error(`${name} ${step.cellId} did not show expected result`);
-      if (await target.locator('.jp-OutputArea .jp-RenderedText[data-mime-type="application/vnd.jupyter.stderr"]').count()) {
-        throw new Error(`${name} ${step.cellId} produced stderr`);
+      try {
+        const inspectionDeadline = Date.now() + timeout;
+        for (let attempt = 0; ; attempt++) {
+          const prompt = target.locator('.jp-InputPrompt');
+          const before = await prompt.textContent();
+          await target.locator('.cm-content').click();
+          await page.keyboard.press('Control+Enter');
+          await until(async () => {
+            const now = await prompt.textContent();
+            return now !== before && /\[\d+\]/.test(now ?? '');
+          }, timeout, `${name} ${step.cellId} execution`);
+          text = await target.locator('.jp-OutputArea').textContent() ?? '';
+          if (!step.contains || text.includes(step.contains)) break;
+          if (/\b(?:failed|expired|error)\b/i.test(text)) break;
+          if (step.action !== 'inspect' || Date.now() >= inspectionDeadline) break;
+          await pause(350);
+        }
+        if (step.contains && !text.includes(step.contains)) throw new Error(`${name} ${step.cellId} did not show expected result`);
+        if (await target.locator('.jp-OutputArea .jp-RenderedText[data-mime-type="application/vnd.jupyter.stderr"]').count()) {
+          throw new Error(`${name} ${step.cellId} produced stderr`);
+        }
+        executionSucceeded = true;
+        if (step.action === 'inspect' && receiptVariables.has(step.cellId)) {
+          const verified = [];
+          for (const variable of receiptVariables.get(step.cellId)) {
+            const receipt = await readLiveReceipt(kernelId, variable);
+            verified.push({ variable, operationId: receipt.operationId, status: receipt.status });
+          }
+          receiptsByCell.set(step.cellId, verified);
+        }
+      } finally {
+        if (watched.length) {
+          const observed = await directProbe(kernelId, 'take');
+          directByCell.set(step.cellId, observed.map(item => ({
+            name: item.name, cellId: step.cellId, completed: executionSucceeded && item.completed,
+          })));
+        }
       }
     } else if (step.action === 'ai') {
       const target = question(step.cellId);
@@ -187,6 +263,18 @@ async function runNotebook(page, request, context, entry, choice) {
   const saved = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
   if (!saved.ok()) throw new Error(`${name} did not save through Jupyter Contents`);
   const notebook = (await saved.json()).content;
+  for (const [cellId, receipts] of receiptsByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost inspected receipt cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedReceipts = receipts;
+  }
+  for (const [cellId, calls] of directByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost directly executed cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedDirectCalls = calls;
+  }
   addTraceAppendix(notebook, traces);
   normalizePublicCopy(notebook, privateHardwareValues);
   assertSafeNotebook(notebook);

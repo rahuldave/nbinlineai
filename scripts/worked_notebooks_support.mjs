@@ -22,6 +22,8 @@ export function observedTrace(questionId, events) {
     if (event.type === 'tool_start') {
       const call = { questionId, name: event.name, arguments: redact(event.arguments),
         result: '[no result event]', invoked: true, resultState: 'unresolved', frontendAction: false };
+      const submitted = typeof event.arguments === 'string' ? parsedObject(event.arguments) : event.arguments;
+      call.targetOperationId = safeOperationId(submitted?.operation_id);
       calls.push(call);
       byId.set(event.id, call);
     } else if (event.type === 'frontend_action') {
@@ -34,12 +36,32 @@ export function observedTrace(questionId, events) {
       if (!call) continue;
       const raw = String(event.text ?? '');
       call.resultState = toolResultState(raw);
+      const result = parsedObject(raw);
+      call.operationId = safeOperationId(result?.operation_id);
+      if (typeof result?.status === 'string') call.operationState = result.status;
       call.result = call.name === 'list_media_sources'
         ? '[real device list returned; labels and identifiers withheld from public copy]'
         : redact(raw);
     }
   }
   return calls;
+}
+function parsedObject(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch { return null; }
+}
+function safeOperationId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{16,100}$/.test(value) ? value : undefined;
+}
+export function structuredEvidence(questionId, calls) {
+  return { questionCellId: questionId, observedTools: calls.map(call => ({
+    name: call.name, resultState: call.resultState, frontendAction: call.frontendAction,
+    ...(call.operationId ? { operationId: call.operationId } : {}),
+    ...(call.targetOperationId ? { targetOperationId: call.targetOperationId } : {}),
+    ...(call.operationState ? { operationState: call.operationState } : {}),
+  })) };
 }
 export function toolResultState(value) {
   const trimmed = value.trim();
@@ -136,7 +158,8 @@ export function addTraceAppendix(notebook, traces) {
     const tableCell = value => value.replaceAll('|', '\\|').replace(/\r?\n/g, '<br>');
     const rows = items.map(item => `| \`${item.name}\` | ${item.resultState} | ${tableCell(item.arguments)} | ${tableCell(item.result)} |`);
     notebook.cells.splice(answerIndex + 1, 0, { cell_type: 'markdown', id: `worked-trace-${questionId}`,
-      metadata: { nbinlineaiWorkedTrace: true, questionCellId: questionId },
+      metadata: { nbinlineaiWorkedTrace: true, questionCellId: questionId,
+        nbinlineaiWorkedEvidence: structuredEvidence(questionId, items) },
       source: ['**Observed live tool calls for the answer above** (actual subscription events; private fields shortened).\n\n',
         '| Tool | Result state | Submitted arguments | Observed result |\n',
         '| --- | --- | --- | --- |\n', ...rows.map(row => `${row}\n`)] });

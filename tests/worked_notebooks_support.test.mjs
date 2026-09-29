@@ -24,6 +24,37 @@ test('tool events distinguish action correlation, error, and accepted receipt', 
   }
 });
 
+test('structured evidence links accepted operation to later status without private device data', () => {
+  const operationId = 'AbCdEf0123456789_-AbCdEf01234567';
+  const first = observedTrace('start-question', [
+    { type: 'tool_start', id: 'start', name: 'start_camera', arguments: { audio: false } },
+    { type: 'frontend_action', run_id: 'run', request_id: 'request' },
+    { type: 'tool_result', id: 'start', name: 'start_camera',
+      text: JSON.stringify({ operation_id: operationId, status: 'accepted', device_id: 'Private123' }) },
+  ]);
+  const later = observedTrace('status-question', [
+    { type: 'tool_start', id: 'status', name: 'operation_status', arguments: { operation_id: operationId } },
+    { type: 'tool_result', id: 'status', name: 'operation_status',
+      text: JSON.stringify({ operation_id: operationId, status: 'completed' }) },
+  ]);
+  const notebook = { cells: [
+    { id: 'start-answer', cell_type: 'markdown', metadata: { nbinlineai: {
+      isOutputCell: true, promptCellId: 'start-question' } }, source: ['Started.'] },
+    { id: 'status-answer', cell_type: 'markdown', metadata: { nbinlineai: {
+      isOutputCell: true, promptCellId: 'status-question' } }, source: ['Completed.'] },
+  ] };
+  addTraceAppendix(notebook, [...first, ...later]);
+  const start = notebook.cells.find(cell => cell.id === 'worked-trace-start-question');
+  const status = notebook.cells.find(cell => cell.id === 'worked-trace-status-question');
+  assert.deepEqual(start.metadata.nbinlineaiWorkedEvidence.observedTools[0], {
+    name: 'start_camera', resultState: 'receipt accepted', frontendAction: true,
+    operationId, operationState: 'accepted',
+  });
+  assert.equal(status.metadata.nbinlineaiWorkedEvidence.observedTools[0].targetOperationId, operationId);
+  assert.equal(status.metadata.nbinlineaiWorkedEvidence.observedTools[0].operationState, 'completed');
+  assert.ok(!JSON.stringify(start.metadata).includes('Private123'));
+});
+
 test('public copy removes macOS paths and hardware descriptions before saving', () => {
   const notebook = { metadata: {}, cells: [
     { id: 'setup', cell_type: 'code', outputs: [{ output_type: 'stream', name: 'stdout',
