@@ -1,7 +1,7 @@
 # Worked notebook and documentation acceptance (in progress)
 
 This is the source-work acceptance record for [draft PR #35](https://github.com/rahuldave/nbinlineai/pull/35), not a release
-record. This inventory is pinned to integrated `5f24ced` on `codex/worked-guide`;
+record. This inventory is pinned to integrated `3272cf0` on `codex/worked-guide`;
 the implementation began from `main` at `22b0a83`.
 The browser/media API contract was approved at `main`
 `61fa3fe517999d8f88ff328a99fc86a34dfb470b`, with selected task prompt
@@ -32,8 +32,8 @@ this record summarizes accepted checkpoints rather than duplicating traces.
 
 ## Accepted source and evidence checkpoints
 
-The canonical `examples/*.ipynb` inventory at `5f24ced` contains 24 notebooks.
-Sixteen retain genuine code output or completed AI answers; eight remain
+The canonical `examples/*.ipynb` inventory at `3272cf0` contains 24 notebooks.
+Seventeen retain genuine code output or completed AI answers; seven remain
 source-only. Counts below come from the saved notebook cells, not from private
 runner artifacts. “Calls” counts structured observed tool-result events; the
 ACP lesson correctly has no tool trace because its two questions offer no
@@ -46,7 +46,7 @@ notebook tools.
 | `browser-media-foundation` | 12 | 7 | 7 | 0 |
 | `browser-media-integration` | 0 | 0 | 0 | 0 |
 | `browser-media-outputs` | 36 | 24 | 30 | 0 |
-| `browser-media-playback` | 0 | 0 | 0 | 0 |
+| `browser-media-playback` | 20 | 0 | 0 | 0 |
 | `browser-media-transforms` | 8 | 8 | 14 | 0 |
 | `bundled-tools` | 2 | 4 | 5 | 0 |
 | `codex-acp-worked-example` | 3 | 2 | 0 | 0 |
@@ -66,7 +66,8 @@ notebook tools.
 | `tool-catalog-saved-notebooks` | 6 | 3 | 5 | 0 |
 | `tool-catalog-web` | 3 | 3 | 3 | 0 |
 
-The saved total is **78 done AI answers, 112 observed calls, and zero manual UI
+The saved total is **144 executed code cells, 78 done AI answers, 112 observed
+calls, and zero manual UI
 action markers**. The first ten nonmedia runs entered through `9b7ee81`,
 `7dd39c1`, and `57e5683`. The real foundation run entered at `108450c`;
 the original-source-preserving web and ACP publications were independently
@@ -94,15 +95,15 @@ unfinished actual evidence; it must pass against the final canonical saved
 notebooks before acceptance and must not be skipped for publication.
 
 The current mapping has **96 public tools and three setup helpers**. All
-source mappings pass the structural checker. At `5f24ced`, saved execution
-passes for 53 public normal examples and 54 public AI examples; one setup helper
+source mappings pass the structural checker. At `3272cf0`, saved execution
+passes for 62 public normal examples and 54 public AI examples; one setup helper
 (`tool_catalog`) passes. Exactly `start_camera`, `capture_camera`, and
 `record_camera` have the user-authorized dated **normal-and-AI camera
 deferral**, tied to [the actual camera probe](worked_notebooks_run.md#camera).
 The probe attempted acquisition for `start_camera`; the other two are
 dependency-blocked, not individually claimed as executed. No other tool or
 notebook is waived. The strict checker currently reports 42 tool/helper
-failures, representing 42 unfinished normal modes and 39 unfinished AI modes;
+failures, representing 33 unfinished normal modes and 39 unfinished AI modes;
 its one-error-per-tool output reports the first failure only. The exact
 remaining names are:
 
@@ -111,7 +112,7 @@ remaining names are:
 | `browser-media-attachment` | normal + AI | `attach_media` |
 | `browser-media-capture` | normal + AI | `capture_screen`, `capture_tool`, `list_media_sources`, `pause_recording`, `read_audio_levels`, `record_microphone`, `resume_recording`, `setup_share`, `start_microphone`, `start_recording`, `start_share`, `stop_recording`, `stop_share`, `stop_source` |
 | `browser-media-outputs` | normal + AI | `read_selection` (new nonempty selected-text demonstration; the earlier empty-state result remains saved) |
-| `browser-media-playback` | normal + AI | `choose_file`, `close_media`, `copy_text`, `open_media`, `paste_content`, `pause_media`, `play_media`, `seek_media`, `set_media_volume` |
+| `browser-media-playback` | AI only | `choose_file`, `close_media`, `copy_text`, `open_media`, `paste_content`, `pause_media`, `play_media`, `seek_media`, `set_media_volume` |
 | `tool-catalog-live-notebook` | normal + AI | `cell_insert_line`, `cell_replace_lines`, `cell_str_replace`, `copy_cell`, `delete_cell`, `find_cells`, `insert_code`, `insert_markdown`, `list_cells`, `merge_cells`, `move_cell`, `read_cell`, `replace_cell`, `split_cell` |
 | `tool-catalog-web` | normal UI only | `url_to_note` |
 | `live-variables-and-tools` | normal helper only | `insert_tools` (later `inserted` receipt and actual declaration cell required) |
@@ -125,10 +126,10 @@ AI exceptions rather than fabricated AI calls. Since the earlier `0b02ecc`
 inventory, `b070ebb` (integrated as `7d8ba14`) gave passive
 `list_media_sources` its own AI question before the deferred camera question.
 Its actual answer is still required; the camera exception does not apply to it.
-At `5f24ced`, `read_selection` maps to a new nonempty line-selection example;
+At `3272cf0`, `read_selection` maps to a new nonempty line-selection example;
 its direct and AI outcomes are pending, while the earlier saved empty-state
-output remains honest. The exact selected-line source correction `9493b34`
-and any new run are outside this pinned inventory.
+output remains honest. The one-line selected fixture correction `9493b34`
+is integrated as `4270d84`; its new run is outside this pinned inventory.
 
 The public notebook and manual source had independent review and focused
 repairs. Media receipt references were corrected at `986bb8e` and `72cce25`;
@@ -179,6 +180,13 @@ temporary operation IDs can differ from the AI questions. The coexistence
 notebook retains three done answers and one observed call; its inserted code
 remains unexecuted for the reader. Focused Quarto renders checked actual
 output displays and anchors.
+At `3272cf0`, the exact committed playback notebook rendered to an HTML page
+in the owned verification checkout: its saved 60-second WAV appears as one
+inline audio control, normal code and receipt outputs are readable, all five
+sampled call anchors and the download link resolve, and multiline setup code
+retains line breaks. The page contains 24 AI question panels and zero saved AI
+answer or observed-call panels, matching its direct-only state. This was a
+render check, not another media decode or live browser run.
 
 A **private, unpublished** partial capture run contains a real microphone
 recording. The staged notebook's embedded Opus/WebM bytes match its separate
@@ -195,9 +203,10 @@ neither the clip bytes nor these observations are counted as a published
 capture notebook or a completed AI demonstration.
 Private playback pilots also exercised its nine normal browser tools with
 real chooser, controls and clipboard actions and later receipt inspections.
-B's direct-only canonical playback candidate `caf49b4` arrived after the
-`5f24ced` inventory and is not counted until its source/evidence review and
-integration finish; its AI questions are still unrun.
+B's reviewed direct-only playback artifact `caf49b4` is integrated as
+`3272cf0` and counted as the seventeenth saved notebook. Its nine normal
+browser tools have later terminal receipt evidence, but its AI questions are
+still unrun.
 
 A separate owned-tab screen recording is a checked-in companion input for the
 transform notebook at source commit `c48f99d` (integrated as `8a6545b`).
@@ -235,11 +244,12 @@ decision; this worked-notebook checkpoint claims no paid model turn or spend.
   `socratic-learning-dialog.ipynb`, and `tool-catalog-live-notebook.ipynb`.
   The saved ACP lesson already preserves
   its expected diagnostic rather than silently fixing the teaching bug.
-- Save and independently inspect the four remaining source-only media
-  notebooks: capture, playback, attachment, and the integration walkthrough.
+- Save and independently inspect the three remaining source-only media
+  notebooks: capture, attachment, and the integration walkthrough. Complete
+  the nine unrun AI demonstrations in the direct-only playback notebook.
   Complete the new nonempty selected-text direct and AI demonstrations in the
   already-saved output notebook. Independently accepted private microphone
-  and playback normal runs are not canonical publication at this pinned head.
+  results are not canonical publication at this pinned head.
   Use actual microphone and owned-tab screen sources for noncamera
   workflows; the exact three camera-dependent tools remain dated exceptions
   until the user and hardware can complete them. A pending permission request
