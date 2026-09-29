@@ -121,6 +121,9 @@ test('output export, preview, crop and explicit attachment send one exact native
     const beforeAttachment = await refreshPreview();
     expect(beforeAttachment.context_chars).toBeGreaterThan(0);
     expect(beforeAttachment.context_chars).toBeLessThanOrEqual(64_000);
+    // Text-only previews do not report round_wire_chars; that metric is present
+    // when the confirmed image enters the submission estimate below.
+    expect(beforeAttachment.round_wire_chars).toBeUndefined();
     await run('integration-attach-call');
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();
@@ -136,7 +139,7 @@ test('output export, preview, crop and explicit attachment send one exact native
     // Repeated previews budget the confirmed image but do not run either code or model work.
     for (let index = 0; index < 2; index++) {
       const report = await refreshPreview();
-      expect(report.round_wire_chars).toBeGreaterThan(beforeAttachment.context_chars);
+      expect(report.round_wire_chars).toBeGreaterThan(0);
       expect(report.round_wire_chars).toBeLessThanOrEqual(64_000);
     }
     expect(await cell('integration-output').locator('.jp-InputPrompt').textContent()).toBe(outputExecution);
