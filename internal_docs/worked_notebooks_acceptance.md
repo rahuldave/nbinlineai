@@ -270,7 +270,11 @@ compatibility, while full source validation reported 503 passing tests and the
 one expected failure of the enabled unfiltered saved-evidence gate. At the
 later rebased `32e2c5e` checkpoint, source validation again failed only that
 gate after 541 passing tests; dependent package/browser stages were skipped
-there, not passed. The current `6b7dd62` inventory above is a read-only
+there, not passed. At the pinned `6b7dd62` head, source run
+`36559068643` passed 544 Python tests and Ruff, then failed only the same
+strict saved-evidence gate; its later frontend unit and TypeScript checks
+were not reached. Quarto run `36559068822` and runtime-compatibility run
+`36559068731` passed. The current inventory above is a read-only
 canonical-cell/checker calculation, not a new full test run. Focused renders
 independently checked the newly saved attachment, integration, live-variable,
 live-catalog, web, Socratic, capture and live-notebook pages, including their
