@@ -185,6 +185,18 @@ def validate_examples(
                 if (normal_cell["cell_type"] != "markdown" or len(text.strip()) < 80
                         or (name not in text and "manual comparison" not in text.lower())):
                     raise ValueError("normal JupyterLab comparison lacks an actionable manual step")
+                if check_executed:
+                    actions = normal_cell.get("metadata", {}).get("nbinlineaiWorkedUIActions", [])
+                    if not isinstance(actions, list) or not any(
+                        isinstance(action, dict) and action.get("name") == name
+                        and action.get("completed") is True
+                        and all(isinstance(action.get(key), str)
+                                and 0 < len(action[key].strip()) <= 300
+                                for key in ("observedBefore", "observedAfter"))
+                        and action["observedAfter"] in text
+                        for action in actions
+                    ):
+                        raise ValueError("normal JupyterLab action lacks a visible observed outcome")
             else:
                 raise ValueError(f"unknown normal mode {mode!r}")
 
@@ -246,15 +258,37 @@ def validate_examples(
                         raise ValueError("receipt inspection has no displayed result")
                     if any(output.get("output_type") == "error" for output in inspect["outputs"]):
                         raise ValueError("receipt inspection raised an error")
-                    receipts = inspect.get("metadata", {}).get("nbinlineaiWorkedReceipts", [])
                     variable = entry.get("receipt_variable")
-                    if not any(
-                        receipt.get("variable") == variable
-                        and isinstance(receipt.get("operationId"), str)
-                        and receipt.get("status") in TERMINAL_SUCCESS
-                        for receipt in receipts
-                    ):
-                        raise ValueError("receipt inspection has no verified terminal result")
+                    if entry.get("receipt_kind") == "insert_tools":
+                        insertion = inspect.get("metadata", {}).get("nbinlineaiWorkedInsertion")
+                        if (not isinstance(insertion, dict)
+                                or insertion.get("variable") != variable
+                                or insertion.get("status") != entry.get("receipt_success_status")
+                                or insertion.get("cellPresent") is not True):
+                            raise ValueError("insertion receipt has no verified inserted result")
+                        inserted_id = insertion.get("insertedCellId")
+                        if entry.get("receipt_cell_id_required") and (
+                            not isinstance(inserted_id, str) or not inserted_id.strip()
+                        ):
+                            raise ValueError("insertion receipt has no inserted cell ID")
+                        inserted_index, inserted_cell = _cell(normal_cells, inserted_id)
+                        declarations = insertion.get("declarations")
+                        if (not normal_index < inserted_index < inspect_index
+                                or inserted_cell.get("cell_type") != "markdown"
+                                or not isinstance(declarations, list) or not declarations
+                                or any(not isinstance(declaration, str)
+                                       or f"&`{declaration}`" not in _source(inserted_cell)
+                                       for declaration in declarations)):
+                            raise ValueError("inserted declaration cell does not match receipt")
+                    else:
+                        receipts = inspect.get("metadata", {}).get("nbinlineaiWorkedReceipts", [])
+                        if not any(
+                            receipt.get("variable") == variable
+                            and isinstance(receipt.get("operationId"), str)
+                            and receipt.get("status") in TERMINAL_SUCCESS
+                            for receipt in receipts
+                        ):
+                            raise ValueError("receipt inspection has no verified terminal result")
                 elif name in HELPERS and not normal_cell.get("outputs"):
                     raise ValueError("setup helper has no displayed result")
         except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as exc:

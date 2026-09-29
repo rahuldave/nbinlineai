@@ -181,7 +181,53 @@ def test_manual_comparison_is_structural_not_fake_python_execution(tmp_path: Pat
     notebook["cells"].insert(0, _markdown("manual", "For a manual comparison, use the "
         "JupyterLab editor to perform the same example_tool action on a disposable copy."))
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert _check(path, strict=False) == []
+    assert "lacks a visible observed outcome" in "\n".join(_check(path))
+    notebook["cells"][0]["source"] += "\nObserved in JupyterLab: found the selected cell."
+    notebook["cells"][0]["metadata"]["nbinlineaiWorkedUIActions"] = [{
+        "name": "example_tool", "completed": True,
+        "observedBefore": "Selected cell was available.",
+        "observedAfter": "found the selected cell.",
+    }]
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
     assert _check(path) == []
+
+
+def test_insert_tools_requires_later_receipt_and_actual_declaration(tmp_path: Path) -> None:
+    path = _fixture(tmp_path)
+    coverage_path = path / "tool-coverage.json"
+    rows = json.loads(coverage_path.read_text(encoding="utf-8"))
+    rows["insert_tools"].update({
+        "receipt_variable": "receipt",
+        "receipt_inspect_cell": "insert-inspect",
+        "receipt_kind": "insert_tools",
+        "receipt_success_status": "inserted",
+        "receipt_cell_id_required": True,
+    })
+    coverage_path.write_text(json.dumps(rows), encoding="utf-8")
+    notebook_path = path / "example.ipynb"
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    helper_index = next(i for i, cell in enumerate(notebook["cells"])
+                        if cell["id"] == "insert_tools")
+    notebook["cells"].insert(helper_index + 1, _markdown("declaration", "&`example_tool`"))
+    notebook["cells"].extend([
+        _code("insert-inspect", "print(receipt.status, receipt.cell_id)", metadata={
+            "nbinlineaiWorkedInsertion": {
+                "variable": "receipt", "status": "requested", "insertedCellId": "declaration",
+                "declarations": ["example_tool"], "cellPresent": True,
+            },
+        }),
+    ])
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "no verified inserted result" in "\n".join(_check(path))
+
+    notebook["cells"][-1]["metadata"]["nbinlineaiWorkedInsertion"]["status"] = "inserted"
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert _check(path) == []
+
+    notebook["cells"][helper_index + 1]["source"] = "A different declaration"
+    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
+    assert "inserted declaration cell does not match receipt" in "\n".join(_check(path))
 
 
 def test_scoped_execution_still_checks_all_source_mappings(tmp_path: Path) -> None:
