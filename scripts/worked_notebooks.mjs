@@ -196,7 +196,9 @@ async function runNotebook(page, request, context, entry, choice) {
     }
     if (kind === 'code') {
       await target.scrollIntoViewIfNeeded();
-      verifiedCodeWidgetSource(cells[index], await target.locator('.cm-content').innerText());
+      const editorText = await target.locator('.cm-content').evaluate(node =>
+        Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n'));
+      verifiedCodeWidgetSource(cells[index], editorText);
     }
     return target;
   };

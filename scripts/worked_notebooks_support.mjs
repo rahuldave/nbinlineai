@@ -18,8 +18,15 @@ export function verifiedCodeWidgetSource(cell, renderedCode) {
   // display newline. Ordinary spaces remain significant inside code strings.
   const rendered = value => String(value ?? '').replace(/\r\n/g, '\n')
     .replace(/\u200b/g, '').replace(/\n$/, '');
-  if (rendered(source) !== rendered(renderedCode))
-    throw new Error('Current code widget disagrees with saved model source');
+  if (rendered(source) !== rendered(renderedCode)) {
+    const expected = rendered(source);
+    const actual = rendered(renderedCode);
+    let index = 0;
+    while (index < expected.length && index < actual.length && expected[index] === actual[index]) index++;
+    throw new Error(`Current code widget disagrees with saved model source at offset ${index} ` +
+      `(model length ${expected.length}, display length ${actual.length}, ` +
+      `codepoints ${expected.codePointAt(index) ?? 'end'}/${actual.codePointAt(index) ?? 'end'})`);
+  }
   return cell;
 }
 export function liveCellIndex(cells, id, kind) {
