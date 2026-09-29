@@ -44,8 +44,8 @@ The displayed red image and matching hash come from the file the browser actuall
 | --- | --- |
 | `operation_id` | The ID for this browser operation. It can be `None` immediately after the Python call, until the browser registers it. Use it for a later status lookup or cancellation. |
 | `status` | `waiting_for_user` needs a visible action; `running`, `paused`, and `saving` are still active. `completed` means finished. `failed`, `cancelled`, and `expired` are terminal outcomes. |
-| `result` | A successful typed Python result: for example, a Pillow image, an audio/video `MediaClip`, or small control metadata. A pending receipt has no final result yet. |
-| `media` | The owned descriptor when bytes were delivered or saved. It can include a `media_id`, MIME type, SHA-256, size, and saved path. Keep an exact saved path and hash together. |
+| `result` | A successful typed Python result: for example, a Pillow image, an audio/video `MediaClip`, a list of decoded frames, or small control metadata. A pending receipt has no final result yet. |
+| `media` | One owned descriptor, or a list of descriptors for a frame batch, when bytes were delivered or saved. Each can include a `media_id`, MIME type, SHA-256, size, and saved path. Keep an exact saved path and hash together. |
 | `error` | A structured code and message when work fails, is cancelled, or expires. Read it before retrying. |
 
 A model-initiated browser tool call behaves differently from a Python variable: its tool result is a **snapshot** at that instant. It does not update inside a saved AI answer. If it reports `running` or `waiting_for_user`, complete the visible action first, then ask a later AI question to call `operation_status` with the exact operation ID. Only the later result can establish whether work completed and returned a source ID, file, or other result. Never infer success from the initial snapshot.
@@ -62,7 +62,7 @@ if saved.operation_id:
 
 ## Save, cancel, release, and reopen
 
-`save_media(media, save_to="auto")` creates a new unused file beside the notebook in `media/`. It accepts an owned in-memory descriptor or an exact saved-file reference containing both `path` and `sha256`. An explicit destination is relative to the Jupyter server root; a conflicting path is rejected. A capture with `save_to=None` stays in memory, while `save_media` always writes a file. File saving is available only when `browser_capabilities().result["file_media_supported"]` is true; the capability check itself does not request device access.
+`save_media(media, save_to="auto")` creates a new unused file beside the notebook in `media/`. It accepts an owned in-memory descriptor or an exact saved-file reference containing both `path` and `sha256`. An explicit destination is relative to the Jupyter server root; a conflicting path is rejected. A capture with `save_to=None` stays in memory, while `save_media` always writes a file. File saving is available only when a completed `browser_capabilities()` receipt reports `file_media_supported` in its result. Call it in one code cell and inspect that same receipt in a later cell; the check itself does not request device access.
 
 `cancel_operation(operation_id)` stops unfinished work. Cancelling an already completed operation does not remove its saved file or delivered Python result. `release_media(media_id)` frees managed bytes; it does not delete a saved file or a Pillow image or `MediaClip` already delivered into Python. The Media row's **Stop** control acts on live work in that notebook.
 
