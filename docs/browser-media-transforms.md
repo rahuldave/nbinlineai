@@ -31,7 +31,7 @@ Ask for explicit times inside a verified clip duration; the receipt returns the 
 
 ```python
 from nbinlineai.tools import extract_frames
-frames = extract_frames(video_ref, [0.5, 3.5])
+frames = extract_frames(video_ref, [1.5, 5.0])
 ```
 
 After the operation completes in a later cell, inspect `frames.media` for each `actual_seconds` and display the corresponding images in `frames.result`. Frame extraction can fail explicitly if the browser cannot decode or timestamp the clip.
