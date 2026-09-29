@@ -44,9 +44,10 @@ recording with pause/resume/stop, source stop, and a separate one-shot recording
 The embedded Opus clips independently decode to 20.64 and 6.96 seconds of
 playable audio. The recording receipt's 24.629-second duration includes paused
 wall time and is not its playable duration. Nine direct calls and later terminal
-receipts are saved. Screen examples, AI examples, and the final shared cleanup
-cell have not yet been executed in that notebook; server teardown released the
-disposable run's remaining memory media.
+receipts are saved. A separate real `setup_share` call and later completed
+receipt are also saved; the remaining screen calls, AI examples, and final
+shared cleanup cell are still unrun in that notebook. Server teardown released
+the disposable run's remaining memory media.
 
 The integration notebook now retains a direct-only run from one isolated
 kernel: an 8×8 notebook PNG was listed, exported, previewed, cropped to 4×4,
@@ -87,16 +88,25 @@ notebook.
 
 ## Screen-share direct status
 
-On 2026-09-29, two direct capture attempts completed `setup_share` and
-reached `start_share`'s `waiting_for_user` state, then clicked the visible
-Share control. The second attempt opened a disposable notebook tab with a
-unique title and selected only that title in Chrome's automation setting.
-Neither attempt delivered a completed share before its bounded receipt wait
-expired. Computer-use inspection was bound to an unrelated old New Tab, so no
-unverified tab was selected. `capture_screen`, `capture_tool`, and
-`stop_share` were not called in those two failed attempts. A separate actual
-owned-tab video used by the transform examples is independently decoded and
-public-safe; it does not count as success for these capture-tool calls.
+On 2026-09-29, three bounded direct capture attempts completed `setup_share`
+and reached `start_share`'s `waiting_for_user` state, then clicked the visible
+Share control. The later attempts opened a disposable notebook tab titled
+`nbinlineai-owned-target-tab` in the same fresh context and configured Chrome's
+exact-title capture option for that tab. None delivered a completed share before
+its receipt deadline. A separate setup-only pass saved a genuine completed
+`setup_share` call and later inspection (`share_controls: true`,
+`screen_available: true`) without claiming a stream.
+
+In the last attempt, the owned Chrome for Testing process was PID 65835 with a
+disposable Playwright profile; native app control attached instead to an old,
+unrelated Chrome for Testing process (PID 10120) showing **New Tab**. No
+unrelated tab or native chooser row was selected. The owned browser and server
+stopped, and port 8897 was free. This identifies a process/window routing
+obstacle in that test setup, not a proven product capture failure.
+`capture_screen`, `capture_tool`, and `stop_share` were not called in those
+attempts. The separate actual owned-tab video used by transform examples is
+independently decoded and public-safe; it does not count as success for these
+capture-tool calls.
 
 ## Native Run All observation
 
