@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
-  sensitiveHardwareValues, toolResultState, liveCellIndex } from '../scripts/worked_notebooks_support.mjs';
+  sensitiveHardwareValues, toolResultState, liveCellIndex, boundKernelSession,
+  verifiedCodeWidgetSource } from '../scripts/worked_notebooks_support.mjs';
 
 test('current live cell IDs select the changed model order, not source ordinals', () => {
   const cells = [
@@ -15,6 +16,20 @@ test('current live cell IDs select the changed model order, not source ordinals'
   assert.throws(() => liveCellIndex([...cells, cells[3]], 'setup', 'code'), /duplicated/);
   assert.throws(() => liveCellIndex(cells, 'intro', 'question'), /wrong type/);
   assert.throws(() => liveCellIndex(cells, '"bad-selector', 'code'), /invalid/);
+});
+
+test('save and session identity fail closed on stale same-type order or duplicate path', () => {
+  const first = { id: 'a', cell_type: 'code', source: 'print(1)' };
+  const second = { id: 'b', cell_type: 'code', source: 'print(2)' };
+  assert.equal(liveCellIndex([second, first], 'a', 'code'), 1);
+  assert.equal(verifiedCodeWidgetSource(first, 'print(1)'), first);
+  assert.throws(() => verifiedCodeWidgetSource(first, 'print(2)'), /disagree/);
+  const created = { id: 'session-new', path: 'owned.ipynb', kernel: { id: 'kernel-new' } };
+  assert.equal(boundKernelSession(created, [created], 'owned.ipynb'), 'kernel-new');
+  assert.throws(() => boundKernelSession(created, [created, { ...created, id: 'stale' }], 'owned.ipynb'),
+    /multiple kernel/);
+  assert.throws(() => boundKernelSession(created, [{ ...created, id: 'stale' }], 'owned.ipynb'),
+    /changed its owned/);
 });
 
 test('tool events distinguish action correlation, error, and accepted receipt', () => {

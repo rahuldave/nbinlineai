@@ -1,4 +1,24 @@
 // Pure helpers for public-safe worked notebook evidence.
+export function boundKernelSession(created, sessions, path) {
+  if (!created || typeof created.id !== 'string' || typeof created.kernel?.id !== 'string' ||
+      !Array.isArray(sessions)) throw new Error('Created notebook session is invalid');
+  const matches = sessions.filter(item => item?.path === path);
+  if (matches.length > 1) throw new Error('Notebook has multiple kernel sessions');
+  if (!matches.length) return null;
+  if (matches[0].id !== created.id || matches[0].kernel?.id !== created.kernel.id) {
+    throw new Error('Notebook changed its owned kernel session');
+  }
+  return created.kernel.id;
+}
+export function verifiedCodeWidgetSource(cell, renderedCode) {
+  if (cell?.cell_type !== 'code' || typeof renderedCode !== 'string')
+    throw new Error('Current code widget or model source is missing');
+  const source = Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+  const compact = value => String(value ?? '').replace(/\s+/g, '').replace(/\u200b/g, '');
+  if (compact(source) !== compact(renderedCode))
+    throw new Error('Current code widget disagrees with saved model source');
+  return cell;
+}
 export function liveCellIndex(cells, id, kind) {
   if (!Array.isArray(cells) || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
     throw new Error('Current cell model is invalid');

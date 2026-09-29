@@ -5,7 +5,8 @@ import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
-  addTraceAppendix, assertSafeNotebook, liveCellIndex } from './worked_notebooks_support.mjs';
+  addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
+  verifiedCodeWidgetSource } from './worked_notebooks_support.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -142,6 +143,7 @@ async function runNotebook(page, request, context, entry, choice) {
     data: { name, path: name, type: 'notebook', kernel: { name: 'python3' } },
   });
   if (!session.ok()) throw new Error(`${name} could not start its isolated kernel`);
+  const createdSession = await session.json();
   await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
   const panel = page.locator('.jp-NotebookPanel:visible');
   await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
@@ -149,7 +151,7 @@ async function runNotebook(page, request, context, entry, choice) {
   await until(async () => {
     const response = await request.get('/api/sessions');
     if (!response.ok()) return false;
-    kernelId = (await response.json()).find(session => session.path === name && session.kernel?.id)?.kernel?.id;
+    kernelId = boundKernelSession(createdSession, await response.json(), name);
     return !!kernelId;
   }, 60_000, `${name} kernel`);
   const kernelDialog = page.getByRole('dialog').filter({ hasText: 'Select Kernel' });
@@ -174,10 +176,15 @@ async function runNotebook(page, request, context, entry, choice) {
     { timeout: 5000 });
     void savedResponse.catch(() => {});
     await page.keyboard.press('Meta+S');
-    await savedResponse.catch(() => null);
+    const save = await savedResponse;
+    if (!save.ok()) throw new Error(`${name} current cell model did not save`);
     const response = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
     if (!response.ok()) throw new Error(`${name} current cell model could not be read`);
     const cells = (await response.json()).content.cells;
+    const sessions = await request.get('/api/sessions');
+    if (!sessions.ok() || boundKernelSession(createdSession, await sessions.json(), name) !== kernelId) {
+      throw new Error(`${name} no longer has its original kernel session`);
+    }
     const index = liveCellIndex(cells, id, kind);
     const widgets = panel.locator('.jp-Notebook .jp-Cell');
     const count = await widgets.count();
@@ -186,6 +193,10 @@ async function runNotebook(page, request, context, entry, choice) {
     const className = kind === 'code' ? 'jp-CodeCell' : 'nbinlineai-prompt-cell';
     if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
       throw new Error(`${name} current cell ${id} has wrong widget type`);
+    }
+    if (kind === 'code') {
+      await target.scrollIntoViewIfNeeded();
+      verifiedCodeWidgetSource(cells[index], await target.locator('.cm-content').innerText());
     }
     return target;
   };
