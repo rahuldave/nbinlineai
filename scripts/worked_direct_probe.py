@@ -77,7 +77,8 @@ def arm(kernel_id: str, names: list[str]) -> None:
 
 def take(kernel_id: str) -> list[dict[str, object]]:
     text = _execute(kernel_id, "import sys, json\n"
-                    "sys.setprofile(globals().pop('_worked_previous_profile', None))\n"
+                    "if '_worked_previous_profile' in globals():\n"
+                    "    sys.setprofile(globals().pop('_worked_previous_profile'))\n"
                     "print(json.dumps(globals().pop('_worked_calls', [])))")
     calls = json.loads(text)
     if not isinstance(calls, list) or len(calls) > 100:

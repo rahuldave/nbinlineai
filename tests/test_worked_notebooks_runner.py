@@ -64,6 +64,8 @@ def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch
         _execute(kernel_id, "import sys\n"
                  "def prior_profile(frame, event, arg): pass\n"
                  "sys.setprofile(prior_profile)")
+        assert take(kernel_id) == []
+        assert _execute(kernel_id, "import sys\nprint(sys.getprofile() is prior_profile)") == "True"
         arm(kernel_id, ["search_kernel_names"])
         _execute(kernel_id, "from nbinlineai.tools import search_kernel_names\n"
                  "if False: search_kernel_names('proof')")

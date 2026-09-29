@@ -168,10 +168,15 @@ async function runNotebook(page, request, context, entry, choice) {
     if (step.action === 'code' || step.action === 'inspect') {
       const target = code(step.cellId);
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
-      if (watched.length) await directProbe(kernelId, 'arm', watched);
+      let probeAttempted = false;
+      let executionError = null;
       let executionSucceeded = false;
       let text = '';
       try {
+        if (watched.length) {
+          probeAttempted = true;
+          await directProbe(kernelId, 'arm', watched);
+        }
         const inspectionDeadline = Date.now() + timeout;
         for (let attempt = 0; ; attempt++) {
           const prompt = target.locator('.jp-InputPrompt');
@@ -201,12 +206,19 @@ async function runNotebook(page, request, context, entry, choice) {
           }
           receiptsByCell.set(step.cellId, verified);
         }
+      } catch (error) {
+        executionError = error;
+        throw error;
       } finally {
-        if (watched.length) {
-          const observed = await directProbe(kernelId, 'take');
-          directByCell.set(step.cellId, observed.map(item => ({
-            name: item.name, cellId: step.cellId, completed: executionSucceeded && item.completed,
-          })));
+        if (probeAttempted) {
+          try {
+            const observed = await directProbe(kernelId, 'take');
+            directByCell.set(step.cellId, observed.map(item => ({
+              name: item.name, cellId: step.cellId, completed: executionSucceeded && item.completed,
+            })));
+          } catch (probeError) {
+            if (!executionError) throw probeError;
+          }
         }
       }
     } else if (step.action === 'ai') {
