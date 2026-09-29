@@ -19,6 +19,10 @@ LIST = {"name": "list_cells", "arguments": {"start": {"equals": 0}, "limit": {"e
 EDIT = {"name": "set_cell_source", "arguments": {
     "cell_id": {"one_of": ["cell-1"]}, "source": {"text_max": 200},
 }}
+REPLACE_ARGS = {"cell_id": "cell-1", "old_str": "old private source", "new_str": "new private source"}
+REPLACE = {"name": "cell_str_replace", "argument_options": [
+    REPLACE_ARGS, {**REPLACE_ARGS, "expected_matches": 1},
+]}
 
 
 def _private(tmp_path):
@@ -293,3 +297,69 @@ def test_rejects_insecure_arm_and_directory(tmp_path):
     os.chmod(directory, 0o755)
     with pytest.raises(ValueError, match="private directory"):
         VisualObserver(directory, None)
+
+
+@pytest.mark.parametrize("arguments", [REPLACE_ARGS, {**REPLACE_ARGS, "expected_matches": 1}])
+def test_exact_alternative_admits_expected_mutation(tmp_path, arguments):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[REPLACE]])
+    source = list(_events(("cell_str_replace", arguments)))
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert "old private source" not in log and "new private source" not in log
+    starts = [json.loads(line) for line in log.splitlines() if '"kind":"tool_start"' in line]
+    assert starts[0]["argument_fields"] == sorted(arguments)
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("set_cell_source", REPLACE_ARGS, "tool_name"),
+    ("cell_str_replace", {**REPLACE_ARGS, "unexpected": 1}, "argument_keys"),
+    ("cell_str_replace", {**REPLACE_ARGS, "expected_matches": 2}, "argument_values"),
+    ("cell_str_replace", {**REPLACE_ARGS, "expected_matches": True}, "argument_values"),
+    ("cell_str_replace", {**REPLACE_ARGS, "new_str": "other private source"}, "argument_values"),
+])
+def test_exact_alternative_blocks_mutation_before_effect_and_logs_only_reason(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[REPLACE]])
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "mutation", "name": name, "arguments": arguments}
+        effects.append("mutation ran")
+        yield {"type": "tool_result", "id": "mutation", "name": name, "text": "changed"}
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == []
+    log = (directory / "events.jsonl").read_text()
+    assert "old private source" not in log and "new private source" not in log
+    assert "other private source" not in log and "unexpected" not in log
+    records = [json.loads(line) for line in log.splitlines()]
+    assert [item["reason"] for item in records if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("policy", [
+    {"name": "cell_str_replace", "arguments": {}, "argument_options": [REPLACE_ARGS]},
+    {"name": "cell_str_replace", "argument_options": []},
+    {"name": "cell_str_replace", "argument_options": [{**REPLACE_ARGS, "bad key": 1}]},
+    {"name": "cell_str_replace", "argument_options": [{**REPLACE_ARGS, "expected_matches": [1]}]},
+])
+def test_invalid_exact_alternatives_cannot_arm(tmp_path, policy):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, BINDING, [[policy]])
+    assert not (directory / "arm.json").exists()

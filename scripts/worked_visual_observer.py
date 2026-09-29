@@ -54,10 +54,26 @@ def _validate_arm(arm: Any) -> dict:
         raise ValueError("Invalid observer groups")
     for group in groups:
         for call in group:
-            if not isinstance(call, dict) or set(call) != {"name", "arguments"}:
+            if (not isinstance(call, dict) or
+                    set(call) not in ({"name", "arguments"}, {"name", "argument_options"})):
                 raise ValueError("Invalid observer call policy")
             if not isinstance(call["name"], str) or not _ID.fullmatch(call["name"]):
                 raise ValueError("Invalid observer tool name")
+            if "argument_options" in call:
+                options = call["argument_options"]
+                if not isinstance(options, list) or not 1 <= len(options) <= 4:
+                    raise ValueError("Invalid observer argument options")
+                for option in options:
+                    if not isinstance(option, dict) or len(option) > 20:
+                        raise ValueError("Invalid observer argument option")
+                    for key, value in option.items():
+                        if not isinstance(key, str) or not _ID.fullmatch(key):
+                            raise ValueError("Invalid observer argument key")
+                        if (type(value) not in (str, int, bool, type(None)) or
+                                isinstance(value, str) and len(value) > 4000 or
+                                isinstance(value, int) and len(str(value)) > 30):
+                            raise ValueError("Invalid exact argument value")
+                continue
             rules = call["arguments"]
             if not isinstance(rules, dict) or len(rules) > 20:
                 raise ValueError("Invalid observer argument rules")
@@ -111,28 +127,39 @@ def _consume_arm(directory: Path) -> dict:
     return arm
 
 
-def _arguments(raw: Any, rules: dict) -> bool:
+def _arguments(raw: Any, policy: dict) -> tuple[str | None, list[str]]:
     if isinstance(raw, str):
         if len(raw) > 12000:
-            return False
+            return "argument_values", []
         try:
             raw = json.loads(raw)
         except (TypeError, ValueError):
-            return False
-    if not isinstance(raw, dict) or set(raw) != set(rules):
-        return False
+            return "argument_values", []
+    if not isinstance(raw, dict):
+        return "argument_values", []
+    if "argument_options" in policy:
+        same_keys = [option for option in policy["argument_options"] if set(raw) == set(option)]
+        if not same_keys:
+            return "argument_keys", []
+        for option in same_keys:
+            if all(type(raw[key]) is type(value) and raw[key] == value for key, value in option.items()):
+                return None, sorted(option)
+        return "argument_values", []
+    rules = policy["arguments"]
+    if set(raw) != set(rules):
+        return "argument_keys", []
     for key, rule in rules.items():
         kind, bound = next(iter(rule.items()))
         value = raw[key]
         if kind == "equals" and (type(value) is not type(bound) or value != bound):
-            return False
+            return "argument_values", []
         if kind == "one_of" and (not isinstance(value, str) or value not in bound):
-            return False
+            return "argument_values", []
         if kind == "text_max" and (not isinstance(value, str) or not 1 <= len(value) <= bound):
-            return False
+            return "argument_values", []
         if kind == "int_range" and (type(value) is not int or not bound[0] <= value <= bound[1]):
-            return False
-    return True
+            return "argument_values", []
+    return None, sorted(rules)
 
 
 def _result_state(text: Any) -> str:
@@ -225,13 +252,19 @@ class VisualObserver:
                         self._log(kind="blocked", reason="unexpected_call")
                         raise ValueError("Observer blocked an unexpected tool")
                     policy = arm["groups"][group][call_index]
-                    if (name != policy["name"] or not _arguments(event.get("arguments"), policy["arguments"]) or
-                            not isinstance(event.get("id"), str) or not event["id"] or len(event["id"]) > 200):
-                        self._log(kind="blocked", reason="tool_or_arguments")
+                    if name != policy["name"]:
+                        self._log(kind="blocked", reason="tool_name")
+                        raise ValueError("Observer blocked a tool outside the question policy")
+                    mismatch, fields = _arguments(event.get("arguments"), policy)
+                    if mismatch is not None:
+                        self._log(kind="blocked", reason=mismatch)
+                        raise ValueError("Observer blocked a tool outside the question policy")
+                    if not isinstance(event.get("id"), str) or not event["id"] or len(event["id"]) > 200:
+                        self._log(kind="blocked", reason="call_id")
                         raise ValueError("Observer blocked a tool outside the question policy")
                     pending = (event["id"], name)
                     self._log(kind="tool_start", group=group, call=call_index, name=name,
-                              argument_fields=sorted(policy["arguments"]))
+                              argument_fields=fields)
                 elif kind == "tool_result":
                     if pending != (event.get("id"), event.get("name")):
                         self._log(kind="blocked", reason="result_order")
