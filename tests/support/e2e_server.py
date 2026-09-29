@@ -485,6 +485,14 @@ def main() -> None:
         sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
         from nbinlineai import providers
 
+        observer_file = os.environ.get("NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE")
+        if observer_file:
+            if not live:
+                raise SystemExit("Native image observation requires the owned live E2E server")
+            from scripts.worked_native_image_observer import install
+
+            install(Path(observer_file))
+
         if not live:
             providers.complete = fake_complete
             if os.environ.get("NBINLINEAI_E2E_SUBSCRIPTION") == "1":
