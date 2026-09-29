@@ -150,7 +150,7 @@ For a reusable media reference, keep the saved file path together with its SHA-2
 
 No. Capture, export, save, and preview are separate from model input. To ask about an image, use `attach_media`, confirm the exact image for the intended question, and run that question with an image-capable model. Confirmation alone does not submit the question. Attachments support still images; for a video, extract a frame first.
 
-`list_attachments` shows the question's attachments, and `remove_attachment` removes one before a later request. Removing an attachment cannot retract an image from an already submitted request. See [image attachments](browser-media-attachment.md).
+The question's **Image attached** notice identifies the selected image. Use **Remove image** there to detach it before a later request. Removing it cannot retract an image from an already submitted request. See [image attachments](browser-media-attachment.md).
 
 ### Can I read the examples without running their tools again?
 
