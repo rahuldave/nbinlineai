@@ -289,7 +289,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "browser-media-transforms.ipynb":
         text = "\n".join(outputs)
         assert "Disposable source and derivative files removed" in text
-        assert "Disposable exact PNG and 16×16 two-color VP9 clip" in text
+        assert "Generated exact PNG and five-second 16×16 red/blue VP9 clip" in text
     if relative_path == "browser-media-integration.ipynb":
         assert "Disposable 8x8 output image ready; no file saved." in "\n".join(outputs)
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":
