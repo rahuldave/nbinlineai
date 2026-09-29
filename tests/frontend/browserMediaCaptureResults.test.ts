@@ -54,3 +54,22 @@ test('source settings retain usable exact IDs or explicitly omit oversized brows
   assert.equal(omitted.device_id_omitted, true);
   assert.ok(pythonLength(omitted) <= 1500);
 });
+
+test('device label clipping preserves complete Unicode code points', () => {
+  const devices = [
+    { kind: 'videoinput', deviceId: 'short', label: 'a'.repeat(99) + '😀' + 'tail' },
+    { kind: 'audioinput', deviceId: '界'.repeat(200), label: '😀'.repeat(100) }
+  ];
+  const first = mediaSourcePage(devices, 0, 1);
+  assert.equal(first.devices[0].label, 'a'.repeat(99) + '😀');
+  const second = mediaSourcePage(devices, 1, 1);
+  assert.equal(second.devices.length, 1);
+  for (const page of [first, second]) {
+    const label = page.devices[0].label;
+    assert.equal([...label].some(character => character.length === 1 &&
+      character.charCodeAt(0) >= 0xd800 && character.charCodeAt(0) <= 0xdfff), false);
+    assert.ok(resultFits(page));
+    assert.ok(pythonLength(page) <= 1500);
+  }
+  assert.equal(second.labels_truncated, true);
+});

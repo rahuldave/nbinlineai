@@ -49,23 +49,23 @@ export function mediaSourcePage(devices: ListedDevice[], start: number, limit: n
   while (next < devices.length && page.length < limit) {
     const device = devices[next++];
     if (device.deviceId.length > 200) { omitted++; continue; }
-    const fullLabel = device.label.slice(0, 100);
+    const fullLabel = Array.from(device.label).slice(0, 100);
     const kind = device.kind === 'videoinput' ? 'camera' : 'microphone';
-    let label = fullLabel;
+    let label = fullLabel.join('');
     let candidate = { device_id: device.deviceId, kind, label };
-    if (!resultFits(snapshot(candidate, next, truncated || fullLabel.length < device.label.length))) {
+    if (!resultFits(snapshot(candidate, next, truncated || label.length < device.label.length))) {
       if (page.length) { next--; break; }
       let low = 0; let high = fullLabel.length; let accepted = -1;
       while (low <= high) {
         const middle = Math.floor((low + high) / 2);
-        candidate = { device_id: device.deviceId, kind, label: fullLabel.slice(0, middle) };
+        candidate = { device_id: device.deviceId, kind, label: fullLabel.slice(0, middle).join('') };
         if (resultFits(snapshot(candidate, next, true))) { accepted = middle; low = middle + 1; }
         else high = middle - 1;
       }
       if (accepted < 0) {
         omitted++; continue;
       }
-      label = fullLabel.slice(0, accepted);
+      label = fullLabel.slice(0, accepted).join('');
     }
     truncated ||= label.length < device.label.length;
     page.push({ device_id: device.deviceId, kind, label });
