@@ -25,7 +25,14 @@ import { mediaContext } from './browserMediaComm';
 import { BrowserMediaError, BrowserOperationStatus, browserCapabilityFacts, hasBrowserOperation, observedMediaPermissions } from './browserMediaClient';
 import { boundedMediaErrorText } from './browserMediaCapabilities';
 import { installBrowserMediaStatus } from './browserMediaStatus';
+import { registerBrowserNotebookOutputs } from './browserNotebookOutputs';
+import { registerBrowserNotebookViews } from './browserNotebookViews';
+import { registerBrowserNotebookCanvas } from './browserNotebookCanvas';
+import { registerBrowserNotebookRegion } from './browserNotebookRegion';
+import { registerBrowserMediaCapture } from './browserMediaCapture';
 import '../style/index.css';
+
+registerBrowserMediaCapture();
 
 interface CellMetadata {
   isPromptCell?: boolean;
@@ -577,8 +584,12 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
                 throw new BrowserMediaError(released.error?.code || 'stale_target',
                   released.error?.message || 'Media release did not complete.');
               value = { operation_id: released.operation_id, released: released.result?.released === true };
-            } else value = await media.start({ request_id: event.request_id, name: event.name,
-              arguments: args });
+            } else {
+              const started = await media.start({ request_id: event.request_id, name: event.name,
+                arguments: args });
+              value = event.name === 'capture_tool' ? { ...started, model_pixels_attached: false,
+                note: 'The captured pixels remain local; no image pixels were sent to the model.' } : started;
+            }
             const encoded = JSON.stringify(value);
             result = { ok: true, text: encoded.length <= 3800 ? encoded : JSON.stringify({
               truncated: true, message: 'Browser result exceeds the model reply limit; inspect the operation in Python or the media panel.'
@@ -1130,6 +1141,10 @@ const executorPlugin: JupyterFrontEndPlugin<INotebookCellExecutor> = {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'nbinlineai:plugin', autoStart: true, requires: [INotebookTracker, INotebookCellExecutor], optional: [ICommandPalette, ISettingRegistry],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker, _executor: INotebookCellExecutor, palette: ICommandPalette | null, registry: ISettingRegistry | null) => {
+    registerBrowserNotebookOutputs();
+    registerBrowserNotebookViews();
+    registerBrowserNotebookCanvas();
+    registerBrowserNotebookRegion();
     if (window.location.hostname === '127.0.0.1' && window.location.port === '8897' &&
         new URLSearchParams(window.location.search).has('nbinlineai_media_fixture')) {
       void fetch(serverUrl('nbinlineai/browser-media-fixture-mode'), { credentials: 'same-origin' })

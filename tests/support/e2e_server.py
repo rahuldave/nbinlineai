@@ -76,6 +76,17 @@ async def fake_complete(
         return Completion(model=model, message=Msg("assistant", [Text(
             "SAVED_MEDIA_DESCRIPTOR " + results[-1].text[:3000]
         )]))
+    if "E2E_CAPTURE_TOOL_DESCRIPTOR" in current_user:
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        if not results:
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id="capture-tool-descriptor", name="capture_tool",
+                arguments={"timeout": 15, "source_id": "", "save_to": None, "max_size": 1280}
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "CAPTURE_TOOL_DESCRIPTOR " + results[-1].text[:3000]
+        )]))
     cell_edit_sequences = {
         "E2E_CELL_EDIT_SOURCE": [
             ("find_cells", {"query": "UNSAVED_MARKER", "cell_type": "code"}),

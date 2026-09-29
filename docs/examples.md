@@ -78,6 +78,8 @@ questions only when you want to fetch that page.
 
 The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates the five new source-only calls in an open JupyterLab notebook. They are **not in the unchanged PyPI 0.1.15 package**. Start with a disposable project whose Jupyter server and selected kernel use the same working directory. The setup creates a tiny local PNG and computes its actual file hash; no camera, microphone, network page, provider call, or personal file is needed.
 
+The [capture notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) shows all 17 camera, microphone, recording, and display calls with later receipt inspections. Device and display steps require a compatible browser and your permission. The [live outputs notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) demonstrates ten read, export, canvas, and visible-region calls against disposable stock notebook outputs. See the [capture guide](browser-media-capture.md) and [outputs guide](browser-media-outputs.md) for supported surfaces, bounds, and cleanup. Both notebooks are source-only and absent from PyPI 0.1.15.
+
 Run each call cell separately, then inspect its mutable receipt in the **following** code cell after the browser has replied. A printed receipt from the requesting cell is only a snapshot. The save example writes a new file under the disposable server root. The status example reads one operation snapshot; it does not wait. The cancellation example checks that a completed save remains a file, while the release example frees managed bytes and leaves that file and a loaded Python image intact. The notebook ends with an explicit cleanup cell for its disposable source and saved file. If you offer these functions to an AI question, import and declare only the names needed by that question and configure a provider as usual.
 
 ## Read saved or live notebook cells
@@ -148,6 +150,8 @@ Download notebooks from the [examples folder on GitHub](https://github.com/rahul
 | [Tool catalog: live notebook](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html) | Ask for every live-cell read and edit against separate scratch cells in a copy. |
 | [Tool catalog: web](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-web.html) | Optional public-page reads and source-attributed note insertion. |
 | [Tool catalog: processes](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-processes.html) | Run bounded local subprocesses; inspect tmux only if it is available. |
+| [Camera, microphone, and display](https://rahuldave.com/nbinlineai/notebooks/browser-media-capture.html) | Try 17 source-only capture and recording calls with explicit browser permission and later receipt inspections. |
+| [Live outputs and canvas](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html) | Inspect existing outputs and capture supported canvas or visible output regions in a disposable notebook. |
 | [Jupyter AI and nbinlineai together](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html) | Compare optional Jupyter AI chat planning with inline Learning questions and a code draft. |
 | [Codex ACP worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) | Have Codex diagnose and fix a teaching bug, then explain the result with inline AI questions. The template retains the starting bug for learners. |
 

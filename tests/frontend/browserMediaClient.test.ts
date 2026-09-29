@@ -93,3 +93,55 @@ test('dispatch stays single-flight past five minutes and rejects an old running 
     await context.dispose();
   } finally { Date.now = realNow; restore(); }
 });
+
+test('registered permission operation creates a real waiting_for_user state', async () => {
+  const { panel, kernel } = panelFixture();
+  let requestedWaiting: unknown;
+  let handlerState = '';
+  const name = 'fixture_permission_wait';
+  registerBrowserOperation(name, async (_context, _request, operation) => {
+    handlerState = operation.status;
+  }, () => ({ available: true }), { waitingForUser: true });
+  const restore = browserGlobals(async (input, init) => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'create') {
+      requestedWaiting = JSON.parse(String(init?.body)).waiting;
+      return response({ operation_id: 'waiting-operation', status: 'waiting_for_user' });
+    }
+    if (command === 'status') return response({ operation_id: 'waiting-operation', status: 'waiting_for_user' });
+    if (command === 'close') return response({ closed: true });
+    throw new Error(`Unexpected ${command}`);
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    const started = await context.start({ request_id: 'permission', name, arguments: {} });
+    assert.equal(requestedWaiting, true);
+    assert.equal(started.status, 'waiting_for_user');
+    assert.equal(handlerState, 'waiting_for_user');
+    await context.dispose();
+  } finally { restore(); }
+});
+
+test('stopped screen source remains identifiable for idempotent default Stop', async () => {
+  const { panel, kernel } = panelFixture();
+  const restore = browserGlobals(async input => {
+    const command = String(input).split('/').pop();
+    if (command === 'owner') return response({ owner_secret: 'server-secret' });
+    if (command === 'close') return response({ closed: true });
+    throw new Error(`Unexpected ${command}`);
+  });
+  try {
+    const context = new BrowserOperationContext(panel as never, kernel as never);
+    const track = { kind: 'video', readyState: 'live', stop() { this.readyState = 'ended'; },
+      addEventListener() { /* test track */ }, removeEventListener() { /* test track */ } };
+    const source = context.registerSource({ kind: 'screen', tracks: [track as never],
+      actions: ['capture'], onEnded: () => undefined });
+    assert.equal(context.uniqueStoppedSourceId('screen'), null);
+    await context.endSource(source.sourceId, 'source_ended');
+    assert.equal(context.uniqueStoppedSourceId('screen'), source.sourceId);
+    assert.equal(context.sourceWasStopped(source.sourceId, 'screen'), true);
+    await context.endSource(source.sourceId, 'source_ended');
+    await context.dispose();
+  } finally { restore(); }
+});

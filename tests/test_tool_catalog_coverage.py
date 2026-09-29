@@ -128,13 +128,17 @@ def receipt_demo_is_valid(cells: list[dict], index: int, name: str, entry: dict)
     if "nbinlineai-ui-only" not in call_cell.get("metadata", {}).get("tags", []):
         return False
     calls = ast.parse("".join(call_cell["source"]))
+    def calls_named_tool(value: ast.expr) -> bool:
+        # A discovered output ref may guard the actual call in the true branch.
+        candidate = value.body if isinstance(value, ast.IfExp) else value
+        return (isinstance(candidate, ast.Call) and isinstance(candidate.func, ast.Name)
+                and candidate.func.id == name)
+
     assigned = any(
         isinstance(node, (ast.Assign, ast.AnnAssign))
         and any(isinstance(target, ast.Name) and target.id == variable
                 for target in (node.targets if isinstance(node, ast.Assign) else [node.target]))
-        and isinstance(node.value, ast.Call)
-        and isinstance(node.value.func, ast.Name)
-        and node.value.func.id == name
+        and calls_named_tool(node.value)
         for node in ast.walk(calls)
     )
     if not assigned:
@@ -200,6 +204,17 @@ def test_receipt_demo_rejects_missing_or_non_executing_inspection() -> None:
     assert receipt_demo_is_valid([call, inspect], 0, "save_media", entry)
     assert not receipt_demo_is_valid([call], 0, "save_media", entry)
     assert not receipt_demo_is_valid([inspect, call], 1, "save_media", entry)
+
+
+def test_receipt_demo_accepts_discovered_reference_guard_only_with_real_call() -> None:
+    entry = {"receipt_variable": "image", "receipt_inspect_cell": "inspect"}
+    call = {"cell_type": "code", "id": "call", "metadata": {"tags": ["nbinlineai-ui-only"]},
+            "source": ["image = capture_canvas(canvas_ref) if canvas_ref else None"]}
+    inspect = {"cell_type": "code", "id": "inspect", "metadata": {"tags": ["nbinlineai-ui-only"]},
+               "source": ["print(image.status) if image else print('No canvas')"]}
+    assert receipt_demo_is_valid([call, inspect], 0, "capture_canvas", entry)
+    call["source"] = ["image = canvas_ref if canvas_ref else capture_canvas(None)"]
+    assert not receipt_demo_is_valid([call, inspect], 0, "capture_canvas", entry)
     assert not receipt_demo_is_valid([call, {**inspect, "source": ["print('saved.status')"]}],
                                      0, "save_media", entry)
     assert not receipt_demo_is_valid([call, {**inspect, "metadata": {}}],

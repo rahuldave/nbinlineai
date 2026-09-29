@@ -29,6 +29,8 @@ EXAMPLES = [
     "tool-catalog-web.ipynb",
     "tool-catalog-processes.ipynb",
     "browser-media-foundation.ipynb",
+    "browser-media-outputs.ipynb",
+    "browser-media-capture.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -48,7 +50,51 @@ HEADLESS_UI_CELLS = {
     ("browser-media-foundation.ipynb", "media-release-call"): "release_media(",
     ("browser-media-foundation.ipynb", "media-release-inspect"): "released.status",
     ("browser-media-foundation.ipynb", "media-cleanup"): "saved.media",
+    ("browser-media-outputs.ipynb", "view-call"): "read_notebook_view(",
+    ("browser-media-outputs.ipynb", "view-inspect"): "view.status",
+    ("browser-media-outputs.ipynb", "selection-call"): "read_selection(",
+    ("browser-media-outputs.ipynb", "selection-inspect"): "selection.status",
+    ("browser-media-outputs.ipynb", "outputs-list-call"): "list_outputs(",
+    ("browser-media-outputs.ipynb", "outputs-list-inspect"): "raster_listing.result",
+    ("browser-media-outputs.ipynb", "output-read-call"): "read_output(",
+    ("browser-media-outputs.ipynb", "output-read-inspect"): "text_read.status",
+    ("browser-media-outputs.ipynb", "output-export-call"): "export_output(",
+    ("browser-media-outputs.ipynb", "output-export-inspect"): "raster_export.status",
+    ("browser-media-outputs.ipynb", "data-list-call"): "list_outputs(",
+    ("browser-media-outputs.ipynb", "data-list-inspect"): "data_listing.status",
+    ("browser-media-outputs.ipynb", "data-export-call"): "export_output(",
+    ("browser-media-outputs.ipynb", "data-export-inspect"): "data_export.status",
+    ("browser-media-outputs.ipynb", "canvas-list-call"): "list_canvases(",
+    ("browser-media-outputs.ipynb", "canvas-output-list-call"): "list_outputs(",
+    ("browser-media-outputs.ipynb", "canvas-output-list-inspect"): "canvas_listing.result",
+    ("browser-media-outputs.ipynb", "canvas-list-inspect"): "canvases.status",
+    ("browser-media-outputs.ipynb", "canvas-capture-call"): "capture_canvas(",
+    ("browser-media-outputs.ipynb", "canvas-capture-inspect"): "canvas_still.status",
+    ("browser-media-outputs.ipynb", "canvas-export-call"): "export_canvas(",
+    ("browser-media-outputs.ipynb", "canvas-export-inspect"): "canvas_saved.status",
+    ("browser-media-outputs.ipynb", "canvas-start-call"): "start_canvas(",
+    ("browser-media-outputs.ipynb", "canvas-start-inspect"): "canvas_source.status",
+    ("browser-media-outputs.ipynb", "region-call"): "capture_notebook_region(",
+    ("browser-media-outputs.ipynb", "region-inspect"): "region.status",
+    ("browser-media-outputs.ipynb", "outputs-cleanup"): "canvas_saved.media",
+    ("browser-media-outputs.ipynb", "source-stop-inspect"): "stopped_source.status",
 }
+CAPTURE_DEMO_VARIABLES = {
+    "list_media_sources": "devices", "start_camera": "camera",
+    "capture_camera": "still", "start_recording": "recording",
+    "pause_recording": "paused", "resume_recording": "resumed",
+    "stop_recording": "stopped_recording", "stop_source": "stopped_camera",
+    "start_microphone": "microphone", "read_audio_levels": "levels",
+    "record_camera": "camera_clip", "record_microphone": "microphone_clip",
+    "setup_share": "sharing_controls", "start_share": "sharing",
+    "capture_screen": "screenshot", "capture_tool": "alias_frame",
+    "stop_share": "stopped_share",
+}
+for name, variable in CAPTURE_DEMO_VARIABLES.items():
+    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-call")] = f"{name}("
+    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f"{variable}.status"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup")] = "stop_source(microphone_id)"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = "microphone_cleanup.status"
 
 
 async def _run_code(
