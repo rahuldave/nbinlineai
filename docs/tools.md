@@ -120,6 +120,14 @@ The [transform guide](browser-media-transforms.md) explains actual video frame t
 | `crop_image(media: 'dict', x: 'int', y: 'int', width: 'int', height: 'int', save_to: 'str | None' = None)` | Make a new bounded PNG crop of an exact image, leaving the source unchanged.<br>**Example:** “Run `crop = crop_image(image_ref, 4, 4, 16, 16, save_to=f'{work.name}/crop.png')` on the disposable PNG; inspect its new descriptor and JSON sidecar later.” [Notebook example: § `crop_image`, cell `transform-crop-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-call). |
 | `annotate_image(media: 'dict', annotations: 'list[dict]', save_to: 'str | None' = None)` | Draw up to 50 bounded text, arrows, rectangles, or opaque redactions on a new PNG, without changing the original.<br>**Example:** “Run `annotated = annotate_image(image_ref, shapes)`, then inspect the resulting PIL image's black pixels in the later cell.” [Notebook example: § `annotate_image`, cell `transform-annotate-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-annotate-call). |
 
+### Attach an image to one AI question (source only)
+
+The [attachment guide](browser-media-attachment.md) explains explicit confirmation, exact image hashes, supported models, and removal. The [disposable notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) creates a tiny PNG and its actual SHA-256, calls the tool, then inspects the receipt in a later cell. The visible **Attach image** control confirms the target question without running it or calling a provider; running that question later may use your configured provider.
+
+| Function | Purpose |
+| --- | --- |
+| `attach_media(media: dict, question_cell_id: str, detail: str = 'auto')` | Propose one exact owned still image for one identified AI question; a visible confirmation attaches its reference and hash to that question without running it. PNG, JPEG, WebP, and single-frame GIF are supported; model and detail choices must be compatible.<br>**Example:** “Run `attached = attach_media(source_ref, 'attachment-question', detail='auto')` with the notebook's disposable PNG reference, click **Attach image**, and inspect `attached.status` and `attached.result` in the next code cell.” [Notebook example: § `attach_media — confirm the image for this question`, cell `attachment-call`](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-call). |
+
 ### Live Python and registered skills
 
 | Function | Purpose |
