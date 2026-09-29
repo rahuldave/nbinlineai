@@ -11,7 +11,13 @@ from PIL import Image
 
 from nbinlineai import providers
 from nbinlineai.browser_media import MediaError, MediaRegistry
-from nbinlineai.prompt import preview_context, run_prompt, validate_request
+from nbinlineai.prompt import (
+    NO_ATTACHMENT,
+    _confirmed_attachment,
+    preview_context,
+    run_prompt,
+    validate_request,
+)
 
 
 def png() -> bytes:
@@ -43,6 +49,17 @@ class NoKernelReferences:
 
     async def inspect(self, *_):
         raise AssertionError('No kernel references are declared')
+
+
+def test_direct_legacy_prompt_has_no_attachment_but_malformed_current_snapshot_fails():
+    legacy = {'prompt_cell_id': 'question',
+              'preceding_cells': [{'id': 'old', 'cell_type': 'markdown', 'source': 'Earlier image',
+                                   'metadata': {'nbinlineai': {'mediaAttachment': {'tampered': True}}}}]}
+    assert _confirmed_attachment(legacy) is NO_ATTACHMENT
+    with pytest.raises(TypeError, match='current notebook snapshot'):
+        _confirmed_attachment({**legacy, 'snapshot_version': 1})
+    with pytest.raises(ValueError, match='missing from the notebook snapshot'):
+        _confirmed_attachment({**legacy, 'snapshot_version': 1, 'notebook_cells': []})
 
 
 def test_saved_image_preview_and_actual_round_reread_exact_current_question(tmp_path, monkeypatch):
