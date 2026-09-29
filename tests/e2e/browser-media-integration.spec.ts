@@ -90,7 +90,8 @@ test('output export, preview, crop and explicit attachment send one exact native
 
     // Saving is optional and explicit; the attachment below still uses the memory derivative.
     await run('integration-save-call');
-    await inspect('integration-save-inspect', 'Saved path:');
+    const savedOutput = await inspect('integration-save-inspect', 'Sidecar path:');
+    expect(savedOutput).toContain('Saved path:');
     const saveExecution = await cell('integration-save-call').locator('.jp-InputPrompt').textContent();
     expect(await cell('integration-output').locator('.jp-InputPrompt').textContent()).toBe(outputExecution);
 
@@ -106,6 +107,20 @@ test('output export, preview, crop and explicit attachment send one exact native
       .filter({ hasText: 'What is the visible color in the four-pixel-square image' });
     await expect(question).toHaveCount(1);
     await expect(question.locator('[data-nbinlineai-attachment]')).toBeHidden();
+    await question.locator('.jp-Cell-inputWrapper').click();
+    const details = page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-details]');
+    if (await details.getAttribute('open') === null) await details.locator('summary').click();
+    const refreshPreview = async () => {
+      const response = page.waitForResponse(item => item.url().endsWith('/nbinlineai/context-preview') &&
+        item.request().method() === 'POST');
+      await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-refresh]').click();
+      const result = await response;
+      expect(result.ok(), await result.text()).toBeTruthy();
+      return await result.json() as { context_chars: number; round_wire_chars?: number };
+    };
+    const beforeAttachment = await refreshPreview();
+    expect(beforeAttachment.context_chars).toBeGreaterThan(0);
+    expect(beforeAttachment.context_chars).toBeLessThanOrEqual(64_000);
     await run('integration-attach-call');
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();
@@ -119,16 +134,10 @@ test('output export, preview, crop and explicit attachment send one exact native
     await expect(question.locator('.nbinlineai-status')).not.toContainText('Done');
 
     // Repeated previews budget the confirmed image but do not run either code or model work.
-    await question.locator('.jp-Cell-inputWrapper').click();
-    const details = page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-details]');
-    if (await details.getAttribute('open') === null) await details.locator('summary').click();
     for (let index = 0; index < 2; index++) {
-      const response = page.waitForResponse(item => item.url().endsWith('/nbinlineai/context-preview') &&
-        item.request().method() === 'POST');
-      await page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-refresh]').click();
-      const result = await response;
-      expect(result.ok(), await result.text()).toBeTruthy();
-      expect(JSON.stringify(await result.json())).toContain('round_wire_chars');
+      const report = await refreshPreview();
+      expect(report.round_wire_chars).toBeGreaterThan(beforeAttachment.context_chars);
+      expect(report.round_wire_chars).toBeLessThanOrEqual(64_000);
     }
     expect(await cell('integration-output').locator('.jp-InputPrompt').textContent()).toBe(outputExecution);
     expect(await cell('integration-export-call').locator('.jp-InputPrompt').textContent()).toBe(exportExecution);
@@ -154,5 +163,5 @@ test('output export, preview, crop and explicit attachment send one exact native
     await inspect('integration-close-inspect', 'Crop: completed');
     await run('integration-file-cleanup');
     await expect(cell('integration-file-cleanup').locator('.jp-OutputArea'))
-      .toContainText('Optional generated file removed: True');
+      .toContainText('Optional generated file and sidecar removed: True');
   });

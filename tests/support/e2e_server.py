@@ -49,6 +49,9 @@ async def fake_complete(
         # Observe the provider-entry message, not a tool result or a rendered preview.
         parts = getattr(messages[-1], "content", [])
         images = [part for part in parts if isinstance(part, InputImage)]
+        assert all(not isinstance(part, InputImage)
+                   for message in messages[:-1]
+                   for part in getattr(message, "content", []))
         assert len(images) <= 1
         assert all("data:image/" not in part.text for message in messages
                    for part in getattr(message, "content", [])

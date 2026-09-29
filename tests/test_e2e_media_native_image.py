@@ -37,3 +37,10 @@ def test_native_image_fixture_distinguishes_unattached_and_exact_png() -> None:
     with pytest.raises(AssertionError):
         asyncio.run(complete([Text("E2E_MEDIA_NATIVE_IMAGE " + uri),
                               InputImage(uri, mime="image/png")]))
+
+    with pytest.raises(AssertionError):
+        asyncio.run(MODULE.fake_complete(
+            "openai_api", "test-model",
+            [Msg("system", [Text("test")]),
+             Msg("user", [Text("Earlier question"), InputImage(uri, mime="image/png")]),
+             Msg("user", [Text("E2E_MEDIA_NATIVE_IMAGE")])], []))
