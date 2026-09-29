@@ -2,6 +2,14 @@
 const SHA = /^[0-9a-f]{64}$/;
 const TOOL_EVENTS = new Set(['tool_start', 'tool_result', 'frontend_action']);
 
+export function assertOwnedPromptRequest(body, questionCellId, sessionId) {
+  if (!body || body.backend !== 'openai_codex_subscription' ||
+      body.prompt_cell_id !== questionCellId || body.session_id !== sessionId ||
+      typeof sessionId !== 'string' || !sessionId) {
+    throw new Error('Subscription request did not belong to the created notebook session');
+  }
+}
+
 export function noToolPlan(events, questionCellId) {
   const done = events.filter(event => event.type === 'done');
   const toolEvents = events.filter(event => TOOL_EVENTS.has(event.type));

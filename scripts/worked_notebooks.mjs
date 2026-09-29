@@ -8,7 +8,7 @@ import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
-import { noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
+import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
 const baseURL = 'http://127.0.0.1:8897';
 const root = resolve(import.meta.dirname, '..');
@@ -297,9 +297,7 @@ async function runNotebook(page, request, context, entry, choice) {
       await runButton.click();
       const completed = await response;
       const requestBody = completed.requestBody;
-      if (requestBody.backend !== 'openai_codex_subscription' || requestBody.prompt_cell_id !== step.cellId) {
-        throw new Error(`${name} ${step.cellId} used an unexpected model route`);
-      }
+      assertOwnedPromptRequest(requestBody, step.cellId, createdSession.id);
       const events = frames(completed.body);
       for (const event of events) {
         if (event.type === 'tool_result') {
