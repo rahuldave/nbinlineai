@@ -34,6 +34,7 @@ EXAMPLES = [
     "browser-media-playback.ipynb",
     "browser-media-transforms.ipynb",
     "browser-media-integration.ipynb",
+    "browser-media-attachment.ipynb",
     "jupyter-ai-and-nbinlineai.ipynb",
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
@@ -42,6 +43,8 @@ TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
 HEADLESS_UI_CELLS = {
     ("live-variables-and-tools.ipynb", "live-insert-tools-optional"):
         "insert_tools(",
+    ("live-variables-and-tools.ipynb", "live-insert-tools-inspect"):
+        "receipt.status",
     ("browser-media-foundation.ipynb", "media-capabilities-call"): "browser_capabilities(",
     ("browser-media-foundation.ipynb", "media-capabilities-inspect"): "capabilities.status",
     ("browser-media-foundation.ipynb", "media-save-call"): "save_media(",
@@ -79,7 +82,7 @@ HEADLESS_UI_CELLS = {
     ("browser-media-outputs.ipynb", "canvas-start-inspect"): "canvas_source.status",
     ("browser-media-outputs.ipynb", "region-call"): "capture_notebook_region(",
     ("browser-media-outputs.ipynb", "region-inspect"): "region.status",
-    ("browser-media-outputs.ipynb", "outputs-cleanup"): "canvas_saved.media",
+    ("browser-media-outputs.ipynb", "outputs-cleanup"): "release_media(",
     ("browser-media-outputs.ipynb", "source-stop-inspect"): "stopped_source.status",
     ("browser-media-playback.ipynb", "playback-choose-call"): "choose_file(",
     ("browser-media-playback.ipynb", "playback-choose-inspect"): "selected.status",
@@ -120,6 +123,9 @@ HEADLESS_UI_CELLS = {
     ("browser-media-integration.ipynb", "integration-close-call"): "close_media(",
     ("browser-media-integration.ipynb", "integration-close-inspect"): "closed_preview.status",
     ("browser-media-integration.ipynb", "integration-file-cleanup"): "saved_path.unlink()",
+    ("browser-media-attachment.ipynb", "attachment-call"): "attach_media(",
+    ("browser-media-attachment.ipynb", "attachment-inspect"): "attached.status",
+    ("browser-media-attachment.ipynb", "attachment-cleanup"): "source_path.unlink()",
 }
 CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",
@@ -134,9 +140,9 @@ CAPTURE_DEMO_VARIABLES = {
 }
 for name, variable in CAPTURE_DEMO_VARIABLES.items():
     HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-call")] = f"{name}("
-    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f"{variable}.status"
+    HEADLESS_UI_CELLS[("browser-media-capture.ipynb", f"capture-{name}-inspect")] = f", {variable})"
 HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup")] = "stop_source(microphone_id)"
-HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = "microphone_cleanup.status"
+HEADLESS_UI_CELLS[("browser-media-capture.ipynb", "capture-cleanup-inspect")] = ", microphone_cleanup)"
 
 
 async def _run_code(
@@ -224,7 +230,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
         kernel_cwd = Path(scratch) if relative_path in {
             "browser-media-foundation.ipynb", "browser-media-playback.ipynb",
-            "browser-media-transforms.ipynb"} else ROOT
+            "browser-media-transforms.ipynb", "browser-media-attachment.ipynb"} else ROOT
         outputs, unresolved = asyncio.run(run(kernel_cwd))
     assert not unresolved, f"Unbound inherited tool references in {relative_path}: {unresolved}"
     if relative_path == "bundled-tools.ipynb":
@@ -266,7 +272,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "tool-catalog-live-notebook.ipynb":
         assert "Live notebook tools imported" in "\n".join(outputs)
     if relative_path == "tool-catalog-web.ipynb":
-        assert "Public page tools imported" in "\n".join(outputs)
+        assert "Source: https://docs.python.org/3/tutorial/datastructures.html" in "\n".join(outputs)
     if relative_path == "tool-catalog-processes.ipynb":
         text = "\n".join(outputs)
         assert "catalog-ready" in text
@@ -277,7 +283,7 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         assert "browser-media-source-" in text
     if relative_path == "browser-media-transforms.ipynb":
         text = "\n".join(outputs)
-        assert "Disposable transform files removed" in text
+        assert "Disposable source and derivative files removed" in text
         assert "Disposable exact PNG and 16×16 two-color VP9 clip" in text
     if relative_path == "browser-media-integration.ipynb":
         assert "Disposable 8x8 output image ready; no file saved." in "\n".join(outputs)
