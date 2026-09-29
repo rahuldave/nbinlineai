@@ -36,6 +36,15 @@ frames = extract_frames(video_ref, [0.5, 3.5])
 
 After the operation completes in a later cell, inspect `frames.media` for each `actual_seconds` and display the corresponding images in `frames.result`. Frame extraction can fail explicitly if the browser cannot decode or timestamp the clip.
 
+```python
+from IPython.display import display
+print(frames.status, frames.error)
+assert frames.status == "completed", "Wait for the frames, then rerun this cell."
+for image, descriptor in zip(frames.result, frames.media, strict=True):
+    print("Presented at", descriptor["actual_seconds"], "seconds")
+    display(image)
+```
+
 ## References, saves, and limits
 
 Pass an owned `{"media_id": "..."}` descriptor or an exact saved `{"path": "...", "sha256": "..."}` reference. The browser verifies source bytes and hash, decodes the actual format, and produces a **new PNG**. It leaves the original memory result or saved file unchanged. SVG markup is unsupported as transformation input; these calls do not silently rasterize vector art.

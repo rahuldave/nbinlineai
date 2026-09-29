@@ -6,7 +6,7 @@ title: Browser media receipts
 
 A browser tool starts work in the open notebook tab and returns to Python promptly. Its `BrowserReceipt` changes as the browser finishes. **Run the call, let the media row finish, then inspect the same receipt in a later cell before using its result.** The first printed receipt shows only its state at that moment.
 
-This worked example makes a disposable two-pixel PNG and saves a separate copy. Run each code block as its own notebook cell with the kernel working directory at the Jupyter server root:
+This worked example makes a disposable 2×2 PNG and saves a separate copy. Run each code block as its own notebook cell with the kernel working directory at the Jupyter server root:
 
 ```python
 from pathlib import Path

@@ -4,7 +4,7 @@ title: Tool catalog
 
 # Tool catalog
 
-Import the tools you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. Each catalog entry links to an ordinary demonstration and an AI question in the [worked notebooks](examples.md). Browser-backed live-cell tools are used by the model; their ordinary links show the corresponding action in JupyterLab.
+Import the tools you need into the notebook's Python kernel, then declare them with ``&`name` `` in an ordinary Markdown note above the AI question or in the question itself. Importing a function alone does not offer it to the model. Each model-tool entry links to an ordinary demonstration and an AI question in the [worked notebooks](examples.md); the three setup helpers have ordinary examples only. Browser-backed live-cell tools are used by the model; their ordinary links show the corresponding action in JupyterLab.
 
 After installing an update with frontend changes, restart JupyterLab, reload the browser, then restart the selected Python kernel and rerun imports. See [setup](manual/setup.md) and [development](development.md).
 
