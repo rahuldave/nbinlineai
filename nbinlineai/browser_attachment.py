@@ -36,7 +36,7 @@ class AttachmentRead:
             self.release()
 
 
-@dataclass(frozen=True)
+@dataclass
 class AttachmentGrant:
     id: str
     owner: Owner
@@ -45,6 +45,7 @@ class AttachmentGrant:
     sha256: str
     mime_type: str
     detail: str
+    committed: bool = False
 
 
 def validate_detail(detail: Any) -> str:

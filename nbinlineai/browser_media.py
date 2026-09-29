@@ -404,14 +404,43 @@ class MediaRegistry:
             'paused': {'running', 'saving', 'completed', 'cancelled', 'failed', 'expired'},
             'saving': {'completed', 'cancelled', 'failed', 'expired'},
         }
-        if status not in permitted[op.status] and status != op.status:
+        attachment_completion = (op.name == 'attach_media' and op.status == 'waiting_for_user' and
+                                 status == 'completed' and (owner, op.id) in self.attachment_requests)
+        if status not in permitted[op.status] and status != op.status and not attachment_completion:
             raise MediaError('invalid_argument', 'Invalid operation state transition')
         if status == 'completed' and not op.media_id and not op.result:
             raise MediaError('invalid_argument', 'Completed operation needs a result')
         op.status = status
         op.updated = self._now()
         op.deadline = None
+        if op.name == 'attach_media' and status in TERMINAL:
+            self._settle_attachment(op)
         return self.status(owner, operation_id)
+
+    def _settle_attachment(self, op: Operation) -> None:
+        """Keep only committed or still-requested memory grants after an attempt ends.
+
+        Call with _state_lock held. A second waiting operation may reuse a grant
+        minted by this one; its eventual outcome then decides that grant's fate.
+        """
+        record = self.attachment_requests.pop((op.owner, op.id), None)
+        if record is None:
+            return
+        grant_id = record[1].get('grant_id')
+        grant = self.attachment_grants.get(grant_id)
+        if grant is None:
+            return
+        if op.status == 'completed':
+            grant.committed = True
+            return
+        if grant.committed:
+            return
+        for (request_owner, request_id), (_, result, _) in self.attachment_requests.items():
+            pending = self.operations.get(request_id)
+            if (request_owner is op.owner and result.get('grant_id') == grant_id and
+                    pending is not None and pending.status == 'waiting_for_user'):
+                return
+        self.attachment_grants.pop(grant_id, None)
 
     def cancel(self, owner: Owner, operation_id: str) -> dict[str, Any]:
         with self._state_lock:
@@ -425,6 +454,8 @@ class MediaRegistry:
                     self.media.pop(op.media_id, None)
                 for media_id in op.batch_media_ids:
                     self.media.pop(media_id, None)
+                if op.name == 'attach_media':
+                    self._settle_attachment(op)
             return self.status(owner, operation_id)
 
     def upload(self, owner: Owner, operation_id: str, data: bytes, mime_type: str,
@@ -926,13 +957,16 @@ class MediaRegistry:
                             sort_keys=True, separators=(',', ':'))
             if op.name != 'attach_media' or op.signature != expected:
                 raise MediaError('stale_target', 'Attachment operation does not match the confirmed image')
+            if op.status != 'waiting_for_user':
+                raise MediaError('stale_target', 'Attachment confirmation ended or expired')
             previous = self.attachment_requests.get((owner, operation_id))
             if previous:
                 if previous[0] != signature:
                     raise MediaError('invalid_argument', 'Attachment request ID was reused with different media')
+                if ('grant_id' in previous[1] and
+                        previous[1]['grant_id'] not in self.attachment_grants):
+                    raise MediaError('stale_target', 'Attachment media expired before confirmation')
                 return previous[1]
-            if op.status != 'waiting_for_user':
-                raise MediaError('stale_target', 'Attachment confirmation ended or expired')
 
         reserved = 0
         def reserve(size: int) -> None:
@@ -948,13 +982,16 @@ class MediaRegistry:
         with self._state_lock:
             self.require(owner)
             op = self.operation(owner, operation_id)
+            if op.status != 'waiting_for_user' or op.signature != expected:
+                raise MediaError('stale_target', 'Attachment confirmation ended or changed')
             previous = self.attachment_requests.get((owner, operation_id))
             if previous:
                 if previous[0] != signature:
                     raise MediaError('invalid_argument', 'Attachment request ID was reused with different media')
+                if ('grant_id' in previous[1] and
+                        previous[1]['grant_id'] not in self.attachment_grants):
+                    raise MediaError('stale_target', 'Attachment media expired before confirmation')
                 return previous[1]
-            if op.status != 'waiting_for_user' or op.signature != expected:
-                raise MediaError('stale_target', 'Attachment confirmation ended or changed')
             common = {'version': 1, 'question_cell_id': question_cell_id,
                       'sha256': digest, 'detail': detail}
             if set(reference) == {'media_id'}:
@@ -995,7 +1032,7 @@ class MediaRegistry:
         if accepted['kind'] == 'memory':
             with self._state_lock:
                 grant = self.attachment_grants.get(accepted['grant_id'])
-                if (grant is None or grant.owner is not owner or
+                if (grant is None or not grant.committed or grant.owner is not owner or
                         grant.question_cell_id != question_cell_id or
                         grant.sha256 != accepted['sha256'] or grant.detail != accepted['detail']):
                     raise MediaError('stale_target', 'In-memory attachment expired; attach it again or save it first')
@@ -1264,6 +1301,8 @@ class MediaRegistry:
                 op.status = 'expired'
                 op.error = {'code': 'timeout', 'message': 'Permission request timed out'}
                 op.updated = now
+                if op.name == 'attach_media':
+                    self._settle_attachment(op)
         for media_id, media in list(self.media.items()):
             if media.expires <= now:
                 self.media.pop(media_id, None)

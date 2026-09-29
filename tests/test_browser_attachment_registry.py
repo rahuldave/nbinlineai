@@ -39,6 +39,11 @@ def test_memory_grant_is_question_and_owner_bound_and_release_revokes(tmp_path):
     confirmation = {key: value for key, value in result.items() if key != 'display'}
     assert validate_confirmation(confirmation, 'question') == confirmation
     assert registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id) == result
+    with pytest.raises(MediaError, match='expired'):
+        registry.resolve_attachment(browser, 'question', confirmation)
+    registry.transition(browser, operation.id, 'completed', {'confirmed': True})
+    with pytest.raises(MediaError, match='ended'):
+        registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id)
     assert registry.resolve_attachment(browser, 'question', confirmation) == (data, 'image/png', 'auto')
     with pytest.raises(MediaError, match='question'):
         registry.resolve_attachment(browser, 'other-question', confirmation)
@@ -156,6 +161,7 @@ def test_attachment_read_reservation_lives_until_closed(tmp_path):
     reference = {'path': 'notes/sample.png', 'sha256': hashlib.sha256(data).hexdigest()}
     operation = waiting(registry, browser, reference)
     result = registry.confirm_attachment(browser, reference, 'question', 'auto', operation.id)
+    registry.transition(browser, operation.id, 'completed', {'confirmed': True})
     confirmation = {key: value for key, value in result.items() if key != 'display'}
     read = registry.acquire_attachment(browser, 'question', confirmation)
     assert read.data == data
@@ -163,3 +169,66 @@ def test_attachment_read_reservation_lives_until_closed(tmp_path):
     read.close()
     read.close()
     assert registry.reserved_save_bytes == 0
+
+
+@pytest.mark.parametrize('ending', ['cancelled', 'failed', 'expired'])
+def test_unsuccessful_confirmation_releases_only_its_pending_grants(tmp_path, ending):
+    moment = [0.0]
+    registry = MediaRegistry(tmp_path, clock=lambda: moment[0])
+    browser = owner(registry)
+    pending = []
+    for index in range(4):
+        image = io.BytesIO()
+        Image.new('RGB', (3, 2), (index * 30, 0, 0)).save(image, format='PNG')
+        data = image.getvalue()
+        produced = registry.create(browser, f'produced-{index}', 'capture_camera', {})
+        media = registry.upload(browser, produced.id, data, 'image/png',
+                                hashlib.sha256(data).hexdigest())['media']
+        ref = {'media_id': media['media_id']}
+        operation = waiting(registry, browser, ref, f'attach-{index}')
+        registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id)
+        pending.append((operation, ref))
+    assert len(registry.attachment_grants) == 4
+    if ending == 'expired':
+        moment[0] = 80
+        registry.heartbeat(browser)
+        moment[0] = 121
+        registry.sweep()
+    else:
+        for operation, _ in pending:
+            if ending == 'cancelled':
+                registry.cancel(browser, operation.id)
+            else:
+                registry.transition(browser, operation.id, 'failed', error={
+                    'code': 'stale_target', 'message': 'Question changed'})
+    assert not registry.attachment_grants
+    assert not registry.attachment_requests
+    for operation, ref in pending:
+        with pytest.raises(MediaError, match='ended or expired'):
+            registry.confirm_attachment(browser, ref, 'question', 'auto', operation.id)
+    replacement = waiting(registry, browser, pending[0][1], 'attach-after-' + ending)
+    accepted = registry.confirm_attachment(browser, pending[0][1], 'question', 'auto', replacement.id)
+    assert accepted['grant_id'] in registry.attachment_grants
+
+
+def test_failed_replacement_keeps_reused_successful_and_other_pending_grants(tmp_path):
+    registry = MediaRegistry(tmp_path)
+    browser = owner(registry)
+    data = image_bytes()
+    produced = registry.create(browser, 'produced', 'capture_camera', {})
+    media = registry.upload(browser, produced.id, data, 'image/png',
+                            hashlib.sha256(data).hexdigest())['media']
+    ref = {'media_id': media['media_id']}
+    first = waiting(registry, browser, ref, 'first')
+    accepted = registry.confirm_attachment(browser, ref, 'question', 'auto', first.id)
+    second = waiting(registry, browser, ref, 'second')
+    assert registry.confirm_attachment(browser, ref, 'question', 'auto', second.id)['grant_id'] == accepted['grant_id']
+    registry.cancel(browser, first.id)
+    assert accepted['grant_id'] in registry.attachment_grants
+    registry.transition(browser, second.id, 'completed', {'confirmed': True})
+    third = waiting(registry, browser, ref, 'third')
+    assert registry.confirm_attachment(browser, ref, 'question', 'auto', third.id)['grant_id'] == accepted['grant_id']
+    registry.transition(browser, third.id, 'failed', error={'code': 'stale_target', 'message': 'Changed'})
+    assert registry.resolve_attachment(browser, 'question',
+                                       {key: value for key, value in accepted.items() if key != 'display'}) == (
+                                           data, 'image/png', 'auto')

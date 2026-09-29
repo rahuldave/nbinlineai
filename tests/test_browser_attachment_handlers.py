@@ -88,6 +88,7 @@ class AttachmentHttpTests(AsyncHTTPTestCase):
         assert result['sha256'] == self.registry.media['still'].sha256
         assert 'owner_secret' not in granted.body.decode()
         confirmation = {key: value for key, value in result.items() if key != 'display'}
+        self.registry.transition(self.owner, self.operation.id, 'completed', {'confirmed': True})
         preview = {'session_id': 'session', 'prompt_cell_id': 'question',
                    'prompt': 'What is shown?', 'snapshot_version': 1,
                    'backend': 'openai_api', 'model': 'gpt-6-sol',
