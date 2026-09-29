@@ -10,6 +10,8 @@ These tools work in the open nbinlineai notebook with its live Python kernel. A 
 
 Start with an exact saved-file reference, using the path and SHA-256 from the earlier save or discovery step. The [walkthrough's open call](https://rahuldave.com/nbinlineai/notebooks/browser-media-playback.html#playback-open-call) uses its verified `tone_ref`. Give the browser time to decode the file before using its preview ID:
 
+The walkthrough generates a quiet 60-second WAV so you have time to try Play, Pause, Seek, and Volume. Confirm that the preview is actually playing before pausing it; a completed control receipt alone does not prove audio was still playing.
+
 ```python
 from nbinlineai.tools import open_media, play_media, close_media
 opened = open_media(tone_ref)
