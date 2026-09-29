@@ -54,7 +54,10 @@ def arm(kernel_id: str, names: list[str]) -> None:
             "_worked_codes = {_worked_tools[name].__code__: name for name in _worked_names}\n"
             "_worked_calls = []\n"
             "_worked_active = {}\n"
-            "def _worked_profile(frame, event, arg):\n"
+            "_worked_previous_profile = sys.getprofile()\n"
+            "def _worked_profile(frame, event, arg, previous=_worked_previous_profile):\n"
+            "    if previous is not None:\n"
+            "        previous(frame, event, arg)\n"
             "    name = _worked_codes.get(frame.f_code)\n"
             "    if name is None:\n"
             "        return\n"
@@ -64,7 +67,8 @@ def arm(kernel_id: str, names: list[str]) -> None:
             "    elif event == 'return':\n"
             "        index = _worked_active.pop(id(frame), None)\n"
             "        if index is not None:\n"
-            "            _worked_calls[index]['completed'] = not (isinstance(arg, str) and arg.startswith('Error:'))\n"
+            "            _worked_calls[index]['completed'] = (arg is not None and "
+            "not (isinstance(arg, str) and arg.startswith('Error:')))\n"
             "sys.setprofile(_worked_profile)\n"
             "print('armed')")
     if _execute(kernel_id, code) != "armed":
@@ -72,7 +76,8 @@ def arm(kernel_id: str, names: list[str]) -> None:
 
 
 def take(kernel_id: str) -> list[dict[str, object]]:
-    text = _execute(kernel_id, "import sys, json\nsys.setprofile(None)\n"
+    text = _execute(kernel_id, "import sys, json\n"
+                    "sys.setprofile(globals().pop('_worked_previous_profile', None))\n"
                     "print(json.dumps(globals().pop('_worked_calls', [])))")
     calls = json.loads(text)
     if not isinstance(calls, list) or len(calls) > 100:

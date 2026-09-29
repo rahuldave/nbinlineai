@@ -61,6 +61,9 @@ def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch
     manager = KernelManager(connection_file=str(tmp_path / f"kernel-{kernel_id}.json"))
     manager.start_kernel(cwd=str(Path(__file__).resolve().parents[1]))
     try:
+        _execute(kernel_id, "import sys\n"
+                 "def prior_profile(frame, event, arg): pass\n"
+                 "sys.setprofile(prior_profile)")
         arm(kernel_id, ["search_kernel_names"])
         _execute(kernel_id, "from nbinlineai.tools import search_kernel_names\n"
                  "if False: search_kernel_names('proof')")
@@ -68,5 +71,11 @@ def test_direct_probe_observes_executed_assignment_but_not_dead_code(monkeypatch
         arm(kernel_id, ["search_kernel_names"])
         assert _execute(kernel_id, "saved = search_kernel_names('unlikely_probe_name')") == ""
         assert take(kernel_id) == [{"name": "search_kernel_names", "completed": True}]
+        assert _execute(kernel_id, "import sys\nprint(sys.getprofile() is prior_profile)") == "True"
+        arm(kernel_id, ["search_docs"])
+        _execute(kernel_id, "from nbinlineai.tools import search_docs\n"
+                 "try:\n    search_docs('x', 'y', depth=3)\nexcept ValueError:\n    pass")
+        assert take(kernel_id) == [{"name": "search_docs", "completed": False}]
+        assert _execute(kernel_id, "import sys\nprint(sys.getprofile() is prior_profile)") == "True"
     finally:
         manager.shutdown_kernel(now=True)
