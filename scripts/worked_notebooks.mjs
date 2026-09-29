@@ -215,7 +215,28 @@ async function runNotebook(page, request, context, entry, choice) {
   for (const step of entry.steps ?? []) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
     console.log(`${name}: ${step.action} ${step.cellId ?? 'control'}`);
-    if (step.action === 'code' || step.action === 'inspect') {
+    if (step.action === 'receipt-ready') {
+      const variables = step.variables;
+      const expectedStatus = step.status ?? 'completed';
+      if (!Array.isArray(variables) || !variables.length || variables.length > 8 ||
+          variables.some(value => typeof value !== 'string' || !/^[A-Za-z_][A-Za-z_0-9]{0,100}$/.test(value)) ||
+          !['completed', 'running', 'paused', 'waiting_for_user', 'saving', 'pending'].includes(expectedStatus)) {
+        throw new Error(`${name} has invalid receipt readiness criteria`);
+      }
+      // Each probe runs in its own kernel turn, after the browser operation's
+      // original call has returned. Do not wait on a comm in the call's turn.
+      const deadline = Date.now() + Math.min(timeout, 60_000);
+      while (true) {
+        const states = [];
+        for (const variable of variables) states.push({ variable, ...(await readLiveReceipt(kernelId, variable)) });
+        if (states.some(item => ['failed', 'cancelled', 'expired'].includes(item.status))) {
+          throw new Error(`${name} receipt readiness failed for ${states.filter(item => ['failed', 'cancelled', 'expired'].includes(item.status)).map(item => item.variable).join(', ')}`);
+        }
+        if (states.every(item => item.status === expectedStatus)) break;
+        if (Date.now() >= deadline) throw new Error(`${name} receipt readiness timed out`);
+        await pause(350);
+      }
+    } else if (step.action === 'code' || step.action === 'inspect') {
       const target = await liveCell(step.cellId, 'code');
       const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
       let probeAttempted = false;
