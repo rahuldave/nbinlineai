@@ -152,9 +152,13 @@ No. Capture, export, save, and preview are separate from model input. To ask abo
 
 The question's **Image attached** notice identifies the selected image. Use **Remove image** there to detach it before a later request. Removing it cannot retract an image from an already submitted request. See [image attachments](browser-media-attachment.md).
 
+### How can I tell whether an example's AI actually called a tool?
+
+Look for the **observed-tool table** beside the saved answer. It records the call and its returned state from that example run. An answer that only describes or suggests a call is not evidence that the call happened. Ordinary nbinlineai answers do not automatically save a separate tool transcript.
+
 ### Can I read the examples without running their tools again?
 
-Yes. The worked notebooks keep their inputs, displayed outputs, and AI answers. Their observed-tool tables record calls captured during the example run, including results. Those tables are part of the published examples; nbinlineai does not automatically save a separate tool transcript with every ordinary answer.
+Yes. The worked notebooks keep their inputs, displayed outputs, AI answers, and any observed-tool tables saved with them.
 
 To repeat a demonstration, use a copy, run its setup, and follow the separate action and inspection steps. **Keep answer** preserves a completed answer and skips its tools. Reading a saved table or answer does not restore the old kernel state or browser session.
 

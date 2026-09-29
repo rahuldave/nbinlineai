@@ -32,6 +32,8 @@ Context describes notebook text; a live value describes the kernel now. They can
 
 The [Tool catalog](tools.md) gives each tool a normal-use example and an AI example. Most tools can be called directly in Python. Live editor tools such as `insert_code` are called by the AI through JupyterLab; their normal-use comparisons show the corresponding manual edit. The [notebook gallery](examples.md) groups short walkthroughs separately from the complete tool catalog notebooks.
 
+For a first worked tool call, open [Live Python inspection](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-inspection.html). Compare the saved Python result with the AI question, its answer, and the observed-tool table beside it. Then open a copy of the notebook and run its setup before trying the question yourself. The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) uses the same pattern for an operation that returns a receipt.
+
 ## Understand browser receipts before using media tools
 
 Camera capture, recording, importing, playback, and other browser operations can continue after their Python call returns. The return value is a **`BrowserReceipt`**: a live record of the operation, rather than its finished image or clip.
@@ -45,6 +47,8 @@ Work through three steps:
 For interactive operations, use the browser's permission dialog, chooser, or Media row as directed. `waiting_for_user`, `running`, `paused`, and `saving` all mean there is more to do. A `failed`, `cancelled`, or `expired` receipt is finished without a successful result; read its error before retrying.
 
 An AI tool call receives a snapshot, not that changing Python object. If it starts an operation and returns an operation ID, finish the visible action and use a later AI question to call `operation_status` for that ID. An initial acknowledgement does not establish that a photo exists or a file was saved.
+
+Read the status **inside** the `operation_status` result: the lookup itself can complete while the operation it describes is still running. Use a source ID or captured media only after the target operation reports `completed`. If it reports `expired` or `stale_target`, start a new operation in the current notebook session.
 
 The [Browser media receipts guide](browser-media-foundation.md) shows a complete save-and-inspect example, explains the fields and status lookups, and covers cancellation and cleanup. Start there, then choose [camera and recording](browser-media-capture.md), [notebook outputs](browser-media-outputs.md), [import and playback](browser-media-playback.md), [transformations](browser-media-transforms.md), or [image attachments](browser-media-attachment.md).
 
