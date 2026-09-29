@@ -39,10 +39,12 @@ def _write_exclusive(path: Path, data: str) -> None:
 
 
 def _validate_arm(arm: Any) -> dict:
-    if (not isinstance(arm, dict) or
-            set(arm) not in ({"binding", "groups"}, {"binding", "groups", "optional_terminal_group"})):
+    if (not isinstance(arm, dict) or set(arm) not in (
+        {"binding", "groups"}, {"binding", "groups", "optional_terminal_group"},
+        {"binding", "group_shapes"},
+    )):
         raise ValueError("Invalid observer arm")
-    binding, groups = arm["binding"], arm["groups"]
+    binding, groups = arm["binding"], arm.get("groups")
     if not isinstance(binding, dict) or set(binding) != _FIELDS:
         raise ValueError("Invalid observer binding")
     if any(not isinstance(binding[key], str) or not binding[key] or len(binding[key]) > 300
@@ -50,9 +52,17 @@ def _validate_arm(arm: Any) -> dict:
         raise ValueError("Invalid observer binding value")
     if type(binding["max_tool_steps"]) is not int or not 1 <= binding["max_tool_steps"] <= 10:
         raise ValueError("Invalid observer step limit")
-    if (not isinstance(groups, list) or not 1 <= len(groups) <= binding["max_tool_steps"]
-            or any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in groups)):
-        raise ValueError("Invalid observer groups")
+    shapes = arm.get("group_shapes")
+    if shapes is None:
+        if (not isinstance(groups, list) or not 1 <= len(groups) <= binding["max_tool_steps"]
+                or any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in groups)):
+            raise ValueError("Invalid observer groups")
+    elif (not isinstance(shapes, list) or len(shapes) != 2 or
+          any(not isinstance(shape, list) or len(shape) not in (2, 3) or
+              len(shape) > binding["max_tool_steps"] or
+              any(not isinstance(group, list) or not 1 <= len(group) <= 10 for group in shape)
+              for shape in shapes)):
+        raise ValueError("Invalid observer group shapes")
     optional = arm.get("optional_terminal_group")
     if optional is not None:
         if (not isinstance(optional, list) or len(optional) != 1 or
@@ -68,7 +78,9 @@ def _validate_arm(arm: Any) -> dict:
                 type(values["limit"]) is not int or not 0 <= values["start"] <= 10000 or
                 not 1 <= values["limit"] <= 20):
             raise ValueError("Invalid optional list_cells bounds")
-    for group in [*groups, *([optional] if optional is not None else [])]:
+    all_groups = ([group for shape in shapes for group in shape] if shapes is not None else
+                  [*groups, *([optional] if optional is not None else [])])
+    for group in all_groups:
         for call in group:
             if (not isinstance(call, dict) or
                     set(call) not in ({"name", "arguments"}, {"name", "argument_options"})):
@@ -117,14 +129,49 @@ def _validate_arm(arm: Any) -> dict:
                         raise ValueError("Invalid integer rule")
                 else:
                     raise ValueError("Unknown observer argument rule")
+    if shapes is not None:
+        first, second = shapes
+        if (len(first) != 2 or [len(group) for group in first] != [2, 1] or
+                len(second) != 3 or [len(group) for group in second] != [1, 1, 1] or
+                first[0][0] != second[0][0] or first[0][1] != second[1][0] or
+                first[1][0] != second[2][0]):
+            raise ValueError("Observer merge shapes must contain the same ordered calls")
+        read_first, read_second, merge = first[0][0], first[0][1], first[1][0]
+        if (read_first["name"] != "read_cell" or read_second["name"] != "read_cell" or
+                merge["name"] != "merge_cells" or
+                any(set(call) != {"name", "argument_options"} or
+                    len(call["argument_options"]) != 1 for call in (read_first, read_second, merge))):
+            raise ValueError("Observer merge shapes require exact read and merge calls")
+        first_args = read_first["argument_options"][0]
+        second_args = read_second["argument_options"][0]
+        merge_args = merge["argument_options"][0]
+        if (set(first_args) != {"cell_id"} or set(second_args) != {"cell_id"} or
+                not isinstance(first_args["cell_id"], str) or
+                not isinstance(second_args["cell_id"], str) or
+                not _ID.fullmatch(first_args["cell_id"]) or
+                not _ID.fullmatch(second_args["cell_id"]) or
+                first_args["cell_id"] == second_args["cell_id"] or
+                set(merge_args) != {"first_cell_id", "second_cell_id", "expected_first", "expected_second"} or
+                merge_args["first_cell_id"] != first_args["cell_id"] or
+                merge_args["second_cell_id"] != second_args["cell_id"] or
+                not isinstance(merge_args["expected_first"], str) or not merge_args["expected_first"] or
+                not isinstance(merge_args["expected_second"], str) or not merge_args["expected_second"]):
+            raise ValueError("Observer merge arguments must bind two distinct cells and exact sources")
     return arm
 
 
-def arm_question(directory: Path, binding: dict, groups: list[list[dict]],
-                 optional_terminal_group: list[dict] | None = None) -> None:
+def arm_question(directory: Path, binding: dict, groups: list[list[dict]] | None = None,
+                 optional_terminal_group: list[dict] | None = None,
+                 *, group_shapes: list[list[list[dict]]] | None = None) -> None:
     """Create one private arm; the next matching prompt consumes it exactly once."""
     _private_dir(directory)
-    policy = {"binding": binding, "groups": groups}
+    if (groups is None) == (group_shapes is None) or (group_shapes is not None and optional_terminal_group is not None):
+        raise ValueError("Choose one observer group policy")
+    policy = {"binding": binding}
+    if group_shapes is not None:
+        policy["group_shapes"] = group_shapes
+    else:
+        policy["groups"] = groups
     if optional_terminal_group is not None:
         policy["optional_terminal_group"] = optional_terminal_group
     arm = _validate_arm(policy)
@@ -243,8 +290,15 @@ class VisualObserver:
             self.active = False
             raise ValueError("Observer request did not match its arm")
         optional = arm.get("optional_terminal_group")
-        required_groups = arm["groups"]
-        self._log(kind="admitted", groups=len(required_groups), optional_terminal=optional is not None)
+        if "group_shapes" in arm:
+            shapes = arm["group_shapes"]
+        else:
+            required_groups = arm["groups"]
+            shapes = [required_groups]
+            if optional is not None:
+                shapes.append([*required_groups, optional])
+        self._log(kind="admitted", groups=len(shapes[0]), alternatives=len(shapes),
+                  optional_terminal=optional is not None)
         generator = self.original(body, *args, **kwargs)
         group = -1
         call_index = 0
@@ -257,37 +311,47 @@ class VisualObserver:
                     raise ValueError("Observer blocked events after completion")
                 kind = event.get("type")
                 if kind == "context":
-                    if pending is not None or (0 <= group < len(required_groups) and
-                                               call_index != len(required_groups[group])):
+                    if pending is not None:
                         self._log(kind="blocked", reason="incomplete_group")
                         raise ValueError("Observer expected another tool call")
-                    # run_prompt sends a final model round after the final tool group.
-                    if (group + 1 > len(required_groups) + (optional is not None) or
-                            group == len(required_groups) and
-                            (optional is None or call_index != 1)):
-                        self._log(kind="blocked", reason="extra_group")
+                    next_shapes = ([shape for shape in shapes if group < 0] if group < 0 else
+                                   [shape for shape in shapes if group < len(shape) and
+                                    call_index == len(shape[group])])
+                    if not next_shapes:
+                        reason = ("incomplete_group" if any(
+                            group < len(shape) and call_index < len(shape[group]) for shape in shapes
+                        ) else "extra_group")
+                        self._log(kind="blocked", reason=reason)
                         raise ValueError("Observer blocked another model round")
+                    shapes = next_shapes
                     group += 1
                     call_index = 0
                 elif kind == "tool_start":
                     name = event.get("name")
-                    active_group = (required_groups[group] if 0 <= group < len(required_groups)
-                                    else optional if group == len(required_groups) else None)
-                    if (pending is not None or active_group is None or
-                            call_index >= len(active_group)):
+                    available = ([shape[group][call_index] for shape in shapes if
+                                  0 <= group < len(shape) and call_index < len(shape[group])]
+                                 if pending is None else [])
+                    if not available:
                         self._log(kind="blocked", reason="unexpected_call")
                         raise ValueError("Observer blocked an unexpected tool")
-                    policy = active_group[call_index]
-                    if name != policy["name"]:
+                    named = [policy for policy in available if name == policy["name"]]
+                    if not named:
                         self._log(kind="blocked", reason="tool_name")
                         raise ValueError("Observer blocked a tool outside the question policy")
-                    mismatch, fields = _arguments(event.get("arguments"), policy)
-                    if mismatch is not None:
-                        self._log(kind="blocked", reason=mismatch)
+                    checked = [(policy, *_arguments(event.get("arguments"), policy)) for policy in named]
+                    matched_policy = next(((policy, fields) for policy, mismatch, fields in checked
+                                           if mismatch is None), None)
+                    if matched_policy is None:
+                        reason = ("argument_values" if any(mismatch == "argument_values"
+                                                          for _, mismatch, _ in checked) else "argument_keys")
+                        self._log(kind="blocked", reason=reason)
                         raise ValueError("Observer blocked a tool outside the question policy")
                     if not isinstance(event.get("id"), str) or not event["id"] or len(event["id"]) > 200:
                         self._log(kind="blocked", reason="call_id")
                         raise ValueError("Observer blocked a tool outside the question policy")
+                    policy, fields = matched_policy
+                    shapes = [shape for shape in shapes if 0 <= group < len(shape) and
+                              call_index < len(shape[group]) and shape[group][call_index] == policy]
                     pending = (event["id"], name)
                     self._log(kind="tool_start", group=group, call=call_index, name=name,
                               argument_fields=fields)
@@ -300,12 +364,9 @@ class VisualObserver:
                     pending = None
                     call_index += 1
                 elif kind == "done":
-                    required_count = len(required_groups)
-                    without_optional = group == required_count and call_index == 0
-                    with_optional = (optional is not None and group == required_count + 1 and
-                                     call_index == 0)
-                    if (pending is not None or not (without_optional or with_optional) or
-                            event.get("tool_steps") != required_count + with_optional):
+                    exact = [shape for shape in shapes if group == len(shape) and call_index == 0 and
+                             event.get("tool_steps") == len(shape)]
+                    if pending is not None or not exact:
                         self._log(kind="blocked", reason="count")
                         raise ValueError("Observer expected the exact tool count")
                     terminal = True

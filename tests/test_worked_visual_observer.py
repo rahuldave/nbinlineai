@@ -26,6 +26,25 @@ REPLACE = {"name": "cell_str_replace", "argument_options": [
 MOVE_ARGS = {"cell_id": "cell-1", "after_cell_id": "cell-2"}
 MOVE = {"name": "move_cell", "argument_options": [MOVE_ARGS]}
 TERMINAL_READ = [{"name": "list_cells", "argument_options": [{"start": 55, "limit": 20}]}]
+MERGE_BINDING = {**BINDING, "max_tool_steps": 3, "prompt_cell_id": "catalog-demo-merge_cells"}
+FIRST_ID = "catalog-scratch-merge-first"
+SECOND_ID = "catalog-scratch-merge-second"
+FIRST_SOURCE = "First disposable note.\n"
+SECOND_SOURCE = "Second disposable note.\n"
+READ_FIRST = {"name": "read_cell", "argument_options": [{"cell_id": FIRST_ID}]}
+READ_SECOND = {"name": "read_cell", "argument_options": [{"cell_id": SECOND_ID}]}
+MERGE_ARGS = {"first_cell_id": FIRST_ID, "second_cell_id": SECOND_ID,
+              "expected_first": FIRST_SOURCE, "expected_second": SECOND_SOURCE}
+MERGE = {"name": "merge_cells", "argument_options": [MERGE_ARGS]}
+MERGE_SHAPES = [[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_FIRST], [READ_SECOND], [MERGE]]]
+
+
+def test_merge_arm_sources_match_saved_notebook_exactly():
+    notebook = json.loads((Path(__file__).resolve().parents[1] /
+                           "examples/tool-catalog-live-notebook.ipynb").read_text())
+    sources = {cell["id"]: "".join(cell["source"]) for cell in notebook["cells"]}
+    assert sources[FIRST_ID] == MERGE_ARGS["expected_first"]
+    assert sources[SECOND_ID] == MERGE_ARGS["expected_second"]
 
 
 def _private(tmp_path):
@@ -516,4 +535,182 @@ def test_optional_terminal_group_must_be_single_bounded_read(tmp_path, optional,
     directory = _private(tmp_path)
     with pytest.raises(ValueError):
         arm_question(directory, binding, [[MOVE]], optional_terminal_group=optional)
+    assert not (directory / "arm.json").exists()
+
+
+@pytest.mark.parametrize("separate_reads", [False, True])
+def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, separate_reads):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    source = [
+        {"type": "context"},
+        {"type": "tool_start", "id": "first", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+        {"type": "tool_result", "id": "first", "name": "read_cell", "text": FIRST_SOURCE},
+    ]
+    if separate_reads:
+        source.append({"type": "context"})
+    source.extend([
+        {"type": "tool_start", "id": "second", "name": "read_cell", "arguments": {"cell_id": SECOND_ID}},
+        {"type": "tool_result", "id": "second", "name": "read_cell", "text": SECOND_SOURCE},
+        {"type": "context"},
+        {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS},
+        {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"},
+        {"type": "context"},
+        {"type": "done", "tool_steps": 3 if separate_reads else 2},
+    ])
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer, MERGE_BINDING)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert FIRST_SOURCE not in log and SECOND_SOURCE not in log
+    assert FIRST_ID not in log and SECOND_ID not in log
+    terminal = [json.loads(line) for line in log.splitlines() if '"kind":"terminal"' in line]
+    assert terminal == [{"kind": "terminal", "state": "done", "groups": 3 if separate_reads else 2}]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("read_cell", {"cell_id": SECOND_ID}, "argument_values"),
+    ("read_cell", {"cell_id": FIRST_ID, "start_line": 1}, "argument_keys"),
+    ("merge_cells", MERGE_ARGS, "tool_name"),
+])
+def test_merge_group_shapes_block_wrong_first_call_pre_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "wrong", "name": name, "arguments": arguments}
+        effects.append("effect")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == []
+    log = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("arguments,reason", [
+    ({**MERGE_ARGS, "expected_first": FIRST_SOURCE.rstrip("\n")}, "argument_values"),
+    ({**MERGE_ARGS, "expected_second": SECOND_SOURCE.rstrip("\n")}, "argument_values"),
+    ({**MERGE_ARGS, "second_cell_id": FIRST_ID}, "argument_values"),
+    ({**MERGE_ARGS, "extra": True}, "argument_keys"),
+])
+def test_merge_group_shapes_block_mutation_mismatch_pre_effect(tmp_path, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            effects.append(call_id)
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": arguments}
+        effects.append("merge")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first", "second"]
+    log_text = (directory / "events.jsonl").read_text()
+    assert FIRST_SOURCE not in log_text and SECOND_SOURCE not in log_text and SECRET not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+def test_merge_group_shapes_reject_early_merge_duplicate_and_extra_round(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def early_merge(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "first", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}}
+        effects.append("first")
+        yield {"type": "tool_result", "id": "first", "name": "read_cell", "text": FIRST_SOURCE}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("merge")
+
+    observer = VisualObserver(directory, early_merge)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first"]
+
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects.clear()
+
+    async def duplicate(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            effects.append(call_id)
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("merge")
+        yield {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"}
+        yield {"type": "tool_start", "id": "again", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("again")
+
+    observer = VisualObserver(directory, duplicate)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first", "second", "merge"]
+
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+
+    async def extra_round(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        yield {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"}
+        yield {"type": "context"}
+        yield {"type": "context"}
+
+    observer = VisualObserver(directory, extra_round)
+    try:
+        with pytest.raises(ValueError, match="another model round"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+
+
+@pytest.mark.parametrize("shapes,binding", [
+    ([[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_FIRST], [READ_SECOND], [READ_SECOND]]], MERGE_BINDING),
+    ([[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_SECOND], [READ_FIRST], [MERGE]]], MERGE_BINDING),
+    ([[[READ_FIRST, READ_SECOND], [{"name": "merge_cells", "arguments": {
+        "first_cell_id": {"equals": FIRST_ID}}}]], [[READ_FIRST], [READ_SECOND], [MERGE]]], MERGE_BINDING),
+    (MERGE_SHAPES, {**MERGE_BINDING, "max_tool_steps": 2}),
+])
+def test_merge_group_shapes_reject_unsafe_policy(tmp_path, shapes, binding):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, group_shapes=shapes)
     assert not (directory / "arm.json").exists()
