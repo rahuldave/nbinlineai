@@ -317,3 +317,67 @@ test('play stays bound to its notebook and late activation cannot revive a cance
   await run(8);
   await page.evaluate(() => (window as any).__restorePlay());
 });
+
+test('long ASCII and Unicode paste receipts complete with explicit truncation', async ({ page, request }) => {
+  const name = `playback-long-paste-${Date.now()}.ipynb`;
+  await request.get('/lab');
+  const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
+  const sources = [
+    "from nbinlineai.tools import paste_content\nascii_paste = paste_content(accept='text')",
+    'print(ascii_paste.status, ascii_paste.result, ascii_paste.error)',
+    "unicode_paste = paste_content(accept='text')",
+    'print(unicode_paste.status, unicode_paste.result, unicode_paste.error)'
+  ];
+  const notebook = { cells: sources.map((source, index) => ({
+    id: `long-paste-${index}`, cell_type: 'code', source,
+    metadata: {}, outputs: [], execution_count: null
+  })), metadata: { kernelspec: { display_name: 'Python 3 (ipykernel)', language: 'python', name: 'python3' } },
+  nbformat: 4, nbformat_minor: 5 };
+  const uploaded = await request.put(`/api/contents/${name}`, {
+    headers: { 'X-XSRFToken': xsrf! }, data: { type: 'notebook', format: 'json', content: notebook }
+  });
+  expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
+  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+  const code = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
+  await expect(code).toHaveCount(4);
+  const select = page.getByRole('button', { name: 'Select', exact: true });
+  await select.waitFor({ state: 'visible', timeout: 3000 }).catch(() => undefined);
+  if (await select.isVisible().catch(() => false)) await select.click();
+  const no = page.getByRole('button', { name: 'No', exact: true });
+  if (await no.isVisible().catch(() => false)) await no.click();
+  await expect.poll(async () => (await (await request.get('/api/sessions')).json() as Array<{
+    path: string; kernel?: { id?: string }
+  }>).some(session => session.path === name && !!session.kernel?.id)).toBeTruthy();
+  async function run(index: number): Promise<string> {
+    const prompt = code.nth(index).locator('.jp-InputPrompt');
+    const before = await prompt.textContent();
+    await code.nth(index).locator('.cm-content').click(); await page.keyboard.press('Control+Enter');
+    await expect.poll(() => prompt.textContent()).not.toBe(before);
+    await expect(prompt).not.toContainText('*');
+    return await code.nth(index).locator('.jp-OutputArea').textContent() ?? '';
+  }
+  async function paste(text: string): Promise<void> {
+    const target = page.getByRole('textbox', { name: 'Paste here' });
+    await expect(target).toBeVisible();
+    await target.evaluate((element, value) => {
+      const data = new DataTransfer(); data.setData('text/plain', value);
+      element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data,
+        bubbles: true, cancelable: true }));
+    }, text);
+  }
+  async function inspect(index: number): Promise<string> {
+    let output = '';
+    for (let attempt = 0; attempt < 15; attempt++) {
+      output = await run(index);
+      if (output.includes("'truncated': True")) return output;
+      await page.waitForTimeout(250);
+    }
+    expect(output).toContain("'truncated': True"); return output;
+  }
+  await run(0); await paste('x'.repeat(2000));
+  expect(await inspect(1)).toContain("'original_chars': 2000");
+  await run(2); await paste('🧪é'.repeat(1000));
+  const result = await inspect(3);
+  expect(result).toContain("'original_chars': 2000");
+  expect(result).toContain('completed');
+});

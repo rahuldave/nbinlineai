@@ -4,6 +4,7 @@ import { BrowserMediaError, BrowserOperationContext, BrowserOperationRequest,
   BrowserOperationStatus, registerBrowserOperation } from './browserMediaClient';
 import { ClipMediaLease, DecodedMediaLease, MediaRef, loadPlaybackMedia,
   reserveMediaWorkingPixels, sha256Bytes } from './browserMediaDecoder';
+import { boundedPasteResult } from './browserMediaPasteResult';
 
 interface Preview { id: string; widget: Widget; lease: DecodedMediaLease; releaseDisplay: () => void; }
 class PlaybackState {
@@ -336,7 +337,7 @@ async function pasteContent(context: BrowserOperationContext, request: BrowserOp
   if (pasted.text !== undefined) {
     const text = limitText(pasted.text);
     if (saveTo !== null) throw new BrowserMediaError('invalid_argument', 'Text paste cannot use save_to.');
-    await context.transition(operation.operation_id, 'completed', { text });
+    await context.transition(operation.operation_id, 'completed', boundedPasteResult(text));
     return;
   }
   const file = pasted.file;
