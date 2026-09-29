@@ -1037,14 +1037,19 @@
       "unit": "tests/test_insert_tools.py",
       "browser": "tests/e2e/inherited-tools.spec.ts"
     },
-    "checkpoint_evidence": "UI receipt demo skipped headlessly; same helper passed in a focused isolated JupyterLab browser regression.",
+    "checkpoint_evidence": "Existing isolated JupyterLab regression exercised insertion; this later worked-notebook inspection is awaiting execution and saved evidence.",
     "normal_example": {
       "notebook": "live-variables-and-tools.ipynb",
       "cell_id": "live-insert-tools-optional",
       "mode": "python"
     },
     "ai_example": null,
-    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question."
+    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question.",
+    "receipt_variable": "receipt",
+    "receipt_inspect_cell": "live-insert-tools-inspect",
+    "receipt_kind": "insert_tools",
+    "receipt_success_status": "inserted",
+    "receipt_cell_id_required": true
   },
   "browser_capabilities": {
     "notebook": "browser-media-foundation.ipynb",
