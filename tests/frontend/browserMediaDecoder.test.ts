@@ -200,20 +200,26 @@ test('one verified video lease seeks a frame and aborts another seek without lea
 test('unindexed recorded WebM needs a bounded browser-measured end, then resets or releases on failure', async () => {
   const bytes = new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0]);
   const digest = await sha256Bytes(bytes);
-  type Mode = 'resolved' | 'lateDuration' | 'unresolved' | 'oversize' | 'resolvedTooLong' | 'cancelled';
+  type Mode = 'resolved' | 'lateDuration' | 'unresolved' | 'oversize' | 'resolvedTooLong' |
+    'cancelled' | 'cancelledReset';
   class Video extends EventTarget {
     src = ''; controls = false; preload = ''; duration: number;
     videoWidth = 16; videoHeight = 16; seeking = false;
-    private position = 0;
+    private position = 0; resetStarted = false;
     constructor(private mode: Mode, private controller: AbortController) {
       super(); this.duration = mode === 'oversize' ? 301 : Infinity;
     }
     get currentTime(): number { return this.position; }
     set currentTime(value: number) {
       this.position = value; this.seeking = true;
+      if (value === 0 && this.mode === 'cancelledReset') {
+        this.resetStarted = true;
+        this.controller.abort();
+        return;
+      }
       queueMicrotask(() => {
-        if (value === 301 && ['resolved', 'resolvedTooLong'].includes(this.mode)) {
-          this.duration = this.mode === 'resolved' ? 0.9 : 301;
+        if (value === 301 && ['resolved', 'resolvedTooLong', 'cancelledReset'].includes(this.mode)) {
+          this.duration = this.mode === 'resolvedTooLong' ? 301 : 0.9;
           this.position = this.duration;
           this.dispatchEvent(new Event('durationchange'));
         }
@@ -244,7 +250,8 @@ test('unindexed recorded WebM needs a bounded browser-measured end, then resets 
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: () => 'blob:recorded' });
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: () => { revoked++; } });
   try {
-    for (const mode of ['resolved', 'lateDuration', 'unresolved', 'oversize', 'resolvedTooLong', 'cancelled'] as Mode[]) {
+    for (const mode of ['resolved', 'lateDuration', 'unresolved', 'oversize', 'resolvedTooLong',
+      'cancelled', 'cancelledReset'] as Mode[]) {
       const controller = new AbortController();
       video = new Video(mode, controller);
       const context = { isCurrent: () => true, fetchReference: async () => ({
@@ -262,12 +269,17 @@ test('unindexed recorded WebM needs a bounded browser-measured end, then resets 
         await assert.rejects(loadPlaybackMedia(context as never, { media_id: 'recording' },
           { signal: controller.signal }), (error: any) => error.code === (
             ['oversize', 'resolvedTooLong'].includes(mode) ? 'limit_exceeded' :
-              mode === 'cancelled' ? 'cancelled' : 'unsupported'));
+              ['cancelled', 'cancelledReset'].includes(mode) ? 'cancelled' : 'unsupported'));
+        if (mode === 'cancelledReset') {
+          assert.equal(video.duration, 0.9);
+          assert.equal(video.resetStarted, true);
+          assert.equal(controller.signal.aborted, true);
+        }
       }
       const release = reserveMediaWorkingPixels(context as never, 4096, 3906);
       release();
     }
-    assert.equal(revoked, 6);
+    assert.equal(revoked, 7);
   } finally {
     for (const [target, key, descriptor] of [
       [globalThis, 'document', priorDocument], [globalThis, 'window', priorWindow],
