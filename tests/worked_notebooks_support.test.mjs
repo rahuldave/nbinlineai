@@ -121,6 +121,43 @@ test('tool events distinguish action correlation, error, and accepted receipt', 
   }
 });
 
+test('operation_status records a successful lookup independently of its exact target state', () => {
+  const target = 'StatusTarget0123456789abcdef01234567';
+  const observe = (reply, extra = {}, requestId = target) => observedTrace('status-question', [
+    { type: 'tool_start', id: 'lookup', name: 'operation_status',
+      arguments: { operation_id: requestId } },
+    { type: 'frontend_action', run_id: 'run', request_id: 'request', name: 'operation_status' },
+    { type: 'tool_result', id: 'lookup', name: 'operation_status', text: JSON.stringify(reply), ...extra },
+  ])[0];
+  for (const status of ['running', 'paused', 'completed', 'cancelled']) {
+    const observed = observe({ operation_id: target, status,
+      ...(status === 'cancelled' ? { error: { code: 'cancelled', message: 'Stopped' } } : {}) });
+    assert.equal(observed.resultState, 'completed');
+    assert.equal(observed.targetOperationId, target);
+    assert.equal(observed.operationId, target);
+    assert.equal(observed.operationState, status);
+  }
+  for (const reply of [
+    { operation_id: 'DifferentTarget0123456789abcdef01234', status: 'paused' },
+    { operation_id: target, status: 'unknown' },
+    { operation_id: target, status: 'paused', code: 'stale_target', message: 'Unavailable' },
+    { operation_id: target, status: 'paused', ok: false },
+    { code: 'stale_target', message: 'Unavailable' },
+  ]) assert.equal(observe(reply).resultState, 'failed');
+  assert.equal(observe({ operation_id: target, status: 'paused' }, { isError: true }).resultState, 'failed');
+  assert.equal(observe({ operation_id: target, status: 'paused' }, { error: true }).resultState, 'failed');
+  assert.equal(observe({ operation_id: target, status: 'paused' }, { ok: false }).resultState, 'failed');
+  assert.equal(observe({ operation_id: target, status: 'paused' }, {},
+    'AnotherTarget0123456789abcdef012345').resultState, 'failed');
+  const noFrontendAction = observedTrace('status-question', [
+    { type: 'tool_start', id: 'lookup', name: 'operation_status',
+      arguments: { operation_id: target } },
+    { type: 'tool_result', id: 'lookup', name: 'operation_status',
+      text: JSON.stringify({ operation_id: target, status: 'paused' }) },
+  ])[0];
+  assert.equal(noFrontendAction.resultState, 'failed');
+});
+
 test('structured evidence links accepted operation to later status without private device data', () => {
   const operationId = 'AbCdEf0123456789_-AbCdEf01234567';
   const first = observedTrace('start-question', [

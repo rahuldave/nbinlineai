@@ -158,9 +158,21 @@ export function observedTrace(questionId, events) {
       const call = byId.get(event.id);
       if (!call) continue;
       const raw = String(event.text ?? '');
-      call.resultState = toolResultState(raw);
       const result = parsedObject(raw);
       call.operationId = safeOperationId(result?.operation_id);
+      // operation_status completes a lookup even when the *target* is paused,
+      // running, or cancelled. Its reply must still be an exact owned snapshot;
+      // an action error or a different operation cannot prove a later effect.
+      const statusLookup = call.name === 'operation_status' && event.name === call.name &&
+        call.frontendAction === true &&
+        event.ok !== false && event.isError !== true && event.error !== true &&
+        result?.ok !== false &&
+        !(typeof result?.code === 'string' && typeof result?.message === 'string') &&
+        call.targetOperationId !== undefined && call.operationId === call.targetOperationId &&
+        ['waiting_for_user', 'running', 'paused', 'saving', 'completed', 'cancelled',
+          'failed', 'expired'].includes(result?.status);
+      call.resultState = call.name === 'operation_status'
+        ? (statusLookup ? 'completed' : 'failed') : toolResultState(raw);
       if (['requested', 'accepted', 'pending', 'waiting_for_user', 'running', 'paused',
         'saving', 'completed', 'cancelled', 'failed', 'expired', 'inserted'].includes(result?.status)) {
         call.operationState = result.status;

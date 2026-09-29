@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.check_worked_evidence import execution_deferral_summary, validate_examples
+from scripts.check_worked_evidence import (
+    _later_effect,
+    execution_deferral_summary,
+    validate_examples,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -229,6 +233,47 @@ def test_receipt_requires_matching_later_terminal_observation(tmp_path: Path) ->
         "targetOperationId"] = "different-operation"
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
     assert "no completed result or linked later operation effect" in "\n".join(_check(path))
+
+
+@pytest.mark.parametrize("control, expected", [
+    ("pause_recording", "paused"),
+    ("resume_recording", "running"),
+    ("cancel_operation", "cancelled"),
+])
+def test_control_effect_needs_a_successful_exact_later_status_lookup(
+    control: str, expected: str,
+) -> None:
+    target = "TargetOperation0123456789abcdef01234"
+    control_id = "ControlOperation0123456789abcdef0123"
+    call = {"name": control, "operationId": control_id, "targetOperationId": target}
+    lookup = {"name": "operation_status", "resultState": "completed",
+              "targetOperationId": target, "operationState": expected}
+    cells = [
+        _markdown("control-question", f"Use &`{control}`.",
+                  {"nbinlineai": {"isPromptCell": True}}),
+        _markdown("control-answer", "Requested.",
+                  {"nbinlineai": {"isOutputCell": True, "promptCellId": "control-question",
+                                  "status": "done"}}),
+        _markdown("status-question", "Check the same operation.",
+                  {"nbinlineai": {"isPromptCell": True}}),
+        _markdown("status-answer", "Checked.",
+                  {"nbinlineai": {"isOutputCell": True, "promptCellId": "status-question",
+                                  "status": "done"}}),
+        _markdown("status-trace", "Observed lookup", {"nbinlineaiWorkedEvidence": {
+            "questionCellId": "status-question", "observedTools": [lookup],
+        }}),
+    ]
+    assert _later_effect(cells, 0, call)
+    for change in (
+        {"resultState": "failed"}, {"resultState": "receipt accepted"},
+        {"targetOperationId": "DifferentOperation0123456789abcdef01"},
+        {"operationState": "completed" if expected != "completed" else "running"},
+    ):
+        cells[-1]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"] = [lookup | change]
+        assert not _later_effect(cells, 0, call), change
+    cells[-1]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"] = [lookup]
+    cells[3]["metadata"]["nbinlineai"]["status"] = "failed"
+    assert not _later_effect(cells, 0, call)
 
 
 def test_failed_result_and_missing_answer_are_not_saved_evidence(tmp_path: Path) -> None:
