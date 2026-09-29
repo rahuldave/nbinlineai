@@ -67,9 +67,10 @@ def test_each_demo_has_matching_section_cell_call_and_page_link() -> None:
         if entry["execution"] == "receipt-frontend":
             assert receipt_demo_is_valid(cells, index, name, entry), name
         if entry.get("setup_helper"):
-            assert name in DOC
+            assert entry["ai_example"] is None, name
+            assert DOC.count(f"[Setup helper example]({example_url(entry['normal_example'])})") == 1
         else:
-            assert row_has_exact_link(rows[name], entry), name
+            assert row_has_exact_pair_links(rows[name], entry), name
 
 
 def test_offered_references_stay_under_limit_and_model_demos_are_actionable() -> None:
@@ -118,12 +119,20 @@ def demo_is_actionable(cells: list[dict], index: int, name: str) -> bool:
     return action is not None and name in active_tool_offers(cells, index)
 
 
-def row_has_exact_link(row: str, entry: dict) -> bool:
-    """Keep the rendered notebook cell attached to the correct tool row."""
-    url = ("https://rahuldave.com/nbinlineai/notebooks/"
-           + entry["notebook"].removesuffix(".ipynb") + ".html#" + entry["cell_id"])
-    expected = f"[Notebook example: § `{entry['section']}`, cell `{entry['cell_id']}`]({url})"
-    return row.count("[Notebook example:") == 1 and expected in row
+def example_url(example: dict) -> str:
+    return ("https://rahuldave.com/nbinlineai/notebooks/"
+            + example["notebook"].removesuffix(".ipynb") + ".html#" + example["cell_id"])
+
+
+def row_has_exact_pair_links(row: str, entry: dict) -> bool:
+    """Require one correct ordinary action and one correct AI call per row."""
+    normal = entry["normal_example"]
+    ai = entry["ai_example"]
+    if not isinstance(ai, dict):
+        return False
+    normal_label = "Python example" if normal["mode"] == "python" else "JupyterLab example"
+    links = re.findall(r"\[([^]]+)\]\((https://rahuldave.com/nbinlineai/notebooks/[^)]+)\)", row)
+    return links == [(normal_label, example_url(normal)), ("AI tool call", example_url(ai))]
 
 
 def receipt_demo_is_valid(cells: list[dict], index: int, name: str, entry: dict) -> bool:
@@ -157,9 +166,34 @@ def receipt_demo_is_valid(cells: list[dict], index: int, name: str, entry: dict)
     if "nbinlineai-ui-only" not in later[0].get("metadata", {}).get("tags", []):
         return False
     inspected = ast.parse("".join(later[0]["source"]))
-    return any(isinstance(node, ast.Attribute) and node.attr == "status"
-               and isinstance(node.value, ast.Name) and node.value.id == variable
-               for node in ast.walk(inspected))
+    if any(isinstance(node, ast.Attribute) and node.attr == "status"
+           and isinstance(node.value, ast.Name) and node.value.id == variable
+           for node in ast.walk(inspected)):
+        return True
+    # A catalog may use one display helper for typed image, audio and list
+    # results. Require that the exact receipt is passed to that helper, and
+    # verify the earlier helper body actually reads its mutable status.
+    helper_calls = [node for node in ast.walk(inspected)
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "show_media_receipt" and len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Name) and node.args[1].id == variable]
+    if not helper_calls:
+        return False
+    for prior in cells[:index]:
+        if prior["cell_type"] != "code":
+            continue
+        try:
+            setup = ast.parse("".join(prior["source"]))
+        except SyntaxError:
+            continue
+        for function in (node for node in setup.body if isinstance(node, ast.FunctionDef)
+                         and node.name == "show_media_receipt" and len(node.args.args) >= 2):
+            receipt_arg = function.args.args[1].arg
+            if any(isinstance(node, ast.Attribute) and node.attr == "status"
+                   and isinstance(node.value, ast.Name) and node.value.id == receipt_arg
+                   for node in ast.walk(function)):
+                return True
+    return False
 
 
 def _markdown(cell_id: str, source: str, ai: dict | None = None) -> dict:
@@ -198,9 +232,9 @@ def test_prior_question_references_count_toward_limit() -> None:
 def test_swapped_notebook_links_are_rejected_per_row() -> None:
     rows = {signature.split("(", 1)[0]: body for signature, body in FUNCTION_ROW.findall(DOC)}
     first, second = COVERAGE["path_info"], COVERAGE["view_file"]
-    assert row_has_exact_link(rows["path_info"], first)
-    assert not row_has_exact_link(rows["view_file"], first)
-    assert not row_has_exact_link(rows["path_info"], second)
+    assert row_has_exact_pair_links(rows["path_info"], first)
+    assert not row_has_exact_pair_links(rows["view_file"], first)
+    assert not row_has_exact_pair_links(rows["path_info"], second)
 
 
 def test_receipt_demo_rejects_missing_or_non_executing_inspection() -> None:
