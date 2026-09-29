@@ -4,8 +4,10 @@ import { expect, test } from '../support/e2e-fixtures';
 
 test('the public notebook verifies real frames where supported and saves and redacts PNG derivatives', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-transforms.ipynb'), 'utf8'));
-  const ids = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code')
-    .map((cell: { id: string }) => cell.id);
+  const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
+  const ids = codeCells.map((cell: { id: string }) => cell.id);
+  // The published notebook includes results; fresh execution counts belong only to this uploaded copy.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   expect(ids).toEqual([
     'transform-setup', 'transform-frames-call', 'transform-frames-inspect',
     'transform-crop-call', 'transform-crop-inspect', 'transform-annotate-call',
@@ -79,5 +81,5 @@ test('the public notebook verifies real frames where supported and saves and red
   await inspect(4, 'crop.png.json');
   await run(5);
   await inspect(6, 'Opaque redaction changed derivative pixels; source stayed red');
-  expect(await run(7)).toContain('Disposable transform files removed');
+  expect(await run(7)).toContain('Disposable source and derivative files removed: True');
 });
