@@ -76,11 +76,11 @@ def test_observer_rejects_nonprivate_output_and_symlink_image(tmp_path: Path) ->
     alias = tmp_path / "alias.png"
     alias.symlink_to(image)
     client = observed_app_server(AppServer, output)()
-    with pytest.raises(OSError):
-        asyncio.run(client.request("turn/start", {"input": [
-            {"type": "text", "text": "x"},
-            {"type": "localImage", "path": str(alias)},
-        ]}))
+    result = asyncio.run(client.request("turn/start", {"input": [
+        {"type": "text", "text": "x"},
+        {"type": "localImage", "path": str(alias)},
+    ]}))
+    assert result == {"turn": {"id": "turn-opaque-2"}}
     assert output.read_bytes() == b""
 
 
@@ -92,3 +92,34 @@ def test_observer_requires_new_private_file(tmp_path: Path) -> None:
     output.write_text("old evidence must not be overwritten")
     with pytest.raises(FileExistsError):
         observed_app_server(AppServer, output)
+
+
+def test_failed_observation_never_changes_an_accepted_turn(tmp_path: Path) -> None:
+    class AppServer:
+        async def request(self, method, params):
+            return {"turn": {"id": "accepted-turn"}}
+
+    output = _private_output(tmp_path)
+    client = observed_app_server(AppServer, output)()
+    result = asyncio.run(client.request("turn/start", {"input": [
+        {"type": "text", "text": "private prompt"},
+        {"type": "localImage", "path": str(tmp_path / "missing.png")},
+    ]}))
+    assert result == {"turn": {"id": "accepted-turn"}}
+    assert output.read_bytes() == b""
+
+
+def test_unknown_input_type_is_not_recorded_or_echoed(tmp_path: Path) -> None:
+    class AppServer:
+        async def request(self, method, params):
+            return {"turn": {"id": "accepted-turn"}}
+
+    output = _private_output(tmp_path)
+    client = observed_app_server(AppServer, output)()
+    result = asyncio.run(client.request("turn/start", {"input": [
+        {"type": "text", "text": "private prompt"},
+        {"type": "private-token-abc", "path": "/private/secret"},
+        {"type": "localImage", "path": "/private/missing.png"},
+    ]}))
+    assert result == {"turn": {"id": "accepted-turn"}}
+    assert output.read_bytes() == b""

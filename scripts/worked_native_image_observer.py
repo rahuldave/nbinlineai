@@ -75,49 +75,52 @@ def observed_app_server(base: type, output: Path) -> type:
             result = await super().request(method, params, **kwargs)
             if method != "turn/start":
                 return result
-            items = params.get("input") if isinstance(params, dict) else None
-            if not isinstance(items, list) or not items:
-                return result
-            types = [item.get("type") if isinstance(item, dict) else None for item in items]
-            if "localImage" not in types:
-                return result
-            if any(not isinstance(kind, str) or len(kind) > 30 for kind in types):
-                raise ValueError("Native image input shape is invalid")
-            images = [item for item in items if item.get("type") == "localImage"]
-            if len(images) != 1 or len(items) > 8:
-                raise ValueError("Native image input count is invalid")
-            turn = result.get("turn") if isinstance(result, dict) else None
-            turn_id = turn.get("id") if isinstance(turn, dict) else None
-            if not isinstance(turn_id, str) or not TURN_ID.fullmatch(turn_id):
-                raise ValueError("Accepted turn identity is invalid")
-            record = {
-                "kind": "accepted_native_image_turn",
-                "turn_id": turn_id,
-                "input_count": len(items),
-                "input_types": types,
-                "local_image_count": 1,
-                "local_image_sha256": _image_hash(images[0].get("path")),
-            }
-            line = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode()
-            if len(line) > 512:
-                raise ValueError("Native image observer record is oversized")
-            with lock:
-                if count >= MAX_RECORDS:
-                    raise ValueError("Native image observer record limit reached")
-                flags = os.O_WRONLY | os.O_APPEND
-                if hasattr(os, "O_NOFOLLOW"):
-                    flags |= os.O_NOFOLLOW
-                fd = os.open(output, flags)
-                try:
-                    info = os.fstat(fd)
-                    if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
-                            or stat.S_IMODE(info.st_mode) & 0o077):
-                        raise ValueError("Native image observer file is not private")
-                    if os.write(fd, line) != len(line):
-                        raise OSError("Native image observer write was incomplete")
-                finally:
-                    os.close(fd)
-                count += 1
+            try:
+                items = params.get("input") if isinstance(params, dict) else None
+                if not isinstance(items, list):
+                    return result
+                types = [item.get("type") if isinstance(item, dict) else None for item in items]
+                # The current runtime submits exactly text plus one localImage.
+                # Never persist unrecognized type strings from a future payload.
+                if types != ["text", "localImage"]:
+                    return result
+                turn = result.get("turn") if isinstance(result, dict) else None
+                turn_id = turn.get("id") if isinstance(turn, dict) else None
+                if not isinstance(turn_id, str) or not TURN_ID.fullmatch(turn_id):
+                    return result
+                record = {
+                    "kind": "accepted_native_image_turn",
+                    "turn_id": turn_id,
+                    "input_count": len(items),
+                    "input_types": types,
+                    "local_image_count": 1,
+                    "local_image_sha256": _image_hash(items[1].get("path")),
+                }
+                line = (json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n").encode()
+                if len(line) > 512:
+                    return result
+                with lock:
+                    if count >= MAX_RECORDS:
+                        return result
+                    flags = os.O_WRONLY | os.O_APPEND
+                    if hasattr(os, "O_NOFOLLOW"):
+                        flags |= os.O_NOFOLLOW
+                    fd = os.open(output, flags)
+                    try:
+                        info = os.fstat(fd)
+                        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                                or stat.S_IMODE(info.st_mode) & 0o077):
+                            return result
+                        if os.write(fd, line) != len(line):
+                            return result
+                    finally:
+                        os.close(fd)
+                    count += 1
+            except (OSError, TypeError, ValueError):
+                # Observation is a private proof aid. It must never change a
+                # successfully accepted provider turn; missing proof fails the
+                # runner's later evidence check instead.
+                pass
             return result
 
     return ObservedAppServer
