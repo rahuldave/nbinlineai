@@ -87,14 +87,14 @@ notebook.
 
 ## Screen-share direct status
 
-The latest direct capture attempt completed `setup_share` and reached
-`start_share`'s `waiting_for_user` state, then clicked the visible Share
-control. An owned-tab retry opened a disposable notebook tab with a unique
-title and selected only that title in Chrome's automation setting. The native
-chooser did not deliver a completed share before the bounded receipt wait
+On 2026-09-29, two direct capture attempts completed `setup_share` and
+reached `start_share`'s `waiting_for_user` state, then clicked the visible
+Share control. The second attempt opened a disposable notebook tab with a
+unique title and selected only that title in Chrome's automation setting.
+Neither attempt delivered a completed share before its bounded receipt wait
 expired. Computer-use inspection was bound to an unrelated old New Tab, so no
 unverified tab was selected. `capture_screen`, `capture_tool`, and
-`stop_share` were not called in that failed attempt. A separate actual
+`stop_share` were not called in those two failed attempts. A separate actual
 owned-tab video used by the transform examples is independently decoded and
 public-safe; it does not count as success for these capture-tool calls.
 
