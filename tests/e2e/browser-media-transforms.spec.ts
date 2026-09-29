@@ -15,8 +15,26 @@ test('the public notebook verifies real frames where supported and saves and red
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
+  const headers = { 'X-XSRFToken': xsrf! };
+  for (const directory of ['examples', 'examples/media']) {
+    const existing = await request.get(`/api/contents/${directory}`);
+    if (existing.status() === 404) {
+      const created = await request.put(`/api/contents/${directory}`, {
+        headers, data: { type: 'directory' }
+      });
+      expect(created.ok(), await created.text()).toBeTruthy();
+    } else {
+      expect(existing.ok(), await existing.text()).toBeTruthy();
+    }
+  }
+  const clipName = 'owned-notebook-tab-2087303b97be.webm';
+  const clip = await readFile(join(process.cwd(), 'examples/media', clipName));
+  const uploadedClip = await request.put(`/api/contents/examples/media/${clipName}`, {
+    headers, data: { type: 'file', format: 'base64', content: clip.toString('base64') }
+  });
+  expect(uploadedClip.ok(), await uploadedClip.text()).toBeTruthy();
   const uploaded = await request.put(`/api/contents/${name}`, {
-    headers: { 'X-XSRFToken': xsrf! }, data: { type: 'notebook', format: 'json', content: example }
+    headers, data: { type: 'notebook', format: 'json', content: example }
   });
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
   await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
@@ -51,12 +69,12 @@ test('the public notebook verifies real frames where supported and saves and red
     expect(output).toContain(evidence);
   }
 
-  expect(await run(0)).toContain('Disposable exact PNG');
+  expect(await run(0)).toContain('Exact created PNG and recorded notebook-tab clip:');
   await run(1);
   if (browserName === 'firefox')
     await inspect(2, 'Browser could not decode this media codec.');
   else
-    await inspect(2, 'Verified decoded red and blue frames:');
+    await inspect(2, 'Actual presented seconds:');
   await run(3);
   await inspect(4, 'crop.png.json');
   await run(5);
