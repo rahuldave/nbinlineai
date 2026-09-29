@@ -2008,7 +2008,7 @@
     },
     "ai_example": {
       "notebook": "browser-media-playback.ipynb",
-      "cell_id": "playback-close-ai-close"
+      "cell_id": "playback-open-ai-close"
     }
   },
   "copy_text": {
