@@ -20,6 +20,7 @@ _INSERT_ROW = re.compile(
     r"^\| `(insert_code|insert_markdown|url_to_note)` \| completed \| (.*?) \| (.*?) \|$",
     re.MULTILINE,
 )
+_TOOL_REFERENCE = re.compile(r"&`[A-Za-z_][A-Za-z0-9_]*`")
 _LEGACY_TRACE_NOTEBOOKS = frozenset({
     "bundled-tools.ipynb", "context-selection.ipynb", "fastcore-tools.ipynb",
     "project-tools.ipynb", "quickstart.ipynb", "tool-catalog-inspection.ipynb",
@@ -36,6 +37,19 @@ def _source(cell: dict) -> str:
 
 def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _offered_any_tool(cells: list[dict], question_index: int) -> bool:
+    """Mirror enabled Markdown declarations through one question, including inheritance."""
+    for cell in cells[:question_index + 1]:
+        if cell.get("cell_type") != "markdown":
+            continue
+        ai = cell.get("metadata", {}).get("nbinlineai", {})
+        if ai.get("isOutputCell") or ai.get("promptCellId") or ai.get("toolsInclude") is False:
+            continue
+        if _TOOL_REFERENCE.search(_source(cell)):
+            return True
+    return False
 
 
 def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> tuple[str, int] | None:
@@ -145,11 +159,18 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
     for question_id, answer in linked_answers.items():
         if (question_id not in original
                 or not original[question_id].get("metadata", {}).get("nbinlineai", {}).get("isPromptCell")
-                or question_id not in traces):
+                or not _source(answer).strip()):
             raise ValueError("Saved AI answer or trace has no current question")
-        if ai["cells"].index(answer) <= ai["cells"].index(ai_cells[question_id]):
+        question_index = ai["cells"].index(ai_cells[question_id])
+        answer_index = ai["cells"].index(answer)
+        if answer_index <= question_index:
             raise ValueError("Saved AI answer precedes its question")
-    if set(traces) != set(linked_answers):
+        if question_id not in traces:
+            if _offered_any_tool(ai["cells"], question_index):
+                raise ValueError("Trace-free AI answer had enabled notebook tools")
+            if answer_index != question_index + 1:
+                raise ValueError("Trace-free AI answer is not adjacent to its question")
+    if set(traces) - set(linked_answers):
         raise ValueError("Saved AI answer or trace has no current question")
 
     positions = {cell["id"]: index for index, cell in enumerate(ai["cells"])}

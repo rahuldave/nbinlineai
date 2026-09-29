@@ -105,6 +105,56 @@ def test_actual_bundled_insert_trace_matches_saved_cell():
     assert _observed_insertion(cells[trace_index], cells[trace_index + 1], {"insert_code"}) is not None
 
 
+def test_trace_free_done_answer_requires_no_offered_tools(tmp_path):
+    source = tmp_path / "no-tools.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    question = {"id": "question", "cell_type": "markdown", "source": ["Explain this result."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["The zero remains a known value."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question", "status": "done"}}}
+    _write(source, [question])
+    _write(direct, [question])
+    _write(ai, [question, answer])
+    assert [cell["id"] for cell in merge(source, direct, ai)["cells"]] == ["question", "answer"]
+
+    for changed_source in ["Use &`read_cell` to explain this result.",
+                           "Explain this result with &`read_cell` disabled elsewhere."]:
+        offered = {**question, "source": [changed_source]}
+        _write(source, [offered]); _write(direct, [offered]); _write(ai, [offered, answer])
+        with pytest.raises(ValueError, match="enabled notebook tools"):
+            merge(source, direct, ai)
+
+    prior = {"id": "declaration", "cell_type": "markdown", "source": ["&`read_cell`"], "metadata": {}}
+    _write(source, [prior, question]); _write(direct, [prior, question]); _write(ai, [prior, question, answer])
+    with pytest.raises(ValueError, match="enabled notebook tools"):
+        merge(source, direct, ai)
+    disabled = {**prior, "metadata": {"nbinlineai": {"toolsInclude": False}}}
+    _write(source, [disabled, question]); _write(direct, [disabled, question]); _write(ai, [disabled, question, answer])
+    assert len(merge(source, direct, ai)["cells"]) == 3
+
+    _write(ai, [disabled, question, {**answer, "metadata": {"nbinlineai": {
+        "isOutputCell": True, "promptCellId": "question", "status": "failed"}}}])
+    with pytest.raises(ValueError, match="did not finish"):
+        merge(source, direct, ai)
+    _write(ai, [disabled, question, {**answer, "source": ["  "]}])
+    with pytest.raises(ValueError, match="no current question"):
+        merge(source, direct, ai)
+    _write(ai, [disabled, question, answer, {**answer, "id": "duplicate"}])
+    with pytest.raises(ValueError, match="ambiguous"):
+        merge(source, direct, ai)
+    orphan = {**answer, "metadata": {"nbinlineai": {
+        "isOutputCell": True, "promptCellId": "missing-question", "status": "done"}}}
+    _write(ai, [disabled, question, orphan])
+    with pytest.raises(ValueError, match="no current question"):
+        merge(source, direct, ai)
+    after = {"id": "after", "cell_type": "markdown", "source": ["A later lesson."], "metadata": {}}
+    _write(source, [disabled, question, after]); _write(direct, [disabled, question, after])
+    _write(ai, [disabled, question, after, answer])
+    with pytest.raises(ValueError, match="not adjacent"):
+        merge(source, direct, ai)
+
+
 def test_url_to_note_preserves_requested_early_position(tmp_path):
     source = tmp_path / "python-and-web-tools.ipynb"
     direct = tmp_path / "direct.ipynb"
