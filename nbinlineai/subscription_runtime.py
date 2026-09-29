@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import threading
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +41,46 @@ SUPPORTED_MODELS = frozenset({
     "gpt-6-astra", "gpt-6-sol", "gpt-6-luna",
     "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna",
 })
+_CREDIT_BALANCE = re.compile(r"[0-9]+(?:\.[0-9]+)?\Z")
+
+
+def _existing_credits_eligible(snapshot: Any) -> bool:
+    """Admit existing credits only when the pinned rate-limit fields agree.
+
+    A generic ``rate_limit_reached`` describes the included window; the other
+    reached types describe explicit credit or spend denials. No purchase or
+    billing-setting change is performed here.
+    """
+    if not isinstance(snapshot, dict):
+        return False
+    if snapshot.get("rateLimitReachedType") not in (None, "rate_limit_reached"):
+        return False
+    if snapshot.get("spendControlReached") is not False:
+        return False
+    individual = snapshot.get("individualLimit")
+    if individual is not None:
+        if not isinstance(individual, dict):
+            return False
+        remaining = individual.get("remainingPercent")
+        if (not isinstance(remaining, int) or isinstance(remaining, bool) or
+                not 0 < remaining <= 100):
+            return False
+        if (not all(isinstance(individual.get(key), str) and
+                    0 < len(individual[key]) <= 100 for key in ("limit", "used")) or
+                not isinstance(individual.get("resetsAt"), int) or
+                isinstance(individual["resetsAt"], bool) or individual["resetsAt"] <= 0):
+            return False
+    credits = snapshot.get("credits")
+    if not isinstance(credits, dict) or credits.get("hasCredits") is not True:
+        return False
+    unlimited = credits.get("unlimited")
+    if unlimited is True:
+        return True
+    if unlimited is not False:
+        return False
+    balance = credits.get("balance")
+    return (isinstance(balance, str) and len(balance) <= 32 and
+            bool(_CREDIT_BALANCE.fullmatch(balance)) and Decimal(balance) > 0)
 
 ROUND_INSTRUCTIONS = (
     "You are answering one notebook question from a host-supplied, bounded JSON payload. "
@@ -573,13 +614,18 @@ class SubscriptionRuntime:
             return {"state": "unavailable"}
         snapshot = result.get("rateLimits") or {}
         window = snapshot.get("primary") if isinstance(snapshot, dict) else None
-        if result.get("ordinaryUsageAllowed") is False:
+        credit_fallback = (result.get("ordinaryUsageAllowed") is False and
+                           _existing_credits_eligible(snapshot))
+        if result.get("ordinaryUsageAllowed") is False and not credit_fallback:
             state = "limited"
-        elif isinstance(window, dict) and isinstance(window.get("usedPercent"), (int, float)):
+        elif (credit_fallback or isinstance(window, dict) and
+              isinstance(window.get("usedPercent"), (int, float))):
             state = "available"
         else:
             state = "unavailable"
         usage: dict[str, Any] = {"state": state}
+        if credit_fallback:
+            usage["message"] = "Included usage is exhausted; existing ChatGPT credits may be used."
         if isinstance(window, dict):
             used = window.get("usedPercent")
             if isinstance(used, (int, float)) and not isinstance(used, bool):

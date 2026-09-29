@@ -94,6 +94,123 @@ def test_managed_state_rejects_custom_runtime_config(tmp_path):
         runtime._state_home(home)
 
 
+def _credit_snapshot(**changes):
+    snapshot = {
+        "primary": {"usedPercent": 100, "resetsAt": 1800000000},
+        "rateLimitReachedType": "rate_limit_reached",
+        "credits": {"hasCredits": True, "unlimited": False, "balance": "7.25"},
+        "spendControlReached": False,
+        "individualLimit": None,
+    }
+    snapshot.update(changes)
+    return snapshot
+
+
+@pytest.mark.parametrize(("changes", "eligible"), [
+    ({}, True),
+    ({"rateLimitReachedType": None}, True),
+    ({"rateLimitReachedType": "workspace_owner_credits_depleted"}, False),
+    ({"rateLimitReachedType": "workspace_member_credits_depleted"}, False),
+    ({"rateLimitReachedType": "workspace_owner_usage_limit_reached"}, False),
+    ({"rateLimitReachedType": "workspace_member_usage_limit_reached"}, False),
+    ({"rateLimitReachedType": "unrecognized"}, False),
+    ({"spendControlReached": True}, False),
+    ({"spendControlReached": None}, False),
+    ({"individualLimit": {"remainingPercent": 0}}, False),
+    ({"individualLimit": {"remainingPercent": 1, "limit": "10", "used": "9",
+                          "resetsAt": 1800000000}}, True),
+    ({"individualLimit": {"remainingPercent": 1}}, False),
+    ({"individualLimit": {"remainingPercent": 101}}, False),
+    ({"individualLimit": {"remainingPercent": "1"}}, False),
+    ({"credits": {"hasCredits": False, "unlimited": False, "balance": "5"}}, False),
+    ({"credits": {"hasCredits": True, "unlimited": False, "balance": "0"}}, False),
+    ({"credits": {"hasCredits": True, "unlimited": False, "balance": "invalid"}}, False),
+    ({"credits": {"hasCredits": True, "unlimited": False, "balance": None}}, False),
+    ({"credits": {"hasCredits": True, "unlimited": False, "balance": 5}}, False),
+    ({"credits": {"hasCredits": True, "unlimited": True, "balance": None}}, True),
+    ({"credits": {"hasCredits": True, "unlimited": None, "balance": "5"}}, False),
+    ({"credits": None}, False),
+])
+def test_existing_credit_admission_requires_consistent_pinned_snapshot(changes, eligible):
+    assert runtime._existing_credits_eligible(_credit_snapshot(**changes)) is eligible
+
+
+def test_included_quota_exhaustion_with_existing_credits_stays_connected(tmp_path, monkeypatch):
+    async def check():
+        manager = runtime.SubscriptionRuntime(state_directory=tmp_path / "private")
+
+        class Client:
+            async def request(self, method, params, **kwargs):
+                assert method == "account/rateLimits/read"
+                return {"ordinaryUsageAllowed": False,
+                        "rateLimits": _credit_snapshot()}
+
+        async def account():
+            return {"type": "chatgpt", "email": "student@example.test"}
+
+        async def control():
+            return Client()
+
+        async def models():
+            return [{"id": "gpt-6-sol", "efforts": [], "input_modalities": ["text"]}]
+
+        monkeypatch.setattr(manager, "_account", account)
+        monkeypatch.setattr(manager, "_ensure_control", control)
+        monkeypatch.setattr(manager, "_models", models)
+        usage = await manager.usage()
+        assert usage["state"] == "available"
+        assert usage["remaining_percent"] == 0
+        assert "credits may be used" in usage["message"]
+        status = await manager.status()
+        assert status["state"] == "connected"
+        assert status["usage"] == usage
+        async def past_quota_check():
+            raise runtime.SubscriptionRuntimeError("past quota check")
+        monkeypatch.setattr(manager, "_models", past_quota_check)
+        project = tmp_path / "project"
+        project.mkdir()
+        with pytest.raises(runtime.SubscriptionRuntimeError, match="past quota check"):
+            await manager.complete_round(
+                "gpt-6-sol", [Msg("user", [Text("Synthetic")])], [],
+                reasoning_effort=None, scope=_scope(project), run_id="credit-admission")
+
+    asyncio.run(check())
+
+
+def test_exhausted_quota_without_eligible_credits_stays_limited(tmp_path, monkeypatch):
+    async def check():
+        manager = runtime.SubscriptionRuntime(state_directory=tmp_path / "private")
+
+        class Client:
+            async def request(self, method, params, **kwargs):
+                return {"ordinaryUsageAllowed": False, "rateLimits": _credit_snapshot(
+                    rateLimitReachedType="workspace_member_usage_limit_reached")}
+
+        async def account():
+            return {"type": "chatgpt"}
+
+        async def control():
+            return Client()
+
+        monkeypatch.setattr(manager, "_account", account)
+        monkeypatch.setattr(manager, "_ensure_control", control)
+        usage = await manager.usage()
+        assert usage["state"] == "limited"
+        assert usage["remaining_percent"] == 0
+        assert "message" not in usage
+        async def unexpected_model_list():
+            raise AssertionError("quota denial must precede model discovery")
+        monkeypatch.setattr(manager, "_models", unexpected_model_list)
+        project = tmp_path / "project"
+        project.mkdir()
+        with pytest.raises(runtime.SubscriptionRuntimeError, match="usage limit reached"):
+            await manager.complete_round(
+                "gpt-6-sol", [Msg("user", [Text("Synthetic")])], [],
+                reasoning_effort=None, scope=_scope(project), run_id="limited")
+
+    asyncio.run(check())
+
+
 FAKE_SERVER = r'''#!/usr/bin/env python3
 import hashlib
 import json
