@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 
 from nbinlineai.tools import SPECIAL_TOOL_FUNCTIONS
+from scripts.check_worked_evidence import _literal_insert_names
 
 _ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| (completed|receipt accepted|failed) \|", re.MULTILINE)
 _OLD_ROW = re.compile(r"^\| `([a-z][a-z0-9_]*)` \| .*? \| (.*) \|$", re.MULTILINE)
@@ -61,6 +62,68 @@ def _recorded_no_tool_plan(answer: dict, question_id: str) -> bool:
             and evidence.get("source") == "owned_subscription_sse"
             and type(evidence.get("toolSteps")) is int and evidence["toolSteps"] == 0
             and type(evidence.get("toolEvents")) is int and evidence["toolEvents"] == 0)
+
+
+def _attested_direct_insertion(source_path: Path, source: dict, direct: dict) -> dict | None:
+    """Accept the one execution-bound insert_tools cell observed in the direct run.
+
+    This helper is deliberately tied to the catalog's mapped call and later
+    inspection. AI answers may have been recorded before this direct insertion.
+    """
+    mapping_path = Path(__file__).resolve().parents[1] / "examples" / "tool-coverage.json"
+    entry = json.loads(mapping_path.read_text(encoding="utf-8"))["insert_tools"]
+    source_ids = [cell["id"] for cell in source["cells"]]
+    direct_ids = [cell["id"] for cell in direct["cells"]]
+    extras = [cell for cell in direct["cells"] if cell["id"] not in source_ids]
+    if not extras:
+        return None
+    if (source_path.name != entry["normal_example"]["notebook"] or len(extras) != 1
+            or entry.get("receipt_kind") != "insert_tools"):
+        raise ValueError("Direct run contains an unexpected inserted cell")
+    inserted = extras[0]
+    call_id = entry["normal_example"]["cell_id"]
+    inspect_id = entry["receipt_inspect_cell"]
+    if (call_id not in source_ids or inspect_id not in source_ids
+            or inserted["id"] in source_ids or direct_ids.index(inserted["id"]) != direct_ids.index(call_id) + 1
+            or not source_ids.index(call_id) < source_ids.index(inspect_id)
+            or inserted.get("cell_type") != "markdown"
+            or inserted.get("metadata", {}).get("nbinlineai")
+            or len(_source(inserted)) > 8_000):
+        raise ValueError("Direct insertion does not follow its mapped calling cell")
+    by_id = {cell["id"]: cell for cell in direct["cells"]}
+    call = by_id[call_id]
+    inspect = by_id[inspect_id]
+    evidence = inspect.get("metadata", {}).get("nbinlineaiWorkedInsertion")
+    if (call.get("execution_count") is None or inspect.get("execution_count") is None
+            or any(output.get("output_type") == "error" for output in call.get("outputs", []))
+            or any(output.get("output_type") == "error" for output in inspect.get("outputs", []))
+            or not isinstance(evidence, dict) or evidence.get("variable") != entry["receipt_variable"]
+            or evidence.get("status") != "inserted" or evidence.get("cellPresent") is not True
+            or evidence.get("insertedCellId") != inserted["id"]):
+        raise ValueError("Direct insertion lacks its completed later receipt")
+    try:
+        requested = _literal_insert_names(_source(call))
+    except (SyntaxError, ValueError) as exc:
+        raise ValueError("Direct insertion has no explicit literal request") from exc
+    references = re.findall(r"&`([A-Za-z_][A-Za-z0-9_]*)`", _source(inserted))
+    lines = _source(inserted).splitlines()
+    declarations = evidence.get("declarations")
+    if (not isinstance(declarations, list)
+            or any(not isinstance(name, str) for name in declarations)
+            or len(declarations) != len(requested) or set(declarations) != requested
+            or len(references) != len(requested) or set(references) != requested
+            or not lines or lines[0] != "Available tools (delete any line you do not want to offer):"
+            or len(lines) != len(requested) + 1
+            or any(not re.fullmatch(r"- &`[A-Za-z_][A-Za-z0-9_]*` — .+", line) for line in lines[1:])):
+        raise ValueError("Direct insertion content does not match the requested declarations")
+    displayed = "".join(
+        "".join(output.get("text", [])) if isinstance(output.get("text"), list)
+        else output.get("text", "") if isinstance(output.get("text"), str)
+        else "" for output in inspect.get("outputs", [])
+    )
+    if "inserted" not in displayed or inserted["id"] not in displayed:
+        raise ValueError("Direct insertion receipt was not visibly inspected")
+    return inserted
 
 
 def _observed_insertion(trace: dict, cell: dict, expected_tools: set[str]) -> tuple[str, int] | None:
@@ -116,11 +179,20 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
     if (len(original) != len(source["cells"]) or len(direct_cells) != len(direct["cells"])
             or len(ai_cells) != len(ai["cells"])):
         raise ValueError("Source, direct, or AI notebook repeats a cell ID")
-    if set(direct_cells) != set(original):
-        raise ValueError("Direct run does not match the latest source cells")
     if any(cell["id"] not in direct_cells or _source(cell) != _source(direct_cells[cell["id"]])
            for cell in source["cells"]):
         raise ValueError("Direct run does not match the latest source cells")
+    direct_inserted = _attested_direct_insertion(source_path, source, direct)
+    if direct_inserted and direct_inserted["id"] in ai_cells:
+        raise ValueError("Direct insertion duplicates a saved AI cell")
+    if set(direct_cells) - ({direct_inserted["id"]} if direct_inserted else set()) != set(original):
+        raise ValueError("Direct run does not match the latest source cells")
+    if ([cell["id"] for cell in direct["cells"] if cell["id"] in original]
+            != [cell["id"] for cell in source["cells"]]):
+        raise ValueError("Direct run changed source cell order")
+    direct_insert_after = (direct["cells"][[cell["id"] for cell in direct["cells"]].index(
+        direct_inserted["id"]) - 1]["id"]
+                           if direct_inserted else None)
     if any(cell["id"] not in ai_cells or _source(cell) != _source(ai_cells[cell["id"]])
            for cell in source["cells"]):
         raise ValueError("Saved AI run used changed source or question text")
@@ -235,10 +307,13 @@ def merge(source_path: Path, direct_path: Path, ai_path: Path) -> dict:
                 current["outputs"] = executed.get("outputs", [])
                 current["metadata"] = {**current.get("metadata", {}), **{
                     name: executed.get("metadata", {})[name]
-                    for name in ("nbinlineaiWorkedDirectCalls", "nbinlineaiWorkedReceipts")
+                    for name in ("nbinlineaiWorkedDirectCalls", "nbinlineaiWorkedReceipts",
+                                 "nbinlineaiWorkedInsertion")
                     if name in executed.get("metadata", {})
                 }}
             merged.append(current)
+            if direct_inserted and cell["id"] == direct_insert_after:
+                merged.append(direct_inserted)
         elif (cell in linked_answers.values() or cell in traces.values()
               or cell["id"] in inserted_ids):
             merged.append(cell)

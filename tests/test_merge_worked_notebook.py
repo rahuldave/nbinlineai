@@ -105,6 +105,72 @@ def test_actual_bundled_insert_trace_matches_saved_cell():
     assert _observed_insertion(cells[trace_index], cells[trace_index + 1], {"insert_code"}) is not None
 
 
+def test_direct_insert_tools_preserves_only_inspected_exact_declaration(tmp_path):
+    source = tmp_path / "live-variables-and-tools.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    call = {"id": "live-insert-tools-optional", "cell_type": "code",
+            "source": ['receipt = insert_tools(["record_bonus"], custom={"record_bonus": record_bonus})\n'],
+            "metadata": {}, "execution_count": None, "outputs": []}
+    inspect = {"id": "live-insert-tools-inspect", "cell_type": "code",
+               "source": ["print(receipt.status, receipt.cell_id, receipt.error)\n"],
+               "metadata": {}, "execution_count": None, "outputs": []}
+    question = {"id": "question", "cell_type": "markdown", "source": ["Explain the example."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["It inserted a declaration."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question",
+                                       "status": "done"}}}
+    inserted = {"id": "actual-inserted", "cell_type": "markdown", "metadata": {},
+                "source": ["Available tools (delete any line you do not want to offer):\n",
+                           "- &`record_bonus` — Add a bonus.\n"]}
+    observed = {"variable": "receipt", "status": "inserted", "cellPresent": True,
+                "insertedCellId": inserted["id"], "declarations": ["record_bonus"]}
+    executed_call = {**call, "execution_count": 1}
+    executed_inspect = {**inspect, "execution_count": 2,
+                        "outputs": [{"output_type": "stream", "name": "stdout",
+                                     "text": ["inserted actual-inserted None\n"]}],
+                        "metadata": {"nbinlineaiWorkedInsertion": observed}}
+    _write(source, [call, inspect, question])
+    _write(direct, [executed_call, inserted, executed_inspect, question])
+    _write(ai, [call, inspect, question, answer])
+
+    merged = merge(source, direct, ai)
+    assert [cell["id"] for cell in merged["cells"]] == [call["id"], inserted["id"],
+                                                        inspect["id"], question["id"], answer["id"]]
+    assert merged["cells"][2]["metadata"]["nbinlineaiWorkedInsertion"] == observed
+
+    def reject(changed_inserted=inserted, changed_inspect=executed_inspect,
+               changed_call=executed_call, match="Direct insertion"):
+        _write(direct, [changed_call, changed_inserted, changed_inspect, question])
+        with pytest.raises(ValueError, match=match):
+            merge(source, direct, ai)
+
+    reject({**inserted, "id": "wrong-id"}, match="completed later receipt")
+    reject({**inserted, "source": ["- &`other_tool` — Unexpected.\n"]},
+           match="content does not match")
+    reject({**inserted, "source": [*inserted["source"], "- &`other_tool` — Extra.\n"]},
+           match="content does not match")
+    reject(changed_inspect={**executed_inspect,
+                            "metadata": {"nbinlineaiWorkedInsertion": {**observed, "status": "requested"}}},
+           match="completed later receipt")
+    reject(changed_inspect={**executed_inspect,
+                            "metadata": {"nbinlineaiWorkedInsertion": {
+                                **observed, "declarations": ["record_bonus", "other_tool"]}}},
+           match="content does not match")
+    reject(changed_inspect={**executed_inspect,
+                            "metadata": {"nbinlineaiWorkedInsertion": {
+                                **observed, "declarations": [["record_bonus"]]}}},
+           match="content does not match")
+    reject(changed_inspect={**executed_inspect,
+                            "outputs": [{"output_type": "stream", "text": ["requested None None\n"]}]},
+           match="visibly inspected")
+    reject(changed_call={**executed_call, "source": ["receipt = insert_tools([\"other_tool\"])\n"]},
+           match="latest source")
+    _write(direct, [executed_call, executed_inspect, inserted, question])
+    with pytest.raises(ValueError, match="calling cell"):
+        merge(source, direct, ai)
+
+
 def test_trace_free_done_answer_requires_no_offered_tools(tmp_path):
     source = tmp_path / "no-tools.ipynb"
     direct = tmp_path / "direct.ipynb"
