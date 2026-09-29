@@ -746,7 +746,13 @@ class MediaRegistry:
             'audio/mp4': ('.m4a', '.mp4'), 'video/mp4': ('.mp4',),
             'audio/ogg': ('.ogg',),
         }
+        data_suffixes = {
+            'application/vnd.dataresource+json': ('.json',),
+            'application/json': ('.json',), 'text/plain': ('.txt',),
+            'text/markdown': ('.md', '.markdown'),
+        }
         suffix = (recording_suffixes[base_mime][0] if base_mime in recording_suffixes else
+                  data_suffixes[base_mime][0] if base_mime in data_suffixes else
                   mimetypes.guess_extension(base_mime) or '.bin')
         if save_to == 'auto':
             relative = notebook_dir / 'media' / f'capture-{secrets.token_hex(8)}{suffix}'
@@ -755,8 +761,9 @@ class MediaRegistry:
             if relative.is_absolute() or '..' in relative.parts or '\\' in save_to:
                 raise MediaError('invalid_argument', 'save_to must be inside the server root')
             guessed, _ = mimetypes.guess_type(relative.name)
-            if (relative.suffix.lower() not in recording_suffixes[base_mime]
-                    if base_mime in recording_suffixes else guessed != base_mime):
+            allowed_suffixes = recording_suffixes.get(base_mime, data_suffixes.get(base_mime))
+            if (relative.suffix.lower() not in allowed_suffixes
+                    if allowed_suffixes else guessed != base_mime):
                 raise MediaError('invalid_argument', 'Destination extension does not match media MIME')
         path = self.root.joinpath(*relative.parts)
         if len(relative.as_posix()) > 500:

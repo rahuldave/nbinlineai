@@ -1,29 +1,38 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readNotebookView, readSelection } from '../../src/browserNotebookViews';
+import { pythonResultChars } from '../../src/browserMediaResultBudget';
 
-test('view and selection stay within originating notebook and only observe state', () => {
-  const source = 'alpha beta gamma';
-  const cell = { model: { id: 'cell-1', sharedModel: { getSource: () => source } },
-    isDisposed: false, isPlaceholder: () => false, node: {
-      isConnected: true, getBoundingClientRect: () => ({ left: 0, right: 100, top: 10, bottom: 40,
-        width: 100, height: 30 }) },
-    editor: { hasFocus: () => true, getSelection: () => ({ start: {}, end: {} }),
-      getOffsetAt: (_: unknown) => offset++ ? 10 : 6 } };
-  let offset = 0;
-  const notebook = { node: { getBoundingClientRect: () => ({ left: 0, right: 200,
-      top: 0, bottom: 100 }), }, widgets: [cell], selectedCells: [cell], activeCell: cell,
-    activeCellIndex: 0, mode: 'edit', model: { cells: { length: 1 } } };
-  const panel = { content: notebook, node: { contains: (value: unknown) => value === 'inside' } };
-  const context = { isCurrent: () => true, panel };
-  const oldDocument = globalThis.document;
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: 'inside' } });
+function fixture(source: string) {
+  const bounds = { top: 0, bottom: 100, left: 0, right: 100, width: 100, height: 100 };
+  const widget = { model: { id: 'question', sharedModel: { getSource: () => source } },
+    isPlaceholder: () => false, isDisposed: false,
+    node: { isConnected: true, getBoundingClientRect: () => bounds },
+    editor: { hasFocus: () => true, getSelection: () => ({ start: 0, end: source.length }),
+      getOffsetAt: (point: number) => point } };
+  const selectedCells = Array.from({ length: 12 }, (_, index) => ({ model: { id: `${index}-` + 'é'.repeat(180) } }));
+  const notebook = { node: { getBoundingClientRect: () => bounds }, widgets: [widget],
+    activeCell: widget, activeCellIndex: 0, selectedCells, mode: 'edit',
+    model: { cells: { length: 13 } } };
+  const context = { isCurrent: () => true, panel: { content: notebook,
+    node: { contains: () => true } } };
+  return context as never;
+}
+
+test('selected notebook view IDs paginate within Python server admission', () => {
+  const result = readNotebookView(fixture('text'));
+  assert.ok(pythonResultChars(result) <= 1400);
+  assert.equal(result.selected_truncated, true);
+  assert.ok((result.selected_cell_ids as string[]).length < 12);
+});
+
+test('Unicode selection is clipped on a codepoint boundary below server admission', () => {
+  const old = globalThis.document;
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: {} } });
   try {
-    const view = readNotebookView(context as never);
-    assert.deepEqual(view.visible, { first: 'cell-1', last: 'cell-1', count: 1 });
-    assert.deepEqual(view.selected_cell_ids, ['cell-1']);
-    assert.equal(readSelection(context as never, 3).text, 'bet');
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: { activeElement: 'another-tab' } });
-    assert.deepEqual(readSelection(context as never, 3), { cell_id: null, text: '', truncated: false });
-  } finally { Object.defineProperty(globalThis, 'document', { configurable: true, value: oldDocument }); }
+    const result = readSelection(fixture('é😀'.repeat(700)), 2000);
+    assert.ok(pythonResultChars(result) <= 1400);
+    assert.equal(result.truncated, true);
+    assert.ok(!/[\ud800-\udbff]$/.test(result.text as string));
+  } finally { Object.defineProperty(globalThis, 'document', { configurable: true, value: old }); }
 });

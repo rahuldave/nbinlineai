@@ -31,7 +31,7 @@ def read_output(cell_id: str, output_id: str, revision: int, mime: str = 'text/p
 
 def export_output(cell_id: str, output_id: str, revision: int, save_to: str | None = None,
                   mime: str = '') -> BrowserReceipt:
-    """Export an existing raster or original SVG; raster completes as a PIL image."""
+    """Export an existing image, SVG, or bounded data MIME without rerunning its cell."""
     return request_browser_operation('export_output', {'cell_id': cell_id, 'output_id': output_id,
         'revision': revision, 'save_to': save_to, 'mime': mime})
 

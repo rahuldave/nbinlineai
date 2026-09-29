@@ -5,6 +5,7 @@ import { BrowserMediaError, BrowserOperationContext, BrowserOperationStatus, Bro
 import { OutputRef, outputLedger } from './browserNotebookOutputs';
 import { recordingSourceEnded } from './browserMediaRecorder';
 import { sha256Bytes } from './browserMediaHash';
+import { resultFits } from './browserMediaResultBudget';
 
 export interface CanvasRef extends Pick<OutputRef, 'cell_id' | 'output_id' | 'revision'> {
   canvas_id: string;
@@ -154,7 +155,11 @@ export class CanvasRegistry {
       }
       return { ...entry.ref, width: node.width, height: node.height };
     });
-    while (canvases.length > 1 && JSON.stringify({ canvases }).length > 3000) canvases.pop();
+    while (canvases.length > 1 && !resultFits({ available: true, canvases,
+      next_cursor: `${viewRevision}:${offset + canvases.length}` })) canvases.pop();
+    if (!resultFits({ available: true, canvases,
+      next_cursor: `${viewRevision}:${offset + canvases.length}` }))
+      fail('limit_exceeded', 'One canvas descriptor exceeds the reply limit.');
     return { available: true, canvases, next_cursor: offset + canvases.length < nodes.length
       ? `${viewRevision}:${offset + canvases.length}` : null };
   }

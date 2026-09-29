@@ -52,7 +52,7 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   const no = page.getByRole('button', { name: 'No', exact: true });
   if (await no.isVisible()) await no.click();
 
-  for (const id of ['outputs-setup', 'output-raster', 'output-text', 'output-vector']) await run(id);
+  for (const id of ['outputs-setup', 'output-raster', 'output-text', 'output-vector', 'output-data']) await run(id);
   await run('view-call');
   expect(await inspect('view-inspect', text => text.includes('completed') && text.includes('active_cell_id')))
     .toContain('cell_count');
@@ -70,6 +70,13 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   await run('output-export-call');
   expect(await inspect('output-export-inspect', text => (text.match(/completed/g) ?? []).length >= 2 &&
     text.includes('(8, 8)') && text.includes('True'))).toContain('True');
+  await run('data-list-call');
+  expect(await inspect('data-list-inspect', text => text.includes('completed') &&
+    text.includes('application/vnd.dataresource+json'))).toContain('output-data');
+  await run('data-export-call');
+  expect(await inspect('data-export-inspect', text => (text.match(/completed/g) ?? []).length >= 2 &&
+    text.includes('True') && text.includes('application/vnd.dataresource+json') && text.includes('.json')))
+    .toContain('Data bytes');
 
   await run('output-canvas');
   const canvas = codeCell('output-canvas').locator('.jp-RenderedHTML canvas');

@@ -4,6 +4,7 @@ import type { IOutputModel } from '@jupyterlab/rendermime';
 import { BrowserMediaError, BrowserOperationContext,
   BrowserOperationStatus, registerBrowserOperation } from './browserMediaClient';
 import { sha256Bytes } from './browserMediaHash';
+import { preflightStructured, resultFits } from './browserMediaResultBudget';
 
 export interface OutputRef {
   cell_id: string;
@@ -131,7 +132,10 @@ export class OutputLedger {
     const outputs: OutputRef[] = [];
     for (let i = offset; i < Math.min(model.outputs.length, offset + limit); i++) {
       const candidate = describe(this.entry(cellId, model.outputs.get(i)));
-      if (outputs.length && JSON.stringify({ outputs: [...outputs, candidate] }).length > 3000) break;
+      if (!resultFits({ outputs: [...outputs, candidate], next_cursor: `${watched.generation}:${i + 1}` })) {
+        if (!outputs.length) fail('limit_exceeded', 'One output descriptor exceeds the reply limit.');
+        break;
+      }
       outputs.push(candidate);
     }
     const next = offset + outputs.length;
@@ -166,7 +170,7 @@ function requiredRef(arguments_: Record<string, unknown>): { cellId: string; out
     outputId: string(arguments_.output_id, 'output_id', 100),
     revision: integer(arguments_.revision, 'revision', 0, 1_000_000_000) };
 }
-function plainText(output: IOutputModel, mime: string): string {
+function plainText(output: IOutputModel, mime: string, maxStructuredUnits = 250_000): string {
   if (mime === 'text/plain' && output.streamText) return output.streamText.text;
   if (mime === 'text/plain' && output.type === 'error') {
     const record = output.toJSON() as { traceback?: string[] };
@@ -176,9 +180,16 @@ function plainText(output: IOutputModel, mime: string): string {
     fail('unsupported', 'This MIME cannot be returned as bounded output text.');
   const data = output.data[mime];
   if (data === undefined) fail('unsupported', 'The selected MIME is absent.');
+  if (typeof data !== 'string') {
+    try { preflightStructured(data, maxStructuredUnits); }
+    catch { fail('limit_exceeded', 'Structured output is too large to serialize; produce a smaller output.'); }
+  }
   return typeof data === 'string' ? data : Array.isArray(data) && data.every(item => typeof item === 'string')
     ? data.join('') : JSON.stringify(data);
 }
+const DATA_MIMES = ['application/vnd.dataresource+json', 'application/json',
+  'text/markdown', 'text/plain'] as const;
+const EXPORT_MIMES = ['image/png', 'image/jpeg', 'image/svg+xml', ...DATA_MIMES] as const;
 export function readOutput(ledger: OutputLedger, arguments_: Record<string, unknown>): Record<string, unknown> {
   const { cellId, outputId, revision } = requiredRef(arguments_);
   const mime = string(arguments_.mime ?? 'text/plain', 'mime', 100);
@@ -186,14 +197,27 @@ export function readOutput(ledger: OutputLedger, arguments_: Record<string, unkn
   const start = integer(arguments_.start ?? 0, 'start', 0, 1_000_000);
   const max = integer(arguments_.max_chars ?? 2000, 'max_chars', 1, 3000);
   const value = plainText(output, mime);
-  let length = Math.min(max, Math.max(0, value.length - start));
+  if (start > 0 && start < value.length && /[\udc00-\udfff]/.test(value[start]) &&
+      /[\ud800-\udbff]/.test(value[start - 1]))
+    fail('invalid_argument', 'start splits a Unicode character; use the previous next_start.');
   const result = (size: number): Record<string, unknown> => ({ cell_id: cellId,
     output_id: outputId, revision, mime, text: value.slice(start, start + size), start,
     next_start: start + size < value.length ? start + size : null, total_chars: value.length });
-  while (length > 0 && JSON.stringify(result(length)).length > 3200) length = Math.floor(length * 0.75);
-  return result(length);
+  let low = 0; let high = Math.min(max, Math.max(0, value.length - start));
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (resultFits(result(middle))) low = middle;
+    else high = middle - 1;
+  }
+  if (low && start + low < value.length && /[\ud800-\udbff]/.test(value[start + low - 1]) &&
+      /[\udc00-\udfff]/.test(value[start + low])) low--;
+  if (!resultFits(result(low)) || (low === 0 && start < value.length))
+    fail('limit_exceeded', 'Output metadata leaves no room for text in this reply.');
+  return result(low);
 }
 function encoded(output: IOutputModel, mime: string): Uint8Array {
+  if ((DATA_MIMES as readonly string[]).includes(mime))
+    return new TextEncoder().encode(plainText(output, mime, 8_000_000));
   const data = output.data[mime];
   if (typeof data !== 'string' && !(Array.isArray(data) && data.every(part => typeof part === 'string')))
     fail('unsupported', 'The existing output has no supported native bytes for that MIME.');
@@ -208,9 +232,11 @@ export async function exportOutput(context: BrowserOperationContext, operation: 
   const { cellId, outputId, revision } = requiredRef(arguments_);
   const output = outputLedger(context).resolve(cellId, outputId, revision).model;
   const requested = string(arguments_.mime ?? '', 'mime', 100, true);
-  const mime = requested || ['image/png', 'image/jpeg', 'image/svg+xml'].find(item => output.data[item] !== undefined);
-  if (!mime || !['image/png', 'image/jpeg', 'image/svg+xml'].includes(mime) || output.data[mime] === undefined)
-    fail('unsupported', 'This output has no supported existing raster or SVG MIME.');
+  const mime = requested || EXPORT_MIMES.find(item => output.data[item] !== undefined ||
+    (item === 'text/plain' && (output.streamText || output.type === 'error')));
+  if (!mime || !(EXPORT_MIMES as readonly string[]).includes(mime) ||
+      (output.data[mime] === undefined && !(mime === 'text/plain' && (output.streamText || output.type === 'error'))))
+    fail('unsupported', 'This output has no supported existing image, SVG, or data MIME.');
   const destination = arguments_.save_to;
   if (destination !== null && destination !== undefined) string(destination, 'save_to', 500);
   const bytes = encoded(output, mime);
@@ -241,5 +267,5 @@ registerBrowserOperation('read_output', async (context, request, operation) => {
 }, () => ({ available: true }));
 registerBrowserOperation('export_output', async (context, request, operation) => {
   await exportOutput(context, operation, request.arguments);
-}, () => ({ available: true, formats: ['image/png', 'image/jpeg', 'image/svg+xml'] }));
+}, () => ({ available: true, formats: [...EXPORT_MIMES] }));
 }
