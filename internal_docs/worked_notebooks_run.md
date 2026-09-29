@@ -48,6 +48,56 @@ receipts are saved. Screen examples, AI examples, and the final shared cleanup
 cell have not yet been executed in that notebook; server teardown released the
 disposable run's remaining memory media.
 
+The integration notebook now retains a direct-only run from one isolated
+kernel: an 8×8 notebook PNG was listed, exported, previewed, cropped to 4×4,
+and saved with a provenance sidecar. Later receipt inspections confirmed each
+operation before dependent cells used it. The notebook checked both pixel
+values and file hashes, then completed preview/media release and removed its
+generated image and sidecar. Its attachment confirmation and AI questions are
+still unrun in this walkthrough.
+
+The attachment notebook retains an actual direct image confirmation with a
+later completed receipt, plus two earlier genuine AI tool answers and traces.
+The final image question is not published as a completed answer: its retained
+private run predates the current trace-free plan attestation, and a fresh
+authorized submission is pending. A private test observer independently
+verified that earlier submitted turn contained one native image with the
+confirmed PNG hash; this is not a claim that the canonical final question has
+been rerun.
+
+The `insert_tools` helper inserted a real Markdown declaration immediately
+after its calling cell. A later kernel turn inspected `status='inserted'` and
+the same cell ID, which is preserved in the saved notebook. The
+`tools_markdown` helper printed generated declarations in a separate direct
+run. The live-notebook tutorial also retains its actual setup/reference
+outputs; its AI editing questions remain unrun.
+
+## Ordinary JupyterLab comparisons
+
+Fourteen editor actions in the live-tool catalog were performed on a second
+disposable notebook through ordinary JupyterLab controls: list, read, find,
+insert, replace, delete, move, copy, split, and merge examples. Each action
+was saved through JupyterLab and checked against the resulting notebook cells
+before its concise observation was attached to the canonical comparison cell.
+The public web tutorial was opened in a browser; a separate disposable
+notebook received an ordinary saved Markdown note citing its source. Its
+observed comparison is attached to the mapped `url_to_note` cell. The
+disposable scratch edits themselves were not copied into the runnable catalog
+notebook.
+
+## Screen-share direct status
+
+The latest direct capture attempt completed `setup_share` and reached
+`start_share`'s `waiting_for_user` state, then clicked the visible Share
+control. An owned-tab retry opened a disposable notebook tab with a unique
+title and selected only that title in Chrome's automation setting. The native
+chooser did not deliver a completed share before the bounded receipt wait
+expired. Computer-use inspection was bound to an unrelated old New Tab, so no
+unverified tab was selected. `capture_screen`, `capture_tool`, and
+`stop_share` were not called in that failed attempt. A separate actual
+owned-tab video used by the transform examples is independently decoded and
+public-safe; it does not count as success for these capture-tool calls.
+
 ## Native Run All observation
 
 On 2026-09-29, a disposable direct notebook used JupyterLab's native **Run All
