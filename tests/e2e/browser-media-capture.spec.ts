@@ -102,7 +102,7 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   test.setTimeout(180_000);
   await syntheticDevices(page);
   const notebook = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-capture.ipynb'), 'utf8')) as {
-    cells: Array<{ cell_type: string; id: string }>;
+    cells: Array<{ cell_type: string; id: string; execution_count?: number | null; outputs?: unknown[] }>;
   };
   const codeIds = notebook.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
   const tools = [
@@ -120,6 +120,12 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   expect(codeIds).toEqual(['capture-setup', ...tools.flatMap(name =>
     [`capture-${name}-call`, `capture-${name}-inspect`]),
   'capture-cleanup', 'capture-cleanup-inspect', ...canvasRecorder]);
+  for (const cell of notebook.cells) {
+    if (cell.cell_type === 'code') {
+      cell.execution_count = null;
+      cell.outputs = [];
+    }
+  }
   const position = (id: string): number => {
     const index = codeIds.indexOf(id);
     expect(index, `Missing public notebook cell ${id}`).toBeGreaterThanOrEqual(0);
@@ -157,7 +163,8 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
     }
     const expected = tool === 'start_recording' ? 'running' : 'completed';
     const output = await inspect(`capture-${tool}-inspect`, expected);
-    if (tool === 'list_media_sources') expect(output).toContain('synthetic-camera');
+    if (tool === 'list_media_sources')
+      expect(output).toContain("Available devices: 2 ['camera', 'microphone']");
     if (tool === 'capture_camera' || tool === 'capture_screen' || tool === 'capture_tool')
       expect(output).toContain('PngImageFile');
     if (tool === 'pause_recording') expect(output).toContain("'paused': True");
