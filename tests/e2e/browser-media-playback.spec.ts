@@ -53,7 +53,7 @@ test('the public notebook imports, plays, controls, copies and pastes disposable
     expect(output).toContain(expected);
   }
 
-  await run(0); // Generate exact local PNG and two-second WAV.
+  await run(0); // Generate the disposable PNG and 60-second WAV used by this notebook.
   const chooser = page.waitForEvent('filechooser');
   await run(1);
   await page.getByRole('button', { name: 'Choose file' }).click();
@@ -65,7 +65,7 @@ test('the public notebook imports, plays, controls, copies and pastes disposable
   if (browserName !== 'firefox') {
     await run(3); // Exact saved WAV reference. Pinned headless Firefox stalls before playable data.
     await expect(page.locator('.nbinlineai-playback-panel audio')).toBeVisible();
-    await inspect(4, 'preview_id');
+    await inspect(4, 'Preview ID:');
     await run(5);
     const playButton = page.getByRole('button', { name: 'Play', exact: true });
     if (await playButton.isVisible().catch(() => false)) await playButton.click();

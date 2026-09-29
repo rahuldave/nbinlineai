@@ -96,8 +96,9 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   expect(await inspect('canvas-list-inspect', text => text.includes('completed') && text.includes('canvases')))
     .toContain('canvases');
   await run('canvas-capture-call');
-  expect(await inspect('canvas-capture-inspect', text => text.includes('completed') && text.includes('(8, 8)')))
-    .toContain('(8, 8)');
+  const canvasCapture = await inspect('canvas-capture-inspect', text =>
+    text.includes('completed (64, 32) None') && text.includes('Canvas pixel (4, 4):'));
+  expect(canvasCapture).toMatch(/Canvas pixel \(4, 4\): \(\d+, \d+, \d+, 255\)/);
   await run('canvas-export-call');
   expect(await inspect('canvas-export-inspect', text => text.includes('completed') && text.includes('path')))
     .toContain('sha256');
@@ -110,6 +111,7 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   expect(await inspect('region-inspect', text => text.includes('completed') && text.includes('(')))
     .not.toContain('unsupported');
   await run('outputs-cleanup');
-  expect(await inspect('source-stop-inspect', text => text.includes('completed') && text.includes('stopped')))
-    .toContain('completed');
+  const cleanup = await inspect('source-stop-inspect', text =>
+    text.includes('Canvas source: completed None') && text.includes('Release raster export completed'));
+  expect(cleanup).toContain('Release canvas export completed');
 });

@@ -79,7 +79,11 @@ test('output export, preview, crop and explicit attachment send one exact native
     const outputExecution = await cell('integration-output').locator('.jp-InputPrompt').textContent();
 
     await run('integration-list-call');
-    await inspect('integration-list-inspect', 'Output reference ready: True');
+    const listed = await inspect('integration-list-inspect', 'Output reference:');
+    expect(listed).toContain('completed None');
+    expect(listed).toContain("'cell_id': 'integration-output'");
+    expect(listed).toMatch(/'output_id': '[0-9a-f]{32}'/);
+    expect(listed).toContain('image/png');
     await run('integration-export-call');
     await inspect('integration-export-inspect', 'Exported memory hash:');
     const exportExecution = await cell('integration-export-call').locator('.jp-InputPrompt').textContent();

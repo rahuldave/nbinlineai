@@ -45,8 +45,9 @@ test('the exact attachment notebook confirms one image without running the quest
   async ({ page, request }) => {
     const { cell, run } = await copiedExample(page, request);
     await run('attachment-setup');
-    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Disposable exact image:');
-    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Image exists: True');
+    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText(
+      /Generated blue PNG: browser-media-attachment-[0-9a-f]{32}\.png [0-9a-f]{64}/);
+    await expect(cell('attachment-setup').locator('.jp-OutputArea img')).toBeVisible();
     await run('attachment-call');
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();
