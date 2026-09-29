@@ -64,6 +64,12 @@ def decorate(notebook: dict, name: str) -> dict:
         },
     )
     for cell in notebook["cells"]:
+        # Quarto's ipynb reader flattens newlines inside a JSON string source.
+        # Normalize only this temporary render copy; keep existing line arrays
+        # and the saved notebook's source, IDs, metadata, and outputs intact.
+        source = cell.get("source")
+        if isinstance(source, str):
+            cell["source"] = source.splitlines(keepends=True)
         if cell["cell_type"] == "code":
             for output in cell.get("outputs", []):
                 if output.get("output_type") != "stream":
