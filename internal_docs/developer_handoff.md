@@ -7,18 +7,22 @@
 `e3fcf33b20ec10cd511129cd1672b98d307e4a5c` merged in PR #26.
 Quarto notebook-gallery source merged in PR #30 (`8ce8e2e`), the five-tool
 foundation in PR #29 (`90c5aee`), and capture plus live-output source in
-PR #31 (`11eae2b`). All 45 approved new public APIs now have implementation
-topics; the complete source combination and its final review/CI are staged.
+PR #31 (`11eae2b`). Playback and transformations merged in PR #32
+(`b38d684`), and image attachment merged in PR #33 (`d862d46`). All 45
+approved new public APIs are implemented on `main` as source; the combined
+review and CI gates passed.
 Read the implementation-specific [foundation](browser_media_foundation_handoff.md),
 [capture](browser_media_capture_handoff.md),
 [outputs](browser_media_outputs_handoff.md),
 [playback](browser_media_playback_handoff.md),
 [transformations](browser_media_transforms_handoff.md), and
 [attachment](browser_media_attachment_handoff.md) handoffs with their code
-commits. The [working acceptance record](browser_media_acceptance.md) tracks
-the 96 public tools, concrete notebook examples and pending checks; PR/Gest
-evidence controls final acceptance. This is source-only work. PyPI remains
-0.1.15, and no combined-feature release or site publication is implied.
+commits. The [acceptance record](browser_media_acceptance.md) tracks the 96
+public tools, concrete notebook examples, final source verification and
+platform limits; PR/Gest evidence controls acceptance. This is source-only
+work. PyPI remains 0.1.15 with no package release. The normal `main` Quarto
+workflow published the updated documentation at `d862d46` (run `36512112089`);
+both render/check and publication jobs passed.
 
 **2026-09-28 example notebook pages (mainline source, PR #30 merged):**
 `scripts/render_example_notebooks.py` renders each top-level public example
@@ -423,9 +427,9 @@ Known practical pitfalls:
 
 Keep versions aligned in `pyproject.toml`, `package.json`, `nbinlineai/__init__.py`, lockfiles and rebuilt extension metadata. Use a separate artifact directory per version; strict Twine, archive/credential checks, fresh wheel installation, both extension discovery checks, and public hashes are documented in [releasing](releasing.md). Do not modify immutable uploaded releases. Generated `lib/`, `dist/`, and prebuilt assets are ignored; build them, do not hand-edit them.
 
-GitHub Pages builds `main:/docs` with Jekyll Minimal and the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
+GitHub Pages deploys the rendered Quarto site from `docs/` on `main` using the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
 
-Deferred: exact model-token capacity and output/reasoning reserves, richer outputs/images, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and any enforceable native ChatGPT direct-file scope. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
+Deferred: exact model-token capacity and output/reasoning reserves, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and any enforceable native ChatGPT direct-file scope. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
 
 ## Context selection in version 0.1.8
 
