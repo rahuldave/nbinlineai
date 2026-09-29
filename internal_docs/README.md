@@ -16,6 +16,12 @@ Historical release-baseline review: **2026-09-24**, after the **0.1.14** release
 The [current handoff](developer_handoff.md) records the published 0.1.15
 Configure AI tabs and earlier releases. Verify applicability to your code branch.
 
+The [worked notebook acceptance record](worked_notebooks_acceptance.md)
+tracks draft PR #35's real saved examples, paired tool evidence, documentation
+checks, and remaining live-interaction gates. It is an in-progress source
+record, separate from the browser/media implementation acceptance and release
+history.
+
 ## Browser and media source implementation
 
 The approved [API spec](browser_media_tool_spec.md) was recorded at main

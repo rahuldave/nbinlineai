@@ -37,9 +37,19 @@ test('shipped live catalog lists real cells from its copied notebook', async ({ 
 
   const prompt = notebook.locator('.nbinlineai-prompt-cell').first();
   await expect(prompt).toContainText('list_cells');
-  await prompt.locator('[data-nbinlineai-run]').click();
+  const run = prompt.locator('[data-nbinlineai-run]');
+  const keep = prompt.locator('[data-nbinlineai-keep-answer]');
+  await expect(keep).toBeChecked();
+  await expect(run).toBeDisabled();
+  await keep.uncheck();
+  await expect(run).toBeEnabled();
+  const posted = page.waitForRequest(item =>
+    item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await run.click();
+  expect(JSON.stringify((await posted).postDataJSON())).toContain('E2E_CATALOG_LIST_CELLS');
   await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const answer = notebook.locator('.nbinlineai-response-cell').first();
+  await expect(answer).toContainText('catalog-live-intro');
   await expect(answer).toContainText('catalog-demo-list_cells');
   await expect(answer).toContainText('catalog-demo-read_cell');
   const saved = await request.get(`/api/contents/${name}?content=1`);

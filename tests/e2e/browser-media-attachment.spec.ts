@@ -2,11 +2,14 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
-type NotebookCell = { id: string; cell_type: string };
+type NotebookCell = { id: string; cell_type: string; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-attachment.ipynb'), 'utf8'));
-  const codeIds = (example.cells as NotebookCell[]).filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = (example.cells as NotebookCell[]).filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // The published notebook has saved results. This disposable copy must prove fresh execution.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
@@ -42,8 +45,9 @@ test('the exact attachment notebook confirms one image without running the quest
   async ({ page, request }) => {
     const { cell, run } = await copiedExample(page, request);
     await run('attachment-setup');
-    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Disposable exact image:');
-    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText('Image exists: True');
+    await expect(cell('attachment-setup').locator('.jp-OutputArea')).toContainText(
+      /Generated blue PNG: browser-media-attachment-[0-9a-f]{32}\.png [0-9a-f]{64}/);
+    await expect(cell('attachment-setup').locator('.jp-OutputArea img')).toBeVisible();
     await run('attachment-call');
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();

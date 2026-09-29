@@ -4,8 +4,10 @@ import { expect, test } from '../support/e2e-fixtures';
 
 test('the public notebook verifies real frames where supported and saves and redacts PNG derivatives', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-transforms.ipynb'), 'utf8'));
-  const ids = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code')
-    .map((cell: { id: string }) => cell.id);
+  const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
+  const ids = codeCells.map((cell: { id: string }) => cell.id);
+  // The published notebook includes results; fresh execution counts belong only to this uploaded copy.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   expect(ids).toEqual([
     'transform-setup', 'transform-frames-call', 'transform-frames-inspect',
     'transform-crop-call', 'transform-crop-inspect', 'transform-annotate-call',
@@ -15,8 +17,26 @@ test('the public notebook verifies real frames where supported and saves and red
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
+  const headers = { 'X-XSRFToken': xsrf! };
+  for (const directory of ['examples', 'examples/media']) {
+    const existing = await request.get(`/api/contents/${directory}`);
+    if (existing.status() === 404) {
+      const created = await request.put(`/api/contents/${directory}`, {
+        headers, data: { type: 'directory' }
+      });
+      expect(created.ok(), await created.text()).toBeTruthy();
+    } else {
+      expect(existing.ok(), await existing.text()).toBeTruthy();
+    }
+  }
+  const clipName = 'owned-notebook-tab-2087303b97be.webm';
+  const clip = await readFile(join(process.cwd(), 'examples/media', clipName));
+  const uploadedClip = await request.put(`/api/contents/examples/media/${clipName}`, {
+    headers, data: { type: 'file', format: 'base64', content: clip.toString('base64') }
+  });
+  expect(uploadedClip.ok(), await uploadedClip.text()).toBeTruthy();
   const uploaded = await request.put(`/api/contents/${name}`, {
-    headers: { 'X-XSRFToken': xsrf! }, data: { type: 'notebook', format: 'json', content: example }
+    headers, data: { type: 'notebook', format: 'json', content: example }
   });
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
   await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
@@ -51,15 +71,15 @@ test('the public notebook verifies real frames where supported and saves and red
     expect(output).toContain(evidence);
   }
 
-  expect(await run(0)).toContain('Disposable exact PNG');
+  expect(await run(0)).toContain('Exact created PNG and recorded notebook-tab clip:');
   await run(1);
   if (browserName === 'firefox')
     await inspect(2, 'Browser could not decode this media codec.');
   else
-    await inspect(2, 'Verified decoded red and blue frames:');
+    await inspect(2, 'Actual presented seconds:');
   await run(3);
   await inspect(4, 'crop.png.json');
   await run(5);
   await inspect(6, 'Opaque redaction changed derivative pixels; source stayed red');
-  expect(await run(7)).toContain('Disposable transform files removed');
+  expect(await run(7)).toContain('Disposable source and derivative files removed: True');
 });

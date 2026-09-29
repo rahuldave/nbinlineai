@@ -2,10 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 
-type Cell = { id: string; cell_type: string; source: string[] };
+type Cell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-integration.ipynb'), 'utf8'));
+  // The published notebook uses the user's ChatGPT subscription. Route only this
+  // disposable copy to the deterministic API fixture configured below.
+  example.metadata.nbinlineai.defaults.backend = 'openai_api';
   const cells = example.cells as Cell[];
   for (const id of ['integration-preflight-question', 'integration-question']) {
     const question = cells.find(cell => cell.id === id);
@@ -13,7 +16,10 @@ async function copiedExample(page: Page, request: APIRequestContext) {
     // Only the disposable browser copy calls the deterministic provider fixture.
     question!.source.push('\nE2E_MEDIA_NATIVE_IMAGE');
   }
-  const codeIds = cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = cells.filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // Remove published outputs only from this copy, so each prompt/count and output comes from this run.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
@@ -58,6 +64,7 @@ async function copiedExample(page: Page, request: APIRequestContext) {
       await run(id);
       output = await cell(id).locator('.jp-OutputArea').textContent() ?? '';
       if (output.includes(marker)) break;
+      await page.waitForTimeout(250);
     }
     expect(output).toContain(marker);
     expect(output).not.toContain('failed');
@@ -76,7 +83,11 @@ test('output export, preview, crop and explicit attachment send one exact native
     const outputExecution = await cell('integration-output').locator('.jp-InputPrompt').textContent();
 
     await run('integration-list-call');
-    await inspect('integration-list-inspect', 'Output reference ready: True');
+    const listed = await inspect('integration-list-inspect', "Output reference: {'cell_id': 'integration-output'");
+    expect(listed).toContain('completed None');
+    expect(listed).toContain("'cell_id': 'integration-output'");
+    expect(listed).toMatch(/'output_id': '[0-9a-f]{32}'/);
+    expect(listed).toContain('image/png');
     await run('integration-export-call');
     await inspect('integration-export-inspect', 'Exported memory hash:');
     const exportExecution = await cell('integration-export-call').locator('.jp-InputPrompt').textContent();

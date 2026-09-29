@@ -4,15 +4,15 @@ title: FAQ
 
 # Frequently asked questions
 
-These answers describe version **0.1.15**. See the [illustrated user guide](user-guide.md) for setup and controls, and [Architecture](architecture.md) for implementation details.
+Start with the [user guide](user-guide.md) for a first question, the [Tool catalog](tools.md) for individual functions, or the [worked notebooks](examples.md) to read inputs, outputs, and AI calls together.
 
 ## Running cells and keeping answers
 
 ### Where are the controls for an individual AI question?
 
-Starting in **0.1.9**, a cell's available Context/Tools controls sit above its own content, aligned with the text/editor. An AI answer has a Context control above its answer text but no Tools switch. An AI question's **Run AI**, **Cancel**, **Keep answer** and **Override** row sits below its Context line, still above its question text. The **AI defaults** and **Context** rows at the top of the notebook set notebook-wide choices; the cell's Override changes only that question.
+A cell's Context and Tools controls sit above its own content. An AI question also has **Run AI**, **Cancel**, **Keep answer**, and **Override** above its question text. An answer has Context but no Tools switch. The **AI defaults** and **Context** rows at the top set notebook-wide choices; Override changes only that question.
 
-In **0.1.8 and earlier**, the controls were at the bottom. A checked Context immediately above an AI question could therefore belong to the preceding cell. Update to 0.1.9 for the clearer placement. The current question is labeled **Current question · always included** rather than showing an empty checkbox: its text is always sent.
+The question being inspected is labeled **Current question · always included**: its own text is always sent.
 
 ### Why does a cell still show Anthropic after I choose ChatGPT for the notebook?
 
@@ -26,11 +26,9 @@ No. JupyterLab normally shows an instructional placeholder in empty rendered Mar
 
 ### Does Run All run the AI cells?
 
-Yes, starting with **0.1.5**, JupyterLab's normal **Run All Cells** includes AI prompts. Code and AI cells execute in notebook order. An AI response and its function calls finish before the next selected cell runs.
+Yes. JupyterLab's **Run All Cells** runs code and AI questions in notebook order. An AI request finishes before the next selected cell runs. Every question respects its effective **Keep answer** choice; Run All does not force protected questions to rerun.
 
-Every prompt still respects its effective **Keep answer** choice. Run All does not force protected prompts to rerun.
-
-In **0.1.4 and earlier**, native Run All rendered AI Markdown without making AI requests. Update the package and restart the whole Jupyter server to use the new behavior.
+**Browser media needs separate steps.** A Python call or an AI tool call can return after starting an operation, while the browser is still waiting for permission, recording, or saving. Run All does not wait for that receipt to become `completed`. Run the call, finish any visible interaction, then run the inspection and dependent cells. See [browser receipts](#what-is-a-browser-receipt).
 
 ### Which wins: the notebook toggle or the cell toggle?
 
@@ -68,6 +66,101 @@ Plain Markdown, including answer cells, renders normally. Rendering an answer do
 The remaining cells in that execution batch are skipped. Resolve the problem and start another run when ready. After pressing Cancel, wait for **Cancelled** and for the Cancel button to become disabled before retrying; **Cancelling…** means the earlier request is still finishing. Another Run All issued during that time can join the pending cancelled work and stop too. A failed or cancelled answer is retryable even if Keep answer is on.
 
 Cancellation is not an undo operation. A function call already sent to the kernel may still take effect, and completed side effects remain.
+
+## Browser receipts, images, and recordings
+
+### What is a browser receipt?
+
+A `BrowserReceipt` is the live Python record returned by a browser-media tool. It lets the code cell finish while the browser works. It is not the finished photo, recording, or file.
+
+For example, run this in one cell:
+
+```python
+from nbinlineai.tools import browser_capabilities
+capabilities = browser_capabilities()
+```
+
+Let the cell finish, then inspect the **same object** in a later cell:
+
+```python
+print(capabilities.status)
+if capabilities.status == "completed":
+    print(capabilities.result)
+else:
+    print(capabilities.error)
+```
+
+If it is still active, inspect it again later. The [Browser media receipts guide](browser-media-foundation.md) follows a save operation all the way to its file and displayed image.
+
+### Why does the first output still say `running` after the operation finishes?
+
+Printed output does not update. The receipt object updates in Python as messages arrive from the browser; an earlier `print(receipt)` remains a snapshot. Run `receipt.status` again in another cell to see its current state.
+
+Do not put a blocking loop in the original call cell to wait for completion. Let that cell return so the kernel can receive the browser's replies. Calling `browser_capabilities().result` immediately has the same timing problem: keep the receipt in a variable and inspect it later.
+
+### Which receipt fields should I read?
+
+| Field | Meaning |
+| --- | --- |
+| `operation_id` | Identifies this operation for status or cancellation. It may initially be `None` while registration is pending. |
+| `status` | Progress or final outcome. Check this before using results. |
+| `result` | The completed Python value: an image, clip, frames, or control information, depending on the tool. |
+| `media` | An owned media descriptor, or a list of descriptors, with information such as MIME type, size, hash, and saved path. |
+| `error` | The code and explanation for an unsuccessful outcome. |
+
+`waiting_for_user` needs a visible action. `running`, `paused`, and `saving` are also unfinished. `completed` means success; `failed`, `cancelled`, and `expired` are terminal outcomes without success. A source or playback operation can complete its setup while leaving a camera or player active; use the corresponding stop tool when finished.
+
+### Does a completed `operation_status` receipt mean my recording is complete?
+
+It means the **lookup** completed. Its `result["status"]` is the status of the operation you asked about. For example, a completed lookup can report a recording that is still `running` or `paused`.
+
+`operation_status` takes one snapshot. It neither waits for the target to finish nor retrieves its media bytes. For a direct Python capture, use the original receipt to obtain the finished image or clip.
+
+### How should an AI question use a browser receipt?
+
+An AI browser-tool result is a snapshot, not a changing Python variable. A response containing an operation ID and `waiting_for_user` means the action has started and needs interaction; it does not prove a file or image exists.
+
+Complete the visible action, then run a later question with `operation_status` offered. Ask it to check the exact returned operation ID and report the target's status. Use an ID or saved-file reference only after the completed result supplies it. The [media catalog notebooks](examples.md#tool-catalog-notebooks) separate these start, status, and dependent steps.
+
+### Where is my clip after `stop_recording`?
+
+Inspect the receipt returned by **`start_recording`** after stopping. That original receipt receives the finished `MediaClip` and media descriptor. The `stop_recording` receipt reports the stop action; it does not contain the clip.
+
+Likewise, keep the receipt from a one-shot photo or audio/video capture so you can inspect its result later. See [camera and recording](browser-media-capture.md) for the complete sequence and cleanup.
+
+### Why is a camera, screen share, or clipboard operation waiting?
+
+Check the notebook's Media row, browser permission prompt, and visible chooser. These operations can require an explicit click or selection. Camera and microphone permissions may also be controlled by your operating system. When connecting to Jupyter from another device, use a secure browser connection; device features can be unavailable on an insecure remote address.
+
+If the operation fails or expires, read the receipt's error before starting again. Granting permission does not make every device or format available. `browser_capabilities` reports what that browser can support without requesting device access.
+
+### Does Cancel undo a capture or delete a saved file?
+
+No. `cancel_operation` stops unfinished work; completed effects remain. The Media row's **Stop** control stops live media work. `release_media` frees managed media bytes; it does not delete a saved file or an image or clip already delivered to Python.
+
+Use source and playback stop tools when finished, release managed media you no longer need, and delete a disposable file only when you intend to remove it. The [receipt guide](browser-media-foundation.md#save-cancel-release-and-reopen) explains the distinction.
+
+### What survives saving, closing, or reopening the notebook?
+
+Saved questions, answers, and displayed outputs remain in the notebook. A separately saved media file also remains. Live browser sources, operations, and managed media IDs belong to the current session and can expire when it ends. A delivered Python image or clip lasts only while its kernel still holds it.
+
+For a reusable media reference, keep the saved file path together with its SHA-256. File tools check the hash so an edited file is not silently treated as the original media. Rerun setup after a kernel restart and recreate session-specific sources when needed.
+
+### Does displaying a plot or taking a photo send it to the AI?
+
+No. Capture, export, save, and preview are separate from model input. To ask about an image, use `attach_media`, confirm the exact image for the intended question, and run that question with an image-capable model. Confirmation alone does not submit the question. Attachments support still images; for a video, extract a frame first.
+
+The question's **Image attached** notice identifies the selected image. Use **Remove image** there to detach it before a later request. Removing it cannot retract an image from an already submitted request. See [image attachments](browser-media-attachment.md).
+
+### How can I tell whether an example's AI actually called a tool?
+
+Look for the **observed-tool table** beside the saved answer. It records the call and its returned state from that example run. An answer that only describes or suggests a call is not evidence that the call happened. Ordinary nbinlineai answers do not automatically save a separate tool transcript.
+
+### Can I read the examples without running their tools again?
+
+Yes. The worked notebooks keep their inputs, displayed outputs, AI answers, and any observed-tool tables saved with them.
+
+To repeat a demonstration, use a copy, run its setup, and follow the separate action and inspection steps. **Keep answer** preserves a completed answer and skips its tools. Reading a saved table or answer does not restore the old kernel state or browser session.
 
 ## Corrections and context
 
@@ -124,7 +217,7 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 ### Does the AI see every cell and all Python variables?
 
-No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content and automatic file contents remain excluded.
+No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content, and file contents are not automatically included. An offered tool can read selected outputs or files, and a confirmed image attachment explicitly provides pixels to an image-capable model.
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See [choose notebook context](manual/context-selection.md).
 
@@ -251,44 +344,15 @@ No. Closing a notebook stops the extension's ongoing request, but it does not un
 
 ## Saving, installation, and limits
 
-### What changed for Python 3.14 upgrades in 0.1.12?
+### The Extension Manager is still animating. Has installation finished?
 
-Version 0.1.12 replaces the mandatory `rgapi` and `exhash` search/document dependencies with pure Python tools backed by `pathspec` and `markdown-it-py`. It also removes the mandatory `remold` dependency and defers four syntax tools: `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. This removes those native source builds from nbinlineai's direct requirements. Other packages in a Jupyter environment may still have native dependencies. Restart the whole JupyterLab server after updating, refresh the browser, and restart existing kernels before importing the new tools.
-
-The earlier investigation reproduced long native builds in 0.1.11. In the actual 0.1.12 update test, Python 3.14 and Jupyter AI were installed together: the update completed in **3.8 seconds**, even while **Updating extensions list…** remained visible and the server responded normally. That catalogue animation does not prove an installation is still running.
-
-A separate shutdown delay was reproduced after browsing the catalogue with a notebook open. A thread trace showed Python waiting for an idle AnyIO worker after Jupyter stopped its extensions and kernel; it was no longer building packages. The component that created that worker is not yet established. Plain JupyterLab shut down normally in a separate control, while disabling the MCP server alone in the fuller setup did not solve the wait. A direct Ctrl-C probe without an open notebook exited normally.
-
-JupyterLab's [read-only extension manager](https://jupyterlab.readthedocs.io/en/stable/user/extensions.html#extension-manager-implementations) removes catalogue discovery while keeping installed extensions available. It is **not a confirmed shutdown fix**: a matched longer notebook/browser test reproduced the same AnyIO wait in read-only mode. The 0.1.12 package update removes the Rust build requirement; it does not claim to fix that separate shutdown problem. The user's existing server and environment were left unchanged.
-
-### Why could updating to 0.1.11 show a moving blue bar for a long time?
-
-Version 0.1.11 added two native dependencies for project search and document navigation:
-`rgapi` and `exhash`. Their released versions (0.1.30 and 0.4.16) did not provide
-prebuilt packages for **Python 3.14 on Apple Silicon** when 0.1.11 was released.
-Pip builds them from Rust source instead. That requires a Rust compiler and took
-about 107 seconds in our matching test; other machines can take longer.
-JupyterLab's Extension Manager hides the compiler output behind its progress bar.
-
-To see installation progress, use the terminal in the same Python environment
-that launches JupyterLab. After stopping the server normally, run this in that
-activated environment:
+The animation alone does not tell you. Check the installation output in the environment that launches JupyterLab. For a pip-managed environment, an upgrade from its terminal shows progress directly:
 
 ```bash
-python -m pip install --verbose --upgrade nbinlineai==0.1.15
+python -m pip install --verbose --upgrade nbinlineai
 ```
 
-For a uv project whose server environment is `.venv`, use
-`.venv/bin/python` in place of `python`. Restart the whole server after the
-upgrade, refresh the browser, and restart existing kernels before importing the
-new tools. Fastcore does not need a separate manual installation.
-
-We also tested the real 0.1.10-to-0.1.11 update with Python 3.14 and Jupyter AI
-3.2.0 together. It completed in about four seconds once the compiled packages
-were cached. This explains one long wait; it does not establish that every
-unresponsive update has the same cause. The
-[investigation record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md#matched-python-314-follow-up)
-distinguishes successful tests from the still-unconfirmed shutdown report.
+After upgrading, restart the whole Jupyter server, refresh the browser, and restart existing kernels before importing updated tools. Installing in a different Python environment will not update the running server. See [setup](manual/setup.md) for installation choices.
 
 ### Do I need an API key or a separate Codex installation for ChatGPT?
 
@@ -302,7 +366,7 @@ Your ChatGPT account allowance has limits and may use additional credits. If usa
 
 ### Does ChatGPT file access confine my notebook or Python tools?
 
-No. In this release the **ChatGPT file access** field reads **Notebook tools only**. Built-in ChatGPT file, shell, and browser actions are disabled. The displayed notebook folder is location context derived from the authenticated notebook session; the runtime itself uses a private working directory. Explicitly enabled notebook tools run in Python with that kernel user's usual permissions and current working directory. The project/notebook scope preference is retained for direct ChatGPT operations, but has no active native-file effect while those actions are disabled. It is not a sandbox for the kernel.
+No. **Notebook tools only** means the ChatGPT connection uses the tools you explicitly offer in the notebook; its built-in file, shell, and browser actions are disabled. Offered Python tools still run with the kernel user's usual permissions and working directory. That setting does not restrict what your Python functions can do. See [tools and permissions](manual/variables-and-tools.md).
 
 ### Is a ChatGPT sign-in shared across notebooks?
 
@@ -310,9 +374,7 @@ Yes, the account connection is shared for that Jupyter server. Each notebook sti
 
 ### Can I run nbinlineai alongside Jupyter AI for Claude or Codex ACP chat?
 
-An isolated test of **nbinlineai 0.1.9 + Jupyter AI 3.2.0 + JupyterLab 4.6.4** successfully installed and opened both extensions. A deterministic execution check also preserved native Run All ordering, kept completed AI answers, and retained nbinlineai metadata when a Jupyter AI command edited a question. No paid model or authenticated ACP-agent request was used in that check.
-
-There is an important command difference in Jupyter AI's default setup:
+Yes. Install both extensions in the Jupyter server's environment and configure their connections separately. Their execution commands have different effects:
 
 | Action | Effect on nbinlineai cells |
 | --- | --- |
@@ -320,15 +382,13 @@ There is an important command difference in Jupyter AI's default setup:
 | Native **Run All**, including Jupyter AI's Run All command | Includes AI questions and respects their Keep choices. New unanswered questions can make API requests. |
 | Jupyter AI's individual **Run Cell** tool | Executes code directly; treats a Markdown AI question as a no-op. It also bypasses nbinlineai's code/AI ordering queue. |
 
-Jupyter AI requires separately installed ACP adapters and their own authentication. Its Claude/Codex chat does not use nbinlineai's API keys or ChatGPT connection; choosing ChatGPT in nbinlineai does not configure Jupyter AI. Follow [Jupyter AI's setup instructions](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html). Install both extensions in the Jupyter server's environment and restart the whole server.
+Jupyter AI's ACP adapters have their own authentication. Choosing ChatGPT in nbinlineai does not configure them. Follow [Jupyter AI's setup instructions](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html).
 
-Both systems can change the same live notebook. Avoid asking an agent to edit or execute it during an inline request whose context you want to keep stable. Jupyter AI also starts its own local MCP server; multiple Jupyter instances may need its port configuration adjusted. The [versioned investigation](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/jupyter_ai_compatibility.md) records source links, light/dark visual checks, tested paths, and remaining RTC/concurrency limits.
-
-A separate **authenticated Codex ACP trial** successfully read a teaching notebook, fixed one function and ran its three specified Python cells; all checks passed. Try the [Codex worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html). The committed template keeps the starting bug for you to solve. Its two nbinlineai questions are unrun: use them afterward for an explanation and a Learning follow-up with whichever nbinlineai connection you choose. See the [exact run record](https://github.com/rahuldave/nbinlineai/blob/main/internal_docs/codex_acp_example_run.md).
+Both systems can change the same live notebook. Finish an inline request before asking another agent to edit or execute its working cells. The [combined example](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html) shows the two workflows; the [Codex exercise](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) starts with an intentional teaching bug to diagnose and repair.
 
 ### Does Jupyter AI have the same AI cells as nbinlineai?
 
-The Jupyter AI 3.2 setup we checked uses a chat sidebar and agents that can operate on notebook cells. It does not provide nbinlineai's paired, editable Markdown question/answer cells. Its optional `%ai` and `%%ai` magics are a separate code-cell workflow. You can use Jupyter AI for agent-assisted code development and keep nbinlineai explanations or tutoring conversations beside that code. See the [combined example](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html).
+Jupyter AI's chat sidebar and agents provide a different workflow from nbinlineai's paired, editable Markdown questions and answers. Its optional `%ai` and `%%ai` magics use code cells. You can use Jupyter AI for agent-assisted code development and keep nbinlineai explanations or tutoring conversations beside that code. See the [combined example](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html).
 
 ### Why use Jupyter AI's Run Cell instead of Shift+Enter? Does it run my selection?
 
@@ -338,7 +398,7 @@ For manual work, use Shift+Enter as usual. Native Shift+Enter also recognizes nb
 
 ### Which JupyterLab version do I need?
 
-nbinlineai 0.1.5 requires **JupyterLab 4.2 or newer within version 4**. The native cell-execution hook used for Run All is unavailable in JupyterLab 4.0 and 4.1. Installing or upgrading nbinlineai lets the package manager enforce that requirement.
+Use **JupyterLab 4.2 or newer within version 4**. The package manager enforces this requirement. The Run All integration needs JupyterLab's public cell-execution hook.
 
 ### Does Clear All Outputs remove AI answers?
 
@@ -362,7 +422,7 @@ Restart the **whole Jupyter server**, then refresh the browser. Restarting only 
 
 ### Can I put all my tool references in an ordinary Markdown cell?
 
-Yes, from **0.1.7**. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `tools_markdown([...])` with the names you imported to generate a list you can paste and shorten. See the [tools reference](tools.md) and [examples guide](examples.md).
+Yes. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `tools_markdown([...])` with the names you imported to generate a list you can paste and shorten. See the [Tool catalog](tools.md) and [examples guide](examples.md).
 
 Live `$` lookups still happen only in the current question. Tool references inside quotations or fenced code in eligible Markdown count as declarations; use a plain function name when merely discussing one.
 
@@ -386,7 +446,7 @@ Uncheck Tools on every applicable cell that declares it, or remove/move those de
 
 ### Does listing all tools give the AI access to every function in the package?
 
-No. Version 0.1.15 has 51 bundled tools in an explicit registry, but `tool_catalog()` only lists names and `tools_markdown()` defaults to the 19-tool starter group. Neither helper offers a function until you paste or insert its `&` reference in an eligible Markdown cell. You may select a group or explicit names, with at most 20 distinct tool and variable references combined in one request. Ordinary functions run with the selected Python kernel's permissions; live notebook tools use a limited browser interface.
+No. `tool_catalog()` lists the available groups and names. `tools_markdown()` produces declarations for you to copy, defaulting to the 19-tool starter group. A listed function becomes available to the AI only when you import it into the kernel and put its `&` reference in an eligible cell with Tools enabled. Select a small group or explicit names, with at most 20 distinct tool and variable references combined in one request. The [Tool catalog](tools.md) includes browser and media groups as well as Python, file, and notebook tools.
 
 ### How do I choose a tool group without offering every tool?
 
@@ -452,7 +512,7 @@ They serve different purposes:
 
 ### How do I ask for a new code cell while keeping the AI answer?
 
-In version **0.1.15**, run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
+Run `from nbinlineai.tools import insert_code` in a code cell and put `` &`insert_code` `` in a Markdown declaration note above your AI question. Then ask, for example:
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
@@ -470,11 +530,13 @@ The action stays bound to the original notebook, session, and prompt; switching 
 
 ### Why can't I call `insert_markdown(...)` directly in Python?
 
-The kernel does not own the browser's document model. Live-cell tools such as `list_cells`, `read_cell`, `find_cells`, `replace_cell`, `delete_cell`, `insert_markdown`, and `insert_code` are imported for tool descriptions, then handled through the frontend interface during an AI request. Their direct Python stubs raise an explanatory error. Kernel-side tools such as `search_files` work directly in Python as well as through AI tool references.
+Live-cell tools such as `list_cells`, `read_cell`, `find_cells`, `replace_cell`, `delete_cell`, `insert_markdown`, and `insert_code` act through JupyterLab during an AI request. Import them to offer their descriptions to the AI; their direct Python stubs raise an explanatory error. Their catalog notebooks show the equivalent manual JupyterLab action as the normal-use comparison.
+
+Kernel-side tools such as `search_files` work directly in Python and through AI references. Browser-media tools also support direct Python calls, but return asynchronous [receipts](#what-is-a-browser-receipt).
 
 ### Can these tools edit or execute existing cells?
 
-Yes. Version 0.1.15 can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
+Live-cell tools can find, replace, delete, move, copy, split, and merge **ordinary** cells in the original live notebook. Edits use stable IDs and, where applicable, exact expected source or match counts. Code-source edits clear stale outputs. These tools do **not** execute code, save the notebook, edit AI question/answer cells, or control another notebook. Save and inspect the result normally.
 
 ### The extension works, but importing the tools fails. Why?
 

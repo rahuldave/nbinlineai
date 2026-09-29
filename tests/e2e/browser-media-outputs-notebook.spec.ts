@@ -2,13 +2,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '../support/e2e-fixtures';
 
-type NotebookCell = { id: string; cell_type: string; source: string[] };
+type NotebookCell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 test('the exact outputs example demonstrates and inspects all ten public tools', async ({ page, request }) => {
   test.setTimeout(180_000);
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-outputs.ipynb'), 'utf8'));
   const cells = example.cells as NotebookCell[];
-  const codeIds = cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const codeCells = cells.filter(cell => cell.cell_type === 'code');
+  const codeIds = codeCells.map(cell => cell.id);
+  // The checked-in notebook is already run; the uploaded copy starts without old code results.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   const codeCell = (id: string) => {
     const index = codeIds.indexOf(id);
     expect(index, `example code cell ${id}`).toBeGreaterThanOrEqual(0);
@@ -93,8 +96,9 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   expect(await inspect('canvas-list-inspect', text => text.includes('completed') && text.includes('canvases')))
     .toContain('canvases');
   await run('canvas-capture-call');
-  expect(await inspect('canvas-capture-inspect', text => text.includes('completed') && text.includes('(8, 8)')))
-    .toContain('(8, 8)');
+  const canvasCapture = await inspect('canvas-capture-inspect', text =>
+    text.includes('completed (64, 32) None') && text.includes('Canvas pixel (4, 4):'));
+  expect(canvasCapture).toMatch(/Canvas pixel \(4, 4\): \(\d+, \d+, \d+, 255\)/);
   await run('canvas-export-call');
   expect(await inspect('canvas-export-inspect', text => text.includes('completed') && text.includes('path')))
     .toContain('sha256');
@@ -107,6 +111,7 @@ test('the exact outputs example demonstrates and inspects all ten public tools',
   expect(await inspect('region-inspect', text => text.includes('completed') && text.includes('(')))
     .not.toContain('unsupported');
   await run('outputs-cleanup');
-  expect(await inspect('source-stop-inspect', text => text.includes('completed') && text.includes('stopped')))
-    .toContain('completed');
+  const cleanup = await inspect('source-stop-inspect', text =>
+    text.includes('Canvas source: completed None') && text.includes('Release raster export completed'));
+  expect(cleanup).toContain('Release canvas export completed');
 });

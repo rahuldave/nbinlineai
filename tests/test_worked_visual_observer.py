@@ -1,0 +1,823 @@
+"""The visual guard tests use a synthetic prompt generator; no server or model."""
+
+import asyncio
+import json
+import os
+from pathlib import Path
+
+import pytest
+
+from scripts.worked_visual_observer import VisualObserver, arm_question
+
+SECRET = "private-prompt-and-cell-source"
+BINDING = {
+    "session_id": "session", "kernel_id": "kernel", "path": "trial.ipynb",
+    "prompt_cell_id": "question", "backend": "openai_codex_subscription",
+    "model": "gpt-6-sol", "max_tool_steps": 2,
+}
+LIST = {"name": "list_cells", "arguments": {"start": {"equals": 0}, "limit": {"equals": 20}}}
+EDIT = {"name": "set_cell_source", "arguments": {
+    "cell_id": {"one_of": ["cell-1"]}, "source": {"text_max": 200},
+}}
+REPLACE_ARGS = {"cell_id": "cell-1", "old_str": "old private source", "new_str": "new private source"}
+REPLACE = {"name": "cell_str_replace", "argument_options": [
+    REPLACE_ARGS, {**REPLACE_ARGS, "expected_matches": 1},
+]}
+MOVE_ARGS = {"cell_id": "cell-1", "after_cell_id": "cell-2"}
+MOVE = {"name": "move_cell", "argument_options": [MOVE_ARGS]}
+TERMINAL_READ = [{"name": "list_cells", "argument_options": [{"start": 55, "limit": 20}]}]
+MERGE_BINDING = {**BINDING, "max_tool_steps": 3, "prompt_cell_id": "catalog-demo-merge_cells"}
+MERGE_TERMINAL_BINDING = {**MERGE_BINDING, "max_tool_steps": 4}
+FIRST_ID = "catalog-scratch-merge-first"
+SECOND_ID = "catalog-scratch-merge-second"
+FIRST_SOURCE = "First disposable note.\n"
+SECOND_SOURCE = "Second disposable note.\n"
+READ_FIRST = {"name": "read_cell", "argument_options": [{"cell_id": FIRST_ID}]}
+READ_SECOND = {"name": "read_cell", "argument_options": [{"cell_id": SECOND_ID}]}
+MERGE_ARGS = {"first_cell_id": FIRST_ID, "second_cell_id": SECOND_ID,
+              "expected_first": FIRST_SOURCE, "expected_second": SECOND_SOURCE}
+MERGE = {"name": "merge_cells", "argument_options": [MERGE_ARGS]}
+MERGE_SHAPES = [[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_FIRST], [READ_SECOND], [MERGE]]]
+
+
+def test_merge_arm_sources_match_saved_notebook_exactly():
+    notebook = json.loads((Path(__file__).resolve().parents[1] /
+                           "examples/tool-catalog-live-notebook.ipynb").read_text())
+    sources = {cell["id"]: "".join(cell["source"]) for cell in notebook["cells"]}
+    assert sources[FIRST_ID] == MERGE_ARGS["expected_first"]
+    assert sources[SECOND_ID] == MERGE_ARGS["expected_second"]
+
+
+def _private(tmp_path):
+    directory = tmp_path / "private"
+    directory.mkdir(mode=0o700)
+    return directory
+
+
+def _events(*calls, done_steps=1):
+    yield {"type": "context", "prompt": SECRET}
+    for index, (name, arguments) in enumerate(calls):
+        yield {"type": "tool_start", "id": f"call-{index}", "name": name, "arguments": arguments}
+        yield {"type": "tool_result", "id": f"call-{index}", "name": name, "text": SECRET}
+    yield {"type": "context"}
+    yield {"type": "done", "tool_steps": done_steps, "model": "gpt-6-sol"}
+
+
+async def _collect(observer, body=None, scope=None):
+    return [event async for event in observer(body or BINDING, None, "kernel", None,
+                                               subscription_scope=scope or {
+                                                   "session_id": "session", "notebook_path": "trial.ipynb",
+                                               })]
+
+
+def test_success_forwards_events_and_logs_no_payload(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    source = list(_events(("list_cells", {"start": 0, "limit": 20})))
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+        with pytest.raises(ValueError, match="fresh valid arm"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    log_path = directory / "events.jsonl"
+    log = log_path.read_text()
+    assert SECRET not in log
+    assert "session" not in log and "trial.ipynb" not in log
+    assert stat_mode(log_path) == 0o600
+    records = [json.loads(line) for line in log.splitlines()]
+    assert [record["kind"] for record in records[:4]] == [
+        "admitted", "tool_start", "tool_result", "terminal",
+    ]
+    assert records[2]["state"] == "returned"
+
+
+def stat_mode(path: Path):
+    return path.stat().st_mode & 0o777
+
+
+@pytest.mark.parametrize("name,arguments", [
+    ("delete_cell", {"cell_id": "cell-1"}),
+    ("list_cells", {"start": 1, "limit": 20}),
+    ("list_cells", {"start": 0, "limit": 20, "source": SECRET}),
+])
+def test_blocks_before_effect(tmp_path, name, arguments):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "call", "name": name, "arguments": arguments}
+        effects.append(name)
+        yield {"type": "tool_result", "id": "call", "name": name, "text": SECRET}
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == []
+    assert SECRET not in (directory / "events.jsonl").read_text()
+
+
+def test_binding_mismatch_consumes_arm_without_advancing(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    started = []
+
+    async def original(*_args, **_kwargs):
+        started.append(True)
+        yield {"type": "done", "tool_steps": 0}
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="did not match"):
+            asyncio.run(_collect(observer, {**BINDING, "model": "other"}))
+        with pytest.raises(ValueError, match="fresh valid arm"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert started == []
+    assert not (directory / "arm.json").exists()
+
+
+def test_two_calls_in_one_group_block_duplicate_before_its_effect(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        for index in range(2):
+            yield {"type": "tool_start", "id": str(index), "name": "list_cells",
+                   "arguments": {"start": 0, "limit": 20}}
+            effects.append(index)
+            yield {"type": "tool_result", "id": str(index), "name": "list_cells", "text": "{}"}
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == [0]
+
+
+def test_two_group_read_then_edit_and_exact_count(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST], [EDIT]])
+    source = [
+        {"type": "context"},
+        {"type": "tool_start", "id": "read", "name": "list_cells", "arguments": {"start": 0, "limit": 20}},
+        {"type": "tool_result", "id": "read", "name": "list_cells", "text": SECRET},
+        {"type": "context"},
+        {"type": "tool_start", "id": "edit", "name": "set_cell_source",
+         "arguments": {"cell_id": "cell-1", "source": SECRET}},
+        {"type": "tool_result", "id": "edit", "name": "set_cell_source", "text": "ok"},
+        {"type": "context"},
+        {"type": "done", "tool_steps": 2},
+    ]
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    assert SECRET not in (directory / "events.jsonl").read_text()
+
+
+def test_allowed_multi_call_group_preserves_order(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST, EDIT]])
+    source = list(_events(("list_cells", {"start": 0, "limit": 20}),
+                          ("set_cell_source", {"cell_id": "cell-1", "source": SECRET})))
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    log = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    assert [(item["group"], item["call"], item["name"]) for item in log
+            if item["kind"] == "tool_start"] == [(0, 0, "list_cells"), (0, 1, "set_cell_source")]
+
+
+def test_error_and_active_prompt_require_fresh_arm(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        entered.set()
+        await release.wait()
+        raise RuntimeError(SECRET)
+        yield  # make this an async generator
+
+    observer = VisualObserver(directory, original)
+
+    async def scenario():
+        first = asyncio.create_task(_collect(observer))
+        await entered.wait()
+        with pytest.raises(ValueError, match="active question"):
+            await _collect(observer)
+        release.set()
+        with pytest.raises(RuntimeError, match=SECRET):
+            await first
+        with pytest.raises(ValueError, match="fresh valid arm"):
+            await _collect(observer)
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        observer.close()
+    assert SECRET not in (directory / "events.jsonl").read_text()
+    assert not (directory / "arm.json").exists()
+
+
+def test_short_group_and_wrong_result_order_fail_closed(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST, LIST]])
+
+    async def short(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "a", "name": "list_cells",
+               "arguments": {"start": 0, "limit": 20}}
+        yield {"type": "tool_result", "id": "a", "name": "list_cells", "text": "{}"}
+        yield {"type": "done", "tool_steps": 1}
+
+    observer = VisualObserver(directory, short)
+    try:
+        with pytest.raises(ValueError, match="exact tool count"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+
+    arm_question(directory, BINDING, [[LIST]])
+
+    async def wrong(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "a", "name": "list_cells",
+               "arguments": {"start": 0, "limit": 20}}
+        yield {"type": "tool_result", "id": "b", "name": "list_cells", "text": "{}"}
+
+    observer = VisualObserver(directory, wrong)
+    try:
+        with pytest.raises(ValueError, match="unmatched"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+
+
+def test_final_round_blocks_extra_tool_before_effect(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "a", "name": "list_cells",
+               "arguments": {"start": 0, "limit": 20}}
+        effects.append("read")
+        yield {"type": "tool_result", "id": "a", "name": "list_cells", "text": "{}"}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "b", "name": "set_cell_source",
+               "arguments": {"cell_id": "cell-1", "source": SECRET}}
+        effects.append("edit")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == ["read"]
+
+
+def test_rejects_insecure_arm_and_directory(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[LIST]])
+    with pytest.raises(FileExistsError):
+        arm_question(directory, BINDING, [[LIST]])
+    assert stat_mode(directory / "arm.json") == 0o600
+    os.chmod(directory, 0o755)
+    with pytest.raises(ValueError, match="private directory"):
+        VisualObserver(directory, None)
+
+
+@pytest.mark.parametrize("arguments", [REPLACE_ARGS, {**REPLACE_ARGS, "expected_matches": 1}])
+def test_exact_alternative_admits_expected_mutation(tmp_path, arguments):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[REPLACE]])
+    source = list(_events(("cell_str_replace", arguments)))
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert "old private source" not in log and "new private source" not in log
+    starts = [json.loads(line) for line in log.splitlines() if '"kind":"tool_start"' in line]
+    assert starts[0]["argument_fields"] == sorted(arguments)
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("set_cell_source", REPLACE_ARGS, "tool_name"),
+    ("cell_str_replace", {**REPLACE_ARGS, "unexpected": 1}, "argument_keys"),
+    ("cell_str_replace", {**REPLACE_ARGS, "expected_matches": 2}, "argument_values"),
+    ("cell_str_replace", {**REPLACE_ARGS, "expected_matches": True}, "argument_values"),
+    ("cell_str_replace", {**REPLACE_ARGS, "new_str": "other private source"}, "argument_values"),
+])
+def test_exact_alternative_blocks_mutation_before_effect_and_logs_only_reason(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[REPLACE]])
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "mutation", "name": name, "arguments": arguments}
+        effects.append("mutation ran")
+        yield {"type": "tool_result", "id": "mutation", "name": name, "text": "changed"}
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == []
+    log = (directory / "events.jsonl").read_text()
+    assert "old private source" not in log and "new private source" not in log
+    assert "other private source" not in log and "unexpected" not in log
+    records = [json.loads(line) for line in log.splitlines()]
+    assert [item["reason"] for item in records if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("policy", [
+    {"name": "cell_str_replace", "arguments": {}, "argument_options": [REPLACE_ARGS]},
+    {"name": "cell_str_replace", "argument_options": []},
+    {"name": "cell_str_replace", "argument_options": [{**REPLACE_ARGS, "bad key": 1}]},
+    {"name": "cell_str_replace", "argument_options": [{**REPLACE_ARGS, "expected_matches": [1]}]},
+])
+def test_invalid_exact_alternatives_cannot_arm(tmp_path, policy):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, BINDING, [[policy]])
+    assert not (directory / "arm.json").exists()
+
+
+@pytest.mark.parametrize("with_read", [False, True])
+def test_optional_terminal_read_accepts_one_or_two_groups(tmp_path, with_read):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    source = [
+        {"type": "context"},
+        {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS},
+        {"type": "tool_result", "id": "move", "name": "move_cell", "text": SECRET},
+        {"type": "context"},
+    ]
+    if with_read:
+        source.extend([
+            {"type": "tool_start", "id": "read", "name": "list_cells",
+             "arguments": {"start": 55, "limit": 20}},
+            {"type": "tool_result", "id": "read", "name": "list_cells", "text": SECRET},
+            {"type": "context"},
+        ])
+    source.append({"type": "done", "tool_steps": 2 if with_read else 1})
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert SECRET not in log and "cell-1" not in log and "cell-2" not in log
+    terminal = [json.loads(line) for line in log.splitlines() if '"kind":"terminal"' in line]
+    assert terminal == [{"kind": "terminal", "state": "done", "groups": 2 if with_read else 1}]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("move_cell", {**MOVE_ARGS, "after_cell_id": "other"}, "argument_values"),
+    ("move_cell", {**MOVE_ARGS, "unexpected": 1}, "argument_keys"),
+    ("move_cell", {**MOVE_ARGS, "start": 55, "limit": 20}, "argument_keys"),
+    ("list_cells", {"start": 55, "limit": 20}, "tool_name"),
+])
+def test_optional_terminal_policy_still_blocks_wrong_first_mutation(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "bad", "name": name, "arguments": arguments}
+        effects.append("effect")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == []
+    log = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("move_cell", MOVE_ARGS, "tool_name"),
+    ("list_cells", {"start": 54, "limit": 20}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": 21}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": True}, "argument_values"),
+    ("list_cells", {"start": 55, "limit": 20, "extra": SECRET}, "argument_keys"),
+])
+def test_optional_terminal_read_blocks_wrong_second_call_before_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("move")
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "bad", "name": name, "arguments": arguments}
+        effects.append("second")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == ["move"]
+    log_text = (directory / "events.jsonl").read_text()
+    assert SECRET not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+def test_optional_terminal_read_rejects_duplicate_and_extra_round(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+    effects = []
+
+    async def duplicate(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("move")
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "read", "name": "list_cells",
+               "arguments": {"start": 55, "limit": 20}}
+        effects.append("read")
+        yield {"type": "tool_result", "id": "read", "name": "list_cells", "text": "listed"}
+        yield {"type": "tool_start", "id": "again", "name": "move_cell", "arguments": MOVE_ARGS}
+        effects.append("again")
+
+    observer = VisualObserver(directory, duplicate)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+    assert effects == ["move", "read"]
+
+    arm_question(directory, BINDING, [[MOVE]], optional_terminal_group=TERMINAL_READ)
+
+    async def extra_round(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "move", "name": "move_cell", "arguments": MOVE_ARGS}
+        yield {"type": "tool_result", "id": "move", "name": "move_cell", "text": "moved"}
+        yield {"type": "context"}
+        yield {"type": "context"}
+
+    observer = VisualObserver(directory, extra_round)
+    try:
+        with pytest.raises(ValueError, match="another model round"):
+            asyncio.run(_collect(observer))
+    finally:
+        observer.close()
+
+
+@pytest.mark.parametrize("optional,binding", [
+    ([MOVE], BINDING),
+    (TERMINAL_READ * 2, BINDING),
+    ([{"name": "list_cells", "argument_options": [{"start": 55, "limit": 21}]}], BINDING),
+    (TERMINAL_READ, {**BINDING, "max_tool_steps": 1}),
+])
+def test_optional_terminal_group_must_be_single_bounded_read(tmp_path, optional, binding):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, [[MOVE]], optional_terminal_group=optional)
+    assert not (directory / "arm.json").exists()
+
+
+@pytest.mark.parametrize("separate_reads", [False, True])
+@pytest.mark.parametrize("terminal_read", [False, True])
+def test_merge_group_shapes_accept_exact_read_grouping_and_one_merge(tmp_path, separate_reads, terminal_read):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
+    source = [
+        {"type": "context"},
+        {"type": "tool_start", "id": "first", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+        {"type": "tool_result", "id": "first", "name": "read_cell", "text": FIRST_SOURCE},
+    ]
+    if separate_reads:
+        source.append({"type": "context"})
+    source.extend([
+        {"type": "tool_start", "id": "second", "name": "read_cell", "arguments": {"cell_id": SECOND_ID}},
+        {"type": "tool_result", "id": "second", "name": "read_cell", "text": SECOND_SOURCE},
+        {"type": "context"},
+        {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS},
+        {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"},
+        {"type": "context"},
+    ])
+    if terminal_read:
+        source.extend([
+            {"type": "tool_start", "id": "verify", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+            {"type": "tool_result", "id": "verify", "name": "read_cell", "text": SECRET},
+            {"type": "context"},
+        ])
+    expected_steps = 2 + separate_reads + terminal_read
+    source.append({"type": "done", "tool_steps": expected_steps})
+
+    async def original(*_args, **_kwargs):
+        for event in source:
+            yield event
+
+    observer = VisualObserver(directory, original)
+    try:
+        assert asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING)) == source
+    finally:
+        observer.close()
+    log = (directory / "events.jsonl").read_text()
+    assert FIRST_SOURCE not in log and SECOND_SOURCE not in log
+    assert FIRST_ID not in log and SECOND_ID not in log
+    terminal = [json.loads(line) for line in log.splitlines() if '"kind":"terminal"' in line]
+    assert terminal == [{"kind": "terminal", "state": "done", "groups": expected_steps}]
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("read_cell", {"cell_id": SECOND_ID}, "argument_values"),
+    ("read_cell", {"cell_id": FIRST_ID, "start_line": 1}, "argument_keys"),
+    ("merge_cells", MERGE_ARGS, "tool_name"),
+])
+def test_merge_group_shapes_block_wrong_first_call_pre_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "wrong", "name": name, "arguments": arguments}
+        effects.append("effect")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == []
+    log = [json.loads(line) for line in (directory / "events.jsonl").read_text().splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("arguments,reason", [
+    ({**MERGE_ARGS, "expected_first": FIRST_SOURCE.rstrip("\n")}, "argument_values"),
+    ({**MERGE_ARGS, "expected_second": SECOND_SOURCE.rstrip("\n")}, "argument_values"),
+    ({**MERGE_ARGS, "second_cell_id": FIRST_ID}, "argument_values"),
+    ({**MERGE_ARGS, "extra": True}, "argument_keys"),
+])
+def test_merge_group_shapes_block_mutation_mismatch_pre_effect(tmp_path, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            effects.append(call_id)
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": arguments}
+        effects.append("merge")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first", "second"]
+    log_text = (directory / "events.jsonl").read_text()
+    assert FIRST_SOURCE not in log_text and SECOND_SOURCE not in log_text and SECRET not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+def test_merge_group_shapes_reject_early_merge_duplicate_and_extra_round(tmp_path):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects = []
+
+    async def early_merge(*_args, **_kwargs):
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "first", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}}
+        effects.append("first")
+        yield {"type": "tool_result", "id": "first", "name": "read_cell", "text": FIRST_SOURCE}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("merge")
+
+    observer = VisualObserver(directory, early_merge)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first"]
+
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+    effects.clear()
+
+    async def duplicate(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            effects.append(call_id)
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("merge")
+        yield {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"}
+        yield {"type": "tool_start", "id": "again", "name": "merge_cells", "arguments": MERGE_ARGS}
+        effects.append("again")
+
+    observer = VisualObserver(directory, duplicate)
+    try:
+        with pytest.raises(ValueError, match="unexpected tool"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["first", "second", "merge"]
+
+    arm_question(directory, MERGE_BINDING, group_shapes=MERGE_SHAPES)
+
+    async def extra_round(*_args, **_kwargs):
+        yield {"type": "context"}
+        for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+            yield {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}}
+            yield {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS}
+        yield {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"}
+        yield {"type": "context"}
+        yield {"type": "context"}
+
+    observer = VisualObserver(directory, extra_round)
+    try:
+        with pytest.raises(ValueError, match="another model round"):
+            asyncio.run(_collect(observer, MERGE_BINDING))
+    finally:
+        observer.close()
+
+
+@pytest.mark.parametrize("shapes,binding", [
+    ([[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_FIRST], [READ_SECOND], [READ_SECOND]]], MERGE_BINDING),
+    ([[[READ_FIRST, READ_SECOND], [MERGE]], [[READ_SECOND], [READ_FIRST], [MERGE]]], MERGE_BINDING),
+    ([[[READ_FIRST, READ_SECOND], [{"name": "merge_cells", "arguments": {
+        "first_cell_id": {"equals": FIRST_ID}}}]], [[READ_FIRST], [READ_SECOND], [MERGE]]], MERGE_BINDING),
+    (MERGE_SHAPES, {**MERGE_BINDING, "max_tool_steps": 2}),
+])
+def test_merge_group_shapes_reject_unsafe_policy(tmp_path, shapes, binding):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, group_shapes=shapes)
+    assert not (directory / "arm.json").exists()
+
+
+def _merged_then_terminal_context():
+    events = [{"type": "context"}]
+    for call_id, cell_id in (("first", FIRST_ID), ("second", SECOND_ID)):
+        events.extend([
+            {"type": "tool_start", "id": call_id, "name": "read_cell", "arguments": {"cell_id": cell_id}},
+            {"type": "tool_result", "id": call_id, "name": "read_cell", "text": SECRET},
+        ])
+    events.extend([
+        {"type": "context"},
+        {"type": "tool_start", "id": "merge", "name": "merge_cells", "arguments": MERGE_ARGS},
+        {"type": "tool_result", "id": "merge", "name": "merge_cells", "text": "merged"},
+        {"type": "context"},
+    ])
+    return events
+
+
+@pytest.mark.parametrize("name,arguments,reason", [
+    ("merge_cells", MERGE_ARGS, "tool_name"),
+    ("read_cell", {"cell_id": SECOND_ID}, "argument_values"),
+    ("read_cell", {"cell_id": FIRST_ID, "start_line": 1}, "argument_keys"),
+    ("read_cell", {"cell_id": FIRST_ID, "end_line": 10}, "argument_keys"),
+])
+def test_merge_terminal_read_rejects_other_call_pre_effect(tmp_path, name, arguments, reason):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        for event in _merged_then_terminal_context():
+            yield event
+        yield {"type": "tool_start", "id": "unexpected", "name": name, "arguments": arguments}
+        effects.append("terminal call ran")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING))
+    finally:
+        observer.close()
+    assert effects == []
+    log_text = (directory / "events.jsonl").read_text()
+    assert FIRST_ID not in log_text and SECOND_ID not in log_text
+    assert FIRST_SOURCE not in log_text and SECOND_SOURCE not in log_text
+    log = [json.loads(line) for line in log_text.splitlines()]
+    assert [item["reason"] for item in log if item["kind"] == "blocked"] == [reason]
+
+
+@pytest.mark.parametrize("extra", [
+    {"type": "tool_start", "id": "again", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}},
+    {"type": "tool_start", "id": "again", "name": "merge_cells", "arguments": MERGE_ARGS},
+    {"type": "context"},
+])
+def test_merge_terminal_read_rejects_extra_call_or_group(tmp_path, extra):
+    directory = _private(tmp_path)
+    arm_question(directory, MERGE_TERMINAL_BINDING, group_shapes=MERGE_SHAPES,
+                 optional_merge_terminal_read=True)
+    effects = []
+
+    async def original(*_args, **_kwargs):
+        for event in _merged_then_terminal_context():
+            yield event
+        yield {"type": "tool_start", "id": "verify", "name": "read_cell", "arguments": {"cell_id": FIRST_ID}}
+        effects.append("verify")
+        yield {"type": "tool_result", "id": "verify", "name": "read_cell", "text": SECRET}
+        yield {"type": "context"}
+        yield extra
+        effects.append("extra")
+
+    observer = VisualObserver(directory, original)
+    try:
+        with pytest.raises(ValueError, match="blocked"):
+            asyncio.run(_collect(observer, MERGE_TERMINAL_BINDING))
+    finally:
+        observer.close()
+    assert effects == ["verify"]
+
+
+@pytest.mark.parametrize("binding,flag", [
+    (MERGE_BINDING, True),
+    (MERGE_TERMINAL_BINDING, 1),
+    (MERGE_TERMINAL_BINDING, "yes"),
+])
+def test_merge_terminal_read_requires_valid_flag_and_four_steps(tmp_path, binding, flag):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, binding, group_shapes=MERGE_SHAPES, optional_merge_terminal_read=flag)
+    assert not (directory / "arm.json").exists()
+
+
+def test_merge_terminal_read_cannot_attach_to_other_policy(tmp_path):
+    directory = _private(tmp_path)
+    with pytest.raises(ValueError):
+        arm_question(directory, MERGE_TERMINAL_BINDING, [[MOVE]], optional_merge_terminal_read=True)
+    assert not (directory / "arm.json").exists()

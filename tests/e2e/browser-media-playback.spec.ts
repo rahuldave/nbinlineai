@@ -8,8 +8,10 @@ const samplePng = Buffer.from(
 
 test('the public notebook imports, plays, controls, copies and pastes disposable media', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-playback.ipynb'), 'utf8'));
-  const ids = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code')
-    .map((cell: { id: string }) => cell.id);
+  const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
+  const ids = codeCells.map((cell: { id: string }) => cell.id);
+  // Published counts/outputs are evidence for readers, not evidence for this fresh browser run.
+  for (const cell of codeCells) { cell.execution_count = null; cell.outputs = []; }
   expect(ids).toEqual([
     'playback-setup', 'playback-choose-call', 'playback-choose-inspect',
     'playback-open-call', 'playback-open-inspect', 'playback-play-call', 'playback-play-inspect',
@@ -51,7 +53,7 @@ test('the public notebook imports, plays, controls, copies and pastes disposable
     expect(output).toContain(expected);
   }
 
-  await run(0); // Generate exact local PNG and two-second WAV.
+  await run(0); // Generate the disposable PNG and 60-second WAV used by this notebook.
   const chooser = page.waitForEvent('filechooser');
   await run(1);
   await page.getByRole('button', { name: 'Choose file' }).click();
@@ -63,13 +65,13 @@ test('the public notebook imports, plays, controls, copies and pastes disposable
   if (browserName !== 'firefox') {
     await run(3); // Exact saved WAV reference. Pinned headless Firefox stalls before playable data.
     await expect(page.locator('.nbinlineai-playback-panel audio')).toBeVisible();
-    await inspect(4, 'preview_id');
+    await inspect(4, 'Preview ID:');
     await run(5);
     const playButton = page.getByRole('button', { name: 'Play', exact: true });
     if (await playButton.isVisible().catch(() => false)) await playButton.click();
     await inspect(6, 'completed');
     await run(7); await inspect(8, 'completed');
-    await run(9); await inspect(10, '0.5');
+    await run(9); await inspect(10, "Seek: completed {'seconds': 2.5}");
     await run(11); await inspect(12, '0.25');
     await run(13); await inspect(14, 'True'); // Closing kept the source WAV.
     await expect(page.locator('.nbinlineai-playback-panel audio')).toHaveCount(0);
@@ -292,7 +294,8 @@ test('play stays bound to its notebook and late activation cannot revive a cance
   });
   await run(3); await run(4); await inspect(5, 'cancelled');
   await page.evaluate(() => (window as any).__resolvePlay());
-  await expect.poll(async () => active.locator('audio').evaluate(audio => (audio as HTMLAudioElement).paused)).toBeTruthy();
+  await expect.poll(async () => active.locator('.nbinlineai-playback-host audio')
+    .evaluate(audio => (audio as HTMLAudioElement).paused)).toBeTruthy();
   await page.evaluate(() => {
     let calls = 0;
     (window as any).__playCalls = () => calls;

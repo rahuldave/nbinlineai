@@ -4,26 +4,75 @@ title: Media transformations
 
 # Media transformations
 
-`extract_frames`, `crop_image`, and `annotate_image` are source-only browser tools. They are absent from the unchanged PyPI 0.1.15 package. Run them in an open nbinlineai JupyterLab notebook with its live Python kernel. Each call returns a mutable `BrowserReceipt` promptly; inspect its `status`, `result`, `media`, and `error` in a **later** cell. The [disposable transformations notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) demonstrates all three with an exact generated image and two-color video, without a provider or personal media.
+Use these tools to take frames from a video, crop an image, or mark up an image in an open nbinlineai notebook. The [worked transform notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) creates a small PNG and uses a recording of a notebook tab as its video input. It shows each Python call, the result inspected in a later cell, and a concise AI question with its observed tool call. Run its setup first and use the references created in *your* run; the folder names and operation IDs printed in the saved example are temporary.
 
-Pass an owned `{"media_id": "..."}` descriptor or an exact saved `{"path": "...", "sha256": "..."}` reference. The browser verifies source bytes and hash, decodes the actual format, and produces a **new PNG**. It leaves the original memory result or saved file unchanged. SVG markup is unsupported as transformation input; these calls do not silently rasterize vector art.
+Each call returns a `BrowserReceipt` immediately. A receipt in `running` is an accepted request, not a finished image. Let the Media row finish, then inspect that **same** Python receipt in a later cell. For an AI call, the initial tool result is one snapshot; ask `operation_status` in a later question using its exact operation ID. The image or video stays in the notebook's owned media or local server files unless you explicitly attach an image to a question.
+
+## Make a crop
+
+`crop_image` takes pixel coordinates in the decoded image: `x`, `y`, `width`, and `height`. The [crop call](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-call) uses the setup cell's exact `image_ref`, selects a 16 × 16 region from its 64 × 64 PNG, and saves the derivative to a new path.
 
 ```python
-from nbinlineai.tools import extract_frames, crop_image, annotate_image
-
-frames = extract_frames(video_ref, [0.25, 1.25])
-crop = crop_image(image_ref, 4, 4, 16, 16, save_to="derived/crop.png")
-annotated = annotate_image(image_ref, [
-    {"type": "redaction", "x": 5, "y": 5, "width": 8, "height": 8},
-    {"type": "rectangle", "x": 22, "y": 5, "width": 16, "height": 12, "color": "#1976d2"},
-])
-# Run inspection cells later, after each receipt completes.
+from nbinlineai.tools import crop_image
+crop = crop_image(image_ref, 4, 4, 16, 16, save_to=f"{work.name}/crop.png")
 ```
 
-`extract_frames(media, timestamps, save_to=None)` accepts one to twelve explicit finite seconds values. It checks the decoded duration, seeks each frame through the shared video decoder, and records each **actual presented frame timestamp** next to the requested timestamp in its media descriptor. On completion, `frames.result` is a list of Pillow images; `frames.media` is a list of descriptors in the same order. Descriptor pages are assembled before the Python receipt is delivered. A browser-recorded WebM may omit its duration; the decoder makes a bounded seek to establish a finite end from the browser and refuses the clip if it cannot verify a duration within 300 seconds. Video recording or a matching `.webm`/`.mp4` filename does not prove that the current browser can decode that codec. Frame extraction also needs browser support for reporting the presented frame time; an unsupported decoder or timing API, or a failed seek, reports an error rather than substituting a frame. The pinned headless Firefox run explicitly rejected the notebook's VP9 clip while its PNG crop and annotation steps passed; Chromium and WebKit decoded both colored frames and reported their actual times.
+Run the [later crop inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-inspect) after completion. It checks the returned Pillow image's size and red pixels, confirms that the 64 × 64 source is unchanged, and reads the saved derivative's provenance sidecar. A failed receipt has an `error`; check that before using `result` or `media`.
 
-`crop_image(media, x, y, width, height, save_to=None)` takes integer pixel coordinates inside the source bounds. Its Pillow result has the requested dimensions. `annotate_image(media, annotations, save_to=None)` accepts one to fifty shapes of type `text`, `arrow`, `rectangle`, or `redaction`. Coordinates must fit the decoded image. Text is at most 200 characters per shape; optional drawing colors use opaque six-digit hex values. A redaction fills its derivative pixels opaque black regardless of any drawing color, so it is an actual pixel edit rather than a visual overlay. Inspect the source separately when you need to confirm it remains intact.
+```python
+print(crop.status, crop.error)
+if crop.status == "completed":
+    print(crop.result.size, crop.media["path"], crop.media["sidecar_path"])
+```
 
-With `save_to=None`, derivatives remain in owned media memory and no file or sidecar is written. A specific unused server-root-relative filename saves one crop or annotation. For frame extraction, give an unused server-root-relative **directory**; it receives generated `part-01.png` through at most `part-12.png`. `save_to="auto"` chooses a new directory for a frame batch. Existing files are never overwritten. Each saved derivative receives an adjacent `.json` sidecar containing bounded source hash, operation parameters, output hash and, for a frame, requested and actual seconds. The media descriptor reports both paths. Saving a memory derivative later through `save_media` also creates its sidecar. A failed or cancelled save rolls back its newly created media and sidecar together.
+The [AI crop question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-ai-question) requests an in-memory crop using the offered `crop_image` tool; its [later AI status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-ai-ready) obtains the finished dimensions and new media reference. This separates the request from the result without making the model guess when the browser finished.
 
-The shared decoder limits an encoded source to 50 MiB, an image or video frame to 4096 pixels per side and 16 million pixels, video duration to 300 seconds, and a frame batch to 32 million decoded pixels and 50 MiB encoded output. Active previews and working surfaces share a 32-million-pixel per-notebook and 64-million-pixel per-tab budget, so a large transform may be rejected even below an individual image limit when several surfaces are live. Cancellation, owner loss, mismatched bytes, stale references, and out-of-bounds geometry fail explicitly; the operation releases its decoder and working surfaces. Source bytes are not sent to a model by these direct calls.
+## Mark up or redact an image
+
+`annotate_image` creates another PNG; it does not draw over the source. The [annotation call](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-annotate-call) puts an opaque black redaction, a rectangle, an arrow, and short text on the setup PNG. Its [later inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-annotate-inspect) checks a black pixel in the derivative against a red pixel at the same position in the unchanged source.
+
+```python
+from nbinlineai.tools import annotate_image
+marked = annotate_image(image_ref, [
+    {"type": "redaction", "x": 5, "y": 5, "width": 8, "height": 8},
+    {"type": "rectangle", "x": 22, "y": 5, "width": 16, "height": 12,
+     "color": "#1976d2"},
+])
+```
+
+Use `text` and `arrow` shapes as the notebook demonstrates, with coordinates inside the source image. A redaction edits derivative pixels; merely drawing a border would not hide underlying pixels. The [AI annotation question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-annotate-ai-question) requests one redaction and its [later status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-annotate-ai-ready) reports the resulting image reference. The AI status result describes the derivative; the direct Python inspection verifies its pixels.
+
+## Extract frames and make a thumbnail
+
+`extract_frames` needs an exact reference to a video the current browser can decode. In the [frame call](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-call), `video_ref` comes from the checked notebook-tab recording in setup:
+
+```python
+from nbinlineai.tools import extract_frames
+frames = extract_frames(video_ref, [1.5, 5.0])
+```
+
+The [later frame inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-inspect) displays two different notebook scenes and reads `actual_seconds` from each descriptor. These are the frames the browser presented; they may differ from the requested times. The [AI frame question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-question) makes the tool call, and the [later AI status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-ready) reports those observed times and managed media IDs.
+
+Completed `frames.result` is a list of Pillow images, paired in order with `frames.media`. You can make a smaller **local Pillow preview** from one returned frame:
+
+```python
+from IPython.display import display
+if frames.status == "completed":
+    for image, descriptor in zip(frames.result, frames.media, strict=True):
+        thumbnail = image.copy()
+        thumbnail.thumbnail((320, 180))
+        print("Presented at", descriptor["actual_seconds"], "seconds")
+        display(thumbnail)
+```
+
+The notebook uses Pillow `resize` for its displayed frame and crop previews. `thumbnail` above preserves aspect ratio within a box; `resize((width, height))` chooses exact dimensions and may stretch an image. These Pillow operations work on already returned Python images. They do not create a new browser media ID or provenance sidecar. Use the original `frames.media` reference for a later browser operation, or deliberately save a Python preview yourself if you want a separate file.
+
+## Exact inputs, saving, and errors
+
+Pass an owned `{"media_id": "..."}` from a completed receipt or an exact saved `{"path": "...", "sha256": "..."}` reference. The worked notebook computes the hash of the PNG it created and verifies the recording's size and hash before use. Do not substitute a filename without its actual hash. Browser decoding and byte checks can report an expired or stale reference, unsupported codec, or changed file. SVG is not silently rasterized for these pixel tools.
+
+With `save_to=None`, a derivative stays in bounded owned media memory; no file or sidecar is written. For a crop or annotation, set `save_to` to an unused server-root-relative **filename**. For a frame batch, set it to an unused server-root-relative **directory**, or use `"auto"` for a generated directory. The frame files are named `part-01.png` and onward. Existing destinations are not overwritten. Every saved derivative has an adjacent `.json` sidecar with its source hash, transformation, parameters, and output hash; saved frames also record requested and actual seconds. `save_media` can later save an in-memory derivative and create its sidecar. Inspect a completed receipt's `media` for the resulting paths. A failed save does not count as a completed transform.
+
+Crops and annotations have pixel bounds. Annotations accept 1–50 `text`, `arrow`, `rectangle`, or `redaction` shapes; text is at most 200 characters per shape and drawing colors are opaque six-digit hex values. Frame extraction accepts 1–12 finite timestamps from 0 to 300 seconds and rejects positions beyond the decoded clip. It checks a 32-million-pixel decoded batch and 50 MiB encoded batch limit. The shared decoder limits sources to 50 MiB, each image or frame to 4096 pixels per side and 16 million pixels, and video to 300 seconds. Several active previews or surfaces can also exhaust the notebook's pixel budget. If the browser cannot establish a finite video duration or report a presented frame time, extraction reports an error. A `.webm` or `.mp4` suffix alone does not establish that its codec is playable in this browser.
+
+When finished, use `release_media` for managed in-memory derivatives and remove only your disposable files. The [notebook cleanup cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-cleanup) shows that sequence. Releasing a media ID does not remove an already saved file or a Pillow image already returned to Python.

@@ -2,119 +2,36 @@
 title: nbinlineai
 ---
 
-# AI conversations inside your notebook
+# AI questions inside your notebook
 
-**nbinlineai** adds AI prompt cells to JupyterLab. Ask about the code and notes above a cell, refer to live Python values, and let a model call functions you explicitly name. Prompts and answers stay in the notebook as readable Markdown.
-
-**Website revision 0.1.16:** Read [the new prior-art article](prior-art.md) about Solveit and ai-jup. The installable package remains **0.1.15**; this revision changes documentation only.
+**nbinlineai** adds editable AI questions and paired answers to JupyterLab notebooks. Ask about nearby code, refer to a live Python value, or let the model call a function you explicitly offer. The conversation stays as readable Markdown when you save the notebook.
 
 ## Start here
 
-1. Install **nbinlineai** from JupyterLab's Extension Manager, then restart the whole Jupyter server.
-2. Open a Python notebook. Use **Configure AI → Connections & models** to sign in with ChatGPT or save an OpenAI or Anthropic API key. Use **Defaults → Default connection for new notebooks** if you want a user preference.
-3. Choose this notebook's connection, model, and style in **AI defaults**. Individual cells inherit them unless overridden.
-4. Click **+ AI Prompt**, write a question, and press **Shift+Enter**.
+1. Install **nbinlineai** in the environment running JupyterLab and restart the whole server. In a uv project, run `uv add jupyterlab nbinlineai`, then `uv run jupyter lab`.
+2. Open a Python notebook. Use **Configure AI** to sign in with ChatGPT or save an OpenAI or Anthropic API key; choose the notebook's model in **AI defaults**.
+3. Click **+ AI Prompt**, write a question, and press **Shift+Enter**. The answer appears in a separate Markdown cell.
 
-For a uv project:
+![Notebook defaults, an AI question, and its saved answer](images/overview.png)
 
-```bash
-uv add jupyterlab nbinlineai
-uv run jupyter lab
-```
+The [setup chapter](manual/setup.md) walks through installation and connections. The [user guide](user-guide.md) explains prompts, context, tools, editing, Run All, and saved notebook data.
 
-![Notebook defaults, an AI prompt, and its saved answer](images/overview.png)
+## Learn by doing
 
-## User guide chapters
+The [notebook gallery](examples.md) has walkthroughs and complete tool-catalog notebooks. Each tool in the [Tool catalog](tools.md) links to a concrete normal Python or JupyterLab action and an AI question. The examples use disposable inputs; copy a notebook before editing it.
 
-The [user guide index](user-guide.md) shows the reading order. Open the chapter you need:
+A tool declaration gives the model access to a selected function, but it does not make the function run by itself. Browser-media calls add one more step: a direct Python call returns a mutable receipt before browser work finishes, while an AI call returns an initial snapshot. Inspect the receipt later, or ask `operation_status` in a later AI turn, before using a source ID, media result, or saved path. [Browser media operations](browser-media-foundation.md) shows the pattern.
 
-1. [Install and connect](manual/setup.md) — install, sign in with ChatGPT, or save an API key.
-2. [Write and run AI questions](manual/prompts.md) — prompts, answers, code copying, and insertion.
-3. [Models, styles, and effort](manual/models-and-styles.md) — notebook and cell choices.
-4. [Edit, rerun, and run notebooks](manual/editing-and-running.md) — Keep answer, corrections, and Run All.
-5. [Choose notebook context](manual/context-selection.md) — cell choices, previews, and provider budgets.
-6. [Live values and tools](manual/variables-and-tools.md) — kernel references and declared functions.
-7. [Saved notebooks and privacy](manual/saving-and-privacy.md) — cells, keys, and account state.
-8. [Troubleshooting and limits](manual/troubleshooting.md) — common failures and size limits.
+## Find a topic
 
-## Read more
-
-| Guide | What you will find |
+| Guide | What it covers |
 | --- | --- |
-| [User guide index](user-guide.md) | The reading order and links to all eight chapters. |
-| [Tools reference](tools.md) | Import and declare tools; check the 51 functions, groups, and limits. |
-| [Examples guide](examples.md) | Try task walkthroughs and downloadable teaching notebooks. |
-| [FAQ](faq.md) | Run All and cell toggles, correcting answers, kernel loss, restarts, cancellation, and other edge cases. |
-| [Architecture](architecture.md) | How the browser, Jupyter Server, notebook kernel, and model provider work together; saved data and tool schemas. |
-| [Prior art](prior-art.md) | How Solveit's interactive workflow and Hamel Husain's ai-jup inspired this extension. |
-| [Development](development.md) | Set up with uv, build the extension, run the tests, and maintain these docs. |
+| [User guide](user-guide.md) | A reading path through the eight manual chapters. |
+| [Tool catalog](tools.md) | Function signatures, bounds, and exact notebook demonstrations. |
+| [Notebook examples](examples.md) | Walkthroughs, complete catalog notebooks, and how to use their results. |
+| [FAQ](faq.md) | Common questions about context, Keep answer, tools, and execution. |
+| [Architecture](architecture.md) | The browser, Jupyter server, notebook kernel, and model request boundary. |
+| [Prior art](prior-art.md) | The ideas behind this notebook workflow. |
+| [Development](development.md) | Contributor setup and verification commands. |
 
-## Website revision 0.1.16
-
-- Added [Prior art](prior-art.md), explaining Solveit's problem-solving approach, dialog controls, tools, and influence on Hamel Husain's ai-jup and nbinlineai.
-
-## New in package version 0.1.15
-
-- Configure AI separates connection setup and keys from user defaults. Select a connection to see its setup; set the default for new notebooks on the other tab.
-
-## Added in version 0.1.14
-
-- Set **Default connection for new notebooks** in Configure AI. Cells now visibly inherit their notebook's connection unless you explicitly choose another provider for that question; selecting only a cell model does not pin the provider.
-- Empty AI answer cells hide JupyterLab's Markdown instruction placeholder while waiting for the first streamed response text.
-
-## Added in version 0.1.13
-
-- Use a ChatGPT subscription for inline questions through a connection owned by the Jupyter server. Sign in through a browser or device code, inspect account models and usage, then choose **Use for this notebook**. No separate Codex installation or API key is needed for this connection.
-- ChatGPT and API billing stay separate. Saved notebook choices remain explicit when a connection or model becomes unavailable; there is no automatic switch to an API provider.
-- The notebook owns submitted context, declared tools, Keep answers, execution order, and cancellation. Built-in ChatGPT file, shell, and browser actions are off; enabled notebook tools keep their normal Python permissions.
-
-## Added in version 0.1.12
-
-- The 51 optional tools keep the eight task groups and 19-tool starter note. Source and saved-notebook search now use bounded Python matching with nested ignore rules; Markdown and Python outlines have copied addresses that expire after any file change.
-- Four 0.1.11 syntax search/rewrite tools are deferred. The 0.1.11 native search and document dependencies are replaced with `pathspec` and `markdown-it-py`.
-
-## Added in version 0.1.11
-
-- Search saved project files and notebooks, inspect static Python source documentation, navigate document sections, and make checked text edits.
-- Find and edit ordinary cells in the live notebook by stable ID, including unsaved and offscreen cells. Edits do not execute or save them automatically.
-- Extract a public web-page section, inspect live values or skill descriptions, trace a live function, and run bounded shell or Python subprocesses with kernel-user permissions.
-- Try the [disposable project notebook](https://rahuldave.com/nbinlineai/notebooks/project-tools.html).
-
-## Added in version 0.1.10
-
-- Questions and answers have distinct backgrounds that adapt to light and dark themes.
-- Empty questions offer editable starters. Shared instructions and cell-position landmarks help focus explanations on the requested cell while retaining useful earlier context.
-- Offer `insert_code` to let the AI add an ordinary, unexecuted code cell below its answer. The question and answer remain intact.
-- Try the [Jupyter AI + nbinlineai example](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html), and read the [FAQ](faq.md) for tool-registration, insertion, prompt starters, and coexistence details.
-
-## Added in version 0.1.9
-
-The Context toolbar now shows just the notebook mode and **Details**, with one disclosure arrow. Question-specific information and the optional **Check context** action are inside Details. A check shows progress, then cell/tool counts and a completion time, or a visible failure reason. Running an AI question always calculates context automatically.
-
-Each cell's Context/Tools controls now sit above its content, aligned with the text. AI question controls move above the question too, and the current question is plainly labeled as always included.
-
-## Added in version 0.1.8
-
-Version 0.1.8 adds selectable notebook context.
-
-- Choose Default, Full notebook, All above, 10 above, 10 above + below, Custom or Current question only, with separate text/tool checkboxes and an authoritative first-round preview.
-- Save Custom choices while keeping inherited tools independent of selected text. Try the [context-selection example](https://rahuldave.com/nbinlineai/notebooks/context-selection.html).
-
-## In version 0.1.7
-
-- Declare tools once in ordinary Markdown or an AI question; later AI questions inherit them, even when the declaration text no longer fits in context.
-- Keep the nearest preceding notes, code, and complete AI exchanges within a shared character budget, after accounting for tools and the current question.
-- See when context was trimmed, and try the updated examples with shared declarations and real function calls.
-
-## Notebook conversations
-
-- Set provider, model, style, and effort once per notebook, with optional cell overrides.
-- Edit the built-in **Compact**, **Full**, and **Learning** instructions in **Configure AI → Defaults**.
-- Choose **Keep AI answers** once per notebook, with optional cell overrides. Turn it off during active development and pin answers you want to preserve.
-- Run code and AI cells in order with JupyterLab's normal **Run All Cells** command. Manually corrected answers become context for later prompts when they run.
-
-ChatGPT subscription use has account limits and may use additional credits. OpenAI and Anthropic API requests are billed separately by those providers.
-
-[Install from PyPI](https://pypi.org/project/nbinlineai/) · [Source on GitHub](https://github.com/rahuldave/nbinlineai) · [Report an issue](https://github.com/rahuldave/nbinlineai/issues)
-
-Licensed under GPL-3.0-only, matching ai-jup.
+Questions and answers remain in the notebook. API keys stay in the server user's configuration, and a confirmed image attaches only to the question you choose. [Saved notebooks and privacy](manual/saving-and-privacy.md) explains these boundaries.

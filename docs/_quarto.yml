@@ -19,9 +19,9 @@ website:
         href: index.md
       - text: User guide
         href: user-guide.md
-      - text: Tools reference
+      - text: Tool catalog
         href: tools.md
-      - text: Examples
+      - text: Notebook examples
         href: examples.md
       - text: FAQ
         href: faq.md

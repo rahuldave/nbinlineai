@@ -32,7 +32,7 @@ The current question is always the required prompt. **Every answer linked to it 
 
 ![Context modes and inclusion checkboxes on notebook cells](../images/context-selection.png)
 
-*Illustration from an isolated demonstration notebook. Provider responses in documentation screenshots are simulated.*
+*The screenshot illustrates the controls; use Details in your own open notebook to see its current estimate.*
 
 ## Choose individual cells
 
@@ -50,7 +50,7 @@ Checking a cell again does **not** automatically leave Custom, even if the selec
 
 Both cells of a completed earlier AI pair must be selected and above the current question to form conversation history. The pair stays whole under budgeting. In explicit modes, a selected question or completed answer on its own is labeled **AI notebook source**, including its role, linked ID and position. AI material below the question, including complete pairs, is also labeled source; it is never presented as a prior conversation. Default preserves the earlier pair-only behavior.
 
-Running, failed, cancelled and orphaned answers remain ineligible. Code outputs, plots, image pixels, attachments and raw-cell text are excluded. Ordinary Markdown is source text: a link or image reference does not fetch the linked content. No code is run merely because its checkbox is checked.
+Running, failed, cancelled and orphaned answers remain ineligible. Code outputs, plots, image pixels and raw-cell text are not automatically included by Context checkboxes. A confirmed image attachment is a separate, explicit input to its one AI question; it is not included by selecting a code-output cell. Ordinary Markdown is source text: a link or image reference does not fetch the linked content. No code is run merely because its checkbox is checked.
 
 ## Preview and limits
 

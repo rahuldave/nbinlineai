@@ -27,7 +27,7 @@ The notebook's **AI defaults** row includes **Keep AI answers**, on by default:
 
 Each prompt's **Keep answer** checkbox shows its effective choice. New prompts inherit the notebook default. Changing the cell checkbox creates an explicit override: keep a particular answer while the notebook default is off, or rerun one prompt while the notebook default is on. Click **Use notebook setting**, shown when the cell has an explicit Keep override, to make it inherit again.
 
-Notebook defaults and explicit cell choices survive saving and reopening. Explicit choices made in version 0.1.4 are preserved. The reset for provider/model/style/effort is separate from the Keep answer reset.
+Notebook defaults and explicit cell choices survive saving and reopening. The reset for provider/model/style/effort is separate from the Keep answer reset.
 
 With a protected completed answer, Shift+Enter advances without a provider request, and Run AI is disabled. An unanswered prompt can still run; failed, cancelled, empty, or deleted answers can be retried. **Keep AI answers is not a switch that disables all AI requests.** Editing a protected prompt does not remove its protection.
 
@@ -50,7 +50,7 @@ Each run uses the notebook's current context policy and cell choices, selected m
 
 ## Run a whole notebook or a range
 
-Starting with **0.1.5**, JupyterLab's normal execution commands recognize AI prompts. Code and AI work complete in notebook order: an AI answer and its tool calls finish before the next selected cell runs. Each AI prompt uses its effective notebook/cell Keep answer choice.
+JupyterLab's normal execution commands recognize AI prompts. Code and AI work complete in notebook order: an AI answer and its model tool calls finish before the next selected cell runs. Each AI prompt uses its effective notebook/cell Keep answer choice.
 
 | Action in JupyterLab | Behavior with nbinlineai |
 | --- | --- |
@@ -61,9 +61,13 @@ Starting with **0.1.5**, JupyterLab's normal execution commands recognize AI pro
 | Clear code outputs | Clears code-cell outputs, not AI Markdown answers or their Keep settings. |
 | Execute a saved notebook without this JupyterLab extension, including headless execution | AI prompts and answers remain Markdown; the frontend AI execution hook is not active. |
 
-**Version difference:** in 0.1.4 and earlier, native Run All only rendered AI cells as Markdown. AI requests required the extension's Run AI button or its AI-specific Shift+Enter handler.
-
 With the notebook default off, Run All can make a provider request for every eligible AI prompt and repeat any function calls it chooses. Keep answer on individual prompts protects the responses you want to preserve. A kept answer does not restore Python variables or replay its past tool side effects after a kernel restart; recreate required state with normal code cells, or deliberately rerun the relevant AI prompt.
+
+### When a browser action continues after its cell
+
+The execution queue waits for the AI answer or Python code cell. It cannot make a camera permission choice, wait through a recording, or keep a file chooser open on your behalf. Browser-media Python calls return a mutable receipt promptly; the next code cell may run while that receipt still says `running` or `waiting_for_user`. Run its later inspection cell after the visible action completes. Reinspect the **same receipt** to read its typed `result`, `media`, or `error`; do not treat the value printed in the requesting cell as the final result.
+
+An AI browser-tool reply is an initial operation snapshot. When a later question needs its source ID, media ID, or saved path, ask `operation_status` for that exact operation in a separate turn and continue only after it reports the needed state. The lookup returns one snapshot, so a still-running operation may need another later check. This is why the [media notebooks](../examples.md#tool-catalog-notebooks) run dependent interactive cells separately even though ordinary AI questions work in Run All. See [Browser media operations](../browser-media-foundation.md) for a complete receipt example.
 
 An AI error or cancellation stops the remaining cells in that execution batch. Correct the problem and start another run when ready. Do not edit, move, or delete cells during a batch if you want a reproducible sequence.
 

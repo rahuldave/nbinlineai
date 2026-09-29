@@ -1,0 +1,793 @@
+// One visible browser/context for trusted, opt-in worked notebook plans.
+// No account details, token, provider response, or media bytes are logged.
+import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat, rm } from 'node:fs/promises';
+import { resolve, join, dirname, isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
+  addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
+  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
+  prepareDisposableExecutedCells, verifiedInsertionCell } from './worked_notebooks_support.mjs';
+import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
+import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
+
+const baseURL = 'http://127.0.0.1:8897';
+const root = resolve(import.meta.dirname, '..');
+const token = process.env.NBINLINEAI_WORKED_TOKEN;
+const manifestPath = process.env.NBINLINEAI_WORKED_MANIFEST;
+const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
+const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
+const sourceDir = process.env.NBINLINEAI_WORKED_SOURCE_DIR ?? join(root, 'examples');
+const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE;
+const needsWorkedSubscription = entry => requiresSubscription(entry) ||
+  entry?.steps?.some(step => step?.action === 'ai-visual-start') === true;
+
+export function pilotQuestion(plan) {
+  if (!Object.hasOwn(plan, 'pilotMaxToolSteps')) return null;
+  if (plan.pilotMaxToolSteps !== 1 ||
+      (plan.continuous !== undefined && plan.continuous !== false) ||
+      !Array.isArray(plan.notebooks) || plan.notebooks.length !== 1) {
+    throw new Error('Pilot requires one notebook, one question, and maxToolSteps=1');
+  }
+  const questions = (plan.notebooks[0].steps ?? []).filter(step => step.action === 'ai');
+  if (questions.length !== 1 || typeof questions[0].cellId !== 'string' ||
+      !/^[A-Za-z0-9_-]{1,100}$/.test(questions[0].cellId)) {
+    throw new Error('Pilot requires exactly one named AI question');
+  }
+  return { notebook: safeName(plan.notebooks[0].source), cellId: questions[0].cellId };
+}
+
+export async function preparePilotSettings(configDir) {
+  if (typeof configDir !== 'string' || !isAbsolute(configDir)) {
+    throw new Error('Pilot requires an isolated absolute Jupyter config directory');
+  }
+  const parent = join(configDir, 'lab', 'user-settings', 'nbinlineai');
+  await mkdir(parent, { recursive: true, mode: 0o700 });
+  const path = join(parent, 'plugin.jupyterlab-settings');
+  await writeFile(path, '{"maxToolSteps":1}\n', { flag: 'wx', mode: 0o600 });
+  return path;
+}
+
+export function assertPilotPromptRequest(request, questionCellId, sessionId) {
+  const url = new URL(request.url());
+  if (request.method() !== 'POST' || url.origin !== baseURL ||
+      url.pathname !== '/nbinlineai/prompt' || url.search) {
+    throw new Error('Pilot prompt request did not target the owned server');
+  }
+  const body = request.postDataJSON();
+  assertOwnedPromptRequest(body, questionCellId, sessionId);
+  if (body.max_tool_steps !== 1) {
+    throw new Error('Pilot prompt did not enforce maxToolSteps=1');
+  }
+}
+
+export function pilotRouteGuard(questionCellId) {
+  let sessionId = null;
+  let submissions = 0;
+  let rejectFailure;
+  let blocked = false;
+  const failure = new Promise((_, reject) => { rejectFailure = reject; });
+  void failure.catch(() => {});
+  return {
+    bind(value) {
+      if (sessionId || typeof value !== 'string' || !value) {
+        throw new Error('Pilot session binding is missing or changed');
+      }
+      sessionId = value;
+    },
+    get submissions() { return submissions; },
+    failure,
+    assertCompleted() {
+      if (blocked || submissions !== 1) {
+        throw new Error('Pilot did not complete exactly one guarded prompt submission');
+      }
+    },
+    async handle(route) {
+      try {
+        if (blocked || !sessionId || submissions !== 0) {
+          throw new Error('Pilot allows only one bound prompt submission');
+        }
+        assertPilotPromptRequest(route.request(), questionCellId, sessionId);
+        submissions += 1;
+        await route.continue();
+      } catch {
+        blocked = true;
+        await route.abort().catch(() => {});
+        rejectFailure(new Error('Pilot prompt was blocked before model submission'));
+      }
+    },
+  };
+}
+
+export async function installPilotRouteGuard(context, guard) {
+  await context.route('**/nbinlineai/prompt**', route => guard.handle(route));
+}
+
+export async function grantWorkedHardwarePermissions(context, pilot) {
+  if (!pilot) {
+    await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
+  }
+}
+
+// A visual operator starts this one request in the owned window. The files are
+// private synchronization markers, never evidence of a tool result.
+export function visualSignalPaths(directory, cellId) {
+  if (!isAbsolute(directory) || !/^[A-Za-z0-9_-]{1,100}$/.test(cellId)) {
+    throw new Error('Visual handoff needs an absolute private directory and safe cell ID');
+  }
+  return { ready: join(directory, `visual-${cellId}.ready.json`),
+    continue: join(directory, `visual-${cellId}.continue.json`) };
+}
+
+export function visualPromptGate(questionCellId, sessionId) {
+  const allowed = [questionCellId, 'outputs-ai-selection-nonempty-ready'];
+  let submissions = 0;
+  let failed = false;
+  let statusArmed = false;
+  let rejectFailure;
+  const failure = new Promise((_, reject) => { rejectFailure = reject; });
+  void failure.catch(() => {});
+  return {
+    failure,
+    assertStarted() {
+      if (failed || submissions !== 1) throw new Error('Visual handoff requires its one owned start submission');
+    },
+    armStatus() {
+      if (failed || submissions !== 1 || statusArmed) {
+        throw new Error('Visual status request cannot be armed yet');
+      }
+      statusArmed = true;
+    },
+    assertCompleted() {
+      if (failed || submissions !== allowed.length) {
+        throw new Error('Visual handoff requires its owned start and status submissions');
+      }
+    },
+    async handle(route) {
+      try {
+        const url = new URL(route.request().url());
+        if (failed || submissions >= allowed.length || (submissions === 1 && !statusArmed) ||
+            route.request().method() !== 'POST' ||
+            url.origin !== baseURL || url.pathname !== '/nbinlineai/prompt' || url.search) {
+          throw new Error('Unexpected visual prompt request');
+        }
+        assertOwnedPromptRequest(route.request().postDataJSON(), allowed[submissions], sessionId);
+        submissions += 1;
+        await route.continue();
+      } catch {
+        failed = true;
+        await route.abort().catch(() => {});
+        rejectFailure(new Error('Visual prompt was blocked before model submission'));
+      }
+    },
+  };
+}
+
+export async function closeVisualPromptPage(page, context) {
+  // Keep the route blocking submissions until its only owned page is closed.
+  await page.close();
+  await context.unroute('**/nbinlineai/prompt**');
+}
+
+export async function waitForVisualContinue(paths, expected, timeoutMs, read = readFile) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let data;
+    try { data = await read(paths.continue, 'utf8'); }
+    catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+      await pause(100);
+      continue;
+    }
+    let signal;
+    try { signal = JSON.parse(data); } catch { throw new Error('Visual continue signal is invalid'); }
+    if (JSON.stringify(signal) !== JSON.stringify(expected)) {
+      throw new Error('Visual continue signal does not match this handoff');
+    }
+    return;
+  }
+  throw new Error('Visual handoff timed out before confirmation');
+}
+
+export function assertObservedSelection(calls, firstCalls, expectation) {
+  const first = firstCalls.find(call => call.name === 'read_selection' &&
+    call.resultState === 'receipt accepted' && call.operationId);
+  const status = calls.find(call => call.name === 'operation_status' &&
+    call.resultState === 'completed' && call.targetOperationId === first?.operationId);
+  let result;
+  try { result = JSON.parse(status?.result ?? ''); } catch { /* Missing result fails below. */ }
+  if (!first || !status || result?.status !== 'completed' ||
+      result?.result?.cell_id !== expectation.cellId ||
+      result?.result?.text !== expectation.text || !expectation.text) {
+    throw new Error('Live selected-text operation did not return the exact nonempty owned selection');
+  }
+}
+
+const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
+async function until(check, timeout, description) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await check()) return;
+    await pause(350);
+  }
+  throw new Error(`${description} timed out`);
+}
+function safeName(value) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.-]*\.ipynb$/.test(value) || value.includes('..')) {
+    throw new Error('Notebook name must be a flat .ipynb filename');
+  }
+  return value;
+}
+
+async function nativeObserverRows() {
+  if (!nativeObserverFile ||
+      await realpath(dirname(resolve(nativeObserverFile))) !== await realpath(outputDir)) {
+    throw new Error('Owned native image observer is unavailable');
+  }
+  const lines = (await readFile(nativeObserverFile, 'utf8')).trim().split('\n').filter(Boolean);
+  if (lines.length > 64 || lines.some(line => line.length > 512)) {
+    throw new Error('Owned native image observer exceeded its bound');
+  }
+  return lines.map(line => JSON.parse(line));
+}
+const receiptScript = join(root, 'scripts', 'worked_receipt_state.py');
+const inspectReceipt = (kernelId, variable) => readLiveReceipt(ownedPython, receiptScript, kernelId, variable);
+async function directProbe(kernelId, action, names = []) {
+  return new Promise((resolveProbe, rejectProbe) => {
+    const child = spawn(ownedPython, [join(root, 'scripts', 'worked_direct_probe.py'),
+      kernelId, action, ...(action === 'arm' ? [JSON.stringify(names)] : [])],
+    { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    child.stdout.on('data', chunk => { stdout += chunk.toString(); });
+    child.stderr.on('data', () => { /* never print kernel connection details */ });
+    child.once('error', rejectProbe);
+    child.once('exit', code => {
+      if (code !== 0 || stdout.length > 10_000) return rejectProbe(new Error('Direct-call probe failed'));
+      try { resolveProbe(action === 'take' ? JSON.parse(stdout) : stdout.trim()); }
+      catch { rejectProbe(new Error('Direct-call probe returned invalid data')); }
+    });
+  });
+}
+async function chooseSubscription(request) {
+  const response = await request.get('/nbinlineai/subscription/status');
+  if (!response.ok()) throw new Error('Subscription status is unavailable in the owned server');
+  const status = await response.json();
+  const models = Array.isArray(status.models) ? status.models : [];
+  const connected = status.state === 'connected' && status.configured === true && status.auth_mode === 'chatgpt';
+  const imageModels = models.filter(item => item.input_modalities?.includes('image'));
+  const preferred = models.find(item => item.id === 'gpt-6-sol');
+  const preferredImage = imageModels.find(item => item.id === 'gpt-6-sol');
+  return { connected, model: preferred?.id ?? models[0]?.id ?? null,
+    imageModel: preferredImage?.id ?? imageModels[0]?.id ?? null,
+    state: status.state, configured: status.configured === true, authMode: status.auth_mode };
+}
+
+async function ensureAccount(page, request) {
+  let choice = await chooseSubscription(request);
+  if (choice.connected && choice.model) {
+    console.log(`Managed ChatGPT connection is ready; model ${choice.model}; image input ${choice.imageModel ? 'available' : 'unconfirmed'}.`);
+    return choice;
+  }
+  rejectLimitedSubscription(choice);
+  console.log(`Managed ChatGPT connection needs visible sign-in (state ${choice.state ?? 'unavailable'}, ` +
+    `configured ${choice.configured}, auth mode ${choice.authMode ?? 'unavailable'}); waiting in Configure AI.`);
+  if (!(await page.getByRole('button', { name: 'Configure AI' }).first().isVisible())) {
+    throw new Error('Configure AI is unavailable on the current owned JupyterLab page');
+  }
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await dialog.locator('[data-nbinlineai-connection]').selectOption('openai_codex_subscription');
+  const setup = dialog.locator('[data-nbinlineai-subscription-setup]');
+  await until(() => setup.isVisible(), 20_000, 'Subscription setup');
+  await setup.locator('[data-nbinlineai-subscription-action="device-login"]').click();
+  console.log('Use the device sign-in instructions visible in the browser; waiting up to 30 minutes.');
+  await until(async () => {
+    choice = await chooseSubscription(request);
+    return choice.connected && !!choice.model;
+  }, 1_800_000, 'Managed ChatGPT sign-in');
+  await page.getByRole('button', { name: 'Done' }).click();
+  console.log(`Managed ChatGPT connected; model ${choice.model}; image input ${choice.imageModel ? 'available' : 'unconfirmed'}.`);
+  return choice;
+}
+
+async function runNotebook(page, request, context, entry, choice, pilot, pilotGuard) {
+  const name = safeName(entry.source);
+  const path = join(sourceDir, name);
+  const source = JSON.parse(await readFile(path, 'utf8'));
+  prepareDisposableExecutedCells(source, entry.steps ?? []);
+  const coverage = JSON.parse(await readFile(join(root, 'examples', 'tool-coverage.json'), 'utf8'));
+  const receiptVariables = new Map();
+  const insertionVariables = new Map();
+  const insertionCalls = new Map();
+  const directNames = new Map();
+  for (const entry of Object.values(coverage)) {
+    if (entry.normal_example?.notebook !== name || !entry.receipt_inspect_cell || !entry.receipt_variable) continue;
+    if (entry.receipt_kind === 'insert_tools') {
+      insertionVariables.set(entry.receipt_inspect_cell, entry.receipt_variable);
+      insertionCalls.set(entry.receipt_inspect_cell, entry.normal_example.cell_id);
+    } else {
+      const values = receiptVariables.get(entry.receipt_inspect_cell) ?? new Set();
+      values.add(entry.receipt_variable);
+      receiptVariables.set(entry.receipt_inspect_cell, values);
+    }
+  }
+  for (const [toolName, entry] of Object.entries(coverage)) {
+    if (entry.normal_example?.notebook !== name || entry.normal_example.mode !== 'python' ||
+        ['insert_tools', 'tool_catalog', 'tools_markdown'].includes(toolName)) continue;
+    const values = directNames.get(entry.normal_example.cell_id) ?? new Set();
+    values.add(toolName);
+    directNames.set(entry.normal_example.cell_id, values);
+  }
+  if (needsWorkedSubscription(entry)) {
+    const model = entry.requiresImage ? choice?.imageModel : choice?.model;
+    if (!model) throw new Error(`${name} has no compatible discovered ChatGPT model`);
+    const previous = source.metadata?.nbinlineai ?? {};
+    source.metadata = { ...(source.metadata ?? {}), nbinlineai: {
+      ...previous, defaults: { ...(previous.defaults ?? {}), backend: 'openai_codex_subscription',
+        model, reasoningEffort: 'default', promptMode: previous.defaults?.promptMode ?? 'compact',
+        keepAnswers: true }, defaultsInitialized: true } };
+  }
+  const codeIds = source.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
+  const questionIds = source.cells.filter(cell => cell.cell_type === 'markdown' &&
+    cell.metadata?.nbinlineai?.isPromptCell === true).map(cell => cell.id);
+  const xsrf = (await context.cookies(baseURL)).find(cookie => cookie.name === '_xsrf')?.value;
+  if (!xsrf) throw new Error(`${name} has no isolated Jupyter XSRF cookie`);
+  const uploaded = await request.put(`/api/contents/${encodeURIComponent(name)}`, {
+    headers: { 'X-XSRFToken': xsrf },
+    data: { type: 'notebook', format: 'json', content: source } });
+  if (!uploaded.ok()) throw new Error(`${name} could not be copied into the isolated project`);
+  // Start the owned kernel before opening Lab. Some valid source notebooks have
+  // no kernelspec; waiting for a UI kernel chooser would otherwise deadlock.
+  const session = await request.post('/api/sessions', {
+    headers: { 'X-XSRFToken': xsrf },
+    data: { name, path: name, type: 'notebook', kernel: { name: 'python3' } },
+  });
+  if (!session.ok()) throw new Error(`${name} could not start its isolated kernel`);
+  const createdSession = await session.json();
+  if (pilot) {
+    if (name !== pilot.notebook || !pilotGuard) {
+      throw new Error('Pilot notebook changed before execution');
+    }
+    pilotGuard.bind(createdSession.id);
+  }
+  await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
+  const panel = page.locator('.jp-NotebookPanel:visible');
+  await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
+  let kernelId;
+  await until(async () => {
+    const response = await request.get('/api/sessions');
+    if (!response.ok()) return false;
+    kernelId = boundKernelSession(createdSession, await response.json(), name);
+    return !!kernelId;
+  }, 60_000, `${name} kernel`);
+  const kernelDialog = page.getByRole('dialog').filter({ hasText: 'Select Kernel' });
+  if (await kernelDialog.isVisible().catch(() => false)) {
+    throw new Error(`${name} unexpectedly requested kernel selection after isolated startup`);
+  }
+  const traces = [];
+  const observedByQuestion = new Map();
+  let visualGate = null;
+  const receiptsByCell = new Map();
+  const insertionsByCell = new Map();
+  const directByCell = new Map();
+  const noToolByQuestion = new Map();
+  const nativeImageByQuestion = new Map();
+  const privateHardwareValues = new Set();
+  const liveCell = async (id, kind) => {
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(id) ||
+        !(kind === 'code' ? codeIds : questionIds).includes(id)) {
+      throw new Error(`${name} has no safe ${kind} cell ${id}`);
+    }
+    // JupyterLab does not expose stable cell IDs as DOM attributes. Save the
+    // owned disposable document and map its current model order to widgets;
+    // AI insertions can shift every later code and question widget.
+    const savedResponse = page.waitForResponse(item =>
+      item.request().method() === 'PUT' &&
+      new URL(item.url()).pathname.endsWith(`/api/contents/${encodeURIComponent(name)}`),
+    { timeout: 5000 });
+    void savedResponse.catch(() => {});
+    await page.keyboard.press('Meta+S');
+    const save = await savedResponse;
+    if (!save.ok()) throw new Error(`${name} current cell model did not save`);
+    const response = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+    if (!response.ok()) throw new Error(`${name} current cell model could not be read`);
+    const cells = (await response.json()).content.cells;
+    const sessions = await request.get('/api/sessions');
+    if (!sessions.ok() || boundKernelSession(createdSession, await sessions.json(), name) !== kernelId) {
+      throw new Error(`${name} no longer has its original kernel session`);
+    }
+    const index = liveCellIndex(cells, id, kind);
+    // JupyterLab only materializes a window of large notebooks. Its rendered
+    // cells carry their actual model index; a DOM ordinal is not a model index.
+    const target = panel.locator(`.jp-Notebook .jp-Cell[data-windowed-list-index="${index}"]`);
+    const outer = panel.locator('.jp-WindowedPanel-outer');
+    for (let attempt = 0; attempt < cells.length && !(await target.count()); attempt++) {
+      const shown = await panel.locator('.jp-Notebook .jp-Cell[data-windowed-list-index]')
+        .evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-windowed-list-index')))
+          .filter(Number.isInteger));
+      if (!shown.length) throw new Error(`${name} has no indexed rendered cells`);
+      const direction = index < Math.min(...shown) ? -1 : 1;
+      await outer.evaluate((node, sign) => { node.scrollTop += sign * Math.max(300, node.clientHeight * 0.8); }, direction);
+      await pause(80);
+    }
+    if (await target.count() !== 1) throw new Error(`${name} model cell ${id} is not materialized at index ${index}`);
+    const className = kind === 'code' ? 'jp-CodeCell' : 'nbinlineai-prompt-cell';
+    if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
+      throw new Error(`${name} current cell ${id} has wrong widget type`);
+    }
+    if (kind === 'code') {
+      await target.scrollIntoViewIfNeeded();
+      const editorText = await target.locator('.cm-content').evaluate(node =>
+        Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n'));
+      verifiedCodeWidgetSource(cells[index], editorText);
+    }
+    return target;
+  };
+  for (const step of entry.steps ?? []) {
+    const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
+    console.log(`${name}: ${step.action} ${step.cellId ?? 'control'}`);
+    if (step.action === 'receipt-ready') {
+      // Each probe runs in its own kernel turn, after the browser operation's
+      // original call has returned. Do not wait on a comm in the call's turn.
+      await waitForReceiptStates({ name, variables: step.variables, expectedStatus: step.status ?? 'completed',
+        timeoutMs: timeout, read: (variable, remaining) => readLiveReceipt(ownedPython, receiptScript,
+          kernelId, variable, { timeoutMs: remaining, allowUnregistered: true }) });
+    } else if (step.action === 'code' || step.action === 'inspect') {
+      const target = await liveCell(step.cellId, 'code');
+      const selectionFixture = step.selectionFixtureId ? await liveCell(step.selectionFixtureId, 'code') : null;
+      const watched = step.action === 'code' ? [...(directNames.get(step.cellId) ?? [])] : [];
+      let probeAttempted = false;
+      let executionError = null;
+      let executionSucceeded = false;
+      let text = '';
+      try {
+        if (watched.length) {
+          probeAttempted = true;
+          await directProbe(kernelId, 'arm', watched);
+        }
+        const inspectionDeadline = Date.now() + timeout;
+        for (let attempt = 0; ; attempt++) {
+          const prompt = target.locator('.jp-InputPrompt');
+          const before = await prompt.textContent();
+          await target.locator('.cm-content').click();
+          await page.keyboard.press('Control+Enter');
+          if (selectionFixture) {
+            await selectionFixture.locator('.cm-content').click();
+            await page.keyboard.press('Home');
+            await page.keyboard.press('Shift+End');
+          }
+          await until(async () => {
+            const now = await prompt.textContent();
+            return now !== before && /\[\d+\]/.test(now ?? '');
+          }, timeout, `${name} ${step.cellId} execution`);
+          text = await target.locator('.jp-OutputArea').textContent() ?? '';
+          if (!step.contains || text.includes(step.contains)) break;
+          if (/\b(?:failed|expired|error)\b/i.test(text)) break;
+          if (step.action !== 'inspect' || Date.now() >= inspectionDeadline) break;
+          await pause(350);
+        }
+        if (step.contains && !text.includes(step.contains)) throw new Error(`${name} ${step.cellId} did not show expected result`);
+        if (await target.locator('.jp-OutputArea .jp-RenderedText[data-mime-type="application/vnd.jupyter.stderr"]').count()) {
+          throw new Error(`${name} ${step.cellId} produced stderr`);
+        }
+        executionSucceeded = true;
+        if (step.action === 'inspect' && receiptVariables.has(step.cellId)) {
+          const verified = [];
+          for (const variable of receiptVariables.get(step.cellId)) {
+            const receipt = await inspectReceipt(kernelId, variable);
+            verified.push({ variable, operationId: receipt.operationId, status: receipt.status });
+          }
+          receiptsByCell.set(step.cellId, verified);
+        }
+        if (step.action === 'inspect' && insertionVariables.has(step.cellId)) {
+          const variable = insertionVariables.get(step.cellId);
+          const insertion = await readLiveReceipt(ownedPython, receiptScript, kernelId, variable,
+            { kind: 'insert_tools' });
+          insertionsByCell.set(step.cellId, { variable, receipt: insertion });
+        }
+      } catch (error) {
+        executionError = error;
+        throw error;
+      } finally {
+        if (probeAttempted) {
+          try {
+            const observed = await directProbe(kernelId, 'take');
+            directByCell.set(step.cellId, observed.map(item => ({
+              name: item.name, cellId: step.cellId, completed: executionSucceeded && item.completed,
+            })));
+          } catch (probeError) {
+            if (!executionError) throw probeError;
+          }
+        }
+      }
+    } else if (step.action === 'ai' || step.action === 'ai-visual-start') {
+      const visual = step.action === 'ai-visual-start';
+      const selectionTarget = visual ? await liveCell(step.selectionCellId, 'code') : null;
+      if (visual && (name !== 'browser-media-outputs.ipynb' ||
+          step.cellId !== 'outputs-ai-selection-nonempty' ||
+          step.selectionCellId !== 'selection-ai-target' ||
+          step.selectedText !== 'selected blue square' || step.tool !== 'read_selection' || pilot)) {
+        throw new Error('Visual handoff is limited to the owned nonempty selection example');
+      }
+      const target = await liveCell(step.cellId, 'question');
+      const observerBefore = step.nativeImageSha256 ? await nativeObserverRows() : null;
+      const runButton = target.locator('[data-nbinlineai-run]');
+      if (!(await runButton.isEnabled())) {
+        throw new Error(`${name} ${step.cellId} is not runnable in the isolated notebook`);
+      }
+      const response = page.waitForResponse(item => item.url().endsWith('/nbinlineai/prompt') &&
+        item.request().method() === 'POST', { timeout: Math.max(timeout, 180_000) })
+        .then(async item => ({ requestBody: item.request().postDataJSON(), body: await item.text() }));
+      // Keep a rejection handler attached if a UI click fails before the
+      // response is awaited, so a later timeout cannot crash the whole run.
+      void response.catch(() => {});
+      let completed;
+      if (visual) {
+        const paths = visualSignalPaths(outputDir, step.cellId);
+        const marker = { nonce: randomUUID(), notebook: name, questionCellId: step.cellId,
+          selectionCellId: step.selectionCellId, selectedText: step.selectedText };
+        const gate = visualPromptGate(step.cellId, createdSession.id);
+        await context.route('**/nbinlineai/prompt**', route => gate.handle(route));
+        visualGate = gate;
+        try {
+          try { await lstat(paths.continue); throw new Error('Stale visual continue signal exists'); }
+          catch (error) { if (error?.code !== 'ENOENT') throw error; }
+          await writeFile(paths.ready, JSON.stringify(marker) + '\n', { flag: 'wx', mode: 0o600 });
+          console.log(`${name}: visual handoff ready for ${step.cellId}`);
+          await Promise.race([waitForVisualContinue(paths, marker, timeout), gate.failure]);
+          const selected = await selectionTarget.locator('.cm-content').evaluate(node => ({
+            focused: node.contains(document.activeElement),
+            text: window.getSelection()?.toString() ?? '',
+          }));
+          if (!selected.focused || selected.text !== step.selectedText) {
+            throw new Error('Visual handoff did not leave the exact target text selected and focused');
+          }
+          completed = await Promise.race([response, gate.failure]);
+          gate.assertStarted();
+        } finally {
+          await rm(paths.ready, { force: true });
+          await rm(paths.continue, { force: true });
+        }
+      } else {
+        if (visualGate) {
+          if (step.cellId !== 'outputs-ai-selection-nonempty-ready' ||
+              step.expectedSelection?.fromQuestionId !== 'outputs-ai-selection-nonempty' ||
+              step.expectedSelection?.cellId !== 'selection-ai-target' ||
+              step.expectedSelection?.text !== 'selected blue square') {
+            throw new Error('Visual handoff permits only its exact selected-text status question');
+          }
+          visualGate.armStatus();
+        }
+        await runButton.click();
+        completed = pilotGuard ? await Promise.race([response, pilotGuard.failure]) :
+          visualGate ? await Promise.race([response, visualGate.failure]) : await response;
+      }
+      if (pilotGuard) pilotGuard.assertCompleted();
+      const requestBody = completed.requestBody;
+      assertOwnedPromptRequest(requestBody, step.cellId, createdSession.id);
+      const events = frames(completed.body);
+      for (const event of events) {
+        if (event.type === 'tool_result') {
+          for (const value of sensitiveHardwareValues(event.text ?? '')) privateHardwareValues.add(value);
+        }
+      }
+      if (events.some(event => event.type === 'error') || !events.some(event => event.type === 'done')) {
+        throw new Error(`${name} ${step.cellId} did not finish its live ChatGPT round`);
+      }
+      if (step.attestNoTool === true) {
+        noToolByQuestion.set(step.cellId, noToolPlan(events, step.cellId));
+      }
+      if (observerBefore) {
+        const observerAfter = await nativeObserverRows();
+        nativeImageByQuestion.set(step.cellId, acceptedNativeImage(observerBefore, observerAfter,
+          step.cellId, step.nativeImageSha256));
+      }
+      const observed = observedTrace(step.cellId, events);
+      observedByQuestion.set(step.cellId, observed);
+      traces.push(...observed);
+      const expectedTools = step.tools ?? (step.tool ? [step.tool] : []);
+      for (const expected of expectedTools) {
+        if (!observed.some(item => item.name === expected && ['completed', 'receipt accepted'].includes(item.resultState))) {
+          throw new Error(`${name} ${step.cellId} did not return an accepted result for expected tool ${expected}`);
+        }
+      }
+      if (step.expectedSelection) {
+        const selected = step.expectedSelection;
+        if (step.cellId !== 'outputs-ai-selection-nonempty-ready' ||
+            selected.fromQuestionId !== 'outputs-ai-selection-nonempty' ||
+            selected.cellId !== 'selection-ai-target' ||
+            selected.text !== 'selected blue square') {
+          throw new Error('Unexpected selected-text verification target');
+        }
+        assertObservedSelection(observed, observedByQuestion.get(selected.fromQuestionId) ?? [], selected);
+      }
+      await until(async () => /Done|Answer kept/.test(await target.locator('.nbinlineai-status').textContent() ?? ''),
+        timeout, `${name} ${step.cellId} answer`);
+    } else if (step.action === 'click') {
+      await page.locator(step.selector).click({ timeout });
+    } else if (step.action === 'choose-owned-generated-png') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned sample picker requires playback notebook');
+      const ownedRoot = process.env.NBINLINEAI_WORKED_ROOT;
+      if (!ownedRoot || !isAbsolute(ownedRoot)) throw new Error('Owned sample root is unavailable');
+      const filenames = (await readdir(ownedRoot)).filter(item => /^playback-[a-f0-9]{32}\.png$/.test(item));
+      if (filenames.length !== 1) throw new Error('Expected exactly one generated playback PNG');
+      const selected = join(ownedRoot, filenames[0]);
+      const details = await lstat(selected);
+      if (!details.isFile() || details.size < 1 || details.size > 1_000_000) {
+        throw new Error('Generated playback PNG is invalid');
+      }
+      const chooser = page.locator('.nbinlineai-playback-panel[aria-label="Choose a file for this notebook"]:visible');
+      if (await chooser.count() !== 1) throw new Error('Visible owned file chooser is unavailable');
+      const fileChooser = page.waitForEvent('filechooser', { timeout });
+      await chooser.getByRole('button', { name: 'Choose file' }).click({ timeout });
+      await (await fileChooser).setFiles(selected);
+    } else if (step.action === 'paste-owned-clipboard') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned paste requires playback notebook');
+      const paste = page.locator('.nbinlineai-playback-panel[aria-label="Paste into this notebook"]:visible');
+      if (await paste.count() !== 1) throw new Error('Visible owned paste control is unavailable');
+      await paste.getByRole('textbox', { name: 'Paste here' }).click({ timeout });
+      await page.keyboard.press('Meta+V');
+    } else if (step.action === 'copy-owned-text-shortcut') {
+      if (name !== 'browser-media-playback.ipynb') throw new Error('Owned copy requires playback notebook');
+      const copy = page.locator('.nbinlineai-playback-panel[aria-label="Copy text"]:visible');
+      if (await copy.count() !== 1) throw new Error('Visible owned copy control is unavailable');
+      const textarea = copy.getByRole('textbox', { name: 'Text to copy' });
+      await textarea.click({ timeout });
+      await page.keyboard.press('Meta+A');
+      await page.keyboard.press('Meta+C');
+    } else if (step.action === 'dismiss-notification') {
+      const close = page.getByTitle('Hide notification').first();
+      if (await close.isVisible()) await close.click({ timeout });
+    } else if (step.action === 'wait') {
+      await until(async () => (await page.locator(step.selector).textContent() ?? '').includes(step.contains),
+        timeout, `${name} visible control`);
+    } else if (step.action === 'pause') {
+      await pause(Math.min(Math.max(Number(step.milliseconds) || 0, 0), 60_000));
+    } else if (step.action === 'play-test-tone') {
+      if (typeof step.path !== 'string' || !/^\/tmp\/nbinlineai-worked-tone-[A-Za-z0-9-]+\.wav$/.test(step.path)) {
+        throw new Error('Test tone must be an owned temporary WAV file');
+      }
+      await new Promise((resolveTone, rejectTone) => {
+        const player = spawn('/usr/bin/afplay', ['-v', '0.3', step.path], { stdio: 'ignore' });
+        player.once('error', rejectTone);
+        player.once('exit', code => code === 0 ? resolveTone() : rejectTone(new Error('Owned test tone did not play')));
+      });
+    } else {
+      throw new Error(`${name} has an unsupported plan action`);
+    }
+  }
+  await page.keyboard.press('Meta+S');
+  await pause(1200);
+  const saved = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+  if (!saved.ok()) throw new Error(`${name} did not save through Jupyter Contents`);
+  const notebook = (await saved.json()).content;
+  for (const [cellId, receipts] of receiptsByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost inspected receipt cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedReceipts = receipts;
+  }
+  for (const [cellId, { variable, receipt }] of insertionsByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost inspected insertion cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedInsertion = verifiedInsertionCell(notebook.cells, {
+      callId: insertionCalls.get(cellId), inspectId: cellId, variable, receipt,
+    });
+  }
+  for (const [cellId, calls] of directByCell) {
+    const cell = notebook.cells.find(item => item.id === cellId);
+    if (!cell) throw new Error(`${name} lost directly executed cell ${cellId}`);
+    cell.metadata ??= {};
+    cell.metadata.nbinlineaiWorkedDirectCalls = calls;
+  }
+  for (const [questionId, attestation] of noToolByQuestion) {
+    const answers = notebook.cells.filter(item => item.metadata?.nbinlineai?.promptCellId === questionId &&
+      item.metadata?.nbinlineai?.isOutputCell === true && item.metadata?.nbinlineai?.status === 'done');
+    if (answers.length !== 1) throw new Error(`${name} lost the completed answer for ${questionId}`);
+    answers[0].metadata.nbinlineaiWorkedNoToolPlan = attestation;
+  }
+  for (const [questionId, proof] of nativeImageByQuestion) {
+    const answers = notebook.cells.filter(item => item.metadata?.nbinlineai?.promptCellId === questionId &&
+      item.metadata?.nbinlineai?.isOutputCell === true && item.metadata?.nbinlineai?.status === 'done');
+    if (answers.length !== 1) throw new Error(`${name} lost the native-image answer for ${questionId}`);
+    answers[0].metadata.nbinlineaiWorkedNativeImage = proof;
+  }
+  addTraceAppendix(notebook, traces);
+  normalizePublicCopy(notebook, privateHardwareValues);
+  assertSafeNotebook(notebook);
+  if (pilotGuard) pilotGuard.assertCompleted();
+  if (visualGate) visualGate.assertCompleted();
+  await mkdir(outputDir, { recursive: true, mode: 0o700 });
+  await chmod(outputDir, 0o700);
+  const outputPath = join(outputDir, safeName(entry.output ?? name));
+  await writeFile(outputPath, JSON.stringify(notebook, null, 1) + '\n', { mode: 0o600 });
+  await chmod(outputPath, 0o600);
+  console.log(`${name}: saved with ${traces.length} observed live notebook-tool calls.`);
+}
+
+// The installed Chrome app may already have macOS camera consent whereas the
+// Playwright test app has a distinct macOS identity. Both use a fresh context.
+const browserChannel = process.env.WORKED_BROWSER_CHANNEL;
+async function main() {
+  if (!token || !manifestPath || !outputDir || !ownedPython) {
+    throw new Error('Worked runner environment is incomplete');
+  }
+  if (!isAbsolute(sourceDir)) throw new Error('Worked source directory must be absolute');
+  if (browserChannel && browserChannel !== 'chrome') {
+    throw new Error('WORKED_BROWSER_CHANNEL only supports the installed Chrome app');
+  }
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const pilot = pilotQuestion(manifest);
+  if (pilot) {
+    const configDir = process.env.JUPYTER_CONFIG_DIR;
+    const ownedRoot = process.env.NBINLINEAI_WORKED_ROOT;
+    if (!ownedRoot || !isAbsolute(ownedRoot) ||
+        configDir !== join(dirname(ownedRoot), 'config')) {
+      throw new Error('Pilot requires the launcher-owned Jupyter configuration');
+    }
+    await preparePilotSettings(configDir);
+  }
+  const { chromium } = await import('@playwright/test');
+  const browser = await chromium.launch({ headless: false,
+    ...(browserChannel ? { channel: browserChannel } : {}) });
+  try {
+    // Hardware examples use real devices on the owned localhost origin.
+    // The read-only AI pilot grants no hardware permissions.
+    const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
+      ...(pilot ? { serviceWorkers: 'block' } : {}) });
+    await grantWorkedHardwarePermissions(context, pilot);
+    const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
+    if (pilotGuard) await installPilotRouteGuard(context, pilotGuard);
+    let page = await context.newPage();
+    // Jupyter establishes its normal authenticated browser cookie from this one
+    // local URL. The token is never printed or stored in a notebook artifact.
+    await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
+    const request = context.request;
+    let choice = null;
+    const finished = new Set();
+    const failed = new Map();
+    while (true) {
+      const currentManifest = pilot ? manifest : JSON.parse(await readFile(manifestPath, 'utf8'));
+      for (const entry of currentManifest.notebooks ?? []) {
+        const key = safeName(entry.output ?? entry.source);
+        const revision = JSON.stringify(entry);
+        if (finished.has(key) || failed.get(key) === revision) continue;
+        const visualEntry = entry.steps?.some(step => step?.action === 'ai-visual-start') === true;
+        try {
+          if (page.isClosed()) {
+            page = await context.newPage();
+            await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
+          }
+          if (needsWorkedSubscription(entry) && !choice) {
+            choice = await ensureAccount(page, request);
+          }
+          await runNotebook(page, request, context, entry, choice, pilot, pilotGuard);
+          finished.add(key);
+          failed.delete(key);
+        } catch (error) {
+          failed.set(key, revision);
+          console.error(`${key}: ${error instanceof Error ? error.message : 'execution failed'}; awaiting a revised plan.`);
+          if (!currentManifest.continuous) throw error;
+        } finally {
+          if (visualEntry) await closeVisualPromptPage(page, context);
+        }
+      }
+      if (!currentManifest.continuous || currentManifest.stop === true) break;
+      await pause(2000);
+    }
+    if (pilotGuard) pilotGuard.assertCompleted();
+  } finally {
+    await browser.close();
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try {
+    await main();
+  } catch (error) {
+    console.error(`Worked notebook runner stopped: ${error instanceof Error ? error.message : 'unknown error'}`);
+    process.exitCode = 1;
+  }
+}

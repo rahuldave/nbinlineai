@@ -1,5 +1,17 @@
 # Developer handoff
 
+**2026-09-29 worked notebooks and guides (draft source):** The
+[acceptance record](worked_notebooks_acceptance.md) follows draft PR #35 from
+`main` `22b0a83`: ten canonical nonmedia notebooks currently contain genuine
+saved direct-call and AI-answer evidence. Seven other nonmedia notebooks,
+seven media notebooks, ordinary JupyterLab UI comparisons, native Run All
+readiness, and the final unfiltered
+saved-evidence gate remain open. The Quarto gallery renders saved notebooks
+without executing them. Read B's execution log when committed for exact live
+runs; do not treat a structural notebook mapping or a receipt request as a
+completed tool effect. This is documentation/source work in progress, not a
+package release.
+
 **2026-09-28 browser/media source status:** The approved
 [API spec](browser_media_tool_spec.md) is pinned to main
 `61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected

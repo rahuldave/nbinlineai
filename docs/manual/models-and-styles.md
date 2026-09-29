@@ -14,7 +14,7 @@ title: Models, styles, and effort
 - Bundled model defaults are `gpt-6-sol` for OpenAI and `claude-sonnet-5` for Anthropic. A model default you set in JupyterLab's nbinlineai settings takes precedence.
 - API listed models are suggestions, not a live account-access check. ChatGPT lists runtime-supported models available to the connected account and their reasoning efforts; an unavailable saved model or effort is kept and cannot run until you change it.
 - Notebook defaults are stored in notebook metadata. Inherited cells use those choices without saving separate copies in every prompt.
-- **Override** exposes choices for an individual cell. Its provider starts at **Notebook default**; selecting a model alone does not pin the cell to the current provider. Choose a provider there only when this question should use a different connection. **Use notebook defaults** removes the cell's provider, model, style, and effort overrides. Cells from earlier versions retain their saved provider/model choices until you do this.
+- **Override** exposes choices for an individual cell. Its provider starts at **Notebook default**; selecting a model alone does not pin the cell to the current provider. Choose a provider there only when this question should use a different connection. **Use notebook defaults** removes the cell's provider, model, style, and effort overrides. A cell with saved choices keeps them until you reset it.
 - A saved provider/model is not silently replaced when a key or ChatGPT connection changes. Changing providers clears the previous provider's model choice. A missing connection produces setup guidance until you restore it or select another provider yourself.
 
 ![Expanded cell overrides, including model, style, effort, and return to notebook defaults](../images/cell-overrides.png)
@@ -55,7 +55,7 @@ Choose effort beside the model in the notebook defaults. **Model default** omits
 | GPT-6 Astra | Low, Medium, High, Extra high, Max | Provider-selected |
 | Claude Sonnet 5 / Fable 5.1 | Low, Medium, High, Extra high, Max | High |
 | Claude Opus 5.5 | Low, Medium, High, Extra high, Max | Medium |
-| Claude Haiku 4.5 / unknown custom model IDs | Model default only in this version | Provider-selected |
+| Claude Haiku 4.5 / unknown custom model IDs | Model default only | Provider-selected |
 
 Effort controls how much work the model puts into the answer. Higher settings can use more tokens and take longer. **Style controls how the answer is presented**: you can use Compact with high effort, or Learning with low effort. nbinlineai displays the answer rather than internal thinking content.
 

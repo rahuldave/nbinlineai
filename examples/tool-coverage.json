@@ -7,7 +7,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-search_kernel_names",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-values"
+    }
   },
   "inspect_python": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -17,7 +26,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-inspect_python",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-function"
+    }
   },
   "show_doc": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -27,7 +45,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-show_doc",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-library"
+    }
   },
   "api_names": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -37,7 +64,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-api_names",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-library"
+    }
   },
   "search_docs": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -47,7 +83,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-search_docs",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-library"
+    }
   },
   "inspect_value": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -57,7 +102,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-inspect_value",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-values"
+    }
   },
   "search_value": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -67,7 +121,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-search_value",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-values"
+    }
   },
   "source_files": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -77,7 +140,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-source_files",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-library"
+    }
   },
   "list_skills": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -87,7 +159,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-list_skills",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-skill"
+    }
   },
   "read_skill": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -98,7 +179,16 @@
     "verification": {
       "unit": "tests/test_inspection_tools.py"
     },
-    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-read_skill-direct",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-read_skill"
+    }
   },
   "trace_function": {
     "notebook": "tool-catalog-inspection.ipynb",
@@ -108,7 +198,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-demo-trace_function",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-inspection.ipynb",
+      "cell_id": "catalog-ai-inspect-function"
+    }
   },
   "path_info": {
     "notebook": "tool-catalog-files.ipynb",
@@ -118,7 +217,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-path_info",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-read"
+    }
   },
   "list_files": {
     "notebook": "tool-catalog-files.ipynb",
@@ -128,7 +236,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-list_files",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-read"
+    }
   },
   "view_file": {
     "notebook": "tool-catalog-files.ipynb",
@@ -138,7 +255,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-view_file",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-read"
+    }
   },
   "create_file": {
     "notebook": "tool-catalog-files.ipynb",
@@ -148,7 +274,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-create_file",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-create"
+    }
   },
   "file_str_replace": {
     "notebook": "tool-catalog-files.ipynb",
@@ -158,7 +293,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-file_str_replace",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-basic-edits"
+    }
   },
   "file_insert_line": {
     "notebook": "tool-catalog-files.ipynb",
@@ -168,7 +312,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-file_insert_line",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-basic-edits"
+    }
   },
   "file_replace_lines": {
     "notebook": "tool-catalog-files.ipynb",
@@ -178,7 +331,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-file_replace_lines",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-basic-edits"
+    }
   },
   "search_files": {
     "notebook": "tool-catalog-files.ipynb",
@@ -188,7 +350,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-search_files",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-search"
+    }
   },
   "source_doc": {
     "notebook": "tool-catalog-files.ipynb",
@@ -198,7 +369,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-source_doc",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-search"
+    }
   },
   "document_outline": {
     "notebook": "tool-catalog-files.ipynb",
@@ -208,7 +388,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-document_outline",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-section"
+    }
   },
   "read_document_section": {
     "notebook": "tool-catalog-files.ipynb",
@@ -218,7 +407,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-read_document_section",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-section"
+    }
   },
   "file_strs_replace": {
     "notebook": "tool-catalog-files.ipynb",
@@ -228,7 +426,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-file_strs_replace",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-checked-edits"
+    }
   },
   "view_file_hashes": {
     "notebook": "tool-catalog-files.ipynb",
@@ -238,7 +445,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-view_file_hashes",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-checked-edits"
+    }
   },
   "file_replace_checked": {
     "notebook": "tool-catalog-files.ipynb",
@@ -248,7 +464,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-demo-file_replace_checked",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-ai-files-checked-edits"
+    }
   },
   "list_notebooks": {
     "notebook": "tool-catalog-saved-notebooks.ipynb",
@@ -258,7 +483,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-demo-list_notebooks",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-ai-saved-find"
+    }
   },
   "find_notebook_cells": {
     "notebook": "tool-catalog-saved-notebooks.ipynb",
@@ -268,7 +502,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-demo-find_notebook_cells",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-ai-saved-read"
+    }
   },
   "read_notebook_cell": {
     "notebook": "tool-catalog-saved-notebooks.ipynb",
@@ -278,7 +521,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-demo-read_notebook_cell",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-ai-saved-read"
+    }
   },
   "search_notebooks": {
     "notebook": "tool-catalog-saved-notebooks.ipynb",
@@ -288,7 +540,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-demo-search_notebooks",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-ai-saved-find"
+    }
   },
   "notebook_outline": {
     "notebook": "tool-catalog-saved-notebooks.ipynb",
@@ -298,7 +559,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-demo-notebook_outline",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-saved-notebooks.ipynb",
+      "cell_id": "catalog-ai-saved-outline"
+    }
   },
   "list_cells": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -309,7 +579,16 @@
     "verification": {
       "browser": "tests/e2e/tool-catalog-live.spec.ts"
     },
-    "checkpoint_evidence": "Exact catalog notebook and deterministic provider exercised this call in isolated JupyterLab; browser test passed."
+    "checkpoint_evidence": "Exact catalog notebook and deterministic provider exercised this call in isolated JupyterLab; browser test passed.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-list_cells"
+    }
   },
   "read_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -320,7 +599,16 @@
     "verification": {
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-read_cell"
+    }
   },
   "find_cells": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -331,7 +619,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-find_cells"
+    }
   },
   "insert_markdown": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -342,7 +639,16 @@
     "verification": {
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here"
+    "checkpoint_evidence": "AI prompt only; existing browser test not rerun here",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-insert_markdown"
+    }
   },
   "insert_code": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -353,7 +659,16 @@
     "verification": {
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-insert_code"
+    }
   },
   "replace_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -364,7 +679,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-replace_cell"
+    }
   },
   "cell_str_replace": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -375,7 +699,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-cell_str_replace"
+    }
   },
   "cell_insert_line": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -386,7 +719,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-cell_insert_line"
+    }
   },
   "cell_replace_lines": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -397,7 +739,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-cell_replace_lines"
+    }
   },
   "delete_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -408,7 +759,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-delete_cell"
+    }
   },
   "move_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -419,7 +779,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-move_cell"
+    }
   },
   "copy_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -430,7 +799,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-copy_cell"
+    }
   },
   "split_cell": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -441,7 +819,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-split_cell"
+    }
   },
   "merge_cells": {
     "notebook": "tool-catalog-live-notebook.ipynb",
@@ -452,7 +839,16 @@
     "verification": {
       "browser": "tests/e2e/notebook-edit-tools.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-live-manual-comparison",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-demo-merge_cells"
+    }
   },
   "read_url": {
     "notebook": "tool-catalog-web.ipynb",
@@ -463,7 +859,16 @@
     "verification": {
       "mocked_network": "tests/test_web_tools.py"
     },
-    "checkpoint_evidence": "AI prompt only; public network not used in routine checks"
+    "checkpoint_evidence": "AI prompt only; public network not used in routine checks",
+    "normal_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-read_url-direct",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-read_url"
+    }
   },
   "read_url_section": {
     "notebook": "tool-catalog-web.ipynb",
@@ -474,7 +879,16 @@
     "verification": {
       "mocked_network": "tests/test_web_tools.py"
     },
-    "checkpoint_evidence": "AI prompt only; public network not used in routine checks"
+    "checkpoint_evidence": "AI prompt only; public network not used in routine checks",
+    "normal_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-read_url_section-direct",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-read_url_section"
+    }
   },
   "url_to_note": {
     "notebook": "tool-catalog-web.ipynb",
@@ -486,7 +900,16 @@
       "unit": "tests/test_frontend_bridge.py",
       "browser": "tests/e2e/frontend-actions.spec.ts"
     },
-    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "AI question in catalog; same registered call passed in a focused isolated JupyterLab browser regression.",
+    "normal_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-url_to_note-manual",
+      "mode": "jupyterlab"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-web.ipynb",
+      "cell_id": "catalog-demo-url_to_note"
+    }
   },
   "run_python": {
     "notebook": "tool-catalog-processes.ipynb",
@@ -496,7 +919,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-run_python",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-ai-exec-processes"
+    }
   },
   "run_shell": {
     "notebook": "tool-catalog-processes.ipynb",
@@ -506,7 +938,16 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-run_shell",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-ai-exec-processes"
+    }
   },
   "tmux_sessions": {
     "notebook": "tool-catalog-processes.ipynb",
@@ -517,7 +958,16 @@
     "verification": {
       "unit": "tests/test_execution_tools.py"
     },
-    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed",
+    "normal_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-tmux_sessions-direct",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-tmux_sessions"
+    }
   },
   "tmux_read": {
     "notebook": "tool-catalog-processes.ipynb",
@@ -528,22 +978,38 @@
     "verification": {
       "unit": "tests/test_execution_tools.py"
     },
-    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed"
+    "checkpoint_evidence": "conditional AI prompt only; optional environment not assumed",
+    "normal_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-tmux_read-direct",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "tool-catalog-processes.ipynb",
+      "cell_id": "catalog-demo-tmux_read"
+    }
   },
   "tool_catalog": {
     "notebook": "tool-catalog-files.ipynb",
-    "section": "Work with disposable saved files",
+    "section": "Tool catalog: saved files and source",
     "cell_id": "catalog-setup-tool_catalog",
     "setup_helper": true,
     "execution": "setup-kernel",
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-files.ipynb",
+      "cell_id": "catalog-setup-tool_catalog",
+      "mode": "python"
+    },
+    "ai_example": null,
+    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question."
   },
   "tools_markdown": {
     "notebook": "tool-catalog-live-notebook.ipynb",
-    "section": "Inspect and edit this live notebook",
+    "section": "Tool catalog: live notebook cells",
     "cell_id": "catalog-setup-tools_markdown",
     "setup_helper": true,
     "execution": "setup-kernel",
@@ -551,7 +1017,14 @@
     "verification": {
       "isolated_kernel": "tests/test_examples.py::test_shipped_example_code_cells_run_headlessly"
     },
-    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py"
+    "checkpoint_evidence": "isolated-kernel call executed in tests/test_examples.py",
+    "normal_example": {
+      "notebook": "tool-catalog-live-notebook.ipynb",
+      "cell_id": "catalog-setup-tools_markdown",
+      "mode": "python"
+    },
+    "ai_example": null,
+    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question."
   },
   "insert_tools": {
     "notebook": "live-variables-and-tools.ipynb",
@@ -564,14 +1037,26 @@
       "unit": "tests/test_insert_tools.py",
       "browser": "tests/e2e/inherited-tools.spec.ts"
     },
-    "checkpoint_evidence": "UI receipt demo skipped headlessly; same helper passed in a focused isolated JupyterLab browser regression."
+    "checkpoint_evidence": "Existing isolated JupyterLab regression exercised insertion; this later worked-notebook inspection is awaiting execution and saved evidence.",
+    "normal_example": {
+      "notebook": "live-variables-and-tools.ipynb",
+      "cell_id": "live-insert-tools-optional",
+      "mode": "python"
+    },
+    "ai_example": null,
+    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question.",
+    "receipt_variable": "receipt",
+    "receipt_inspect_cell": "live-insert-tools-inspect",
+    "receipt_kind": "insert_tools",
+    "receipt_success_status": "inserted",
+    "receipt_cell_id_required": true
   },
   "browser_capabilities": {
     "notebook": "browser-media-foundation.ipynb",
     "section": "browser_capabilities",
     "cell_id": "media-capabilities-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -579,14 +1064,23 @@
     "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The capability receipt was inspected in a later cell; the deterministic model-action capability test also passed.",
     "receipt_inspect_cell": "media-capabilities-inspect",
     "receipt_variable": "capabilities",
-    "expected_behavior": "Inspect observed browser support without requesting permission."
+    "expected_behavior": "Inspect observed browser support without requesting permission.",
+    "normal_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-capabilities-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-capabilities-ai-question"
+    }
   },
   "save_media": {
     "notebook": "browser-media-foundation.ipynb",
     "section": "save_media",
     "cell_id": "media-save-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -594,14 +1088,23 @@
     "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). The exact local PNG save and later receipt inspection passed; standalone first-save and bounded model descriptor regressions also passed.",
     "receipt_inspect_cell": "media-save-inspect",
     "receipt_variable": "saved",
-    "expected_behavior": "Save an exact disposable file reference under a new server-root-relative path."
+    "expected_behavior": "Save an exact disposable file reference under a new server-root-relative path.",
+    "normal_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-save-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-save-ai-question"
+    }
   },
   "operation_status": {
     "notebook": "browser-media-foundation.ipynb",
     "section": "operation_status",
     "cell_id": "media-status-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -609,14 +1112,23 @@
     "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). A completed-save snapshot was inspected later; a separate running-operation one-shot snapshot regression also passed.",
     "receipt_inspect_cell": "media-status-inspect",
     "receipt_variable": "lookup",
-    "expected_behavior": "Read a completed save operation once without waiting."
+    "expected_behavior": "Read a completed save operation once without waiting.",
+    "normal_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-status-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-status-ai-question"
+    }
   },
   "cancel_operation": {
     "notebook": "browser-media-foundation.ipynb",
     "section": "cancel_operation",
     "cell_id": "media-cancel-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -624,14 +1136,23 @@
     "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Cancellation of a completed save preserved the saved file; pending cancellation has focused registry coverage.",
     "receipt_inspect_cell": "media-cancel-inspect",
     "receipt_variable": "cancelled",
-    "expected_behavior": "Show that cancelling a completed save retains its saved file."
+    "expected_behavior": "Show that cancelling a completed save retains its saved file.",
+    "normal_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-cancel-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-cancel-ai-question"
+    }
   },
   "release_media": {
     "notebook": "browser-media-foundation.ipynb",
     "section": "release_media",
     "cell_id": "media-release-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_media.py",
       "browser": "tests/e2e/browser-media-foundation.spec.ts"
@@ -639,269 +1160,455 @@
     "checkpoint_evidence": "The public all-five foundation notebook completed in an isolated real JupyterLab/Python kernel on Playwright Chromium 1243, Firefox 1543, and WebKit 2359 (9/9 foundation browser tests per engine). Release left the saved file and loaded Pillow image usable before exact cleanup; duplicate-release replay regression also passed.",
     "receipt_inspect_cell": "media-release-inspect",
     "receipt_variable": "released",
-    "expected_behavior": "Release managed bytes while the saved file and loaded Python image remain."
+    "expected_behavior": "Release managed bytes while the saved file and loaded Python image remain.",
+    "normal_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-release-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-foundation.ipynb",
+      "cell_id": "media-release-ai-question"
+    }
   },
   "list_media_sources": {
     "notebook": "browser-media-capture.ipynb",
     "section": "list_media_sources",
     "cell_id": "capture-list_media_sources-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-list_media_sources-inspect",
     "receipt_variable": "devices",
-    "expected_behavior": "List camera and microphone devices without asking for permission."
+    "expected_behavior": "List camera and microphone devices without asking for permission.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-list_media_sources-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-list-sources"
+    }
   },
   "start_camera": {
     "notebook": "browser-media-capture.ipynb",
     "section": "start_camera",
     "cell_id": "capture-start_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_camera-inspect",
     "receipt_variable": "camera",
-    "expected_behavior": "Open a notebook camera preview, optionally including microphone audio."
+    "expected_behavior": "Open a notebook camera preview, optionally including microphone audio.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-start_camera-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-camera-workflow"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal"
+      ],
+      "reason": "start_camera has a saved, observed AI call that acquired the real camera in Chrome. The separate direct camera call in the notebook remains unrun because its earlier browser permission attempt expired.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
+    }
   },
   "start_microphone": {
     "notebook": "browser-media-capture.ipynb",
     "section": "start_microphone",
     "cell_id": "capture-start_microphone-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_microphone-inspect",
     "receipt_variable": "microphone",
-    "expected_behavior": "Open a microphone source and local level meter."
+    "expected_behavior": "Open a microphone source and local level meter.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-start_microphone-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-microphone-workflow"
+    }
   },
   "capture_camera": {
     "notebook": "browser-media-capture.ipynb",
     "section": "capture_camera",
     "cell_id": "capture-capture_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_camera-inspect",
     "receipt_variable": "still",
-    "expected_behavior": "Capture a still from an owned camera, optionally saving it locally."
+    "expected_behavior": "Capture a still from an owned camera, optionally saving it locally.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-capture_camera-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-camera-still"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal"
+      ],
+      "reason": "capture_camera has a saved, observed AI call and completed status for a real 640×480 camera still in Chrome. The separate direct camera call in the notebook remains unrun.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
+    }
   },
   "stop_source": {
     "notebook": "browser-media-capture.ipynb",
     "section": "stop_source",
     "cell_id": "capture-stop_source-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_source-inspect",
-    "receipt_variable": "stopped_camera",
-    "expected_behavior": "Stop an owned source and finalize its recording, if any."
+    "receipt_variable": "stopped_microphone",
+    "expected_behavior": "Stop the verified microphone source after its completed recording without deleting the clip.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-stop_source-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-recording-stop-source"
+    }
   },
   "start_recording": {
     "notebook": "browser-media-capture.ipynb",
     "section": "start_recording",
     "cell_id": "capture-start_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
-    "receipt_inspect_cell": "capture-start_recording-inspect",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
+    "receipt_inspect_cell": "capture-stop_recording-inspect",
     "receipt_variable": "recording",
-    "expected_behavior": "Start one bounded recording from the source's declared tracks."
+    "expected_behavior": "Start one bounded recording from the source's declared tracks.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-start_recording-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-recording-start"
+    }
   },
   "pause_recording": {
     "notebook": "browser-media-capture.ipynb",
     "section": "pause_recording",
     "cell_id": "capture-pause_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-pause_recording-inspect",
     "receipt_variable": "paused",
-    "expected_behavior": "Pause an active recording without resetting its wall-clock bound."
+    "expected_behavior": "Pause an active recording without resetting its wall-clock bound.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-pause_recording-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-recording-pause"
+    }
   },
   "resume_recording": {
     "notebook": "browser-media-capture.ipynb",
     "section": "resume_recording",
     "cell_id": "capture-resume_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-resume_recording-inspect",
     "receipt_variable": "resumed",
-    "expected_behavior": "Resume a paused recording."
+    "expected_behavior": "Resume a paused recording.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-resume_recording-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-recording-resume"
+    }
   },
   "stop_recording": {
     "notebook": "browser-media-capture.ipynb",
     "section": "stop_recording",
     "cell_id": "capture-stop_recording-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_recording-inspect",
     "receipt_variable": "stopped_recording",
-    "expected_behavior": "Flush and finish a recording at its selected destination."
+    "expected_behavior": "Flush and finish a recording at its selected destination.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-stop_recording-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-recording-stop"
+    }
   },
   "record_camera": {
     "notebook": "browser-media-capture.ipynb",
     "section": "record_camera",
     "cell_id": "capture-record_camera-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-record_camera-inspect",
     "receipt_variable": "camera_clip",
-    "expected_behavior": "Open, record, and close a camera owned by this one operation."
+    "expected_behavior": "Open, record, and close a camera owned by this one operation.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-record_camera-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-camera-clip"
+    },
+    "execution_deferral": {
+      "modes": [
+        "normal"
+      ],
+      "reason": "record_camera has a saved, observed AI call and completed status for a real five-second camera clip in Chrome. The separate direct camera call in the notebook remains unrun.",
+      "authorized_on": "2026-09-29",
+      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
+    }
   },
   "record_microphone": {
     "notebook": "browser-media-capture.ipynb",
     "section": "record_microphone",
     "cell_id": "capture-record_microphone-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-record_microphone-inspect",
     "receipt_variable": "microphone_clip",
-    "expected_behavior": "Open, record, and close a microphone owned by this one operation."
+    "expected_behavior": "Open, record, and close a microphone owned by this one operation.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-record_microphone-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-microphone-clip"
+    }
   },
   "read_audio_levels": {
     "notebook": "browser-media-capture.ipynb",
     "section": "read_audio_levels",
     "cell_id": "capture-read_audio_levels-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-read_audio_levels-inspect",
     "receipt_variable": "levels",
-    "expected_behavior": "Observe short RMS and peak levels without raw audio or transcription."
+    "expected_behavior": "Observe short RMS and peak levels without raw audio or transcription.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-read_audio_levels-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-microphone-levels"
+    }
   },
   "setup_share": {
     "notebook": "browser-media-capture.ipynb",
     "section": "setup_share",
     "cell_id": "capture-setup_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-setup_share-inspect",
     "receipt_variable": "sharing_controls",
-    "expected_behavior": "Show this notebook's local Share and Stop controls without capturing."
+    "expected_behavior": "Show this notebook's local Share and Stop controls without capturing.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-setup_share-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-share-workflow"
+    }
   },
   "start_share": {
     "notebook": "browser-media-capture.ipynb",
     "section": "start_share",
     "cell_id": "capture-start_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-start_share-inspect",
     "receipt_variable": "sharing",
-    "expected_behavior": "Offer a user-clicked display chooser for this notebook."
+    "expected_behavior": "Offer a user-clicked display chooser for this notebook.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-start_share-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-share-start"
+    }
   },
   "capture_screen": {
     "notebook": "browser-media-capture.ipynb",
     "section": "capture_screen",
     "cell_id": "capture-capture_screen-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_screen-inspect",
     "receipt_variable": "screenshot",
-    "expected_behavior": "Capture one frame from an already shared display source."
+    "expected_behavior": "Capture one frame from an already shared display source.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-capture_screen-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-screen-still"
+    }
   },
   "capture_tool": {
     "notebook": "browser-media-capture.ipynb",
     "section": "capture_tool",
     "cell_id": "capture-capture_tool-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-capture_tool-inspect",
     "receipt_variable": "alias_frame",
-    "expected_behavior": "Capture-screen alias; model text receives a descriptor, not image pixels."
+    "expected_behavior": "Capture-screen alias; model text receives a descriptor, not image pixels.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-capture_tool-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-tool-still"
+    }
   },
   "stop_share": {
     "notebook": "browser-media-capture.ipynb",
     "section": "stop_share",
     "cell_id": "capture-stop_share-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires user-approved camera/microphone or display permission and compatible hardware/browser. Source-only; absent from PyPI 0.1.15. Real device/display flows are not part of deterministic headless CI; the source notebook demonstrates user-mediated activation.",
+    "platform_note": "Requires a compatible camera, microphone, or screen-sharing browser and explicit user permission. Start returns an immediate receipt; inspect its terminal state after the user action before using a source or recording.",
     "verification": {
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "The exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; deterministic browser fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers remain untested.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
     "receipt_inspect_cell": "capture-stop_share-inspect",
     "receipt_variable": "stopped_share",
-    "expected_behavior": "Stop a selected or unique shared display source."
+    "expected_behavior": "Stop a selected or unique shared display source.",
+    "normal_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-stop_share-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-capture.ipynb",
+      "cell_id": "capture-ai-share-stop"
+    }
   },
   "read_notebook_view": {
     "notebook": "browser-media-outputs.ipynb",
     "section": "Inspect the existing notebook",
     "cell_id": "view-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -909,29 +1616,47 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "view-inspect",
     "receipt_variable": "view",
-    "expected_behavior": "Describe the originating notebook's active, selected and visible cells."
+    "expected_behavior": "Describe the originating notebook's active, selected and visible cells.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "view-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-view-selection"
+    }
   },
   "read_selection": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "Inspect the existing notebook",
-    "cell_id": "selection-call",
+    "section": "Read a selected line",
+    "cell_id": "selection-nonempty-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
     },
-    "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
-    "receipt_inspect_cell": "selection-inspect",
-    "receipt_variable": "selection",
-    "expected_behavior": "Read selected text only when its editor belongs to this notebook."
+    "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used. The new nonempty selected-text follow-up is awaiting a real focused run; the earlier saved result remains an honest empty selection.",
+    "receipt_inspect_cell": "selection-nonempty-inspect",
+    "receipt_variable": "selected_text",
+    "expected_behavior": "Read selected text only when its editor belongs to this notebook.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "selection-nonempty-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-selection-nonempty"
+    }
   },
   "list_outputs": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "An already-rendered canvas",
+    "section": "A small drawn canvas",
     "cell_id": "canvas-output-list-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -939,14 +1664,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "canvas-output-list-inspect",
     "receipt_variable": "canvas_listing",
-    "expected_behavior": "List existing outputs of a live code cell without materializing renderers."
+    "expected_behavior": "List existing outputs of a live code cell without materializing renderers.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "canvas-output-list-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-list-read"
+    }
   },
   "read_output": {
     "notebook": "browser-media-outputs.ipynb",
     "section": "Inspect the existing notebook",
     "cell_id": "output-read-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -954,14 +1688,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "output-read-inspect",
     "receipt_variable": "text_read",
-    "expected_behavior": "Read bounded text or structured data from one unchanged output."
+    "expected_behavior": "Read bounded text or structured data from one unchanged output.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "output-read-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-read"
+    }
   },
   "export_output": {
     "notebook": "browser-media-outputs.ipynb",
     "section": "Inspect the existing notebook",
     "cell_id": "output-export-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -969,14 +1712,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "output-export-inspect",
     "receipt_variable": "raster_export",
-    "expected_behavior": "Export an existing raster or original SVG; raster completes as a PIL image."
+    "expected_behavior": "Export an existing raster or original SVG; raster completes as a PIL image.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "output-export-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-export"
+    }
   },
   "list_canvases": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "An already-rendered canvas",
+    "section": "A small drawn canvas",
     "cell_id": "canvas-list-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -984,14 +1736,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "canvas-list-inspect",
     "receipt_variable": "canvases",
-    "expected_behavior": "List supported live canvases in this output's materialized renderer."
+    "expected_behavior": "List supported live canvases in this output's materialized renderer.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "canvas-list-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-canvas-list-capture"
+    }
   },
   "capture_canvas": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "An already-rendered canvas",
+    "section": "A small drawn canvas",
     "cell_id": "canvas-capture-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -999,14 +1760,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "canvas-capture-inspect",
     "receipt_variable": "canvas_still",
-    "expected_behavior": "Capture one origin-clean bound canvas as an in-memory PIL image."
+    "expected_behavior": "Capture one origin-clean bound canvas as an in-memory PIL image.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "canvas-capture-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-canvas-capture"
+    }
   },
   "export_canvas": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "An already-rendered canvas",
+    "section": "A small drawn canvas",
     "cell_id": "canvas-export-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1014,14 +1784,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "canvas-export-inspect",
     "receipt_variable": "canvas_saved",
-    "expected_behavior": "Save a still from one bound canvas, or retain it in memory with None."
+    "expected_behavior": "Save a still from one bound canvas, or retain it in memory with None.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "canvas-export-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-canvas-export"
+    }
   },
   "start_canvas": {
     "notebook": "browser-media-outputs.ipynb",
-    "section": "An already-rendered canvas",
+    "section": "A small drawn canvas",
     "cell_id": "canvas-start-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1029,14 +1808,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "canvas-start-inspect",
     "receipt_variable": "canvas_source",
-    "expected_behavior": "Open a video-only canvas source for the shared recorder."
+    "expected_behavior": "Open a video-only canvas source for the shared recorder.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "canvas-start-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-canvas-start"
+    }
   },
   "capture_notebook_region": {
     "notebook": "browser-media-outputs.ipynb",
     "section": "Capture a supported visible output region",
     "cell_id": "region-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook with an existing matching output or selection. Source-only; absent from PyPI 0.1.15. The exact public notebook requires existing stock output renderers; unsupported/offscreen surfaces return explicit errors.",
+    "platform_note": "Requires an open JupyterLab notebook with the relevant output or selection. Stock rendered outputs are supported; unsupported or offscreen surfaces return an explicit error.",
     "verification": {
       "unit": "tests/test_browser_output_tools.py",
       "browser": "tests/e2e/browser-media-outputs.spec.ts"
@@ -1044,14 +1832,23 @@
     "checkpoint_evidence": "The exact public ten-tool outputs notebook completed in isolated Chromium JupyterLab/kernel E2E with later receipt inspections; focused stock output, canvas, and region browser regressions also passed. No personal notebook or external renderer was used.",
     "receipt_inspect_cell": "region-inspect",
     "receipt_variable": "region",
-    "expected_behavior": "Capture supported visible output surfaces from the originating notebook."
+    "expected_behavior": "Capture supported visible output surfaces from the originating notebook.",
+    "normal_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "region-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-outputs.ipynb",
+      "cell_id": "outputs-ai-region"
+    }
   },
   "choose_file": {
     "notebook": "browser-media-playback.ipynb",
     "section": "choose_file",
     "cell_id": "playback-choose-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1059,14 +1856,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook; Firefox import/chooser cancellation/oversize and PNG preview browser cases passed.",
     "receipt_inspect_cell": "playback-choose-inspect",
     "receipt_variable": "selected",
-    "expected_behavior": "Import a selected disposable PNG into managed memory without an implicit save."
+    "expected_behavior": "Import a selected disposable PNG into managed memory without an implicit save.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-choose-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-choose-ai-question"
+    }
   },
   "open_media": {
     "notebook": "browser-media-playback.ipynb",
     "section": "open_media",
     "cell_id": "playback-open-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1074,14 +1880,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed with actual WAV decode; Firefox pinned headless WAV did not reach playable data, while its separate PNG preview case passed.",
     "receipt_inspect_cell": "playback-open-inspect",
     "receipt_variable": "opened",
-    "expected_behavior": "Decode the exact generated WAV file reference into an owned preview."
+    "expected_behavior": "Decode the exact generated WAV file reference into an owned preview.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-open-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-open-ai-question"
+    }
   },
   "play_media": {
     "notebook": "browser-media-playback.ipynb",
     "section": "play_media",
     "cell_id": "playback-play-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1089,14 +1904,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
     "receipt_inspect_cell": "playback-play-inspect",
     "receipt_variable": "playing",
-    "expected_behavior": "Play the owned WAV preview after clicking Play if required."
+    "expected_behavior": "Play the owned WAV preview after clicking Play if required.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-play-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-play-ai-question"
+    }
   },
   "pause_media": {
     "notebook": "browser-media-playback.ipynb",
     "section": "pause_media",
     "cell_id": "playback-pause-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1104,14 +1928,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
     "receipt_inspect_cell": "playback-pause-inspect",
     "receipt_variable": "paused",
-    "expected_behavior": "Pause the already playing WAV preview."
+    "expected_behavior": "Pause the already playing WAV preview.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-pause-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-pause-ai-question"
+    }
   },
   "seek_media": {
     "notebook": "browser-media-playback.ipynb",
     "section": "seek_media",
     "cell_id": "playback-seek-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1119,14 +1952,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
     "receipt_inspect_cell": "playback-seek-inspect",
     "receipt_variable": "seeked",
-    "expected_behavior": "Seek the two-second WAV preview to 0.5 seconds."
+    "expected_behavior": "Seek the two-second WAV preview to 0.5 seconds.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-seek-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-seek-ai-question"
+    }
   },
   "set_media_volume": {
     "notebook": "browser-media-playback.ipynb",
     "section": "set_media_volume",
     "cell_id": "playback-volume-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1134,14 +1976,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox WAV control omitted because pinned headless decoder stalled before playable data.",
     "receipt_inspect_cell": "playback-volume-inspect",
     "receipt_variable": "volume",
-    "expected_behavior": "Set the generated WAV preview volume to 0.25 when permitted."
+    "expected_behavior": "Set the generated WAV preview volume to 0.25 when permitted.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-volume-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-volume-ai-question"
+    }
   },
   "close_media": {
     "notebook": "browser-media-playback.ipynb",
     "section": "close_media",
     "cell_id": "playback-close-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1149,14 +2000,23 @@
     "checkpoint_evidence": "Chromium and WebKit full public notebook passed; Firefox separate PNG preview close case passed.",
     "receipt_inspect_cell": "playback-close-inspect",
     "receipt_variable": "closed",
-    "expected_behavior": "Close the WAV preview while confirming its exact source file remains."
+    "expected_behavior": "Close the WAV preview while confirming its exact source file remains.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-close-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-open-ai-close"
+    }
   },
   "copy_text": {
     "notebook": "browser-media-playback.ipynb",
     "section": "copy_text",
     "cell_id": "playback-copy-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1164,14 +2024,23 @@
     "checkpoint_evidence": "Chromium, WebKit and Firefox public notebook clipboard cells passed in isolated JupyterLab.",
     "receipt_inspect_cell": "playback-copy-inspect",
     "receipt_variable": "copied",
-    "expected_behavior": "Explicitly copy a short disposable phrase through the visible control."
+    "expected_behavior": "Explicitly copy a short disposable phrase through the visible control.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-copy-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-copy-ai-question"
+    }
   },
   "paste_content": {
     "notebook": "browser-media-playback.ipynb",
     "section": "paste_content",
     "cell_id": "playback-paste-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell. New source behavior, not in PyPI 0.1.15.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel; inspect the mutable BrowserReceipt in a later cell before using its result or media.",
     "verification": {
       "unit": "tests/test_browser_playback_tools.py",
       "browser": "tests/e2e/browser-media-playback.spec.ts"
@@ -1179,14 +2048,23 @@
     "checkpoint_evidence": "Chromium, WebKit and Firefox public notebook clipboard cells passed in isolated JupyterLab.",
     "receipt_inspect_cell": "playback-paste-inspect",
     "receipt_variable": "pasted",
-    "expected_behavior": "Explicitly paste the copied short phrase into the visible target."
+    "expected_behavior": "Explicitly paste the copied short phrase into the visible target.",
+    "normal_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-paste-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-playback.ipynb",
+      "cell_id": "playback-paste-ai-question"
+    }
   },
   "extract_frames": {
     "notebook": "browser-media-transforms.ipynb",
     "section": "extract_frames",
     "cell_id": "transform-frames-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -1194,14 +2072,23 @@
     "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
     "receipt_inspect_cell": "transform-frames-inspect",
     "receipt_variable": "frames",
-    "expected_behavior": "Decode two exact requested positions from the disposable two-color VP9 clip, return actual frame timestamps and PIL images."
+    "expected_behavior": "Decode two exact requested positions from the disposable two-color VP9 clip, return actual frame timestamps and PIL images.",
+    "normal_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-frames-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-frames-ai-question"
+    }
   },
   "crop_image": {
     "notebook": "browser-media-transforms.ipynb",
     "section": "crop_image",
     "cell_id": "transform-crop-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -1209,14 +2096,23 @@
     "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
     "receipt_inspect_cell": "transform-crop-inspect",
     "receipt_variable": "crop",
-    "expected_behavior": "Save a new bounded PNG crop and provenance sidecar while preserving the source."
+    "expected_behavior": "Save a new bounded PNG crop and provenance sidecar while preserving the source.",
+    "normal_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-crop-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-crop-ai-question"
+    }
   },
   "annotate_image": {
     "notebook": "browser-media-transforms.ipynb",
     "section": "annotate_image",
     "cell_id": "transform-annotate-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Source-only; absent from PyPI 0.1.15. Video frame decoding depends on the browser codec.",
+    "platform_note": "Requires an open JupyterLab notebook and bound Python kernel. Video frame extraction needs a codec the current browser can decode; inspect the receipt before using returned images.",
     "verification": {
       "unit": "tests/test_browser_transform_tools.py",
       "browser": "tests/e2e/browser-media-transforms.spec.ts"
@@ -1224,14 +2120,23 @@
     "checkpoint_evidence": "Exact public notebook passed in real JupyterLab/kernel on Chromium and pinned headless WebKit; Firefox VP9 decode returned explicit unsupported, while PNG crop/annotation passed.",
     "receipt_inspect_cell": "transform-annotate-inspect",
     "receipt_variable": "annotated",
-    "expected_behavior": "Paint an opaque redaction on a new PNG without changing the source."
+    "expected_behavior": "Paint an opaque redaction on a new PNG without changing the source.",
+    "normal_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-annotate-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-transforms.ipynb",
+      "cell_id": "transform-annotate-ai-question"
+    }
   },
   "attach_media": {
     "notebook": "browser-media-attachment.ipynb",
     "section": "attach_media — confirm the image for this question",
     "cell_id": "attachment-call",
     "execution": "receipt-frontend",
-    "platform_note": "Requires an open JupyterLab notebook, bound Python kernel, visible user confirmation, and a supported still-image reference. Confirmation does not run a model. Source-only; absent from PyPI 0.1.15. Paid providers, real camera hardware, mobile browsers, and branded browser devices were not exercised.",
+    "platform_note": "Requires an open JupyterLab notebook, bound Python kernel, a supported still-image reference, and visible user confirmation. Confirmation attaches the image; a separate Run sends it to the selected model.",
     "verification": {
       "unit": "tests/test_browser_attachment_tools.py",
       "browser": "tests/e2e/browser-media-attachment.spec.ts"
@@ -1239,6 +2144,15 @@
     "checkpoint_evidence": "The exact public attachment notebook completed in isolated Chromium JupyterLab/kernel E2E: visible image confirmation, later completed receipt inspection, and removal passed with a disposable PNG. Deterministic provider transport fixtures covered native image serialization separately; no paid or live provider call was made.",
     "receipt_inspect_cell": "attachment-inspect",
     "receipt_variable": "attached",
-    "expected_behavior": "Confirm one exact still image for the identified AI question without running it; inspect the completed receipt later and remove the attachment explicitly."
+    "expected_behavior": "Confirm one exact still image for the identified AI question without running it; inspect the completed receipt later and remove the attachment explicitly.",
+    "normal_example": {
+      "notebook": "browser-media-attachment.ipynb",
+      "cell_id": "attachment-call",
+      "mode": "python"
+    },
+    "ai_example": {
+      "notebook": "browser-media-attachment.ipynb",
+      "cell_id": "attachment-tool-ai-question"
+    }
   }
 }

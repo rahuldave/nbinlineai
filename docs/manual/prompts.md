@@ -18,6 +18,8 @@ The answer streams into a separate Markdown cell, normally created immediately b
 
 An active Python kernel is required. Running an individual AI prompt does not automatically run the code above it; run the definitions first before referring to live values or functions. **Run All Cells** executes earlier code before reaching the AI prompt.
 
+When a question calls a browser-media tool, its first answer may contain only an operation ID and a `running` or `waiting_for_user` state. Complete the visible browser action, then ask `operation_status` in a later question before using the resulting source or media ID. [Browser media operations](../browser-media-foundation.md) explains why this differs from a finished ordinary function result.
+
 ## Recognize questions and answers
 
 AI questions have a subtle blue background and answers have a green background, with matching left borders. The colours adapt to JupyterLab's light and dark themes. Editors and fenced code blocks retain JupyterLab's normal editing colours. Both cells remain ordinary editable Markdown.
@@ -52,7 +54,7 @@ Put `` &`insert_code` `` in an ordinary Markdown note above your question, then 
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what it does.
 
-The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](../faq.md#can-i-ask-the-ai-to-call-insert_markdown), [examples guide](../examples.md), and [tools reference](../tools.md).
+The default order is **question → answer → code**. The new code is editable and unexecuted; review it and run it when ready. `insert_markdown` works the same way for a separate Markdown note. Once a tool is declared above, later questions can request it in ordinary language without repeating the reference. See the [insertion FAQ](../faq.md#can-i-ask-the-ai-to-call-insert_markdown), [notebook examples](../examples.md), and [Tool catalog](../tools.md).
 
 ![Illustrative question, retained answer, and a separate unexecuted code cell](../images/insert-code.png)
 
