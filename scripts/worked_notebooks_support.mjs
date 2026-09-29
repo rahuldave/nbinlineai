@@ -1,4 +1,14 @@
 // Pure helpers for public-safe worked notebook evidence.
+export function requiresSubscription(entry) {
+  return Array.isArray(entry?.steps) && entry.steps.some(step => step?.action === 'ai');
+}
+
+export function rejectLimitedSubscription(choice) {
+  if (choice?.state === 'limited') {
+    throw new Error('Managed ChatGPT usage is limited; actual AI questions must wait for the account reset');
+  }
+}
+
 export function boundKernelSession(created, sessions, path) {
   if (!created || typeof created.id !== 'string' || typeof created.kernel?.id !== 'string' ||
       !Array.isArray(sessions)) throw new Error('Created notebook session is invalid');

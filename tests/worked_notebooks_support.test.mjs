@@ -2,7 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
   sensitiveHardwareValues, toolResultState, liveCellIndex, boundKernelSession,
-  verifiedCodeWidgetSource } from '../scripts/worked_notebooks_support.mjs';
+  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription } from '../scripts/worked_notebooks_support.mjs';
+
+test('direct-only plans run without model admission while limited AI fails clearly', () => {
+  assert.equal(requiresSubscription({ steps: [{ action: 'code' }, { action: 'receipt-ready' }] }), false);
+  assert.equal(requiresSubscription({ steps: [{ action: 'code' }, { action: 'ai' }] }), true);
+  assert.throws(() => rejectLimitedSubscription({ state: 'limited', configured: true }), /usage is limited/);
+  assert.doesNotThrow(() => rejectLimitedSubscription({ state: 'connected', configured: true }));
+});
 
 test('current live cell IDs select the changed model order, not source ordinals', () => {
   const cells = [

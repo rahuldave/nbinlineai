@@ -2,11 +2,11 @@
 // No account details, token, provider response, or media bytes are logged.
 import { chromium } from '@playwright/test';
 import { readFile, writeFile, mkdir, chmod, realpath } from 'node:fs/promises';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, isAbsolute } from 'node:path';
 import { spawn } from 'node:child_process';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
-  verifiedCodeWidgetSource } from './worked_notebooks_support.mjs';
+  verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
 import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
@@ -16,10 +16,12 @@ const token = process.env.NBINLINEAI_WORKED_TOKEN;
 const manifestPath = process.env.NBINLINEAI_WORKED_MANIFEST;
 const outputDir = process.env.NBINLINEAI_WORKED_OUTPUT;
 const ownedPython = process.env.NBINLINEAI_WORKED_PYTHON;
+const sourceDir = process.env.NBINLINEAI_WORKED_SOURCE_DIR ?? join(root, 'examples');
 const nativeObserverFile = process.env.NBINLINEAI_WORKED_NATIVE_IMAGE_OBSERVER_FILE;
 if (!token || !manifestPath || !outputDir || !ownedPython) {
   throw new Error('Worked runner environment is incomplete');
 }
+if (!isAbsolute(sourceDir)) throw new Error('Worked source directory must be absolute');
 
 const pause = ms => new Promise(resolvePause => setTimeout(resolvePause, ms));
 async function until(check, timeout, description) {
@@ -76,7 +78,8 @@ async function chooseSubscription(request) {
   const preferred = models.find(item => item.id === 'gpt-6-sol');
   const preferredImage = imageModels.find(item => item.id === 'gpt-6-sol');
   return { connected, model: preferred?.id ?? models[0]?.id ?? null,
-    imageModel: preferredImage?.id ?? imageModels[0]?.id ?? null };
+    imageModel: preferredImage?.id ?? imageModels[0]?.id ?? null,
+    state: status.state, configured: status.configured === true, authMode: status.auth_mode };
 }
 
 async function ensureAccount(page, request) {
@@ -85,7 +88,12 @@ async function ensureAccount(page, request) {
     console.log(`Managed ChatGPT connection is ready; model ${choice.model}; image input ${choice.imageModel ? 'available' : 'unconfirmed'}.`);
     return choice;
   }
-  console.log('Managed ChatGPT connection needs visible sign-in; waiting in Configure AI.');
+  rejectLimitedSubscription(choice);
+  console.log(`Managed ChatGPT connection needs visible sign-in (state ${choice.state ?? 'unavailable'}, ` +
+    `configured ${choice.configured}, auth mode ${choice.authMode ?? 'unavailable'}); waiting in Configure AI.`);
+  if (!(await page.getByRole('button', { name: 'Configure AI' }).first().isVisible())) {
+    throw new Error('Configure AI is unavailable on the current owned JupyterLab page');
+  }
   await page.getByRole('button', { name: 'Configure AI' }).first().click();
   const dialog = page.locator('[data-nbinlineai-keys-dialog]');
   await dialog.locator('[data-nbinlineai-connection]').selectOption('openai_codex_subscription');
@@ -104,7 +112,7 @@ async function ensureAccount(page, request) {
 
 async function runNotebook(page, request, context, entry, choice) {
   const name = safeName(entry.source);
-  const path = join(root, 'examples', name);
+  const path = join(sourceDir, name);
   const source = JSON.parse(await readFile(path, 'utf8'));
   const coverage = JSON.parse(await readFile(join(root, 'examples', 'tool-coverage.json'), 'utf8'));
   const receiptVariables = new Map();
@@ -122,13 +130,15 @@ async function runNotebook(page, request, context, entry, choice) {
     values.add(toolName);
     directNames.set(entry.normal_example.cell_id, values);
   }
-  const model = entry.requiresImage ? choice.imageModel : choice.model;
-  if (!model) throw new Error(`${name} has no compatible discovered ChatGPT model`);
-  const previous = source.metadata?.nbinlineai ?? {};
-  source.metadata = { ...(source.metadata ?? {}), nbinlineai: {
-    ...previous, defaults: { ...(previous.defaults ?? {}), backend: 'openai_codex_subscription',
-      model, reasoningEffort: 'default', promptMode: previous.defaults?.promptMode ?? 'compact',
-      keepAnswers: true }, defaultsInitialized: true } };
+  if (requiresSubscription(entry)) {
+    const model = entry.requiresImage ? choice?.imageModel : choice?.model;
+    if (!model) throw new Error(`${name} has no compatible discovered ChatGPT model`);
+    const previous = source.metadata?.nbinlineai ?? {};
+    source.metadata = { ...(source.metadata ?? {}), nbinlineai: {
+      ...previous, defaults: { ...(previous.defaults ?? {}), backend: 'openai_codex_subscription',
+        model, reasoningEffort: 'default', promptMode: previous.defaults?.promptMode ?? 'compact',
+        keepAnswers: true }, defaultsInitialized: true } };
+  }
   const codeIds = source.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
   const questionIds = source.cells.filter(cell => cell.cell_type === 'markdown' &&
     cell.metadata?.nbinlineai?.isPromptCell === true).map(cell => cell.id);
@@ -406,7 +416,7 @@ try {
   // local URL. The token is never printed or stored in a notebook artifact.
   await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
   const request = context.request;
-  const choice = await ensureAccount(page, request);
+  let choice = null;
   const finished = new Set();
   const failed = new Map();
   while (true) {
@@ -416,6 +426,9 @@ try {
       const revision = JSON.stringify(entry);
       if (finished.has(key) || failed.get(key) === revision) continue;
       try {
+        if (requiresSubscription(entry) && !choice) {
+          choice = await ensureAccount(page, request);
+        }
         await runNotebook(page, request, context, entry, choice);
         finished.add(key);
         failed.delete(key);

@@ -196,10 +196,11 @@ def main() -> None:
                                        cwd=ROOT, env=child_env, stdout=log, stderr=subprocess.STDOUT)
             try:
                 _wait_ready(process, token)
-                print("Owned JupyterLab ready on port 8897; checking the managed ChatGPT connection.")
+                print("Owned JupyterLab ready on port 8897; ChatGPT is checked only for AI steps.")
                 driver_env = {**child_env, "NBINLINEAI_WORKED_MANIFEST": str(args.manifest.resolve()),
                               "NBINLINEAI_WORKED_OUTPUT": str(output),
-                              "NBINLINEAI_WORKED_PYTHON": sys.executable}
+                              "NBINLINEAI_WORKED_PYTHON": sys.executable,
+                              "NBINLINEAI_WORKED_SOURCE_DIR": str(source)}
                 browser_channel = os.environ.get("WORKED_BROWSER_CHANNEL", "")
                 if browser_channel:
                     if browser_channel != "chrome":
