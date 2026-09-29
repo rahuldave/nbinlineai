@@ -122,10 +122,10 @@ The 15 frontend-only normal comparisons are the fourteen live-notebook names
 above plus `url_to_note`; their AI modes remain independently required. The
 web `url_to_note` AI mode already has a real observed completed call. The
 other setup helper, `tool_catalog`, is complete; setup helpers have explicit
-AI exceptions rather than fabricated AI calls. The passive `list_media_sources`
-AI example currently shares a question with deferred `start_camera`, so it
-still needs a completed independently verifiable answer without widening the
-camera exception.
+AI exceptions rather than fabricated AI calls. After the pinned `0b02ecc`
+inventory, `b070ebb` (integrated as `7d8ba14`) gave passive
+`list_media_sources` its own AI question before the deferred camera question.
+Its actual answer is still required; the camera exception does not apply to it.
 
 The public notebook and manual source had independent review and focused
 repairs. Media receipt references were corrected at `986bb8e` and `72cce25`;
@@ -174,6 +174,21 @@ FFmpeg decoding, rather than unavailable WebM container duration metadata,
 gave 317,760 mono 16-kHz PCM samples, or 19.86 seconds, with two separated
 approximately 440-Hz signal intervals. This is byte, decoding, and signal
 inspection, not a listening claim or completion of the capture notebook.
+
+A separate owned-tab screen recording is a checked-in companion input for the
+transform notebook at source commit `c48f99d` (integrated as `8a6545b`).
+Its 72,134-byte VP9/WebM file has SHA-256
+`2087303b97be4ba56da4d95d19d1106f6c0ddb5d9030e3f74f5c47e84bc4d63a`.
+Independent FFmpeg inspection decoded twelve 1500×786 frames from 0 through
+10.694 seconds; the staged notebook's embedded video bytes matched the file.
+Visual inspection found only the disposable notebook tab and two distinct
+notebook scenes. The notebook now asks for frames at 1.5 and 5.0 seconds,
+checks actual presented times and differing pixels, and preserves exact
+source-hash references. Its local-first setup, pinned bounded download
+fallback, corrupt-file rejection, and disposable cleanup were independently
+checked; the isolated headless setup passed with the pinned file, and its
+test fixture was integrated as `1d8a780`. The final
+canonical browser `extract_frames` run and saved frames remain pending.
 
 At the pushed `0b02ecc` PR checkpoint, Quarto render/site checks and runtime
 compatibility passed. Full source validation run `36538854955` had 503 tests
