@@ -31,7 +31,7 @@ async function run(page: Page, index: number): Promise<void> {
   const prompt = cell.locator('.jp-InputPrompt');
   const before = await prompt.textContent();
   await cell.locator('.cm-content').click();
-  await page.keyboard.press('Control+Enter');
+  await page.keyboard.press('Shift+Enter');
   await expect.poll(async () => {
     const current = await prompt.textContent();
     return current !== before && /\[\d+\]/.test(current ?? '');
@@ -40,12 +40,15 @@ async function run(page: Page, index: number): Promise<void> {
 
 async function laterText(page: Page, index: number, expected: string): Promise<string> {
   const cell = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell').nth(index);
-  for (let attempt = 0; attempt < 8; attempt++) {
+  const deadline = Date.now() + 20_000;
+  let text = '';
+  do {
     await run(page, index);
-    const text = await cell.locator('.jp-OutputArea').textContent() ?? '';
+    text = await cell.locator('.jp-OutputArea').textContent() ?? '';
     if (text.includes(expected)) return text;
-  }
-  return await cell.locator('.jp-OutputArea').textContent() ?? '';
+    await page.waitForTimeout(250);
+  } while (Date.now() < deadline);
+  throw new Error(`Receipt did not reach ${expected}: ${text}`);
 }
 
 test('live model outputs survive offscreen listing and native SVG export; same-byte replacement stales the old ref',
@@ -66,9 +69,9 @@ test('live model outputs survive offscreen listing and native SVG export; same-b
     await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
     expect(await laterText(page, 4, "'outputs'" )).toContain('raster');
     await run(page, 5);
-    const result = await laterText(page, 6, 'UNSAVED EXISTING OUTPUT');
+    const result = await laterText(page, 6, 'completed True');
+    expect(result).toContain('UNSAVED EXISTING OUTPUT');
     expect(result).toContain('(2, 2)');
-    expect(result).toContain('True');
     await run(page, 0); // Identical bytes, new IOutputModel identity.
     await run(page, 7);
     expect(await laterText(page, 8, 'stale_target')).toContain('stale_target');
