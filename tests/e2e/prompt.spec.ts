@@ -152,11 +152,13 @@ test('a later AI prompt sees the edited saved answer, not the original response'
   await first.locator('[data-nbinlineai-run]').click();
   await expect(first.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const firstAnswer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').first();
-  await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('ORIGINAL_HISTORY_ANSWER');
+  const renderedAnswer = firstAnswer.locator('.jp-RenderedMarkdown:visible');
+  await expect(renderedAnswer).toContainText('ORIGINAL_HISTORY_ANSWER');
 
-  await firstAnswer.dblclick();
-  await expect(firstAnswer.locator('.cm-content')).toBeVisible();
-  await firstAnswer.locator('.cm-content').fill('CORRECTED_HISTORY_ANSWER');
+  await renderedAnswer.dblclick();
+  const answerEditor = firstAnswer.locator('.cm-content:visible');
+  await expect(answerEditor).toBeVisible();
+  await answerEditor.fill('CORRECTED_HISTORY_ANSWER');
   await page.keyboard.press('Shift+Enter');
   await expect(firstAnswer.locator('.jp-RenderedHTMLCommon')).toContainText('CORRECTED_HISTORY_ANSWER');
 
