@@ -83,8 +83,8 @@ def test_static_documentation_routes_to_docs_validation(tmp_path, monkeypatch):
         (tmp_path / name).write_text(content)
     base = commit(tmp_path, "base")
     monkeypatch.chdir(tmp_path)
-    for name in files:
-        (tmp_path / name).write_text(files[name] + "update\n")
+    for name, value in files.items():
+        (tmp_path / name).write_text(value + "update\n")
     head = commit(tmp_path, "static docs")
     assert docs_ci.docs_only(base, head)
 
