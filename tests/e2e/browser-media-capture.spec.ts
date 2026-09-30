@@ -158,6 +158,8 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   for (const tool of tools) {
     await runCell(page, position(`capture-${tool}-call`));
     if (tool === 'start_share') {
+      // The setup_share button can appear before start_share registers its pending request.
+      expect(await inspect('capture-start_share-inspect', 'waiting_for_user')).toContain('start_share');
       const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
       await expect(shareButton).toBeVisible();
       await shareButton.click();
@@ -225,6 +227,7 @@ test('requested display audio needs a second explicit silent-share click', async
     "closed = stop_share(sharing.result['source_id'])"
   ]);
   await runCell(page, 0);
+  expect(await inspectLater(page, 1, 'waiting_for_user')).toContain('waiting_for_user');
   const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
   await expect(shareButton).toBeVisible();
   expect(await page.locator('.nbinlineai-capture-panel button').first().evaluate(button => {
@@ -285,6 +288,7 @@ test('screen chooser is activated by the visible Share button and stop is idempo
     'print(second.status, second.result)'
   ]);
   await runCell(page, 0);
+  expect(await inspectLater(page, 1, 'waiting_for_user')).toContain('waiting_for_user');
   const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
   await expect(shareButton).toBeVisible();
   await shareButton.click();
@@ -314,6 +318,8 @@ test('model capture_tool reply states that no image pixels were attached', async
     data: { type: 'notebook', format: 'json', content: { cells: [
       { id: 'share', cell_type: 'code', source: 'from nbinlineai.tools import start_share, capture_tool\nsharing = start_share()',
         metadata: {}, outputs: [], execution_count: null },
+      { id: 'share-status', cell_type: 'code', source: 'print(sharing.status, sharing.operation_id)',
+        metadata: {}, outputs: [], execution_count: null },
       { id: 'ask', cell_type: 'markdown', source: 'E2E_CAPTURE_TOOL_DESCRIPTOR &`capture_tool`',
         metadata: { nbinlineai: { isPromptCell: true } } }
     ], metadata: { kernelspec: { display_name: 'Python 3 (ipykernel)', language: 'python', name: 'python3' } },
@@ -327,6 +333,7 @@ test('model capture_tool reply states that no image pixels were attached', async
   await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.nbinlineai-prompt-cell')).toHaveCount(1);
   await runCell(page, 0);
+  expect(await inspectLater(page, 1, 'waiting_for_user')).toContain('waiting_for_user');
   const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
   await expect(shareButton).toBeVisible();
   await shareButton.click();

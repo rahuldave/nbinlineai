@@ -54,7 +54,8 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
   Quarto **Documentation site / Render and check Quarto site** PR check without
   package, browser, or runtime CI. Keep required summary checks present and
   passing only after the selected documentation check succeeds. Notebook
-  examples, code, scripts, workflows, and lockfiles require full validation.
+  examples, executable JavaScript, code, scripts, workflows, and lockfiles
+  require full validation.
 - CI browser tests must assert deterministic outcomes. For asynchronous UI
   operations, check stable controls and completed results rather than transient
   status text that can be replaced by another valid state.

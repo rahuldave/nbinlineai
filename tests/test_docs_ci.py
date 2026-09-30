@@ -110,7 +110,10 @@ def test_classifier_rejects_nonstatic_paths_and_renames(tmp_path, monkeypatch):
     git(tmp_path, "mv", "guide.md", "docs/guide.md")
     restored = commit(tmp_path, "restored")
     assert not docs_ci.docs_only(moved, restored)
-    for name in ("docs/example.ipynb", "docs/render.py", "uv.lock", "scripts/check_docs.py"):
+    for name in (
+        "docs/example.ipynb", "docs/render.py", "docs/assets/site.js",
+        "uv.lock", "scripts/check_docs.py"
+    ):
         destination = tmp_path / name
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_text("changed\n")

@@ -29,7 +29,7 @@ def _safe_doc(path: str) -> bool:
     if parts[0] == "docs":
         return (len(parts) == 2 and parts[-1] in ("_quarto.yml", ".nojekyll")) or (
             PurePosixPath(path).suffix.lower() in {
-                ".md", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"
+                ".md", ".css", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"
             }
         )
     return False

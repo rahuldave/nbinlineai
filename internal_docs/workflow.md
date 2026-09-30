@@ -151,11 +151,12 @@ links without building the extension, running the browser suite or starting
 the platform matrix. The **Documentation site / Render and check Quarto site**
 PR check renders the site and checks its pages, notebook gallery, tool tables
 and local links; require it as the documentation-quality gate for docs-only PRs.
-Executable example notebooks, code, scripts, dependencies, packaging,
-workflows and lockfiles take the full source and runtime path, as do mixed
-changes containing any of them. Manual runs and uncertain/empty comparisons do
-not qualify for a documentation skip. Renames and deletions must not hide a
-changed non-documentation path. A failed classification or document check
+Executable example notebooks, JavaScript (including `docs/` assets), code,
+scripts, dependencies, packaging, workflows and lockfiles take the full source
+and runtime path, as do mixed changes containing any of them. Manual runs and
+uncertain/empty comparisons do not qualify for a documentation skip. Renames
+and deletions must not hide a changed non-documentation path. A failed
+classification or document check
 cannot become a successful required gate, and an unexpectedly skipped
 validation job is not passing evidence.
 
