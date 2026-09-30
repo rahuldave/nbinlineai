@@ -50,7 +50,8 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
 - Record reviewed base/head commits and finding dispositions. Self-review and
   passing tests do not replace independent review. Native Gest maintains its
   graphs; do not generate separate graph exports.
-- Static documentation-only PRs must run documentation validation without
+- Static documentation-only PRs must run documentation validation and the
+  Quarto **Documentation site / Render and check Quarto site** PR check without
   package, browser, or runtime CI. Keep required summary checks present and
   passing only after the selected documentation check succeeds. Notebook
   examples, code, scripts, workflows, and lockfiles require full validation.

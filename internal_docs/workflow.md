@@ -143,15 +143,21 @@ and pushes to `main` and the persistent experiment. Both branches require
 Both checks report even when the change qualifies for documentation validation;
 there are no top-level path filters that leave a required check missing.
 
-Only a confidently classified change wholly within Markdown files under
-`internal_docs/` qualifies for the lightweight path. It validates the documents
-and their local links without building the extension, running the browser suite
-or starting the platform matrix. Mixed changes, public docs, examples/notebooks,
-code, dependencies, packaging and workflow changes take the full path. Manual
-runs and uncertain/empty comparisons do not qualify for a documentation skip.
-Renames and deletions must not hide a changed non-documentation path. A failed
-classification or document check cannot become a successful required gate, and
-an unexpectedly skipped validation job is not passing evidence.
+Only a confidently classified change wholly within static documentation paths
+qualifies for the lightweight path: Markdown under `internal_docs/`, root
+`README.md` and `AGENTS.md`, and site sources/assets under `docs/` (including
+Markdown, Quarto configuration, styles and images). It checks internal Markdown
+links without building the extension, running the browser suite or starting
+the platform matrix. The **Documentation site / Render and check Quarto site**
+PR check renders the site and checks its pages, notebook gallery, tool tables
+and local links; require it as the documentation-quality gate for docs-only PRs.
+Executable example notebooks, code, scripts, dependencies, packaging,
+workflows and lockfiles take the full source and runtime path, as do mixed
+changes containing any of them. Manual runs and uncertain/empty comparisons do
+not qualify for a documentation skip. Renames and deletions must not hide a
+changed non-documentation path. A failed classification or document check
+cannot become a successful required gate, and an unexpectedly skipped
+validation job is not passing evidence.
 
 `scripts/docs_ci.py check-docs` checks local filesystem targets of inline and
 reference Markdown links throughout `internal_docs/`, ignoring fenced/inline
