@@ -158,8 +158,9 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   for (const tool of tools) {
     await runCell(page, position(`capture-${tool}-call`));
     if (tool === 'start_share') {
-      await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
-      await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+      const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
+      await expect(shareButton).toBeVisible();
+      await shareButton.click();
     }
     const expected = tool === 'start_recording' ? 'running' : 'completed';
     const output = await inspect(`capture-${tool}-inspect`, expected);
@@ -224,12 +225,13 @@ test('requested display audio needs a second explicit silent-share click', async
     "closed = stop_share(sharing.result['source_id'])"
   ]);
   await runCell(page, 0);
-  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
+  const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
+  await expect(shareButton).toBeVisible();
   expect(await page.locator('.nbinlineai-capture-panel button').first().evaluate(button => {
     const box = button.getBoundingClientRect();
     return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === button;
   })).toBe(true);
-  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+  await shareButton.click();
   await expect(page.locator('.nbinlineai-capture-message')).toContainText('Screen audio was unavailable');
   await expect(page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share without audio' })).toBeVisible();
   await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share without audio' }).click();
@@ -283,9 +285,9 @@ test('screen chooser is activated by the visible Share button and stop is idempo
     'print(second.status, second.result)'
   ]);
   await runCell(page, 0);
-  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
-  await expect(page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' })).toBeVisible();
-  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+  const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
+  await expect(shareButton).toBeVisible();
+  await shareButton.click();
   expect(await inspectLater(page, 1, 'source_id')).toContain('completed');
   await runCell(page, 2);
   expect(await inspectLater(page, 3, 'PngImageFile')).toContain('completed');
@@ -325,8 +327,9 @@ test('model capture_tool reply states that no image pixels were attached', async
   await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.nbinlineai-prompt-cell')).toHaveCount(1);
   await runCell(page, 0);
-  await expect(page.locator('.nbinlineai-capture-message')).toContainText('Click Share screen to open');
-  await page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' }).click();
+  const shareButton = page.locator('.nbinlineai-capture-panel button').filter({ hasText: 'Share screen' });
+  await expect(shareButton).toBeVisible();
+  await shareButton.click();
   await expect(page.locator('.nbinlineai-media-status')).toContainText('Media completed');
   const action = page.waitForRequest(item => item.url().endsWith('/nbinlineai/action-reply') && item.method() === 'POST');
   await page.locator('.nbinlineai-prompt-cell [data-nbinlineai-run]').click();

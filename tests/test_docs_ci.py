@@ -1,4 +1,4 @@
-"""Focused checks for CI's conservative internal-doc routing."""
+"""Focused checks for CI's conservative static-documentation routing."""
 
 import importlib.util
 import subprocess
@@ -61,6 +61,62 @@ def test_classifier_boundaries(tmp_path, monkeypatch):
     workflow.write_text("name: changed\n")
     workflow_head = commit(tmp_path, "workflow")
     assert not docs_ci.docs_only(symlink_head, workflow_head)
+
+
+def test_static_documentation_routes_to_docs_validation(tmp_path, monkeypatch):
+    git(tmp_path, "init")
+    (tmp_path / "docs" / "images").mkdir(parents=True)
+    (tmp_path / "docs" / "assets" / "css").mkdir(parents=True)
+    (tmp_path / "internal_docs").mkdir()
+    files = {
+        "README.md": "readme\n",
+        "AGENTS.md": "agents\n",
+        "internal_docs/workflow.md": "workflow\n",
+        "docs/examples.md": "examples\n",
+        "docs/tools.md": "tools\n",
+        "docs/_quarto.yml": "project: website\n",
+        "docs/.nojekyll": "",
+        "docs/images/overview.png": "image\n",
+        "docs/assets/css/site.css": "body {}\n",
+    }
+    for name, content in files.items():
+        (tmp_path / name).write_text(content)
+    base = commit(tmp_path, "base")
+    monkeypatch.chdir(tmp_path)
+    for name in files:
+        (tmp_path / name).write_text(files[name] + "update\n")
+    head = commit(tmp_path, "static docs")
+    assert docs_ci.docs_only(base, head)
+
+    git(tmp_path, "mv", "docs/examples.md", "docs/examples-renamed.md")
+    renamed = commit(tmp_path, "static doc rename")
+    assert docs_ci.docs_only(head, renamed)
+    (tmp_path / "examples").mkdir()
+    (tmp_path / "examples" / "notebook.ipynb").write_text("{}\n")
+    notebook = commit(tmp_path, "notebook example")
+    assert not docs_ci.docs_only(renamed, notebook)
+    assert not docs_ci.docs_only(base, notebook)  # Mixed static docs and notebook changes.
+
+
+def test_classifier_rejects_nonstatic_paths_and_renames(tmp_path, monkeypatch):
+    git(tmp_path, "init")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("guide\n")
+    base = commit(tmp_path, "base")
+    monkeypatch.chdir(tmp_path)
+    git(tmp_path, "mv", "docs/guide.md", "guide.md")
+    moved = commit(tmp_path, "moved outside docs")
+    assert not docs_ci.docs_only(base, moved)
+    git(tmp_path, "mv", "guide.md", "docs/guide.md")
+    restored = commit(tmp_path, "restored")
+    assert not docs_ci.docs_only(moved, restored)
+    for name in ("docs/example.ipynb", "docs/render.py", "uv.lock", "scripts/check_docs.py"):
+        destination = tmp_path / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text("changed\n")
+        head = commit(tmp_path, name)
+        assert not docs_ci.docs_only(restored, head)
+        restored = head
 
 
 def test_internal_links_ignore_code_and_allow_fragments(tmp_path):

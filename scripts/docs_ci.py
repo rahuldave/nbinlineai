@@ -1,4 +1,4 @@
-"""Conservative CI routing and local-link validation for internal Markdown."""
+"""Conservative CI routing for static docs and internal Markdown links."""
 
 import argparse
 import os
@@ -15,14 +15,24 @@ def _git(*args: str) -> bytes:
 
 def _safe_doc(path: str) -> bool:
     parts = PurePosixPath(path).parts
-    return (
-        len(parts) >= 2
-        and parts[0] == "internal_docs"
-        and parts[-1].endswith(".md")
-        and all(part not in (".", "..") for part in parts)
-        and not path.startswith("/")
-        and "\\" not in path
-    )
+    if (
+        not parts
+        or any(part in ("", ".", "..") for part in path.split("/"))
+        or path.startswith("/")
+        or "\\" in path
+    ):
+        return False
+    if len(parts) == 1:
+        return parts[0] in ("README.md", "AGENTS.md")
+    if parts[0] == "internal_docs":
+        return parts[-1].endswith(".md")
+    if parts[0] == "docs":
+        return (len(parts) == 2 and parts[-1] in ("_quarto.yml", ".nojekyll")) or (
+            PurePosixPath(path).suffix.lower() in {
+                ".md", ".css", ".js", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"
+            }
+        )
+    return False
 
 
 def docs_only(base: str, head: str) -> bool:
