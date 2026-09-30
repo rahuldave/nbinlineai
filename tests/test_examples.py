@@ -8,10 +8,12 @@ import re
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 import nbformat
 import pytest
 from jupyter_client import AsyncKernelManager
+from PIL import Image as PILImage
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = [
@@ -41,6 +43,35 @@ EXAMPLES = [
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
 ]
+
+
+def test_capture_receipt_helper_redacts_identifiers_on_rerun(capsys: pytest.CaptureFixture[str]) -> None:
+    notebook = json.loads((ROOT / "examples" / "browser-media-capture.ipynb").read_text())
+    setup = next(cell for cell in notebook["cells"] if cell["id"] == "capture-setup")
+    source = "".join(setup["source"])
+    functions = [node for node in ast.parse(source).body
+                 if isinstance(node, ast.FunctionDef)
+                 and node.name in {"public_media_result", "show_media_receipt"}]
+    namespace = {"PILImage": PILImage}
+    exec(compile(ast.Module(body=functions, type_ignores=[]), "capture-setup", "exec"), namespace)  # noqa: S102
+    result = {
+        "source_id": "private-source-123", "width": 640,
+        "nested": [{"deviceId": "private-device-456", "group_id": "private-group-789",
+                    "label": "private-room-name", "media": b"private-pixels"}],
+    }
+    receipt = SimpleNamespace(status="completed", error=None, result=result)
+    namespace["show_media_receipt"]("start_camera", receipt)
+    displayed = capsys.readouterr().out
+    assert "start_camera completed None" in displayed
+    assert "'width': 640" in displayed
+    assert displayed.count("[withheld]") == 4
+    assert "[14 media bytes withheld]" in displayed
+    for private in ("private-source-123", "private-device-456", "private-group-789",
+                    "private-room-name", "private-pixels"):
+        assert private not in displayed
+    assert result["source_id"] == "private-source-123"
+
+
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
 HEADLESS_UI_CELLS = {
     ("live-variables-and-tools.ipynb", "live-insert-tools-optional"):

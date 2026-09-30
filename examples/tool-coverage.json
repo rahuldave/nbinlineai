@@ -1205,7 +1205,7 @@
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint. On 2026-09-29 a separate direct Python run of this exact public notebook in isolated Chrome/JupyterLab with a real camera reached a completed later receipt; the camera was stopped and managed captures were released. The saved example withholds image/video bytes and device IDs.",
     "receipt_inspect_cell": "capture-start_camera-inspect",
     "receipt_variable": "camera",
     "expected_behavior": "Open a notebook camera preview, optionally including microphone audio.",
@@ -1217,14 +1217,6 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-workflow"
-    },
-    "execution_deferral": {
-      "modes": [
-        "normal"
-      ],
-      "reason": "start_camera has a saved, observed AI call that acquired the real camera in Chrome. The separate direct camera call in the notebook remains unrun because its earlier browser permission attempt expired.",
-      "authorized_on": "2026-09-29",
-      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "start_microphone": {
@@ -1261,7 +1253,7 @@
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint. On 2026-09-29 a separate direct Python run of this exact public notebook in isolated Chrome/JupyterLab with a real camera reached a completed later receipt; the camera was stopped and managed captures were released. The saved example withholds image/video bytes and device IDs.",
     "receipt_inspect_cell": "capture-capture_camera-inspect",
     "receipt_variable": "still",
     "expected_behavior": "Capture a still from an owned camera, optionally saving it locally.",
@@ -1273,14 +1265,6 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-still"
-    },
-    "execution_deferral": {
-      "modes": [
-        "normal"
-      ],
-      "reason": "capture_camera has a saved, observed AI call and completed status for a real 640×480 camera still in Chrome. The separate direct camera call in the notebook remains unrun.",
-      "authorized_on": "2026-09-29",
-      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "stop_source": {
@@ -1413,7 +1397,7 @@
       "unit": "tests/test_browser_capture_tools.py",
       "browser": "tests/e2e/browser-media-capture.spec.ts"
     },
-    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint.",
+    "checkpoint_evidence": "At the earlier deterministic browser checkpoint, the exact public 17-tool capture notebook completed in isolated Chromium JupyterLab/kernel E2E; fixtures exercised callable receipts and later inspection cells. Real camera, microphone, and display hardware, branded browsers, and paid providers were not tested at that checkpoint. On 2026-09-29 a separate direct Python run of this exact public notebook in isolated Chrome/JupyterLab with a real camera reached a completed later receipt; the camera was stopped and managed captures were released. The saved example withholds image/video bytes and device IDs.",
     "receipt_inspect_cell": "capture-record_camera-inspect",
     "receipt_variable": "camera_clip",
     "expected_behavior": "Open, record, and close a camera owned by this one operation.",
@@ -1425,14 +1409,6 @@
     "ai_example": {
       "notebook": "browser-media-capture.ipynb",
       "cell_id": "capture-ai-camera-clip"
-    },
-    "execution_deferral": {
-      "modes": [
-        "normal"
-      ],
-      "reason": "record_camera has a saved, observed AI call and completed status for a real five-second camera clip in Chrome. The separate direct camera call in the notebook remains unrun.",
-      "authorized_on": "2026-09-29",
-      "evidence_ref": "internal_docs/worked_notebooks_run.md#camera"
     }
   },
   "record_microphone": {

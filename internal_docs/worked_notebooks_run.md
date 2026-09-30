@@ -37,10 +37,17 @@ AI camera calls ran in the user's Chrome after camera permission was granted:
 `capture_camera` produced a 640×480 PNG, and `record_camera(audio=False,
 duration=5)` produced a five-second VP9/WebM clip. Later status answers verify
 each result. Camera image and video bytes, microphone bytes, and device IDs are
-omitted from the public notebook. The three **direct Python** camera cells
-remain runnable but have no saved completed execution; the strict checker
-records only those three explicit deferrals. An earlier permission attempt in
-the in-app browser expired and does not count as camera success.
+omitted from the public notebook. A separate direct Python run of this exact
+notebook used the owned isolated JupyterLab server on port 8897 and installed
+Chrome with the real camera. Its saved call and later inspection cells now
+show `start_camera` completed with a 640×480 source, `capture_camera` completed
+with a 640×480 PNG, and `record_camera(audio=False, duration=5)` completed
+with a five-second VP9/WebM clip of 1,479,368 bytes. The later cleanup
+receipt confirms the camera stopped, and both managed captures returned
+`released: True`. The public outputs retain these summaries and direct-call
+attestations, withhold camera pixels, encoded video, and source/device IDs,
+and use zero execution deferrals. The earlier in-app-browser permission attempt
+expired and does not count as camera success.
 
 The shared recorder was also exercised through AI on a generated, silent 64×32
 canvas source. The first recording reached `paused` after `pause_recording`; a
