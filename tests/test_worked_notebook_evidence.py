@@ -78,124 +78,38 @@ def _check(path: Path, *, strict: bool = True) -> list[str]:
     return validate_examples(path, require_executed=strict, public_tools={"example_tool"})
 
 
-def _camera_fixture(tmp_path: Path, name: str = "start_camera") -> Path:
-    examples = tmp_path / "examples"
-    examples.mkdir()
-    _fixture(examples)
+@pytest.mark.parametrize("name", ["start_camera", "capture_camera", "record_camera"])
+def test_camera_calls_require_direct_execution(tmp_path: Path, name: str) -> None:
+    examples = _fixture(tmp_path)
     coverage_path = examples / "tool-coverage.json"
     rows = json.loads(coverage_path.read_text(encoding="utf-8"))
     rows[name] = rows.pop("example_tool")
-    rows[name]["execution_deferral"] = {
-        "modes": ["normal"],
-        "reason": f"{name} has an observed AI camera run; its separate direct camera call has not run.",
-        "authorized_on": "2026-09-29",
-        "evidence_ref": "internal_docs/worked_notebooks_run.md#camera",
-    }
     coverage_path.write_text(json.dumps(rows), encoding="utf-8")
     notebook_path = examples / "example.ipynb"
-    notebook_path.write_text(notebook_path.read_text(encoding="utf-8").replace("example_tool", name),
-                             encoding="utf-8")
-    run_log = tmp_path / "internal_docs" / "worked_notebooks_run.md"
-    run_log.parent.mkdir()
-    run_log.write_text("# Worked runs\n\n## Camera\n\nAI acquired a camera; direct call unrun.\n",
-                       encoding="utf-8")
-    return examples
+    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+    notebook_path.write_text(json.dumps(notebook).replace("example_tool", name), encoding="utf-8")
+    assert validate_examples(examples, require_executed=True, public_tools={name}) == []
+    assert execution_deferral_summary(examples) == "0 execution deferrals"
 
-
-@pytest.mark.parametrize("name", ["start_camera", "capture_camera", "record_camera"])
-def test_camera_deferral_is_normal_only_and_requires_observed_ai(tmp_path: Path, name: str) -> None:
-    examples = _camera_fixture(tmp_path, name=name)
-    notebook_path = examples / "example.ipynb"
     notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
     notebook["cells"][0]["execution_count"] = None
     notebook["cells"][0]["metadata"]["nbinlineaiWorkedDirectCalls"] = []
     notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert validate_examples(examples, require_executed=True, public_tools={name}) == []
-    assert execution_deferral_summary(examples) == (
-        f"1 camera execution deferrals (normal only): {name}"
-    )
-
-    notebook["cells"][2]["metadata"]["nbinlineai"]["status"] = "failed"
-    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert "expected one completed" in "\n".join(
-        validate_examples(examples, require_executed=True, public_tools={name})
-    )
-    notebook["cells"][2]["metadata"]["nbinlineai"]["status"] = "done"
-    notebook["cells"][3]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"] = []
-    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert "no observed live call" in "\n".join(
-        validate_examples(examples, require_executed=True, public_tools={name})
-    )
-    notebook["cells"][3]["metadata"]["nbinlineaiWorkedEvidence"]["observedTools"] = [{
-        "name": name, "resultState": "completed", "frontendAction": True,
-        "operationId": "op-1",
-    }]
-
-    notebook["cells"][0]["source"] = f"print('{name}()')"
-    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert "normal Python example does not call" in "\n".join(
-        validate_examples(examples, require_executed=True, public_tools={name})
-    )
-    notebook["cells"][0]["source"] = f"print({name}())"
-    notebook["cells"][1]["source"] = f"Use {name} without a declaration."
-    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    assert "does not name and offer" in "\n".join(
+    assert "normal Python call was not executed" in "\n".join(
         validate_examples(examples, require_executed=True, public_tools={name})
     )
 
 
-def test_camera_deferral_rejects_broader_or_unevidenced_waivers(tmp_path: Path) -> None:
-    examples = _camera_fixture(tmp_path)
-    coverage_path = examples / "tool-coverage.json"
-    original = json.loads(coverage_path.read_text(encoding="utf-8"))
-    bad_values = [
-        ("modes", ["normal", "ai", "notebook"]),
-        ("modes", ["normal", "ai"]),
-        ("authorized_on", "2026-09-30"),
-        ("evidence_ref", "https://example.org/camera"),
-        ("reason", "camera unavailable"),
-    ]
-    for key, value in bad_values:
-        rows = json.loads(json.dumps(original))
-        rows["start_camera"]["execution_deferral"][key] = value
-        coverage_path.write_text(json.dumps(rows), encoding="utf-8")
-        assert "start_camera: camera execution deferral" in "\n".join(
-            validate_examples(examples, require_executed=True, public_tools={"start_camera"})
-        ), (key, value)
-    coverage_path.write_text(json.dumps(original), encoding="utf-8")
-    run_log = tmp_path / "internal_docs" / "worked_notebooks_run.md"
-    run_log.write_text("# Worked runs\n\n## Microphone\n", encoding="utf-8")
-    assert "needs the run log's Camera section" in "\n".join(
-        validate_examples(examples, require_executed=True, public_tools={"start_camera"})
-    )
-
-
-def test_non_camera_tool_cannot_use_camera_deferral(tmp_path: Path) -> None:
-    examples = _camera_fixture(tmp_path, name="example_tool")
-    assert "limited to the three camera-only tools" in "\n".join(
-        validate_examples(examples, require_executed=True, public_tools={"example_tool"})
-    )
-
-
-def test_camera_deferral_does_not_waive_another_tools_evidence(tmp_path: Path) -> None:
-    examples = _camera_fixture(tmp_path)
+def test_execution_deferral_is_rejected_for_any_tool(tmp_path: Path) -> None:
+    examples = _fixture(tmp_path)
     coverage_path = examples / "tool-coverage.json"
     rows = json.loads(coverage_path.read_text(encoding="utf-8"))
-    rows["example_tool"] = {
-        "normal_example": {"notebook": "example.ipynb", "cell_id": "normal", "mode": "python"},
-        "ai_example": {"notebook": "example.ipynb", "cell_id": "question"},
-    }
+    rows["example_tool"]["execution_deferral"] = {"modes": ["normal"]}
     coverage_path.write_text(json.dumps(rows), encoding="utf-8")
-    notebook_path = examples / "example.ipynb"
-    notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
-    notebook["cells"][0]["source"] = "print(start_camera()); print(example_tool())"
-    notebook["cells"][0]["metadata"]["nbinlineaiWorkedDirectCalls"] = []
-    notebook["cells"][1]["source"] = "Use &`start_camera` and &`example_tool` and report both results."
-    notebook_path.write_text(json.dumps(notebook), encoding="utf-8")
-    errors = validate_examples(examples, require_executed=True,
-                               public_tools={"start_camera", "example_tool"})
-    assert not any(error.startswith("start_camera:") for error in errors)
-    assert any(error.startswith("example_tool:") and "observed" in error for error in errors)
+    assert "execution deferrals are no longer accepted" in "\n".join(
+        validate_examples(examples, require_executed=True, public_tools={"example_tool"})
+    )
+    assert execution_deferral_summary(examples) == "1 execution deferrals"
 
 
 def test_completed_live_call_and_normal_python_execution_are_required(tmp_path: Path) -> None:

@@ -20,22 +20,25 @@ later terminal browser receipts, and frontend-only normal examples to observed
 JupyterLab actions. The three setup helpers have real normal evidence and
 explicit AI exceptions. The canonical gallery contains 24 top-level notebooks.
 
-At `6ac3dc5`, the unfiltered strict gate passed locally:
+At `6ac3dc5`, the earlier unfiltered strict gate passed locally with three
+camera deferrals. The separate 2026-09-29 direct camera run now supplies those
+missing saved results; the updated strict gate passed locally with zero
+deferrals:
 
 ```text
 .venv/bin/python scripts/check_worked_evidence.py --require-executed
-Worked demonstration evidence matches the registered tools; 3 camera execution deferrals (normal only): capture_camera, record_camera, start_camera.
+Worked demonstration evidence matches the registered tools; 0 execution deferrals.
 ```
 
-Those are the **only** execution deferrals. They apply to the direct Python
-normal demonstrations of `start_camera`, `capture_camera`, and `record_camera`.
-The corresponding concise AI questions were run against the user's real camera
-in Chrome, and later status answers confirmed a source, a 640×480 still, and a
-five-second video. No camera bytes are embedded in the published notebook.
-The deferrals do not cover passive device listing, microphone, screen sharing,
-playback, or any AI mode. The checker also includes a focused guard linking a
-recorder's paused status, resume call, and observed running state to the same
-recording.
+The direct Python `start_camera`, `capture_camera`, and `record_camera` cells
+were then run in an isolated Chrome/JupyterLab session against the real camera.
+Later receipts confirmed a 640×480 source, a 640×480 PNG, and a five-second
+VP9/WebM clip. Camera cleanup stopped the source and released both managed
+captures. The corresponding concise AI questions had independently completed
+on the real camera. No camera bytes or device IDs are embedded in the public
+notebook. The checker rejects any new execution deferral. It also includes a
+focused guard linking a recorder's paused status, resume call, and observed
+running state to the same recording.
 
 The browser-media notebooks retain real microphone clips and audio levels,
 direct and AI screen-sharing/capture, silent-canvas recorder controls, output

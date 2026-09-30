@@ -17,8 +17,6 @@ from typing import Any
 from nbinlineai.tools import TOOL_FUNCTIONS
 
 HELPERS = frozenset({"insert_tools", "tool_catalog", "tools_markdown"})
-CAMERA_DEFERRABLE = frozenset({"start_camera", "capture_camera", "record_camera"})
-CAMERA_EVIDENCE_REF = "internal_docs/worked_notebooks_run.md#camera"
 TERMINAL_SUCCESS = frozenset({"completed"})
 CONTROL_TARGET_STATES = {
     "pause_recording": frozenset({"paused"}),
@@ -216,37 +214,17 @@ def _observed_resume_transition(
     )
 
 
-def _execution_deferral(name: str, entry: dict[str, Any], examples_dir: Path) -> frozenset[str]:
-    """Allow only direct camera calls to await a separate permission-backed run."""
-    deferral = entry.get("execution_deferral")
-    if deferral is None:
-        return frozenset()
-    if name not in CAMERA_DEFERRABLE or not isinstance(deferral, dict):
-        raise ValueError("execution deferral is limited to the three camera-only tools")
-    if set(deferral) != {"modes", "reason", "authorized_on", "evidence_ref"}:
-        raise ValueError("camera execution deferral has missing or extra fields")
-    if deferral["modes"] != ["normal"]:
-        raise ValueError("camera execution deferral must name normal mode only")
-    reason = deferral["reason"]
-    if (not isinstance(reason, str) or not 30 <= len(reason.strip()) <= 500
-            or name not in reason or "camera" not in reason.lower()):
-        raise ValueError("camera execution deferral needs a specific tool reason")
-    if (deferral["authorized_on"] != "2026-09-29"
-            or deferral["evidence_ref"] != CAMERA_EVIDENCE_REF):
-        raise ValueError("camera execution deferral needs the approved date and local evidence")
-    log = examples_dir.parent / "internal_docs" / "worked_notebooks_run.md"
-    if not log.is_file() or not re.search(r"(?im)^#{1,6}\s+Camera\s*$", log.read_text(encoding="utf-8")):
-        raise ValueError("camera execution deferral needs the run log's Camera section")
-    return frozenset({"normal"})
+def _reject_execution_deferral(entry: dict[str, Any]) -> None:
+    """Reject stale waivers now that every worked tool has direct evidence."""
+    if "execution_deferral" in entry:
+        raise ValueError("execution deferrals are no longer accepted")
 
 
 def execution_deferral_summary(examples_dir: Path) -> str:
-    """Make every authorized exception visible in CLI and acceptance output."""
+    """Make any stale exception visible in CLI and acceptance output."""
     coverage = json.loads((examples_dir / "tool-coverage.json").read_text(encoding="utf-8"))
-    names = sorted(name for name, entry in coverage.items() if entry.get("execution_deferral") is not None)
-    if not names:
-        return "0 execution deferrals"
-    return f"{len(names)} camera execution deferrals (normal only): {', '.join(names)}"
+    count = sum("execution_deferral" in entry for entry in coverage.values())
+    return f"{count} execution deferrals"
 
 
 def validate_examples(
@@ -284,7 +262,7 @@ def validate_examples(
     for name in sorted(expected & set(coverage)):
         entry = coverage[name]
         try:
-            deferred = _execution_deferral(name, entry, examples_dir)
+            _reject_execution_deferral(entry)
             normal = entry["normal_example"]
             if not isinstance(normal, dict):
                 raise TypeError("missing normal_example")
@@ -293,8 +271,8 @@ def validate_examples(
                 or (isinstance(entry.get("ai_example"), dict)
                     and entry["ai_example"].get("notebook") == only_notebook)
             )
-            check_normal = check_executed and "normal" not in deferred
-            check_ai = check_executed and "ai" not in deferred
+            check_normal = check_executed
+            check_ai = check_executed
             normal_cells = cells_for(normal["notebook"])
             normal_index, normal_cell = _cell(normal_cells, normal["cell_id"])
             mode = normal["mode"]
