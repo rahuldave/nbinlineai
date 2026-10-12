@@ -8,6 +8,8 @@ Start with a [complete application](#complete-applications) to see how tools fit
 
 The [application guide](tool-applications.md) explains receipts, real Python values, and staged LLM conversations. The [notebook audit](example-audit.md) reviews all 25 original notebooks, including the support fixture, and distinguishes completed demonstrations from exercises and remaining steps. Every original notebook is retained.
 
+This catalog accounts for **all 30 notebooks**: five complete applications, twelve introductory walkthroughs, twelve tool-catalog notebooks, and one supporting data notebook. The 29 gallery pages link to their editable `.ipynb` source for download; the supporting fixture is linked separately below.
+
 The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; a question without a following answer is ready for your own run. Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
 
 ## Work through a notebook
@@ -65,7 +67,7 @@ These notebooks develop a task across several cells. The tools column names the 
 | [Project tools](https://rahuldave.com/nbinlineai/notebooks/project-tools.html) | `search_files`, `search_notebooks`, `source_doc`, `document_outline`, `read_document_section`, `notebook_outline`, `file_strs_replace`, `view_file_hashes`, `file_replace_checked`; `tool_catalog` setup helper. | The sample traces a result across code, a saved notebook, and Markdown, then makes checked edits. Adapt it to audit a reproducibility package, correct a parameter in a shared analysis after review, or assemble evidence for a methods report. |
 | [Image from output to question](https://rahuldave.com/nbinlineai/notebooks/browser-media-integration.html) | `list_outputs`, `export_output`, `open_media`, `close_media`, `crop_image`, `save_media`, `attach_media`, `operation_status`, `release_media`. | Saved receipts show the tiny output image exported, cropped, and saved; the attachment and visual question are left for you to run. Adapt the route to ask about a plot anomaly, examine a specimen detail, or prepare a report figure, explicitly confirming the image before the visual question. |
 | [Jupyter AI and nbinlineai together](https://rahuldave.com/nbinlineai/notebooks/jupyter-ai-and-nbinlineai.html) | `insert_code`; Jupyter AI chat is a separate UI. | The notebook supplies a flower-visit analysis, inline learning questions, and optional prompts for a separate Jupyter AI chat; it does not include a saved chat result. Adapt the division to review a data-cleaning plan in chat, explain a nearby graph inline, or request an unexecuted validation draft for inspection. |
-| [Codex ACP worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) | No bundled tools; optional Codex ACP persona in Jupyter AI chat. | The saved exercise retains a revenue-summary bug and leaves the optional agent-chat and inline explanation questions for you to run. Use them to examine zero versus missing values; adapt the pattern to a finance training exercise, a parser bug lesson, or a documented code-review discussion after making the repair yourself. |
+| [Codex ACP worked example](https://rahuldave.com/nbinlineai/notebooks/codex-acp-worked-example.html) | No bundled tools; optional Codex ACP persona in Jupyter AI chat. | The saved exercise retains a revenue-summary bug and includes inline explanation and learning answers about zero versus missing values. The optional agent-chat repair remains an exercise; rerun setup before trying fresh inline questions. Adapt the pattern to a finance training exercise, a parser bug lesson, or a documented code-review discussion after making the repair yourself. |
 
 Jupyter AI's Codex sign-in is separate from nbinlineai's model connection. The combined-extension notebooks do not transfer chat history into an inline question automatically.
 
@@ -100,5 +102,11 @@ For the generated-file foundation, playback, and attachment notebooks, start Jup
 | [Attach an image](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) | `attach_media`, `operation_status`. | The sample confirms one generated still for one identified AI question. Prepare your own chart, diagram, specimen photo, or extracted video frame first; after explicit **Attach image** confirmation, ask about a trend or visible feature and use the answer in a reviewed report or lesson. |
 
 The media guides describe formats, limits, and cleanup: [capture](browser-media-capture.md), [outputs](browser-media-outputs.md), [playback](browser-media-playback.md), [transforms](browser-media-transforms.md), and [attachment](browser-media-attachment.md). `attach_media` confirmation alone does not run a question or call the provider; run the question when you are ready. Real device steps use the media you explicitly choose to share.
+
+## Supporting data notebook
+
+| Notebook | Used by | Purpose |
+| --- | --- | --- |
+| [Ecosystem lesson (`data/ecosystem-lesson.ipynb`)](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb) | Bundled tools and other saved-notebook search exercises | Four source-only cells with fabricated lichen observations. Keep `data/` beside the examples that read it. This is a search fixture, not an executed ecological analysis or a separate gallery lesson. |
 
 [User guide](user-guide.md) · [Tool catalog](tools.md) · [FAQ](faq.md)
