@@ -4,7 +4,9 @@ title: Notebook examples
 
 # Notebook examples
 
-Choose a [walkthrough](#walkthroughs) to follow a task or a [Tool catalog notebook](#tool-catalog-notebooks) to try a specific function. Open its editable `.ipynb` file in JupyterLab and make a copy before changing it. The notebooks use disposable inputs and put setup before the calls that depend on it. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
+Start with a [complete application](#complete-applications) to see how tools fit together, choose a [walkthrough](#walkthroughs) for an introductory lesson, or use a [Tool catalog notebook](#tool-catalog-notebooks) to try a specific function. Open its editable `.ipynb` file in JupyterLab and make a copy before changing it. The notebooks use disposable inputs and put setup before the calls that depend on it. The [Tool catalog](tools.md) links each function to its exact demonstration cell.
+
+The [application guide](tool-applications.md) explains receipts, real Python values, and staged LLM conversations. The [notebook audit](example-audit.md) reviews all 25 original notebooks, including the support fixture, and distinguishes completed demonstrations from exercises and remaining steps. Every original notebook is retained.
 
 The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; a question without a following answer is ready for your own run. Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
 
@@ -31,6 +33,20 @@ print(tools_markdown(["show_doc"]))
 Paste the printed reference into an ordinary Markdown cell with **Tools** enabled. A later question can ask: “Use `show_doc` to explain the `encoding` parameter of `Path.read_text` and give one short example.” The declaration offers the callable; the question tells the model when to use it. An imported name alone is not offered. Keep the question's total offered tool and variable names within 20. [Variables and tools](manual/variables-and-tools.md) covers inheritance and live values.
 
 `insert_tools(["show_doc"])` can insert an editable declaration below its Python call. It returns an asynchronous receipt and does not call a model; inspect the receipt later and save the notebook to keep the new note. The [live variables notebook](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html) demonstrates this optional helper.
+
+## Complete applications
+
+These five new notebooks are ready-to-run tutorials with empty outputs and AI answers. Each has a Python route and a staged conversation showing how to offer tools, check results, and continue. Run interactive browser stages individually. The final artifacts are generated when you run the notebook; they are not claimed as saved evidence here.
+
+| Notebook | What you do | What you keep |
+| --- | --- | --- |
+| [Receipts to real Python values](https://rahuldave.com/nbinlineai/notebooks/application-receipts-to-values.html) | Compare ordinary tool values with browser receipts; turn a completed capture into a usable Pillow image or encoded clip; check AI operation snapshots | A reusable pattern for ordinary Python processing |
+| [Presenter kit](https://rahuldave.com/nbinlineai/notebooks/application-presenter-kit.html) | Capture a portrait, talking-head video with sound, screen still/video, and microphone narration; add written notes and assemble slides | A local HTML presentation with the captured media |
+| [Screen bug report](https://rahuldave.com/nbinlineai/notebooks/application-screen-bug-report.html) | Record a chosen screen/window, capture and mark a still, explicitly attach it for AI review, and add reproduction steps | A local evidence report with image/video assets |
+| [Data investigation](https://rahuldave.com/nbinlineai/notebooks/application-data-investigation.html) | Investigate a small fabricated dataset with live values and tools, check an anomaly, and write the findings | An analysis report with visual evidence |
+| [Project handoff](https://rahuldave.com/nbinlineai/notebooks/application-project-handoff.html) | Trace a method across files and a saved notebook, repair a discrepancy with checked edits, and verify the result | A repaired disposable project and handoff report |
+
+The presenter kit embeds separate camera and screen assets; it does not mix them into one video. Recorded speech is available for human playback, while authored notes provide the presentation text. Bundled tools do not transcribe recordings. To have a model inspect a still, confirm `attach_media` for that specific question and then run it. See the [application guide](tool-applications.md) for these boundaries.
 
 ## Walkthroughs
 

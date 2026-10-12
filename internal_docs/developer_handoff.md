@@ -1,5 +1,14 @@
 # Developer handoff
 
+**2026-10-12 application examples (topic source, pending PR):** Five new
+application notebooks join receipts, capture, recordings, ordinary Python and
+staged AI conversations into usable results. All 25 original notebooks were
+reviewed cell by cell and preserved. See the [application handoff](application_examples_handoff.md),
+[public audit](../docs/example-audit.md), and [application guide](../docs/tool-applications.md).
+New tutorials have no saved device/model runs. The presentation is HTML with
+separate assets and authored notes; bundled tools do not transcribe or mix video.
+This changes examples/docs only; PyPI remains 0.1.15.
+
 **2026-09-29 worked notebooks and guides (draft source):** The
 [acceptance record](worked_notebooks_acceptance.md) follows draft PR #35 from
 `main` `22b0a83`: ten canonical nonmedia notebooks currently contain genuine

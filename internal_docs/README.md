@@ -104,3 +104,9 @@ The brief and task prompt preserve the original design contract. Context selecti
 | [Response style followups](response_style_followups.md) | Historical 0.1.4 design; subsequent releases completed Keep defaults, native Run All, examples and tools. |
 
 Public documentation: the [manual index](../docs/user-guide.md) links eight chapters, including [Context selection](../docs/manual/context-selection.md); the [FAQ](../docs/faq.md), [tools reference](../docs/tools.md), [examples](../docs/examples.md), [architecture](../docs/architecture.md), and [development guide](../docs/development.md) remain separate. The split manual and refreshed screenshots are included in 0.1.14 and verified on the website. Update public instructions whenever a shipped feature changes; keep future proposals clearly labeled here.
+
+The [application examples handoff](application_examples_handoff.md) records the
+pending source addition of five complete application tutorials and a read-only
+audit of all 25 original notebooks. It distinguishes actual Python values from
+browser receipts and AI snapshots. It is not a package release or new live-device
+acceptance record.
