@@ -30,7 +30,9 @@ Three controls serve different purposes:
 
 Context describes notebook text; a live value describes the kernel now. They can differ if you edited code without rerunning it. Tool declarations remain available even when the note declaring them is excluded from text context. Read [Context](manual/context-selection.md) and [Live values and tools](manual/variables-and-tools.md) when these distinctions matter.
 
-The [Tool catalog](tools.md) gives each tool a normal-use example and an AI example. Most tools can be called directly in Python. Live editor tools such as `insert_code` are called by the AI through JupyterLab; their normal-use comparisons show the corresponding manual edit. The [notebook gallery](examples.md) groups short walkthroughs separately from the complete tool catalog notebooks.
+The [Tool catalog](tools.md) gives each tool a normal-use example and an AI example. Most tools can be called directly in Python. Live editor tools such as `insert_code` are called by the AI through JupyterLab; their normal-use comparisons show the corresponding manual edit. The [complete notebook catalog](examples.md) accounts for every example and supporting notebook, with links to readable pages and editable sources.
+
+To see several tools work together, start with the [five complete application notebooks](examples.md#complete-applications). The [application guide](tool-applications.md) explains how captures become Python values and how a staged AI conversation creates a presentation or report. The [notebook audit](example-audit.md) describes each original notebook's actual outcomes and limitations.
 
 For a first worked tool call, open [Live Python inspection](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-inspection.html). Compare the saved Python result with the AI question, its answer, and the observed-tool table beside it. Then open a copy of the notebook and run its setup before trying the question yourself. The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) uses the same pattern for an operation that returns a receipt.
 

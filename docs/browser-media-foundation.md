@@ -6,6 +6,8 @@ title: Browser media receipts
 
 Browser work can take longer than a notebook cell: you may need to allow a device, choose a window, finish a recording, or wait for a file save. A direct Python call therefore returns a **`BrowserReceipt` promptly**. It is a live Python object whose fields can change after the cell ends. Printing it in the calling cell captures only that moment; it does not wait for a photo, clip, or saved file.
 
+This receipt model applies to direct browser/media calls, not every notebook tool. Python, file, saved-notebook, and web tools usually return ordinary values. Once a browser receipt completes, its `.result` can also be an ordinary image, encoded clip, or control value that you use in Python. Start with [receipts to real values](https://rahuldave.com/nbinlineai/notebooks/application-receipts-to-values.html), then follow the [application guide](tool-applications.md) to combine capture and recording into a presentation or report.
+
 The sequence is:
 
 1. Run the call in an open JupyterLab notebook. Keep the returned receipt in a variable. It may initially say `running` with no `operation_id` yet.
