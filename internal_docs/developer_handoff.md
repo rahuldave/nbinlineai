@@ -1,6 +1,8 @@
 # Developer handoff
 
-**2026-10-12 application examples (topic source, pending PR):** Five new
+**0.1.16 release candidate (prepared, unpublished):** Version metadata is synchronized in the owned main-based release topic. The [adversarial review record](release_0_1_16_review.md) compares the full source change since published 0.1.15 and records unresolved findings, artifact checks and remaining release gates. Merge, tagging and PyPI publication await the user’s decision. The experimental integration branch is outside this release.
+
+**2026-10-12 application examples (main source, PR #43 merged at `4828a79`):** Five new
 application notebooks join receipts, capture, recordings, ordinary Python and
 staged AI conversations into usable results. All 25 original notebooks were
 reviewed cell by cell and preserved. See the [application handoff](application_examples_handoff.md),

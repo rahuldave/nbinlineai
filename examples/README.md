@@ -10,7 +10,7 @@ The new application notebooks are unrun tutorials, with empty outputs ready for 
 - [Data investigation](https://rahuldave.com/nbinlineai/notebooks/application-data-investigation.html): investigate fabricated data with live values, checks, and a written report.
 - [Project handoff](https://rahuldave.com/nbinlineai/notebooks/application-project-handoff.html): compare source with a method note, make a checked repair, verify it, and create a project handoff.
 
-The [application guide](https://rahuldave.com/nbinlineai/tool-applications.html) explains how the pieces fit together. The [audit](https://rahuldave.com/nbinlineai/example-audit.html) reviews all 25 original notebooks; none has been removed. These additions use current Git-source tools. The published PyPI 0.1.15 package does not include the browser-media additions; use a source installation containing them, as described by the media guides.
+The [application guide](https://rahuldave.com/nbinlineai/tool-applications.html) explains how the pieces fit together. The [audit](https://rahuldave.com/nbinlineai/example-audit.html) reviews all 25 original notebooks; none has been removed. The browser-media examples require nbinlineai 0.1.16 or a Git-source installation containing those tools. If 0.1.16 is not yet available from PyPI, use the [main source setup](https://rahuldave.com/nbinlineai/development.html#set-up-from-source); 0.1.15 does not include these additions.
 
 The [complete catalog](https://rahuldave.com/nbinlineai/examples.html) lists all 29 gallery notebooks and the [supporting ecosystem fixture](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb). Each gallery page links its editable notebook source.
 
