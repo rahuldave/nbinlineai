@@ -60,6 +60,56 @@ def _locked(method):
     return call
 
 
+def _mp4_boxes(data: bytes, start: int, end: int):
+    """Walk bounded ISO BMFF boxes, stopping at a malformed boundary."""
+    while start + 8 <= end:
+        size = int.from_bytes(data[start:start + 4], 'big')
+        kind = data[start + 4:start + 8]
+        header = 8
+        if size == 1:
+            if start + 16 > end:
+                return
+            size = int.from_bytes(data[start + 8:start + 16], 'big')
+            header = 16
+        elif size == 0:
+            size = end - start
+        if size < header or size > end - start:
+            return
+        yield kind, start + header, start + size
+        start += size
+
+
+def _saved_media_mime(name: str, data: bytes) -> str:
+    """Recover browser-supported MP4 kinds without trusting OS MIME aliases."""
+    suffix = PurePosixPath(name).suffix.lower()
+    if suffix in {'.m4a', '.mp4'} and len(data) >= 12 and data[4:8] == b'ftyp':
+        audio_track = False
+        for kind, moov_start, moov_end in _mp4_boxes(data, 0, len(data)):
+            if kind != b'moov':
+                continue
+            for child, trak_start, trak_end in _mp4_boxes(data, moov_start, moov_end):
+                if child != b'trak':
+                    continue
+                for section, mdia_start, mdia_end in _mp4_boxes(data, trak_start, trak_end):
+                    if section != b'mdia':
+                        continue
+                    for entry, payload_start, payload_end in _mp4_boxes(data, mdia_start, mdia_end):
+                        if entry != b'hdlr' or payload_end - payload_start < 12:
+                            continue
+                        handler = data[payload_start + 8:payload_start + 12]
+                        if handler == b'vide':
+                            return 'video/mp4'
+                        if handler == b'soun':
+                            audio_track = True
+        if audio_track:
+            return 'audio/mp4'
+    if suffix == '.m4a':
+        return 'audio/mp4'
+    if suffix == '.mp4':
+        return 'video/mp4'
+    return mimetypes.guess_type(name)[0] or 'application/octet-stream'
+
+
 @dataclass(frozen=True)
 class Owner:
     session_id: str
@@ -1214,7 +1264,7 @@ class MediaRegistry:
         actual = hashlib.sha256(data).hexdigest()
         if not secrets.compare_digest(actual, expected):
             raise MediaError('stale_target', 'Saved media hash changed')
-        mime_type = mimetypes.guess_type(posix.name)[0] or 'application/octet-stream'
+        mime_type = _saved_media_mime(posix.name, data)
         return data, mime_type, actual
 
     def save_media(self, owner: Owner, reference: dict[str, Any] | str, save_to: str = 'auto',
