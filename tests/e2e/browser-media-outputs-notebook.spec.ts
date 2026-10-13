@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type Page } from '../support/e2e-fixtures';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 type NotebookCell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 test('the exact outputs example demonstrates and inspects all ten public tools', async ({ page, request }) => {
   test.setTimeout(180_000);
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-outputs.ipynb'), 'utf8'));
+  useOwnedServerRoot(example, 'outputs-setup');
   const cells = example.cells as NotebookCell[];
   const codeCells = cells.filter(cell => cell.cell_type === 'code');
   const codeIds = codeCells.map(cell => cell.id);

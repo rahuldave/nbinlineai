@@ -27,7 +27,7 @@ def _safe_doc(path: str) -> bool:
     if parts[0] == "internal_docs":
         return parts[-1].endswith(".md")
     if parts[0] == "docs":
-        return (len(parts) == 2 and parts[-1] in ("_quarto.yml", ".nojekyll")) or (
+        return (len(parts) == 2 and parts[-1] in ("_smalldocs.yml", ".nojekyll")) or (
             PurePosixPath(path).suffix.lower() in {
                 ".md", ".css", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"
             }

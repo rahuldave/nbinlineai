@@ -146,10 +146,11 @@ there are no top-level path filters that leave a required check missing.
 Only a confidently classified change wholly within static documentation paths
 qualifies for the lightweight path: Markdown under `internal_docs/`, root
 `README.md` and `AGENTS.md`, and site sources/assets under `docs/` (including
-Markdown, Quarto configuration, styles and images). It checks internal Markdown
+Markdown, smalldocs configuration, styles and images). It checks internal Markdown
 links without building the extension, running the browser suite or starting
 the platform matrix. The **Documentation site / Render and check Quarto site**
-PR check renders the site and checks its pages, notebook gallery, tool tables
+PR check keeps its legacy ruleset name but runs smalldocs, with no Quarto binary.
+It renders the site and checks its pages, notebook gallery, tool tables
 and local links; require it as the documentation-quality gate for docs-only PRs.
 Executable example notebooks, JavaScript (including `docs/` assets), code,
 scripts, dependencies, packaging, workflows and lockfiles take the full source

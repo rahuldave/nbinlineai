@@ -14,6 +14,8 @@ uv run --no-sync jlpm test:unit
 uv run --no-sync jlpm build:prod
 uv run --no-sync jupyter-builder develop . --overwrite
 uv run --no-sync jlpm test:e2e
+uv run --no-project --with smalldocs==0.1.5 python scripts/build_docs_site.py
+uv run --no-sync python scripts/check_docs_site.py docs/_site
 ```
 
 The optional live provider smoke makes billable API calls and is not required for every release build. It has already verified the initial OpenAI and Anthropic paths.

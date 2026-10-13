@@ -118,3 +118,50 @@ def test_gallery_requires_notebook_page_and_ai_styling(tmp_path: Path) -> None:
     assert any("missing source notebook download link" in error for error in errors)
     page.write_text('<p>—title: Demo</p>', encoding="utf-8")
     assert any("front matter appears as page text" in error for error in _check(site))
+
+
+def test_notebook_cell_links_code_and_saved_outputs_are_checked(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    notebook = {"cells": [
+        {"cell_type": "markdown", "id": "intro", "metadata": {}, "source": "# Intro"},
+        {"cell_type": "code", "id": "direct-call", "metadata": {}, "source": "print('saved')",
+         "outputs": [{"output_type": "stream", "name": "stdout", "text": "saved\n"}]},
+    ]}
+    (site / "examples" / "demo.ipynb").write_text(json.dumps(notebook), encoding="utf-8")
+    (site / "examples.html").write_text('<a href="notebooks/demo.html">Demo</a>', encoding="utf-8")
+    page = site / "notebooks" / "demo.html"
+    page.parent.mkdir()
+    page.write_text(
+        '<div id="intro"></div><div class="cell-code"></div>'
+        '<a href="https://github.com/rahuldave/nbinlineai/blob/main/examples/demo.ipynb">Download</a>',
+        encoding="utf-8",
+    )
+    errors = _check(site)
+    assert any("missing 1 cell IDs: direct-call" in error for error in errors)
+    assert any("expected 1 saved outputs, found 0" in error for error in errors)
+    page.write_text(
+        '<div id="intro"></div><div id="direct-call" class="cell-code cell-output"></div>'
+        '<a href="https://github.com/rahuldave/nbinlineai/blob/main/examples/demo.ipynb">Download</a>',
+        encoding="utf-8",
+    )
+    assert _check(site) == []
+
+
+def test_supporting_notebook_needs_own_page_and_gallery_link(tmp_path: Path) -> None:
+    site = _site(tmp_path)
+    fixture = site / "examples" / "data" / "ecosystem-lesson.ipynb"
+    fixture.parent.mkdir()
+    fixture.write_text(json.dumps({"cells": []}), encoding="utf-8")
+    errors = _check(site)
+    assert "missing page: notebooks/data/ecosystem-lesson.html" in errors
+    assert any("does not link to support page" in error for error in errors)
+    (site / "examples.html").write_text(
+        '<a href="notebooks/data/ecosystem-lesson.html">Fixture</a>', encoding="utf-8"
+    )
+    page = site / "notebooks" / "data" / "ecosystem-lesson.html"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        '<a href="https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb">Download</a>',
+        encoding="utf-8",
+    )
+    assert _check(site) == []

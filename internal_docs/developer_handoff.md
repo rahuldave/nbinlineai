@@ -1,6 +1,6 @@
 # Developer handoff
 
-**0.1.16 release candidate (prepared, unpublished):** Version metadata is synchronized in the owned main-based release topic. The [adversarial review record](release_0_1_16_review.md) compares the full source change since published 0.1.15 and records unresolved findings, artifact checks and remaining release gates. Merge, tagging and PyPI publication await the user’s decision. The experimental integration branch is outside this release.
+**0.1.16 release candidate (prepared, unpublished):** The owned main-based release topic fixes saved MP4 MIME, six original notebook path mappings, companion archive assertions and generated-cache exclusions. After a successful actual-notebook proof, smalldocs 0.1.5 builds all 30 notebook pages and the Markdown site in pure Python. The [adversarial review record](release_0_1_16_review.md) records first-review findings, repairs, second-review evidence and remaining gates. Merge, tagging and PyPI publication await the user’s decision. The experimental branch is outside this release.
 
 **2026-10-12 application examples (main source, PR #43 merged at `4828a79`):** Five new
 application notebooks join receipts, capture, recordings, ordinary Python and
@@ -462,7 +462,7 @@ Known practical pitfalls:
 
 Keep versions aligned in `pyproject.toml`, `package.json`, `nbinlineai/__init__.py`, lockfiles and rebuilt extension metadata. Use a separate artifact directory per version; strict Twine, archive/credential checks, fresh wheel installation, both extension discovery checks, and public hashes are documented in [releasing](releasing.md). Do not modify immutable uploaded releases. Generated `lib/`, `dist/`, and prebuilt assets are ignored; build them, do not hand-edit them.
 
-GitHub Pages deploys the rendered Quarto site from `docs/` on `main` using the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
+GitHub Pages deploys the rendered documentation site from `docs/` on `main` using the project's existing `rahuldave.com` domain. Source Markdown and images also ship in the Python package; `internal_docs/` does not. Public docs must clearly distinguish published-release behavior from unreleased source features. A documentation-only handoff does not need a new PyPI version.
 
 Deferred: exact model-token capacity and output/reasoning reserves, model-driven execution of live notebook cells, durable action replay, other-notebook live operations, and any enforceable native ChatGPT direct-file scope. The 0.1.11 source adds ordinary live-cell edit/delete tools and separate subprocess execution. See the research index; do not interpret historical proposals as existing APIs.
 

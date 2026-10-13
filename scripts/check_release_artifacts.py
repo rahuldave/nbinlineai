@@ -17,12 +17,18 @@ import tomllib
 FORBIDDEN_PARTS = {
     ".git", ".venv", "node_modules", "internal_docs", "test-results",
     "playwright-report", ".pytest_cache", ".ruff_cache", "__pycache__",
+    ".quarto", ".ipynb_checkpoints", "_site", "site_libs",
 }
 FORBIDDEN_FILES = {".env", "credentials.json", ".pypirc"}
 EXAMPLE_DIR = Path(__file__).resolve().parents[1] / "examples"
 EXAMPLE_REQUIRED = {
     "examples/README.md", "examples/bundled-tools.ipynb", "examples/data/ecosystem-lesson.ipynb",
-} | {f"examples/{path.relative_to(EXAMPLE_DIR).as_posix()}" for path in EXAMPLE_DIR.rglob("*.ipynb")}
+    "examples/media/owned-notebook-tab-2087303b97be.webm", "examples/tool-coverage.json",
+} | {
+    f"examples/{path.relative_to(EXAMPLE_DIR).as_posix()}"
+    for path in EXAMPLE_DIR.rglob("*.ipynb")
+    if not any(part.startswith(".") for part in path.relative_to(EXAMPLE_DIR).parts)
+}
 MANUAL_CHAPTERS = (
     "setup", "prompts", "models-and-styles", "editing-and-running",
     "context-selection", "variables-and-tools", "saving-and-privacy", "troubleshooting",
@@ -32,6 +38,9 @@ IMAGE_DOCS = ("docs/user-guide.md", "docs/tools.md", "docs/examples.md")
 SOURCE_REQUIRED = {
     "LICENSE", "README.md", "docs/user-guide.md", "docs/architecture.md", "docs/faq.md",
     "docs/tools.md", "docs/examples.md",
+    "docs/tool-applications.md", "docs/example-audit.md",
+    "docs/_smalldocs.yml", "scripts/build_docs_site.py", "scripts/smalldocs_notebook.py",
+    "scripts/check_docs_site.py", "scripts/check_release_artifacts.py",
     "pyproject.toml", "package.json", "yarn.lock",
     "src/index.ts", "src/context.ts", "src/contextControls.ts", "src/frontendActions.ts",
     "src/configureAI.ts", "src/subscriptionSetup.ts",
@@ -65,6 +74,8 @@ WHEEL_REQUIRED_SUFFIXES = {
     "share/doc/nbinlineai/docs/faq.md",
     "share/doc/nbinlineai/docs/tools.md",
     "share/doc/nbinlineai/docs/examples.md",
+    "share/doc/nbinlineai/docs/tool-applications.md",
+    "share/doc/nbinlineai/docs/example-audit.md",
 } | {f"share/doc/nbinlineai/{path}" for path in EXAMPLE_REQUIRED}
 MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*(<[^>]+>|[^\s)]+)")
 REFERENCE_IMAGE = re.compile(r"!\[([^\]]*)\]\[([^\]]*)\]")
@@ -157,7 +168,7 @@ def _check_forbidden(names: list[str]) -> None:
     bad = []
     for name in names:
         parts = Path(name).parts
-        if any(part in FORBIDDEN_PARTS for part in parts):
+        if any(part in FORBIDDEN_PARTS or part.endswith("_files") for part in parts):
             bad.append(name)
         if any(part in FORBIDDEN_FILES or part.startswith(".env.") for part in parts):
             bad.append(name)

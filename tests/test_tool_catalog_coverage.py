@@ -36,7 +36,10 @@ def test_registry_page_and_notebook_mapping_are_exact() -> None:
     rows = {signature.split("(", 1)[0]: signature for signature, _ in FUNCTION_ROW.findall(DOC)}
     assert set(rows) == set(TOOL_FUNCTIONS)
     for name, function in TOOL_FUNCTIONS.items():
-        assert rows[name] == name + str(inspect.signature(function)).split(" ->", 1)[0]
+        # A table escapes union-type pipes; compare the visible Python signature.
+        assert rows[name].replace(r"\|", "|") == (
+            name + str(inspect.signature(function)).split(" ->", 1)[0]
+        )
 
 
 def test_each_demo_has_matching_section_cell_call_and_page_link() -> None:

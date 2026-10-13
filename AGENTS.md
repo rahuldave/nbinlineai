@@ -51,7 +51,8 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
   passing tests do not replace independent review. Native Gest maintains its
   graphs; do not generate separate graph exports.
 - Static documentation-only PRs must run documentation validation and the
-  Quarto **Documentation site / Render and check Quarto site** PR check without
+  smalldocs documentation build under the legacy required
+  **Documentation site / Render and check Quarto site** PR check without
   package, browser, or runtime CI. Keep required summary checks present and
   passing only after the selected documentation check succeeds. Notebook
   examples, executable JavaScript, code, scripts, workflows, and lockfiles

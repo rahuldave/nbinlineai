@@ -4,10 +4,25 @@ import importlib.util
 import subprocess
 from pathlib import Path
 
+import yaml
+
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "docs_ci.py"
 SPEC = importlib.util.spec_from_file_location("docs_ci", MODULE_PATH)
 docs_ci = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(docs_ci)
+
+
+def test_smalldocs_build_keeps_the_mainline_required_status() -> None:
+    workflow = yaml.safe_load((MODULE_PATH.parents[1] / ".github/workflows/docs-site.yml").read_text())
+    build = workflow["jobs"]["build"]
+    # Mainline ruleset 24000314 requires this context. Changing only the job
+    # name leaves a required status pending forever, despite a successful build.
+    assert build["name"] == "Render and check Quarto site"
+    commands = [step.get("run", "") for step in build["steps"]]
+    assert any("smalldocs==0.1.5" in command and "scripts/build_docs_site.py" in command
+               for command in commands)
+    assert not any("quarto render" in command for command in commands)
+    assert not any(step.get("uses", "").startswith("quarto-dev/") for step in build["steps"])
 
 
 def git(root, *args):
@@ -74,7 +89,7 @@ def test_static_documentation_routes_to_docs_validation(tmp_path, monkeypatch):
         "internal_docs/workflow.md": "workflow\n",
         "docs/examples.md": "examples\n",
         "docs/tools.md": "tools\n",
-        "docs/_quarto.yml": "project: website\n",
+        "docs/_smalldocs.yml": "project: website\n",
         "docs/.nojekyll": "",
         "docs/images/overview.png": "image\n",
         "docs/assets/css/site.css": "body {}\n",

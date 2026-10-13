@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 async function open(page: Page, request: APIRequestContext, source: string,
   checkSource = "print(r.status, type(r.result).__name__, r.result.size if r.result else None, r.media.get('path') if r.media else None)"): Promise<string> {
@@ -261,6 +262,7 @@ test('operation routes reject a second browser client and a known ID without own
 
 test('the public example exercises all five controls with an exact local PNG', async ({ page, request }) => {
   const notebook = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-foundation.ipynb'), 'utf8'));
+  useOwnedServerRoot(notebook, 'media-setup');
   const name = `media-example-${Date.now()}.ipynb`;
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;

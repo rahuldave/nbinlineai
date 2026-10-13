@@ -16,17 +16,14 @@ concurrency:
 
 jobs:
   build:
+    # Main's ruleset requires this exact legacy context; the renderer below is smalldocs.
     name: Render and check Quarto site
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: quarto-dev/quarto-actions/setup@v2
-        with:
-          version: '1.8.26'
+      - uses: astral-sh/setup-uv@v6
       - name: Render documentation
-        run: quarto render docs
-      - name: Render example notebooks to HTML
-        run: python3 scripts/render_example_notebooks.py
+        run: uv run --no-project --with smalldocs==0.1.5 python scripts/build_docs_site.py
       - name: Check pages, notebook gallery, tool tables, and local links
         run: python3 scripts/check_docs_site.py docs/_site
       - name: Upload site
