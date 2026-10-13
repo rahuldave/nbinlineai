@@ -80,8 +80,10 @@ def _mp4_boxes(data: bytes, start: int, end: int):
 
 
 def _saved_media_mime(name: str, data: bytes) -> str:
-    """Recover browser-supported MP4 kinds without trusting OS MIME aliases."""
+    """Recover recorder MIME types missing or aliased in OS MIME databases."""
     suffix = PurePosixPath(name).suffix.lower()
+    if suffix == '.weba':
+        return 'audio/webm'
     if suffix in {'.m4a', '.mp4'} and len(data) >= 12 and data[4:8] == b'ftyp':
         audio_track = False
         for kind, moov_start, moov_end in _mp4_boxes(data, 0, len(data)):

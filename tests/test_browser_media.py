@@ -111,7 +111,12 @@ def test_recording_container_and_actual_audio_extension(tmp_path):
     ('video/webm', b'\x1a\x45\xdf\xa3encoded-video', '.webm'),
     ('audio/ogg', b'OggSencoded-audio', '.ogg'),
 ])
-def test_saved_recording_ref_keeps_supported_container_mime(tmp_path, mime_type, data, suffix):
+def test_saved_recording_ref_keeps_supported_container_mime(tmp_path, monkeypatch, mime_type, data, suffix):
+    # Linux MIME databases may omit .weba even though the recorder uses it.
+    from nbinlineai.browser_media import mimetypes
+    os_guess = mimetypes.guess_type
+    monkeypatch.setattr(mimetypes, 'guess_type', lambda name: (
+        (None, None) if str(name).lower().endswith('.weba') else os_guess(name)))
     registry = MediaRegistry(tmp_path)
     browser = owner(registry)
     name = 'record_camera' if mime_type.startswith('video/') else 'record_microphone'
@@ -125,6 +130,9 @@ def test_saved_recording_ref_keeps_supported_container_mime(tmp_path, mime_type,
     registry.release_media(browser, status['media']['media_id'])
     reference = {'path': status['media']['path'], 'sha256': digest}
     assert registry.resolve_ref(browser, reference) == (data, mime_type, digest)
+    copy = registry.save_media(browser, reference, request_id='copy-saved-recording')
+    assert copy['mime_type'] == mime_type
+    assert copy['path'].endswith(suffix)
 
 
 @pytest.mark.parametrize(('handlers', 'mime_type'), [

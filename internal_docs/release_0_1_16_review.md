@@ -220,6 +220,13 @@ and confirmed unchanged notebook hashes and required resources. Final exact-head
 review, browser/CI results and replacement artifact hashes are recorded in the
 PR and Gest notes before handoff; the first-candidate hashes above are historical.
 
+The first repaired candidate's Linux source CI passed 661 Python tests and
+exposed one additional saved-audio issue: its MIME database does not recognize
+the recorder's `.weba` suffix. Saved `.weba` now resolves canonically to
+`audio/webm`. The device-free round-trip regression explicitly simulates that
+missing mapping on every platform and verifies both resolution and re-saving
+after memory release. Exact-head checks and review are repeated for this fix.
+
 ## Remaining release gates
 
 Resolve or explicitly accept the review findings, and rerun affected checks for
