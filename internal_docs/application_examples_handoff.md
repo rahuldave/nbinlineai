@@ -1,6 +1,6 @@
 # Application examples handoff
 
-Status: **implemented on topic `codex/application-notebook-audit`, pending PR to main**. This is notebook/documentation source work, not a release. PyPI remains 0.1.15. No runtime API or package version changes are included.
+Status: **merged to main by PR #43 as `4828a791337e0c2fa795b8a8b64b42fcbbab503b`**. This was notebook/documentation source work, not a release. Its source head was `ff90708fb1aca601a31dfc5cc9fe5a9eb32e0601`. The owned topic and worker worktrees have been retired after integration; unrelated worktrees remain. PyPI remains 0.1.15. The separate [0.1.16 release candidate review](release_0_1_16_review.md) records preparation and open findings before any publication.
 
 ## Provenance and scope
 

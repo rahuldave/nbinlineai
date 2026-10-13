@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nbinlineai"
-version = "0.1.15"
+version = "0.1.16"
 description = "Inline AI prompt cells for JupyterLab notebooks with OpenAI and Anthropic"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -47,24 +47,30 @@ Documentation = "https://rahuldave.com/nbinlineai/"
 Issues = "https://github.com/rahuldave/nbinlineai/issues"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.8"]
+dev = ["pytest>=8", "ruff>=0.8", "hatchling>=1.26", "smalldocs==0.1.5"]
 
 [tool.hatch.build.targets.sdist]
 artifacts = ["nbinlineai/labextension"]
 only-include = [
   "LICENSE", "README.md", "pyproject.toml", "uv.lock", "package.json", "yarn.lock",
   ".yarnrc.yml", "tsconfig.json", "install.json", "nbinlineai", "jupyter-config",
-  "src", "style", "schema", "tests", "examples", "docs", "playwright.config.ts",
+  "src", "style", "schema", "scripts", "tests", "examples", "docs", "playwright.config.ts",
   "playwright.media.config.ts",
 ]
 exclude = [
   ".venv", "node_modules", "lib", "dist", ".env", ".env.*", "internal_docs",
   "test-results", "playwright-report", ".pytest_cache", ".ruff_cache", ".git",
   "*.egg-info", "**/__pycache__", "**/*.pyc", ".DS_Store",
+  "**/.quarto/**", "**/.ipynb_checkpoints/**", "**/_site/**", "**/site_libs/**", "**/*_files/**",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["nbinlineai"]
+# Shared data is checked using its installed path, so these patterns must also
+# match share/doc/nbinlineai/... rather than only repository-relative paths.
+exclude = [
+  "**/.quarto/**", "**/.ipynb_checkpoints/**", "**/_site/**", "**/site_libs/**", "**/*_files/**",
+]
 
 [tool.hatch.build.targets.wheel.shared-data]
 "nbinlineai/labextension" = "share/jupyter/labextensions/nbinlineai"

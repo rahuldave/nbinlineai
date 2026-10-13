@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 type NotebookCell = { id: string; cell_type: string; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-attachment.ipynb'), 'utf8'));
+  useOwnedServerRoot(example, 'attachment-setup');
   const codeCells = (example.cells as NotebookCell[]).filter(cell => cell.cell_type === 'code');
   const codeIds = codeCells.map(cell => cell.id);
   // The published notebook has saved results. This disposable copy must prove fresh execution.

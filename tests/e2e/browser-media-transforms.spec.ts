@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '../support/e2e-fixtures';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 test('the public notebook verifies real frames where supported and saves and redacts PNG derivatives', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-transforms.ipynb'), 'utf8'));
+  useOwnedServerRoot(example, 'transform-setup');
   const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
   const ids = codeCells.map((cell: { id: string }) => cell.id);
   // The published notebook includes results; fresh execution counts belong only to this uploaded copy.
@@ -13,7 +15,8 @@ test('the public notebook verifies real frames where supported and saves and red
     'transform-crop-call', 'transform-crop-inspect', 'transform-annotate-call',
     'transform-annotate-inspect', 'transform-cleanup'
   ]);
-  const name = `transform-example-${Date.now()}.ipynb`;
+  // Run below the server root, with the companion clip beside this notebook.
+  const name = `examples/transform-example-${Date.now()}.ipynb`;
   await request.get('/lab');
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   expect(xsrf).toBeTruthy();
@@ -39,7 +42,7 @@ test('the public notebook verifies real frames where supported and saves and red
     headers, data: { type: 'notebook', format: 'json', content: example }
   });
   expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
-  await page.goto(`/lab/workspaces/${name.slice(0, -6)}/tree/${name}`);
+  await page.goto(`/lab/workspaces/transform-example/tree/${name}`);
   const code = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-CodeCell');
   await expect(code).toHaveCount(ids.length);
   const selectKernel = page.getByRole('button', { name: 'Select', exact: true });
@@ -71,7 +74,9 @@ test('the public notebook verifies real frames where supported and saves and red
     expect(output).toContain(evidence);
   }
 
-  expect(await run(0)).toContain('Exact created PNG and recorded notebook-tab clip:');
+  const setupOutput = await run(0);
+  expect(setupOutput).toContain('Exact created PNG and recorded notebook-tab clip:');
+  expect(setupOutput).toContain('examples/nbinlineai-transform-');
   await run(1);
   if (browserName === 'firefox')
     await inspect(2, 'Browser could not decode this media codec.');

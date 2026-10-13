@@ -2,12 +2,14 @@ import { mkdtemp, open, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '../support/e2e-fixtures';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 const samplePng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGP8zwACTGCSAQANHQEDgslx/wAAAABJRU5ErkJggg==', 'base64');
 
 test('the public notebook imports, plays, controls, copies and pastes disposable media', async ({ page, request, browserName }) => {
   const example = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-playback.ipynb'), 'utf8'));
+  useOwnedServerRoot(example, 'playback-setup');
   const codeCells = example.cells.filter((cell: { cell_type: string }) => cell.cell_type === 'code');
   const ids = codeCells.map((cell: { id: string }) => cell.id);
   // Published counts/outputs are evidence for readers, not evidence for this fresh browser run.
@@ -223,6 +225,7 @@ test('an imported PNG opens and closes with an exact owned memory reference', as
 
 test('play stays bound to its notebook and late activation cannot revive a cancelled request', async ({ page, request }) => {
   const publicNotebook = JSON.parse(await readFile(join(process.cwd(), 'examples/browser-media-playback.ipynb'), 'utf8'));
+  useOwnedServerRoot(publicNotebook, 'playback-setup');
   const setup = publicNotebook.cells.find((cell: { id: string }) => cell.id === 'playback-setup').source;
   const cell = (id: string, source: string | string[]) => ({
     id, cell_type: 'code', source, metadata: {}, outputs: [], execution_count: null

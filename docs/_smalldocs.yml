@@ -4,6 +4,7 @@ project:
   render:
     - '*.md'
     - 'manual/*.md'
+    - 'notebooks/**/*.ipynb'
   resources:
     - .nojekyll
     - images/**
@@ -32,9 +33,7 @@ website:
       - text: Development
         href: development.md
 
-format:
-  html:
-    theme: cosmo
-    css: assets/css/site.css
-    toc: true
-    code-copy: true
+theme: cosmo
+css: assets/css/site.css
+toc: true
+code-copy: true

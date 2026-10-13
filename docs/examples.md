@@ -8,13 +8,13 @@ Start with a [complete application](#complete-applications) to see how tools fit
 
 The [application guide](tool-applications.md) explains receipts, real Python values, and staged LLM conversations. The [notebook audit](example-audit.md) reviews all 25 original notebooks, including the support fixture, and distinguishes completed demonstrations from exercises and remaining steps. Every original notebook is retained.
 
-This catalog accounts for **all 30 notebooks**: five complete applications, twelve introductory walkthroughs, twelve tool-catalog notebooks, and one supporting data notebook. The 29 gallery pages link to their editable `.ipynb` source for download; the supporting fixture is linked separately below.
+This catalog accounts for **all 30 notebooks**: five complete applications, twelve introductory walkthroughs, twelve tool-catalog notebooks, and one supporting data notebook. The 29 walkthrough, application, and tool pages form the gallery; the supporting fixture has its own readable page below. Each page links to its editable `.ipynb` source for download.
 
 The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; a question without a following answer is ready for your own run. Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
 
 ## Work through a notebook
 
-1. Read a rendered notebook from the gallery below, then get its editable `.ipynb` from that page's source link or the [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples). Open a copy in JupyterLab. Keep `data/` beside it when the notebook uses a fixture.
+1. Read a rendered notebook from the gallery below, then get its editable `.ipynb` from that page's source link or the [GitHub examples folder](https://github.com/rahuldave/nbinlineai/tree/main/examples). Open a copy in JupyterLab. Keep `data/` beside it when the notebook uses a fixture. For the transforms notebook, keep `media/owned-notebook-tab-2087303b97be.webm` beside it to run offline.
 2. Run setup code and read the next cell's instructions. For live browser actions, grant permission or use the visible chooser only when you want that action.
 3. Run one AI question at a time. Inspect the answer and any observed-tool table before using an ID or result in the next question. Keep answers on when you want to preserve a completed tool action.
 4. Run cleanup cells after you finish. They remove disposable files, active media sources, or managed bytes as the notebook specifies.
@@ -90,7 +90,7 @@ Every public tool has a demonstration in at least one notebook below. Related ca
 
 Browser actions can need a permission choice or a visible control. Their direct calls return receipts to inspect later, and their AI questions use `operation_status` to check a completed action where shown. The application ideas below require you to perform those visible steps and run dependent cells separately.
 
-For the generated-file foundation, playback, and attachment notebooks, start JupyterLab with the copied notebook's working folder as the server root. Their filename-only media references assume that layout. If you launch from its parent folder, adjust each reference to a **server-root-relative path** and keep the exact file's SHA-256; an absolute path is not a media reference.
+The foundation, playback, attachment, transforms, integration, and outputs notebooks ask for the **absolute Jupyter server root** in setup. Enter the folder JupyterLab serves, even if the notebook's kernel works in a nested folder. Setup checks that the entered folder exists and contains the kernel working folder, then constructs server-root-relative references for generated files; later file checks and cleanup map returned paths through the same root. Keep each reference's exact SHA-256. A local absolute path is never a browser media reference. If you move a notebook or change the server root, rerun setup before using its generated references.
 
 | Notebook | Tools shown | What you can make/do |
 | --- | --- | --- |
@@ -107,6 +107,6 @@ The media guides describe formats, limits, and cleanup: [capture](browser-media-
 
 | Notebook | Used by | Purpose |
 | --- | --- | --- |
-| [Ecosystem lesson (`data/ecosystem-lesson.ipynb`)](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb) | Bundled tools and other saved-notebook search exercises | Four source-only cells with fabricated lichen observations. Keep `data/` beside the examples that read it. This is a search fixture, not an executed ecological analysis or a separate gallery lesson. |
+| [Supporting ecosystem fixture](https://rahuldave.com/nbinlineai/notebooks/data/ecosystem-lesson.html) ([editable source](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb)) | Bundled tools and other saved-notebook search exercises | Four source-only cells with fabricated lichen observations. Keep `data/` beside the examples that read it. This is a search fixture with its own readable page, not an executed ecological analysis or a walkthrough. |
 
 [User guide](user-guide.md) · [Tool catalog](tools.md) · [FAQ](faq.md)

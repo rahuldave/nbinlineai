@@ -462,6 +462,9 @@ def main() -> None:
         base = Path(tmp)
         for name in ("root", "config", "runtime", "data", "xdg", "ipython"):
             (base / name).mkdir()
+        # Disposable notebook copies use this exact Jupyter server root to
+        # answer the public setup prompt in their isolated test kernels.
+        os.environ["NBINLINEAI_E2E_SERVER_ROOT"] = str(base / "root")
         kernelspec = base / "data" / "kernels" / "python3"
         kernelspec.mkdir(parents=True)
         (kernelspec / "kernel.json").write_text(json.dumps({

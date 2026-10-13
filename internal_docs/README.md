@@ -11,10 +11,9 @@ are read from the branch containing that code. See [revision selection and
 documentation PRs](workflow.md#documentation-by-branch), including dirty or
 stale primary checkouts. Public docs and examples also follow their code.
 
-Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the Quarto documentation site.
+Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the documentation site.
 
-The [current handoff](developer_handoff.md) records the published 0.1.15
-Configure AI tabs and earlier releases. Verify applicability to your code branch.
+The [current handoff](developer_handoff.md) records published 0.1.15 and source additions on main. The [0.1.16 candidate review](release_0_1_16_review.md) records the unpublished release preparation, full-delta adversarial findings and remaining gates. Verify applicability to your code branch.
 
 The [worked notebook acceptance record](worked_notebooks_acceptance.md)
 tracks draft PR #35's real saved examples, paired tool evidence, documentation

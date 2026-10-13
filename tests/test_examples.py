@@ -43,6 +43,11 @@ EXAMPLES = [
     "codex-acp-worked-example.ipynb",
     "data/ecosystem-lesson.ipynb",
 ]
+SERVER_ROOT_EXAMPLES = {
+    "browser-media-foundation.ipynb", "browser-media-outputs.ipynb",
+    "browser-media-playback.ipynb", "browser-media-transforms.ipynb",
+    "browser-media-integration.ipynb", "browser-media-attachment.ipynb",
+}
 
 
 def test_capture_receipt_helper_redacts_identifiers_on_rerun(capsys: pytest.CaptureFixture[str]) -> None:
@@ -235,6 +240,16 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
         kernel = AsyncKernelManager(kernel_name="python3")
         await kernel.start_kernel(cwd=str(kernel_cwd))
         try:
+            if relative_path in SERVER_ROOT_EXAMPLES:
+                # This isolated kernel owns a nested folder below the explicit
+                # server root. Answer only its published setup prompt; run the
+                # rest of the notebook source without changing it.
+                server_root = kernel_cwd.parents[2]
+                assert kernel_cwd.relative_to(server_root).parts[:2] == ("workspace", "examples")
+                await _run_code(
+                    kernel,
+                    f"input = lambda prompt='': {str(server_root)!r}",
+                )
             outputs: list[str] = []
             unresolved: list[str] = []
             declared: set[str] = set()
@@ -274,9 +289,10 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
             await kernel.shutdown_kernel(now=True)
 
     with TemporaryDirectory(prefix="nbinlineai-example-") as scratch:
-        kernel_cwd = Path(scratch) if relative_path in {
-            "browser-media-foundation.ipynb", "browser-media-playback.ipynb",
-            "browser-media-transforms.ipynb", "browser-media-attachment.ipynb"} else ROOT
+        kernel_cwd = ROOT
+        if relative_path in SERVER_ROOT_EXAMPLES:
+            kernel_cwd = Path(scratch) / "workspace" / "examples" / "run"
+            kernel_cwd.mkdir(parents=True)
         if relative_path == "browser-media-transforms.ipynb":
             clip_name = "owned-notebook-tab-2087303b97be.webm"
             clip = ROOT / "examples" / "media" / clip_name
@@ -336,11 +352,12 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
     if relative_path == "browser-media-foundation.ipynb":
         text = "\n".join(outputs)
         assert "sha256" in text
-        assert "browser-media-source-" in text
+        assert "workspace/examples/run/browser-media-source-" in text
     if relative_path == "browser-media-transforms.ipynb":
         text = "\n".join(outputs)
         assert "Disposable source and derivative files removed" in text
         assert "Exact created PNG and recorded notebook-tab clip" in text
+        assert "workspace/examples/run/nbinlineai-transform-" in text
     if relative_path == "browser-media-integration.ipynb":
         assert "Disposable 8x8 output image ready; no file saved." in "\n".join(outputs)
     if relative_path == "jupyter-ai-and-nbinlineai.ipynb":

@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
+import { useOwnedServerRoot } from '../support/media-example-root';
 
 type Cell = { id: string; cell_type: string; source: string[]; execution_count?: number | null; outputs?: unknown[] };
 
 async function copiedExample(page: Page, request: APIRequestContext) {
   const example = JSON.parse(readFileSync(resolve('examples/browser-media-integration.ipynb'), 'utf8'));
+  useOwnedServerRoot(example, 'integration-setup');
   // The published notebook uses the user's ChatGPT subscription. Route only this
   // disposable copy to the deterministic API fixture configured below.
   example.metadata.nbinlineai.defaults.backend = 'openai_api';

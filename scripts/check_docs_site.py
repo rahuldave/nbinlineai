@@ -1,4 +1,4 @@
-"""Check the rendered Quarto site before publishing it to GitHub Pages."""
+"""Check the rendered smalldocs site before publishing it to GitHub Pages."""
 
 import json
 import re
@@ -75,8 +75,15 @@ def check(site: Path, coverage_path: Path = CATALOG,
     pages: dict[Path, Page] = {}
     expected_tools = public_tool_names(coverage_path)
     examples = examples or Path(__file__).resolve().parents[1] / "examples"
-    sources = sorted(examples.glob("*.ipynb"))
-    notebook_pages = [f"notebooks/{source.stem}.html" for source in sources]
+    gallery_sources = sorted(examples.glob("*.ipynb"))
+    sources = sorted(
+        source for source in examples.rglob("*.ipynb")
+        if not any(part.startswith(".") for part in source.relative_to(examples).parts)
+    )
+    notebook_pages = [
+        f"notebooks/{source.relative_to(examples).with_suffix('.html').as_posix()}"
+        for source in sources
+    ]
     for path in sorted(site.rglob("*.html")):
         page = Page()
         page.feed(path.read_text(encoding="utf-8"))
@@ -91,18 +98,47 @@ def check(site: Path, coverage_path: Path = CATALOG,
     if gallery:
         listing_links = {ref.rsplit("/", 1)[-1] for ref in gallery.references
                          if re.search(r"(?:^|/)notebooks/[a-z0-9-]+\.html$", ref)}
-        if len(listing_links) != len(sources):
-            problems.append(f"expected {len(sources)} notebook links, found {len(listing_links)}")
-        for relative in notebook_pages:
+        if len(listing_links) != len(gallery_sources):
+            problems.append(f"expected {len(gallery_sources)} notebook links, found {len(listing_links)}")
+        for source in gallery_sources:
+            relative = f"notebooks/{source.stem}.html"
             if not any(ref.endswith(relative) for ref in gallery.references):
                 problems.append(f"examples guide does not link to {relative}")
+        for source in sources:
+            if source.parent == examples:
+                continue
+            relative = f"notebooks/{source.relative_to(examples).with_suffix('.html').as_posix()}"
+            if not any(ref.endswith(relative) for ref in gallery.references):
+                problems.append(f"examples guide does not link to support page {relative}")
     for source, relative in zip(sources, notebook_pages):
         page = pages.get((site / relative).resolve())
         if not page:
             continue
         if "—title:" in (site / relative).read_text(encoding="utf-8"):
-            problems.append(f"{relative}: Quarto front matter appears as page text")
+            problems.append(f"{relative}: notebook front matter appears as page text")
         notebook = json.loads(source.read_text(encoding="utf-8"))
+        expected_ids = {cell["id"] for cell in notebook["cells"] if cell.get("id")}
+        missing_ids = sorted(expected_ids - page.ids)
+        if missing_ids:
+            problems.append(f"{relative}: missing {len(missing_ids)} cell IDs: {', '.join(missing_ids[:5])}")
+        expected_code = sum(cell["cell_type"] == "code" for cell in notebook["cells"])
+        if page.classes.count("cell-code") != expected_code:
+            problems.append(
+                f"{relative}: expected {expected_code} code blocks, found {page.classes.count('cell-code')}"
+            )
+        expected_outputs = sum(
+            output.get("output_type") in ("stream", "error")
+            or bool(set(output.get("data") or {}) & {
+                "text/html", "image/svg+xml", "image/png", "image/jpeg", "image/gif",
+                "text/markdown", "text/latex", "text/plain",
+            })
+            for cell in notebook["cells"] if cell["cell_type"] == "code"
+            for output in cell.get("outputs", [])
+        )
+        if page.classes.count("cell-output") != expected_outputs:
+            problems.append(
+                f"{relative}: expected {expected_outputs} saved outputs, found {page.classes.count('cell-output')}"
+            )
         for key, css in (("isPromptCell", "nbinlineai-ai-prompt"),
                          ("isOutputCell", "nbinlineai-ai-response")):
             expected = sum(bool(cell.get("metadata", {}).get("nbinlineai", {}).get(key))
@@ -110,7 +146,10 @@ def check(site: Path, coverage_path: Path = CATALOG,
             actual = page.classes.count(css)
             if actual != expected:
                 problems.append(f"{relative}: expected {expected} {css} panels, found {actual}")
-        download = f"https://github.com/rahuldave/nbinlineai/blob/main/examples/{source.name}"
+        download = (
+            "https://github.com/rahuldave/nbinlineai/blob/main/examples/"
+            + source.relative_to(examples).as_posix()
+        )
         if download not in page.references:
             problems.append(f"{relative}: missing source notebook download link")
     for path, page in list(pages.items()):
@@ -169,6 +208,6 @@ if __name__ == "__main__":
     if errors:
         print("\n".join(errors), file=sys.stderr)
         raise SystemExit(1)
-    print(f"Quarto site: {len(list(site.rglob('*.html')))} pages, "
+    print(f"smalldocs site: {len(list(site.rglob('*.html')))} pages, "
           f"{len(public_tool_names())} tool rows, notebook gallery, AI panels, "
           "local links and anchors OK")
