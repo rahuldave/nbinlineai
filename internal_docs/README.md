@@ -13,7 +13,7 @@ stale primary checkouts. Public docs and examples also follow their code.
 
 Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the documentation site.
 
-The [current handoff](developer_handoff.md) records published 0.1.15 and source additions on main. The [0.1.16 candidate review](release_0_1_16_review.md) records the unpublished release preparation, full-delta adversarial findings and remaining gates. Verify applicability to your code branch.
+The [current handoff](developer_handoff.md) records published 0.1.16. The [0.1.16 release and review record](release_0_1_16_review.md) records the full-delta adversarial findings, repairs, merged source, public artifact hashes, clean installation and smalldocs deployment. Verify applicability to your code branch.
 
 The [worked notebook acceptance record](worked_notebooks_acceptance.md)
 tracks draft PR #35's real saved examples, paired tool evidence, documentation
@@ -44,8 +44,8 @@ foundation merged by PR #29 as `90c5aee`, and capture plus live outputs source
 merged by PR #31 as `11eae2b`; playback and transformations merged by PR #32
 as `b38d684`, and image attachment merged by PR #33 as `d862d46`. All 45
 approved new public APIs are now on `main` as source, yielding 96 public tools
-plus three setup helpers. The published PyPI package remains 0.1.15 and does
-not contain these additions.
+plus three setup helpers. These additions and the five application notebooks
+are included in published 0.1.16; see the [release verification](releasing.md#version-0116--published-and-verified).
 
 ## A new task's reading order
 

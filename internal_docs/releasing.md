@@ -313,3 +313,39 @@ configuration pages. Both published Configure AI screenshots matched their
 local SHA-256 digests (`822cf562b27d14a3955dc456243811849394da2200481f9ebb5aa9712be2c90a`
 and `9ec2030e78b88074a1e8189611ccba5a4b0eff1ee6bcd349ae4b5b18718e786a`).
 The user's JupyterLab server on port 8888 was untouched.
+
+## Version 0.1.16 — published and verified
+
+Version **0.1.16** was published on October 13, 2026 after independent adversarial
+review and all required PR checks passed. PR #44 merged as
+`62d227c5c6142cf87c8b12b39062412fdc280fe3`; its tree equals reviewed candidate
+`73fddaaf3368d3b2f683f1e1a2b9950486e2d82c`. The pushed annotated `v0.1.16`
+tag (`966660b7`) points to that merge. The experimental branch is excluded.
+
+The release includes 96 public tools, all 30 notebooks and the five application
+tutorials. It fixes saved MP4/WebM audio MIME, server-root mappings in six older
+media notebooks, missing companion archive assertions and generated-cache
+packaging. smalldocs 0.1.5 replaces the Quarto executable in documentation CI;
+the legacy required status name is preserved. Every notebook has its own page.
+New device recordings and paid-provider acceptance are not claimed.
+
+The published source archive is 2,517,827 bytes, SHA-256
+`80d8a7a0436f979f8706c131f8c4ec862e0fe4f863608b8ab3705043c26933e9`;
+the wheel is 2,070,368 bytes, SHA-256
+`85f036327a82e8cc74e75e883ff71853c0192240114740c01b3093a62563d206`.
+Both public metadata and direct downloads match the audited local files, and
+neither is yanked. Strict metadata/archive checks, exact-source comparisons and
+all 136 wheel RECORD entries passed. Both contain all notebooks and the WebM
+companion, with no generated caches or internal docs. A fresh no-cache public-index
+Python 3.14 install resolved 113 compatible packages; dependency consistency,
+both extensions, status version and the downloaded published-wheel quickstart UI
+passed on an owned port-8897 server that was stopped afterward.
+
+PR CI passed 662 Python, 99 frontend and 104 browser tests, with two opt-in
+fake-subscription skips, plus all 14 platform/musl checks. smalldocs Pages
+deployment `38431612159` passed at the merge. All 86 public site resources,
+including 54 HTML pages and all 30 notebook pages, returned successfully;
+all 54 HTML files matched the local render and the complete public site checker
+passed, with deployment-only `.nojekyll` verified in CI. See the
+[full release and review record](release_0_1_16_review.md) for exact run IDs,
+finding dispositions, provenance and verification boundaries.

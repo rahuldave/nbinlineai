@@ -1,8 +1,13 @@
-# 0.1.16 release candidate and adversarial review
+# 0.1.16 release and adversarial review
 
-Status: **prepared candidate, unpublished; merge and publication await the user's decision**.
-This record accompanies a main-based release PR. It is not a publication record.
-PyPI remains 0.1.15; no 0.1.16 tag or upload has been made.
+Status: **published and verified on October 13, 2026**. After approving the
+completed review, the user authorized merging and publication. PR #44 merged
+as `62d227c5c6142cf87c8b12b39062412fdc280fe3`; its tree exactly matches the final
+reviewed candidate `73fddaaf3368d3b2f683f1e1a2b9950486e2d82c`. The pushed annotated
+`v0.1.16` tag object `966660b7ab608f7bf1b3b402e07123fbad69efea` peels to that
+merge. Both audited files are on PyPI and their public hashes were verified.
+The candidate history below preserves findings and verification boundaries;
+the final section records completed publication.
 
 ## Scope and provenance
 
@@ -227,12 +232,52 @@ the recorder's `.weba` suffix. Saved `.weba` now resolves canonically to
 missing mapping on every platform and verifies both resolution and re-saving
 after memory release. Exact-head checks and review are repeated for this fix.
 
-## Remaining release gates
+## Completed publication and deployment
 
-Resolve or explicitly accept the review findings, and rerun affected checks for
-any changed head. Required source, documentation and compatibility PR checks
-must pass. After the user authorizes merging/publication, merge the approved
-head, rebuild/check artifacts if source changes, create/push the release tag,
-upload once, verify immutable PyPI file hashes and a fresh index install, and
-record the actual publication source. Preserve the experimental branch and
-retire only the owned release worktree after integration and dependency checks.
+All four original P2s are repaired. Cross-author independent review of the
+combined candidate `97fff7c`, followed by focused review of the Linux `.weba`
+fix and final archives at `73fddaaf`, found no remaining actionable P1/P2.
+All required PR checks passed for base `4828a79` and head `73fddaaf`:
+[source validation `38406499579`](https://github.com/rahuldave/nbinlineai/actions/runs/38406499579)
+passed 662 Python, 99 frontend and 104 browser tests, with two opt-in
+fake-subscription skips; [documentation `38406499133`](https://github.com/rahuldave/nbinlineai/actions/runs/38406499133)
+and [14 platform/musl checks `38406498988`](https://github.com/rahuldave/nbinlineai/actions/runs/38406498988)
+passed. GitHub tested the merge of that exact base/head. No source changed
+between review, artifact audit and the tree-identical main merge.
+
+The checked files were uploaded once. Version-specific
+[PyPI metadata and release files](https://pypi.org/project/nbinlineai/0.1.16/)
+and direct public downloads match both local SHA-256 digests; neither is yanked:
+
+| Published file | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `nbinlineai-0.1.16.tar.gz` | 2,517,827 | `80d8a7a0436f979f8706c131f8c4ec862e0fe4f863608b8ab3705043c26933e9` |
+| `nbinlineai-0.1.16-py3-none-any.whl` | 2,070,368 | `85f036327a82e8cc74e75e883ff71853c0192240114740c01b3093a62563d206` |
+
+The independent archive audit verified all source-backed bytes against the
+exact candidate, all 30 notebooks and the exact WebM companion in both formats,
+333 source entries and all 136 wheel RECORD entries, version/Python/GPL metadata,
+and no caches, checkpoints, internal docs or credential paths. smalldocs is a
+development dependency, not a runtime dependency.
+
+A fresh, no-cache, wheels-only installation of `nbinlineai==0.1.16` from the
+public PyPI index into an owned Python 3.14 environment resolved 113 compatible
+packages. Dependency consistency, imports from its own `site-packages`, package
+version, pinned SDK metadata and absence of runtime smalldocs passed. The
+independently downloaded public wheel then passed both extension discoveries,
+the version endpoint and packaged quickstart toolbar UI. The helper stopped
+only its owned port-8897 server; the user's port 8888 was untouched. No provider
+key, physical capture or paid model request was used.
+
+[Pages deployment `38431612159`](https://github.com/rahuldave/nbinlineai/actions/runs/38431612159)
+passed both smalldocs render/check and publication at the source merge. The
+live site returned all 86 public resources, including 54 HTML pages and every
+one of the 30 notebook pages. All 54 HTML files matched the local render bytes;
+the downloaded site passed the notebook, 96-tool-row, AI-panel, saved-output,
+source-link and local-anchor checks. The deployment-only `.nojekyll` marker
+was checked in CI and is not served publicly by GitHub Pages.
+The PyPI page renders the package README.
+
+The experimental branch remains separate. Publication records are internal-only
+follow-up documentation and are excluded from both immutable package archives.
+Cleanup preserves unrelated worktrees and the source/tag/artifact provenance.

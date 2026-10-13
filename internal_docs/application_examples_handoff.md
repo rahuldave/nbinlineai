@@ -1,6 +1,6 @@
 # Application examples handoff
 
-Status: **merged to main by PR #43 as `4828a791337e0c2fa795b8a8b64b42fcbbab503b`**. This was notebook/documentation source work, not a release. Its source head was `ff90708fb1aca601a31dfc5cc9fe5a9eb32e0601`. The owned topic and worker worktrees have been retired after integration; unrelated worktrees remain. PyPI remains 0.1.15. The separate [0.1.16 release candidate review](release_0_1_16_review.md) records preparation and open findings before any publication.
+Status: **merged to main by PR #43 as `4828a791337e0c2fa795b8a8b64b42fcbbab503b`, subsequently shipped in 0.1.16**. PR #43 itself was notebook/documentation source work, not a release. Its source head was `ff90708fb1aca601a31dfc5cc9fe5a9eb32e0601`. The owned topic and worker worktrees have been retired after integration; unrelated worktrees remain. The separate [0.1.16 release and review record](release_0_1_16_review.md) records later repairs, publication and verification.
 
 ## Provenance and scope
 
@@ -30,6 +30,9 @@ Every cell of all 25 original example notebooks was reviewed without executing
 them. `docs/example-audit.md` records per-notebook purpose, evidence, limits and
 applications. All original notebooks and their outputs are retained byte for byte.
 In particular the Codex ACP exercise's intentional zero-versus-missing bug remains.
+This paragraph describes PR #43's original scope. Release PR #44 subsequently
+repaired setup/path cells in six older media notebooks while preserving their
+IDs, metadata, execution counts and saved outputs.
 
 Five new notebooks show receipts to ordinary values, a presenter media kit, a
 screen bug report, a data investigation, and a checked project repair/handoff.
@@ -75,7 +78,9 @@ projection), and the guide tried to capture before opening a camera (now separat
 source start, inspection, capture, and cleanup stages). New notebooks keep the
 user's connection preferences rather than pinning the writer's ChatGPT account.
 
-Remaining delivery: reviewed PR integration into main and the resulting normal
-documentation deployment. A versioned release would separately require the release
-checklist, artifacts, clean installation, tag, PyPI upload, and publication checks;
-none is authorized or performed by this task.
+Delivery: PR #43 integrated the application source and deployed its documentation.
+The separately authorized release PR #44 subsequently shipped these notebooks in
+0.1.16, with checked archives, public-index installation, a pushed tag and PyPI
+hash verification. Its smalldocs deployment documents every notebook separately.
+See the release record for those later results; they do not add saved device or
+model runs to the application tutorials.

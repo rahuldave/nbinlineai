@@ -1,6 +1,6 @@
 # Developer handoff
 
-**0.1.16 release candidate (prepared, unpublished):** The owned main-based release topic fixes saved MP4 MIME, six original notebook path mappings, companion archive assertions and generated-cache exclusions. After a successful actual-notebook proof, smalldocs 0.1.5 builds all 30 notebook pages and the Markdown site in pure Python. The [adversarial review record](release_0_1_16_review.md) records first-review findings, repairs, second-review evidence and remaining gates. Merge, tagging and PyPI publication await the user’s decision. The experimental branch is outside this release.
+**0.1.16 published and verified (2026-10-13):** PR #44 merged as `62d227c5c6142cf87c8b12b39062412fdc280fe3`, with a tree identical to independently reviewed `73fddaaf`. The pushed annotated `v0.1.16` tag points to that merge. Both PyPI downloads match the audited hashes, and a fresh public-index Python 3.14 installation plus the published-wheel quickstart UI passed. All required PR checks passed: 662 Python, 99 frontend and 104 browser tests, with two opt-in subscription skips, and 14 platform/musl checks. The four P2s and a Linux `.weba` MIME issue are fixed. smalldocs 0.1.5 now builds documentation in CI; deployment `38431612159` passed, and the live site serves 54 pages including all 30 notebooks. The [release and review record](release_0_1_16_review.md) contains exact provenance, hashes and verification boundaries. The experimental branch is outside this release. Dated source-only entries below describe earlier checkpoints; new physical-device or paid-provider acceptance is not claimed.
 
 **2026-10-12 application examples (main source, PR #43 merged at `4828a79`):** Five new
 application notebooks join receipts, capture, recordings, ordinary Python and
@@ -9,7 +9,7 @@ reviewed cell by cell and preserved. See the [application handoff](application_e
 [public audit](../docs/example-audit.md), and [application guide](../docs/tool-applications.md).
 New tutorials have no saved device/model runs. The presentation is HTML with
 separate assets and authored notes; bundled tools do not transcribe or mix video.
-This changes examples/docs only; PyPI remains 0.1.15.
+PR #43 changed examples/docs only. These tutorials subsequently shipped in 0.1.16; six older media notebooks received the path repairs recorded above.
 
 **2026-09-29 worked notebooks and guides (draft source):** The
 [acceptance record](worked_notebooks_acceptance.md) follows draft PR #35 from
