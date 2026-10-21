@@ -280,6 +280,20 @@ export function normalizePublicCopy(notebook, privateHardwareValues = new Set())
       cell.source = normalize(cell.source);
     }
   }
+  // Saved answers remain useful after the owned server stops; its image grants
+  // and generated files do not. Keep the digest as evidence, never a dead grant.
+  for (const cell of notebook.cells) {
+    const ai = cell.metadata?.nbinlineai;
+    if (!ai?.isPromptCell || !ai.mediaAttachment) continue;
+    const attachment = ai.mediaAttachment;
+    if (/^[a-f0-9]{64}$/.test(attachment.sha256 ?? '')) {
+      cell.metadata.nbinlineaiWorkedAttachment = {
+        sha256: attachment.sha256, kind: attachment.kind, detail: attachment.detail,
+        note: 'Image was attached for the saved run; attach a fresh image before rerunning.',
+      };
+    }
+    delete ai.mediaAttachment;
+  }
   notebook.metadata ??= {};
   if (replaced) notebook.metadata.nbinlineaiWorked = {
     ...notebook.metadata.nbinlineaiWorked,

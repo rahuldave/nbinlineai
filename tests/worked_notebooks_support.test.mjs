@@ -262,3 +262,19 @@ test('real device labels and IDs are removed from JSON, Python repr, and answer 
     assert.ok(!saved.includes(value), `raw device value remained: ${value}`);
   }
 });
+
+
+test('public copies preserve image evidence without expired attachment grants or generated paths', () => {
+  for (const kind of ['memory', 'saved']) {
+    const digest = 'a'.repeat(64);
+    const notebook = { cells: [{ cell_type: 'markdown', id: 'image-question', source: 'Review this still.',
+      metadata: { nbinlineai: { isPromptCell: true, mediaAttachment: {
+        kind, sha256: digest, detail: 'auto', grant_id: 'expired-grant', path: 'generated-and-deleted.png',
+      } } } }] };
+    normalizePublicCopy(notebook);
+    assert.equal(notebook.cells[0].metadata.nbinlineai.mediaAttachment, undefined);
+    assert.equal(notebook.cells[0].metadata.nbinlineaiWorkedAttachment.sha256, digest);
+    assert.doesNotMatch(JSON.stringify(notebook), /expired-grant|generated-and-deleted/);
+    assertSafeNotebook(notebook);
+  }
+});

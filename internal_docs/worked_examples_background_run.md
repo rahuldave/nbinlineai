@@ -36,15 +36,16 @@ The [collection plan](worked_examples_background_plan.json) records the selected
 
 The opt-in `--headless` mode fails before visible sign-in when no existing connection is ready; refuses installed Chrome and desktop clipboard/sound/visual-operator actions; grants no device permissions; and verifies fixture installation before executing notebook steps. Native media/clipboard overrides fail closed. Synthetic tracks clean up timers and AudioContexts when explicitly stopped.
 
-The genuine runs exposed three existing harness assumptions: long CodeMirror cells virtualize their visible lines; tool insertion changes question indices; and saving a clean document may emit no PUT. The runner now reads the complete editor document, resolves the question again by stable ID after the response, and still fetches and checks the saved model/session when a save is a no-op. Local-path redaction now preserves closing Markdown backticks. Public answer text may contain redacted temporary paths/source IDs; no credentials or personal media were saved.
+The genuine runs exposed three existing harness assumptions: long CodeMirror cells virtualize their visible lines; tool insertion changes question indices; and saving a clean document may emit no PUT. The runner now reads the complete editor document, resolves the question again by stable ID after the response, and still fetches and checks the saved model/session when a save is a no-op. Local-path redaction now preserves closing Markdown backticks. Public copies retain image hashes but remove expired image grants and references to generated files removed during cleanup; readers attach a fresh image for a rerun. Public answer text may contain redacted temporary paths/source IDs; no credentials or personal media were saved.
 
 Verification before review:
 
 - All eleven result notebooks have no code error outputs; source/answer IDs and all prior answer texts were checked against the baseline.
-- 27 example checks, 29 focused runner/path/renderer Python checks, 19 Node support/headless/fixture checks and 99 frontend unit tests passed. The Node checks also run in source CI after its Chromium installation.
+- 27 example checks, 29 focused runner/path/renderer Python checks, 20 Node support/headless/fixture checks and 99 frontend unit tests passed. The Node checks also run in source CI after its Chromium installation.
 - The saved-answer coverage regression passed on the refresh and failed on the baseline for the expected 29 unanswered questions.
 - The strict registered-tool evidence check passed with zero execution deferrals.
 - smalldocs rendered 54 pages and all 30 notebooks; the checker passed AI-panel, output, tool-row, local-link and anchor checks. The final rebuilt pages are also checked for 187 answer panels.
+- CI follow-up: four initial browser failures were repaired by updating the exact capture inventory, explicitly rerunning protected saved answers, checking unchanged rendered answer text before deliberate image submission, and explicitly activating the target notebook tab. The four focused browser cases passed. Public copies now discard expired image grants/generated-file references while preserving the attachment hash and all answer text.
 - Independent review base/head, findings and dispositions, CI, PR and merge/deployment status are recorded in the PR and Gest notes. Self-review and local checks do not replace those gates.
 
 No new physical-device acceptance, fresh Jupyter AI/ACP trial, broad native Run All guarantee or package release is claimed.

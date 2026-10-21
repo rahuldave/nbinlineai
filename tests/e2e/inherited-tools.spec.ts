@@ -87,7 +87,12 @@ async function executeSetup(page: Page): Promise<void> {
 async function runQuestion(page: Page, index: number): Promise<string> {
   const cell = page.locator('.jp-NotebookPanel:visible .jp-Notebook .jp-Cell.nbinlineai-prompt-cell').nth(index);
   await expect(cell).toBeVisible();
+  const submitted = page.waitForResponse(response => response.url().endsWith('/nbinlineai/prompt') &&
+    response.request().method() === 'POST');
   await cell.locator('[data-nbinlineai-run]').click();
+  const response = await submitted;
+  expect(response.ok()).toBeTruthy();
+  await response.finished();
   await expect(cell.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   const next = cell.locator('xpath=following-sibling::*[contains(@class,"nbinlineai-response-cell")][1]');
   return (await next.innerText()) || '';
@@ -113,9 +118,14 @@ test.beforeEach(async ({ request }) => { await configureFakeKey(request); });
 
 test('shipped notebook declares a stateful tool once for a natural lower question', async ({ page, request }) => {
   const example = JSON.parse(readFileSync(resolve('examples/live-variables-and-tools.ipynb'), 'utf8'));
+  for (const cell of example.cells as Cell[]) {
+    if (cell.cell_type === 'code') { cell.execution_count = null; cell.outputs = []; }
+  }
   await openNotebook(page, request, example.cells as Cell[]);
   await page.setViewportSize({ width: 1450, height: 1050 });
   await executeSetup(page);
+  await page.locator('.jp-NotebookPanel:visible .nbinlineai-prompt-cell').first()
+    .locator('[data-nbinlineai-keep-answer]').uncheck();
   const answer = await runQuestion(page, 0);
   expect(answer).toContain('Result: 4');
   const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
