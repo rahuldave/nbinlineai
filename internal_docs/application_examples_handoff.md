@@ -2,6 +2,8 @@
 
 Status: **merged to main by PR #43 as `4828a791337e0c2fa795b8a8b64b42fcbbab503b`, subsequently shipped in 0.1.16**. PR #43 itself was notebook/documentation source work, not a release. Its source head was `ff90708fb1aca601a31dfc5cc9fe5a9eb32e0601`. The owned topic and worker worktrees have been retired after integration; unrelated worktrees remain. The separate [0.1.16 release and review record](release_0_1_16_review.md) records later repairs, publication and verification.
 
+The later [background worked-example refresh](worked_examples_background_run.md) adds genuine saved answers and labelled synthetic-media outputs. The original release-scope account below remains historical.
+
 ## Provenance and scope
 
 Approved docs and implementation were read at main

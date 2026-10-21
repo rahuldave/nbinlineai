@@ -1,4 +1,4 @@
-// One visible browser/context for trusted, opt-in worked notebook plans.
+// One owned browser/context for trusted, opt-in worked notebook plans.
 // No account details, token, provider response, or media bytes are logged.
 import { readFile, writeFile, mkdir, chmod, realpath, readdir, lstat, rm } from 'node:fs/promises';
 import { resolve, join, dirname, isAbsolute } from 'node:path';
@@ -104,8 +104,8 @@ export async function installPilotRouteGuard(context, guard) {
   await context.route('**/nbinlineai/prompt**', route => guard.handle(route));
 }
 
-export async function grantWorkedHardwarePermissions(context, pilot) {
-  if (!pilot) {
+export async function grantWorkedHardwarePermissions(context, pilot, headless = false) {
+  if (!pilot && !headless) {
     await context.grantPermissions(['camera', 'microphone'], { origin: baseURL });
   }
 }
@@ -263,13 +263,16 @@ async function chooseSubscription(request) {
     state: status.state, configured: status.configured === true, authMode: status.auth_mode };
 }
 
-async function ensureAccount(page, request) {
+export async function ensureAccount(page, request) {
   let choice = await chooseSubscription(request);
   if (choice.connected && choice.model) {
     console.log(`Managed ChatGPT connection is ready; model ${choice.model}; image input ${choice.imageModel ? 'available' : 'unconfirmed'}.`);
     return choice;
   }
   rejectLimitedSubscription(choice);
+  if (process.env.WORKED_HEADLESS === '1') {
+    throw new Error('Headless worked run requires an existing connected nbinlineai ChatGPT login');
+  }
   console.log(`Managed ChatGPT connection needs visible sign-in (state ${choice.state ?? 'unavailable'}, ` +
     `configured ${choice.configured}, auth mode ${choice.authMode ?? 'unavailable'}); waiting in Configure AI.`);
   if (!(await page.getByRole('button', { name: 'Configure AI' }).first().isVisible())) {
@@ -352,6 +355,10 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     pilotGuard.bind(createdSession.id);
   }
   await page.goto(`/lab/tree/${encodeURIComponent(name)}`);
+  if (process.env.WORKED_HEADLESS === '1') {
+    const { assertBackgroundFixture } = await import('./worked_background_fixture.mjs');
+    await assertBackgroundFixture(page);
+  }
   const panel = page.locator('.jp-NotebookPanel:visible');
   await until(async () => await panel.locator('.jp-Notebook').count() === 1, 60_000, `${name} notebook open`);
   let kernelId;
@@ -388,8 +395,10 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     { timeout: 5000 });
     void savedResponse.catch(() => {});
     await page.keyboard.press('Meta+S');
-    const save = await savedResponse;
-    if (!save.ok()) throw new Error(`${name} current cell model did not save`);
+    // Saving a clean notebook is a no-op in current JupyterLab, so no PUT is
+    // emitted. Still fetch its saved model and strictly verify the target below.
+    const save = await savedResponse.catch(() => null);
+    if (save && !save.ok()) throw new Error(`${name} current cell model did not save`);
     const response = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
     if (!response.ok()) throw new Error(`${name} current cell model could not be read`);
     const cells = (await response.json()).content.cells;
@@ -418,8 +427,13 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     }
     if (kind === 'code') {
       await target.scrollIntoViewIfNeeded();
-      const editorText = await target.locator('.cm-content').evaluate(node =>
-        Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n'));
+      const editorText = await target.locator('.cm-content').evaluate(node => {
+        // CodeMirror virtualizes lines inside a long code cell. Read its complete
+        // editor document, then retain the strict comparison with the saved model.
+        const view = node.cmTile?.root?.view ?? node.cmView?.rootView?.view;
+        return view?.state?.doc?.toString() ??
+          Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n');
+      });
       verifiedCodeWidgetSource(cells[index], editorText);
     }
     return target;
@@ -602,7 +616,10 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
         }
         assertObservedSelection(observed, observedByQuestion.get(selected.fromQuestionId) ?? [], selected);
       }
-      await until(async () => /Done|Answer kept/.test(await target.locator('.nbinlineai-status').textContent() ?? ''),
+      // Notebook tools may insert cells before this question, changing its index.
+      // Resolve the same stable cell ID again after the real response completes.
+      const completedTarget = await liveCell(step.cellId, 'question');
+      await until(async () => /Done|Answer kept/.test(await completedTarget.locator('.nbinlineai-status').textContent() ?? ''),
         timeout, `${name} ${step.cellId} answer`);
     } else if (step.action === 'click') {
       await page.locator(step.selector).click({ timeout });
@@ -623,12 +640,14 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
       await chooser.getByRole('button', { name: 'Choose file' }).click({ timeout });
       await (await fileChooser).setFiles(selected);
     } else if (step.action === 'paste-owned-clipboard') {
+      if (process.env.WORKED_HEADLESS === '1') throw new Error('Headless worked run cannot use the OS clipboard');
       if (name !== 'browser-media-playback.ipynb') throw new Error('Owned paste requires playback notebook');
       const paste = page.locator('.nbinlineai-playback-panel[aria-label="Paste into this notebook"]:visible');
       if (await paste.count() !== 1) throw new Error('Visible owned paste control is unavailable');
       await paste.getByRole('textbox', { name: 'Paste here' }).click({ timeout });
       await page.keyboard.press('Meta+V');
     } else if (step.action === 'copy-owned-text-shortcut') {
+      if (process.env.WORKED_HEADLESS === '1') throw new Error('Headless worked run cannot use the OS clipboard');
       if (name !== 'browser-media-playback.ipynb') throw new Error('Owned copy requires playback notebook');
       const copy = page.locator('.nbinlineai-playback-panel[aria-label="Copy text"]:visible');
       if (await copy.count() !== 1) throw new Error('Visible owned copy control is unavailable');
@@ -645,6 +664,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     } else if (step.action === 'pause') {
       await pause(Math.min(Math.max(Number(step.milliseconds) || 0, 0), 60_000));
     } else if (step.action === 'play-test-tone') {
+      if (process.env.WORKED_HEADLESS === '1') throw new Error('Headless worked run cannot play a system sound');
       if (typeof step.path !== 'string' || !/^\/tmp\/nbinlineai-worked-tone-[A-Za-z0-9-]+\.wav$/.test(step.path)) {
         throw new Error('Test tone must be an owned temporary WAV file');
       }
@@ -710,6 +730,15 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
 // The installed Chrome app may already have macOS camera consent whereas the
 // Playwright test app has a distinct macOS identity. Both use a fresh context.
 const browserChannel = process.env.WORKED_BROWSER_CHANNEL;
+const headless = process.env.WORKED_HEADLESS === '1';
+export function assertHeadlessPlan(manifest) {
+  const externalActions = new Set(['ai-visual-start', 'paste-owned-clipboard',
+    'copy-owned-text-shortcut', 'play-test-tone']);
+  for (const entry of manifest.notebooks ?? []) {
+    const action = entry.steps?.find(step => externalActions.has(step?.action))?.action;
+    if (action) throw new Error(`Headless worked run cannot use ${action}`);
+  }
+}
 async function main() {
   if (!token || !manifestPath || !outputDir || !ownedPython) {
     throw new Error('Worked runner environment is incomplete');
@@ -718,7 +747,11 @@ async function main() {
   if (browserChannel && browserChannel !== 'chrome') {
     throw new Error('WORKED_BROWSER_CHANNEL only supports the installed Chrome app');
   }
+  if (headless && browserChannel) {
+    throw new Error('Headless worked run cannot launch an installed browser channel');
+  }
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  if (headless) assertHeadlessPlan(manifest);
   const pilot = pilotQuestion(manifest);
   if (pilot) {
     const configDir = process.env.JUPYTER_CONFIG_DIR;
@@ -730,26 +763,36 @@ async function main() {
     await preparePilotSettings(configDir);
   }
   const { chromium } = await import('@playwright/test');
-  const browser = await chromium.launch({ headless: false,
+  const browser = await chromium.launch({ headless,
     ...(browserChannel ? { channel: browserChannel } : {}) });
   try {
     // Hardware examples use real devices on the owned localhost origin.
     // The read-only AI pilot grants no hardware permissions.
     const context = await browser.newContext({ baseURL, viewport: { width: 1500, height: 1050 },
       ...(pilot ? { serviceWorkers: 'block' } : {}) });
-    await grantWorkedHardwarePermissions(context, pilot);
+    if (headless) {
+      const { installBackgroundFixture } = await import('./worked_background_fixture.mjs');
+      await installBackgroundFixture(context);
+    } else {
+      await grantWorkedHardwarePermissions(context, pilot);
+    }
     const pilotGuard = pilot ? pilotRouteGuard(pilot.cellId) : null;
     if (pilotGuard) await installPilotRouteGuard(context, pilotGuard);
     let page = await context.newPage();
     // Jupyter establishes its normal authenticated browser cookie from this one
     // local URL. The token is never printed or stored in a notebook artifact.
     await page.goto(`${baseURL}/lab?token=${encodeURIComponent(token)}`);
+    if (process.env.WORKED_HEADLESS === '1') {
+      const { assertBackgroundFixture } = await import('./worked_background_fixture.mjs');
+      await assertBackgroundFixture(page);
+    }
     const request = context.request;
     let choice = null;
     const finished = new Set();
     const failed = new Map();
     while (true) {
       const currentManifest = pilot ? manifest : JSON.parse(await readFile(manifestPath, 'utf8'));
+      if (headless) assertHeadlessPlan(currentManifest);
       for (const entry of currentManifest.notebooks ?? []) {
         const key = safeName(entry.output ?? entry.source);
         const revision = JSON.stringify(entry);

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 from types import SimpleNamespace
 
@@ -27,7 +28,7 @@ NOTEBOOKS = (
 def _mapping_source(name: str, setup_id: str) -> str:
     notebook = json.loads((EXAMPLES / f"browser-media-{name}.ipynb").read_text())
     source = next("".join(cell["source"]) for cell in notebook["cells"] if cell["id"] == setup_id)
-    start = source.index("root_text = input(")
+    start = source.index("root_text = ")
     end = source.index("    return candidate", source.index("def server_file", start)) + len("    return candidate")
     return source[start:end]
 
@@ -41,10 +42,16 @@ def _mapping(name: str, setup_id: str, server_root: Path) -> dict:
     namespace = {
         "Path": Path,
         "PurePosixPath": PurePosixPath,
+        "os": os,
         "input": lambda _prompt: str(server_root),
     }
     exec(compile(_mapping_source(name, setup_id), setup_id, "exec"), namespace)
     return namespace
+
+
+@pytest.fixture(autouse=True)
+def _clear_worked_root(monkeypatch) -> None:
+    monkeypatch.delenv("NBINLINEAI_WORKED_ROOT", raising=False)
 
 
 @pytest.mark.parametrize("name,setup_id", NOTEBOOKS)
@@ -91,10 +98,26 @@ def test_media_notebook_requires_explicit_absolute_root(tmp_path: Path, monkeypa
         namespace = {
             "Path": Path,
             "PurePosixPath": PurePosixPath,
+            "os": os,
             "input": lambda _prompt, supplied=supplied: supplied,
         }
         with pytest.raises((ValueError, FileNotFoundError)):
             exec(compile(source, setup_id, "exec"), namespace)
+
+
+@pytest.mark.parametrize("name,setup_id", (("attachment", "attachment-setup"),
+                                         ("integration", "integration-setup")))
+def test_worked_runner_root_skips_interactive_input(tmp_path: Path, monkeypatch,
+                                                   name: str, setup_id: str) -> None:
+    server_root = tmp_path / "served"
+    notebook_folder = server_root / "examples"
+    notebook_folder.mkdir(parents=True)
+    monkeypatch.chdir(notebook_folder)
+    monkeypatch.setenv("NBINLINEAI_WORKED_ROOT", str(server_root))
+    namespace = {"Path": Path, "PurePosixPath": PurePosixPath, "os": os,
+                 "input": lambda _prompt: pytest.fail("Owned runner root should skip input")}
+    exec(compile(_mapping_source(name, setup_id), setup_id, "exec"), namespace)
+    assert namespace["server_root"] == server_root
 
 
 def test_media_notebooks_use_mapping_for_generated_and_saved_paths() -> None:

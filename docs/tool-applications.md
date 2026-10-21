@@ -4,7 +4,7 @@ title: Build an application with notebook tools
 
 # Build an application with notebook tools
 
-Start with the result you want to keep: a presentation, a bug report, an analysis note, or a project handoff. The [application notebooks](examples.md#complete-applications) join the tools into those tasks. They include Python steps, staged AI questions, and a final artifact. They are new, unrun tutorials; their empty outputs are places for your own results.
+Start with the result you want to keep: a presentation, a bug report, an analysis note, or a project handoff. The [application notebooks](examples.md#complete-applications) join the tools into those tasks. They include Python steps, staged AI questions, and a final artifact. They include real saved AI responses and worked Python outputs. The saved media runs use a labelled synthetic canvas and generated silent audio in an isolated background browser; they do not claim physical-device capture or a real product defect. The presenter’s alternate paste-ID handoffs remain interactive exercises. Turn off **Keep answer** on a completed question when you want a fresh response.
 
 ## Which tools return receipts?
 

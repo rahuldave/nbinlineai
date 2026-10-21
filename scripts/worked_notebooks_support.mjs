@@ -233,7 +233,7 @@ function stringsIn(value) {
 }
 export function normalizePublicCopy(notebook, privateHardwareValues = new Set()) {
   let replaced = 0;
-  const localPath = /(?:\/Users\/[^\s"'<>|]+|\/home\/[^\s"'<>|]+|\/tmp\/nbinlineai-[^\s"'<>|]+|\/(?:private\/)?var\/folders\/[^\s"'<>|]+)/g;
+  const localPath = /(?:\/Users\/[^\s"'<>|`]+|\/home\/[^\s"'<>|`]+|\/tmp\/nbinlineai-[^\s"'<>|`]+|\/(?:private\/)?var\/folders\/[^\s"'<>|`]+)/g;
   for (const cell of notebook.cells) {
     if (cell.cell_type !== 'code') continue;
     for (const outputText of stringsIn(cell.outputs ?? [])) {

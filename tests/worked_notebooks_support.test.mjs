@@ -228,6 +228,23 @@ test('public copy removes macOS paths and hardware descriptions before saving', 
   assert.match(notebook.metadata.nbinlineaiWorked.savedCopyNormalization, /replaced/);
 });
 
+test('path redaction preserves closing Markdown backticks in saved answers and traces', () => {
+  const notebook = { metadata: {}, cells: [
+    { id: 'answer', cell_type: 'markdown', metadata: { nbinlineai: { isOutputCell: true } },
+      source: ['Saved HTML deck: `/tmp/nbinlineai-worked-123/deck.html`.'] },
+    { id: 'trace', cell_type: 'markdown', metadata: { nbinlineaiWorkedTrace: true },
+      source: ['Result: `/Users/example/notebooks/deck.html` and `/var/folders/abc/work/slide.png`.'] },
+    { id: 'output', cell_type: 'code', outputs: [{ output_type: 'stream',
+      text: ['Wrote `/home/example/report.md`.\n'] }] },
+  ] };
+  normalizePublicCopy(notebook);
+  assertSafeNotebook(notebook);
+  assert.equal(notebook.cells[0].source[0], 'Saved HTML deck: `[temporary local path]`.');
+  assert.equal(notebook.cells[1].source[0],
+    'Result: `[temporary local path]` and `[temporary local path]`.');
+  assert.equal(notebook.cells[2].outputs[0].text[0], 'Wrote `[temporary local path]`.\n');
+});
+
 test('real device labels and IDs are removed from JSON, Python repr, and answer prose', () => {
   const json = '{"device_id":"OpaqueDevice123","label":"Bedroom wall camera"}';
   const python = "{'deviceId': 'OpaqueMic456', 'label': 'Mic'}";

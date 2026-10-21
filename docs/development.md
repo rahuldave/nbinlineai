@@ -194,3 +194,12 @@ record issue scope, independent adversarial review, verification and cleanup.
 commands; `just browser` rebuilds and relinks first. CI additionally checks
 built archives and fresh wheel installation. The source commit in `uv.lock`
 identifies the installed snapshot even when the package version is unchanged.
+
+
+## Collect worked answers without using the desktop
+
+The opt-in worked-notebook runner supports `--headless` (or `WORKED_HEADLESS=1`). It starts an owned JupyterLab on port 8897, refuses an occupied port, and uses the existing nbinlineai ChatGPT subscription connection. It refuses a connection that would require a visible sign-in. It never uses the user's server on 8888.
+
+In this mode, `scripts/worked_background_fixture.mjs` supplies a disposable canvas instead of a real display/camera and a silent generated audio track instead of a microphone. It disables the clipboard, grants no physical-device permissions, and rejects desktop clipboard, sound and visual-operator plan steps. Fixture installation is checked before notebook execution. Do not describe this fixture as physical-device acceptance. The real model sees only the public fixture and notebook content submitted by the usual inline transport.
+
+Execution plans select individual code cells, receipt checks and AI questions. A completed saved answer remains protected by Keep answer; use a disposable unanswered source copy or turn off the control when collecting a new run. The runner saves genuine responses and observed tool events, normalizes private local paths, and does not fabricate missing answers. Rebuild the static documentation afterward with the site commands above; the documentation build itself never runs a notebook or contacts a model.
