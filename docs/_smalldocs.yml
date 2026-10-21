@@ -8,6 +8,7 @@ project:
   resources:
     - .nojekyll
     - images/**
+    - assets/themes/litera-reading/**
 
 website:
   title: nbinlineai
@@ -33,7 +34,9 @@ website:
       - text: Development
         href: development.md
 
-theme: cosmo
-css: assets/css/site.css
+theme: litera
+css:
+  - assets/themes/litera-reading/litera-reading.css
+  - assets/css/site.css
 toc: true
 code-copy: true
