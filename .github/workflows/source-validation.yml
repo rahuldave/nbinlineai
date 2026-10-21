@@ -103,6 +103,8 @@ jobs:
           PYTHON
       - name: Install Chromium for the isolated browser suite
         run: uv run --no-sync jlpm playwright install --with-deps chromium
+      - name: Check background worked-example isolation
+        run: node --test tests/worked_notebooks_support.test.mjs tests/worked_notebooks_headless.test.mjs tests/worked_background_fixture.test.mjs
       - name: Run deterministic browser suite on an owned server
         run: uv run --no-sync jlpm test:e2e --max-failures=5
       - name: Preserve browser failure diagnostics

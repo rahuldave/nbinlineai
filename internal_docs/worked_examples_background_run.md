@@ -41,7 +41,7 @@ The genuine runs exposed three existing harness assumptions: long CodeMirror cel
 Verification before review:
 
 - All eleven result notebooks have no code error outputs; source/answer IDs and all prior answer texts were checked against the baseline.
-- 27 example checks, 29 focused runner/path/renderer Python checks, 19 Node support/headless/fixture checks and 99 frontend unit tests passed.
+- 27 example checks, 29 focused runner/path/renderer Python checks, 19 Node support/headless/fixture checks and 99 frontend unit tests passed. The Node checks also run in source CI after its Chromium installation.
 - The saved-answer coverage regression passed on the refresh and failed on the baseline for the expected 29 unanswered questions.
 - The strict registered-tool evidence check passed with zero execution deferrals.
 - smalldocs rendered 54 pages and all 30 notebooks; the checker passed AI-panel, output, tool-row, local-link and anchor checks. The final rebuilt pages are also checked for 187 answer panels.
