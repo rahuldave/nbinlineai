@@ -78,6 +78,10 @@ async function copiedExample(page: Page, request: APIRequestContext) {
 test('output export, preview, crop and explicit attachment send one exact native image only after Run',
   async ({ page, request }) => {
     const { notebook, cell, run, inspect } = await copiedExample(page, request);
+    let promptPosts = 0;
+    page.on('request', item => {
+      if (item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST') promptPosts += 1;
+    });
     await run('integration-setup');
     await expect(cell('integration-setup').locator('.jp-OutputArea')).toContainText('Disposable 8x8');
     await run('integration-output');
@@ -111,7 +115,13 @@ test('output export, preview, crop and explicit attachment send one exact native
     const preflight = notebook.locator('.nbinlineai-prompt-cell')
       .filter({ hasText: 'Before I confirm any image attachment' });
     await expect(preflight).toHaveCount(1);
+    await preflight.locator('[data-nbinlineai-keep-answer]').uncheck();
+    const preflightResponse = page.waitForResponse(item => item.url().endsWith('/nbinlineai/prompt') &&
+      item.request().method() === 'POST');
     await preflight.locator('[data-nbinlineai-run]').click();
+    const preflightRun = await preflightResponse;
+    expect(preflightRun.ok()).toBeTruthy();
+    await preflightRun.finished();
     await expect(preflight.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
     await expect(notebook.locator('.nbinlineai-response-cell').filter({ hasText: 'NATIVE_IMAGE count=0' }))
       .toHaveCount(1);
@@ -119,6 +129,12 @@ test('output export, preview, crop and explicit attachment send one exact native
     const question = notebook.locator('.nbinlineai-prompt-cell')
       .filter({ hasText: 'What is the visible color in the four-pixel-square image' });
     await expect(question).toHaveCount(1);
+    await question.locator('[data-nbinlineai-keep-answer]').uncheck();
+    const priorAnswer = question.locator('xpath=following-sibling::*[contains(@class,"nbinlineai-response-cell")][1]');
+    await expect(priorAnswer).toHaveCount(1);
+    const priorAnswerContent = priorAnswer.locator('.jp-RenderedMarkdown');
+    const savedAnswerText = await priorAnswerContent.innerText();
+    const postsBeforeAttachment = promptPosts;
     await expect(question.locator('[data-nbinlineai-attachment]')).toBeHidden();
     await question.locator('.jp-Cell-inputWrapper').click();
     const details = page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-details]');
@@ -141,13 +157,13 @@ test('output export, preview, crop and explicit attachment send one exact native
     const confirmation = page.locator('.jp-NotebookPanel:visible .nbinlineai-attachment-confirmation');
     await expect(confirmation).toBeVisible();
     await expect(confirmation.locator('img')).toHaveJSProperty('complete', true);
-    await expect(question.locator('.nbinlineai-status')).not.toContainText('Done');
     await confirmation.getByRole('button', { name: 'Attach image' }).click();
     const attachment = await inspect('integration-attach-inspect', 'completed');
     expect(attachment).toContain(hash!);
     const indicator = question.locator('[data-nbinlineai-attachment]');
     await expect(indicator).toContainText('Image attached');
-    await expect(question.locator('.nbinlineai-status')).not.toContainText('Done');
+    expect(promptPosts).toBe(postsBeforeAttachment);
+    await expect(priorAnswerContent).toHaveText(savedAnswerText);
 
     // Repeated previews budget the confirmed image but do not run either code or model work.
     for (let index = 0; index < 2; index++) {
@@ -159,9 +175,15 @@ test('output export, preview, crop and explicit attachment send one exact native
     expect(await cell('integration-export-call').locator('.jp-InputPrompt').textContent()).toBe(exportExecution);
     expect(await cell('integration-crop-call').locator('.jp-InputPrompt').textContent()).toBe(cropExecution);
     expect(await cell('integration-save-call').locator('.jp-InputPrompt').textContent()).toBe(saveExecution);
-    await expect(question.locator('.nbinlineai-status')).not.toContainText('Done');
-
+    expect(promptPosts).toBe(postsBeforeAttachment);
+    await expect(priorAnswerContent).toHaveText(savedAnswerText);
+    const imageResponse = page.waitForResponse(item => item.url().endsWith('/nbinlineai/prompt') &&
+      item.request().method() === 'POST');
     await question.locator('[data-nbinlineai-run]').click();
+    const imageRun = await imageResponse;
+    expect(imageRun.ok()).toBeTruthy();
+    await imageRun.finished();
+    expect(promptPosts).toBe(postsBeforeAttachment + 1);
     await expect(question.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
     const answer = notebook.locator('.nbinlineai-response-cell').filter({ hasText: 'NATIVE_IMAGE count=1' });
     await expect(answer).toHaveCount(1);

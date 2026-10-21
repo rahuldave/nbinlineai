@@ -21,6 +21,8 @@ checks, and remaining live-interaction gates. It is an in-progress source
 record, separate from the browser/media implementation acceptance and release
 history.
 
+The [2026-10-21 background worked-example refresh](worked_examples_background_run.md) records 29 new real AI answers, preservation of all 158 earlier answers, synthetic-media boundaries and source-only delivery.
+
 ## Browser and media source implementation
 
 The approved [API spec](browser_media_tool_spec.md) was recorded at main

@@ -172,6 +172,8 @@ HEADLESS_UI_CELLS = {
     ("browser-media-capture.ipynb", "canvas-recorder-start-canvas"): "start_canvas(",
     ("browser-media-capture.ipynb", "canvas-recorder-source-id"): "canvas_source.result",
     ("browser-media-capture.ipynb", "canvas-recorder-stop-source-direct"): "stop_source(",
+    ("browser-media-capture.ipynb", "capture-fresh-cleanup-call"): "start_camera(",
+    ("browser-media-capture.ipynb", "capture-fresh-cleanup-inspect"): "fresh_cleanup_camera.status",
 }
 CAPTURE_DEMO_VARIABLES = {
     "list_media_sources": "devices", "start_camera": "camera",

@@ -1,0 +1,1032 @@
+{
+  "description": "Collection plan for the 2026-10-21 background worked-answer run; completed answers are protected in the resulting notebooks, so a replay requires a disposable unanswered copy. No Run All claim.",
+  "notebooks": [
+    {
+      "source": "application-screen-bug-report.ipynb",
+      "requiresImage": true,
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "bug-setup",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-notes",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-setup",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_setup"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-setup-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-call",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text(\"Share screen\")"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_start"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-still-call",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "still_receipt"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-still-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-video-call",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "video_receipt"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-video-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-stop",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_stop"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-share-stop-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-annotation-coordinates",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-annotation-call",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "annotated_receipt"
+          ],
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-annotation-inspect",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-report-build",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "ai",
+          "cellId": "bug-ai-attach",
+          "tools": [
+            "attach_media"
+          ],
+          "timeoutMs": 180000
+        },
+        {
+          "action": "click",
+          "selector": "button:has-text(\"Attach image\")"
+        },
+        {
+          "action": "ai",
+          "cellId": "bug-ai-attach-status",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 180000
+        },
+        {
+          "action": "ai",
+          "cellId": "bug-ai-review",
+          "timeoutMs": 180000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-release-call",
+          "timeoutMs": 60000
+        },
+        {
+          "action": "pause",
+          "ms": 1000,
+          "milliseconds": 1000
+        },
+        {
+          "action": "code",
+          "cellId": "bug-release-inspect",
+          "timeoutMs": 60000
+        }
+      ]
+    },
+    {
+      "source": "live-notebook-tools.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "live-tool-setup",
+          "contains": "Tools imported"
+        },
+        {
+          "action": "code",
+          "cellId": "live-tool-references"
+        },
+        {
+          "action": "ai",
+          "cellId": "live-list-prompt",
+          "tools": [
+            "list_cells"
+          ]
+        },
+        {
+          "action": "ai",
+          "cellId": "live-read-prompt",
+          "tools": [
+            "read_cell"
+          ]
+        },
+        {
+          "action": "ai",
+          "cellId": "live-insert-prompt",
+          "tools": [
+            "insert_markdown"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "live-variables-and-tools.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "live-setup"
+        },
+        {
+          "action": "code",
+          "cellId": "live-reference-generator",
+          "contains": "Selected tools:"
+        },
+        {
+          "action": "ai",
+          "cellId": "live-stateful-prompt",
+          "tools": [
+            "record_bonus"
+          ]
+        },
+        {
+          "action": "code",
+          "cellId": "live-state-check",
+          "contains": "Tool calls observed: 1"
+        },
+        {
+          "action": "ai",
+          "cellId": "live-pure-prompt",
+          "tools": [
+            "average_score"
+          ]
+        },
+        {
+          "action": "code",
+          "cellId": "live-state-check",
+          "contains": "Bonus now in the Python kernel: 4"
+        }
+      ]
+    },
+    {
+      "source": "socratic-learning-dialog.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "learning-setup",
+          "contains": "First draft result: 1"
+        },
+        {
+          "action": "ai",
+          "cellId": "learning-turn-three",
+          "attestNoTool": true
+        }
+      ]
+    },
+    {
+      "source": "application-data-investigation.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "data-setup",
+          "contains": "Loaded 8 fabricated readings"
+        },
+        {
+          "action": "code",
+          "cellId": "data-audit",
+          "contains": "41.0"
+        },
+        {
+          "action": "ai",
+          "cellId": "data-ai-investigate",
+          "tools": [
+            "audit_station",
+            "inspect_value",
+            "search_value"
+          ]
+        },
+        {
+          "action": "code",
+          "cellId": "data-save-report",
+          "contains": "Saved report:"
+        },
+        {
+          "action": "ai",
+          "cellId": "data-ai-draft",
+          "tools": [
+            "insert_code"
+          ]
+        }
+      ]
+    },
+    {
+      "source": "application-project-handoff.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "handoff-setup",
+          "contains": "Disposable project:"
+        },
+        {
+          "action": "code",
+          "cellId": "handoff-direct-read"
+        },
+        {
+          "action": "ai",
+          "cellId": "handoff-ai-diagnose",
+          "tools": [
+            "search_files",
+            "source_doc",
+            "view_file_hashes",
+            "read_document_section",
+            "read_notebook_cell"
+          ]
+        },
+        {
+          "action": "code",
+          "cellId": "handoff-baseline-test",
+          "contains": "Exit code: 1."
+        },
+        {
+          "action": "ai",
+          "cellId": "handoff-ai-repair",
+          "tools": [
+            "view_file_hashes",
+            "file_replace_checked",
+            "run_python"
+          ]
+        },
+        {
+          "action": "code",
+          "cellId": "handoff-direct-repair",
+          "contains": "boundary test passed"
+        },
+        {
+          "action": "code",
+          "cellId": "handoff-save-report",
+          "contains": "Saved handoff:"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "presenter-setup"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-content"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-camera-start"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "camera_start"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-camera-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-photo-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "photo_capture"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-photo-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-camera-video-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "camera_video_capture"
+          ],
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-camera-video-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-camera-stop"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "camera_stop"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-camera-stop-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-narration-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "narration_capture"
+          ],
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-narration-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-share-setup"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_setup"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-share-setup-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-share-call"
+        },
+        {
+          "action": "click",
+          "selector": ".nbinlineai-capture-panel button:has-text(\"Share screen\")",
+          "timeoutMs": 30000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_start"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-share-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-screen-frame-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "screen_capture"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-screen-frame-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-screen-video-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "screen_video_capture"
+          ],
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-screen-video-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-share-stop"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "share_stop"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-share-stop-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-build-function"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-direct-build"
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-camera-start",
+          "tools": [
+            "start_camera"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "pause",
+          "milliseconds": 1200
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-camera-status",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-mic-start",
+          "tools": [
+            "start_microphone"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "pause",
+          "milliseconds": 1200
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-mic-status",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-share-start",
+          "tools": [
+            "start_share"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "click",
+          "selector": ".nbinlineai-capture-panel button:has-text(\"Share screen\")",
+          "timeoutMs": 30000
+        },
+        {
+          "action": "pause",
+          "milliseconds": 1200
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-ai-share-status",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-model-tool-setup"
+        },
+        {
+          "action": "ai",
+          "cellId": "presenter-model-build-question",
+          "tools": [
+            "create_presenter_deck_from_text"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-model-build-check"
+        },
+        {
+          "action": "code",
+          "cellId": "presenter-cleanup"
+        },
+        {
+          "action": "pause",
+          "milliseconds": 1200
+        },
+        {
+          "action": "inspect",
+          "cellId": "presenter-cleanup-inspect"
+        }
+      ],
+      "source": "application-presenter-kit.ipynb"
+    },
+    {
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "receipts-setup"
+        },
+        {
+          "action": "ai",
+          "cellId": "receipts-ai-python",
+          "tools": [
+            "with_tax"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-cap-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "capability_receipt"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-cap-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-status-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "status_receipt"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-status-inspect"
+        },
+        {
+          "action": "ai",
+          "cellId": "receipts-ai-capability",
+          "tools": [
+            "browser_capabilities"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "pause",
+          "milliseconds": 1200
+        },
+        {
+          "action": "ai",
+          "cellId": "receipts-ai-capability-status",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-camera-start"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "camera_start"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-camera-ready"
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-photo-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "photo_receipt"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-photo-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-camera-stop"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "camera_stop"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-camera-stop-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-audio-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "audio_receipt"
+          ],
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-audio-inspect"
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-attach-call"
+        },
+        {
+          "action": "click",
+          "selector": ".nbinlineai-attachment-confirmation button:has-text(\"Attach image\")",
+          "timeoutMs": 30000
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "photo_attachment"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-attach-inspect"
+        },
+        {
+          "action": "ai",
+          "cellId": "receipts-image-question",
+          "tools": [],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "receipts-release-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "photo_release",
+            "audio_release"
+          ],
+          "timeoutMs": 30000
+        },
+        {
+          "action": "inspect",
+          "cellId": "receipts-release-inspect"
+        }
+      ],
+      "source": "application-receipts-to-values.ipynb",
+      "requiresImage": true
+    },
+    {
+      "source": "browser-media-attachment.ipynb",
+      "requiresImage": true,
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "attachment-setup",
+          "contains": "Generated blue PNG:"
+        },
+        {
+          "action": "code",
+          "cellId": "attachment-call"
+        },
+        {
+          "action": "click",
+          "selector": ".jp-NotebookPanel:visible .nbinlineai-attachment-confirmation button:has-text(\"Attach image\")"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "attached"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "attachment-inspect",
+          "contains": "completed"
+        },
+        {
+          "action": "ai",
+          "cellId": "attachment-question",
+          "attestNoTool": true,
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "attachment-cleanup",
+          "contains": "Disposable image removed: True"
+        }
+      ]
+    },
+    {
+      "source": "browser-media-integration.ipynb",
+      "requiresImage": true,
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "integration-setup",
+          "contains": "Disposable 8x8 output image ready"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-output"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-list-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "listing"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-list-inspect",
+          "contains": "Output reference:"
+        },
+        {
+          "action": "ai",
+          "cellId": "integration-list-ai-ready",
+          "tools": [
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "integration-export-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "exported"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-export-inspect",
+          "contains": "Exported memory hash:"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-preview-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "preview"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-preview-inspect",
+          "contains": "completed"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-crop-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "crop"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-crop-inspect",
+          "contains": "Derivative memory hash:"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-save-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "saved"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-save-inspect",
+          "contains": "Sidecar path:"
+        },
+        {
+          "action": "ai",
+          "cellId": "integration-preflight-question",
+          "attestNoTool": true,
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "integration-attach-call"
+        },
+        {
+          "action": "click",
+          "selector": ".jp-NotebookPanel:visible .nbinlineai-attachment-confirmation button:has-text(\"Attach image\")"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "attached"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-attach-inspect",
+          "contains": "completed"
+        },
+        {
+          "action": "ai",
+          "cellId": "integration-question",
+          "attestNoTool": true,
+          "timeoutMs": 240000
+        },
+        {
+          "action": "code",
+          "cellId": "integration-close-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "closed_preview",
+            "released_export",
+            "released_crop"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "integration-close-inspect",
+          "contains": "completed"
+        },
+        {
+          "action": "code",
+          "cellId": "integration-file-cleanup",
+          "contains": "Optional generated file and sidecar removed: True"
+        }
+      ]
+    },
+    {
+      "source": "browser-media-capture.ipynb",
+      "steps": [
+        {
+          "action": "code",
+          "cellId": "capture-setup"
+        },
+        {
+          "action": "code",
+          "cellId": "capture-fresh-cleanup-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": [
+            "fresh_cleanup_camera"
+          ],
+          "status": "completed",
+          "timeoutMs": 90000
+        },
+        {
+          "action": "inspect",
+          "cellId": "capture-fresh-cleanup-inspect",
+          "contains": "Fresh cleanup source ready: True"
+        },
+        {
+          "action": "ai",
+          "cellId": "capture-ai-camera-stop-ready",
+          "tools": [
+            "stop_source",
+            "operation_status"
+          ],
+          "timeoutMs": 240000
+        }
+      ]
+    }
+  ]
+}

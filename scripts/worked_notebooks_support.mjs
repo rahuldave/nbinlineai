@@ -233,7 +233,7 @@ function stringsIn(value) {
 }
 export function normalizePublicCopy(notebook, privateHardwareValues = new Set()) {
   let replaced = 0;
-  const localPath = /(?:\/Users\/[^\s"'<>|]+|\/home\/[^\s"'<>|]+|\/tmp\/nbinlineai-[^\s"'<>|]+|\/(?:private\/)?var\/folders\/[^\s"'<>|]+)/g;
+  const localPath = /(?:\/Users\/[^\s"'<>|`]+|\/home\/[^\s"'<>|`]+|\/tmp\/nbinlineai-[^\s"'<>|`]+|\/(?:private\/)?var\/folders\/[^\s"'<>|`]+)/g;
   for (const cell of notebook.cells) {
     if (cell.cell_type !== 'code') continue;
     for (const outputText of stringsIn(cell.outputs ?? [])) {
@@ -279,6 +279,20 @@ export function normalizePublicCopy(notebook, privateHardwareValues = new Set())
     if (cell.metadata?.nbinlineai?.isOutputCell || cell.metadata?.nbinlineaiWorkedTrace) {
       cell.source = normalize(cell.source);
     }
+  }
+  // Saved answers remain useful after the owned server stops; its image grants
+  // and generated files do not. Keep the digest as evidence, never a dead grant.
+  for (const cell of notebook.cells) {
+    const ai = cell.metadata?.nbinlineai;
+    if (!ai?.isPromptCell || !ai.mediaAttachment) continue;
+    const attachment = ai.mediaAttachment;
+    if (/^[a-f0-9]{64}$/.test(attachment.sha256 ?? '')) {
+      cell.metadata.nbinlineaiWorkedAttachment = {
+        sha256: attachment.sha256, kind: attachment.kind, detail: attachment.detail,
+        note: 'Image was attached for the saved run; attach a fresh image before rerunning.',
+      };
+    }
+    delete ai.mediaAttachment;
   }
   notebook.metadata ??= {};
   if (replaced) notebook.metadata.nbinlineaiWorked = {

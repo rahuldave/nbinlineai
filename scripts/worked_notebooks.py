@@ -157,6 +157,8 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, help="Where validated worked notebook copies are saved")
     parser.add_argument("--source-dir", type=Path, default=ROOT / "examples",
                         help="Directory of trusted source example notebooks")
+    parser.add_argument("--headless", action="store_true",
+                        help="Run in a background browser with synthetic media only; require an existing ChatGPT login")
     parser.add_argument("--server-child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
     if args.server_child:
@@ -164,6 +166,9 @@ def main() -> None:
         return
     if not args.manifest or not args.output_dir:
         parser.error("--manifest and --output-dir are required")
+    headless = args.headless or os.environ.get("WORKED_HEADLESS") == "1"
+    if headless and os.environ.get("WORKED_BROWSER_CHANNEL"):
+        raise SystemExit("Headless worked runs cannot launch an installed browser channel")
     if not _port_free():
         raise SystemExit("Port 8897 is occupied; refusing to reuse or stop that server")
     if not _private_directory(credential_directory() / "codex-subscription"):
@@ -201,6 +206,8 @@ def main() -> None:
                               "NBINLINEAI_WORKED_OUTPUT": str(output),
                               "NBINLINEAI_WORKED_PYTHON": sys.executable,
                               "NBINLINEAI_WORKED_SOURCE_DIR": str(source)}
+                if headless:
+                    driver_env["WORKED_HEADLESS"] = "1"
                 browser_channel = os.environ.get("WORKED_BROWSER_CHANNEL", "")
                 if browser_channel:
                     if browser_channel != "chrome":

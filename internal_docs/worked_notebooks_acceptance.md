@@ -1,5 +1,7 @@
 # Worked notebook and documentation acceptance
 
+Later source update: the [2026-10-21 background run](worked_examples_background_run.md) fills the missing gallery answers using disclosed synthetic media where needed. The original physical-device evidence and Run All limits below remain historical records of their own runs.
+
 This is the source-work checkpoint for [PR #35](https://github.com/rahuldave/nbinlineai/pull/35),
 based on the integrated `codex/worked-guide` commit `6ac3dc5`. It is not a
 release record. The browser/media API specification was approved on `main` at

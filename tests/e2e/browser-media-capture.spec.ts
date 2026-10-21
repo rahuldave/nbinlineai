@@ -119,7 +119,8 @@ test('the exact public capture notebook exercises all 17 APIs and later receipt 
   ];
   expect(codeIds).toEqual(['capture-setup', ...tools.flatMap(name =>
     [`capture-${name}-call`, `capture-${name}-inspect`]),
-  'capture-cleanup', 'capture-cleanup-inspect', ...canvasRecorder]);
+  'capture-cleanup', 'capture-cleanup-inspect',
+  'capture-fresh-cleanup-call', 'capture-fresh-cleanup-inspect', ...canvasRecorder]);
   for (const cell of notebook.cells) {
     if (cell.cell_type === 'code') {
       cell.execution_count = null;

@@ -316,6 +316,10 @@ test('play stays bound to its notebook and late activation cannot revive a cance
   await page.evaluate(() => (window as any).__resolvePlay());
   await inspect(7, 'completed');
   await page.locator('.jp-FileBrowser .jp-DirListing-itemText').filter({ hasText: second }).dblclick();
+  const otherTab = page.getByRole('tab', { name: second, exact: true });
+  await expect(otherTab).toBeVisible();
+  await otherTab.click();
+  await expect(otherTab).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.jp-NotebookPanel:visible .jp-Notebook')).toContainText('OTHER_NOTEBOOK = True');
   await expect(page.locator('.jp-NotebookPanel:visible .nbinlineai-playback-host')).toHaveCount(0);
   await page.getByRole('tab', { name: first, exact: true }).click();
