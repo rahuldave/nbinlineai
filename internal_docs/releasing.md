@@ -349,3 +349,37 @@ all 54 HTML files matched the local render and the complete public site checker
 passed, with deployment-only `.nojekyll` verified in CI. See the
 [full release and review record](release_0_1_16_review.md) for exact run IDs,
 finding dispositions, provenance and verification boundaries.
+
+
+## Version 0.1.17 — published and verified
+
+Version **0.1.17** was published on October 28, 2026 from PR #48 merge
+`dfdf86cfc5d2f94ccefddf76f24659c25674a2e1`, whose tree matches independently
+reviewed `bd4b9d6c7e3591c35f28be85a8db8a3c56237b77`. The pushed annotated
+`v0.1.17` tag points to that merge. It adds editable common instructions before
+Compact, Full and Learning, defaulting to dollar-delimited inline/display math.
+Existing style customizations remain separate. It also packages the intervening
+worked-example refresh and documentation theme; notebook-agent experiments
+remain outside this release.
+
+The final required PR checks passed 685 Python tests, 100 frontend tests,
+20 background-example checks, 107 default browser scenarios and all 14 runtime
+platform/musl checks. Both optional deterministic ChatGPT scenarios passed
+separately. Independent feature and archive reviews have no outstanding
+findings. The checked wheel passed a clean Python 3.14 installation and
+JupyterLab quickstart UI check including the new common editor.
+
+The public wheel is 2,560,354 bytes, SHA-256
+`63fcf21e3bf09844f26e984a8ec21d7584c92c82087c46c33a521564bc81117f`;
+the source archive is 3,010,780 bytes, SHA-256
+`4508f7ae9877005a36efb06d6bbe0677644df3924f3270d9109d84a1cf6036e4`.
+Both public downloads match the independently audited files and are not yanked.
+A fresh Python 3.14 environment installed nbinlineai from the public index with
+a package refresh and cached dependency wheels; all 113 packages were
+compatible, package provenance and both extension discoveries passed, and the
+publicly downloaded wheel passed the isolated quickstart UI check.
+Pages deployment `40711719046` succeeded at the release merge; all 94 public
+resources were verified, including 54 HTML pages, 30 notebook pages and the
+new editor screenshot. Bytes match except expected sitemap checkout timestamps.
+The [full release record](release_0_1_17_review.md) contains review dispositions,
+local-test limitations, installation provenance and exact source/CI evidence.
