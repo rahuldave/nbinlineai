@@ -175,6 +175,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   styleNotice.textContent = 'Loading response style settings…';
   let refreshInstructionEditors: () => void = () => undefined;
   let refreshCommonEditor: () => void = () => undefined;
+  let commonEditorDirty = false;
   const styleRetry = document.createElement('button');
   styleRetry.type = 'button';
   styleRetry.textContent = 'Retry response style settings';
@@ -188,6 +189,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       styleSelect.value = currentPromptMode();
       styleSelect.disabled = false;
       refreshInstructionEditors();
+      commonEditorDirty = false;
       refreshCommonEditor();
       styleRetry.hidden = true;
       styleNotice.textContent = `${promptModeLabel(currentPromptMode())} is the current response style.`;
@@ -273,6 +275,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   commonEditor.setAttribute('aria-label', 'Common response instructions');
   commonEditor.maxLength = 8000;
   commonEditor.rows = 4;
+  commonEditor.addEventListener('input', () => { commonEditorDirty = true; });
   commonLabel.appendChild(commonEditor);
   const commonNotice = document.createElement('span');
   commonNotice.className = 'nbinlineai-template-state';
@@ -286,12 +289,13 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   defaultsPanel.insertBefore(commonSection, styleHeading);
   refreshCommonEditor = () => {
     const custom = state.confirmedCommonInstructions;
-    const serverDefault = env.getServerStatus()?.common_response_instructions || '';
-    if (document.activeElement !== commonEditor) commonEditor.value = custom === undefined ? serverDefault : custom;
+    const serverDefault = env.getServerStatus()?.common_response_instructions;
+    if (!commonEditorDirty) commonEditor.value = custom === undefined ? serverDefault || '' : custom;
     commonNotice.textContent = state.commonInstructionNotice || (custom === undefined
-      ? serverDefault ? 'Using server default' : 'Server default unavailable'
+      ? typeof serverDefault === 'string' ? 'Using server default' : 'Server default unavailable'
       : custom ? 'Custom instructions saved' : 'Common instructions disabled');
-    commonSave.disabled = !settings || state.commonInstructionsSavePending;
+    commonSave.disabled = !settings || state.commonInstructionsSavePending ||
+      (custom === undefined && typeof serverDefault !== 'string');
     commonReset.disabled = !settings || state.commonInstructionsSavePending || custom === undefined;
   };
   const writeCommon = async (requested: string | undefined) => {
@@ -323,6 +327,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       state.commonInstructionNotice = 'Could not confirm this change. Choose Retry response style settings to check what was saved.';
     } finally {
       state.commonInstructionsSavePending = false;
+      commonEditorDirty = false;
       refreshCommonEditor();
       env.invalidateContextPreviews();
       tracker.forEach(decorate);
@@ -542,6 +547,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       try {
         await fetchStatus();
         refreshInstructionEditors();
+        refreshCommonEditor();
         syncConnectionDetails();
         retry.hidden = true;
         notice.textContent = '';

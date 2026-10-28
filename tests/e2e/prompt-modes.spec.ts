@@ -210,6 +210,36 @@ test('common instructions save, disable, reset, and reach preview and runs', asy
   await expect(answer).toContainText('single dollar delimiters');
 });
 
+test('common default appears after delayed server status without an accidental empty save', async ({ page, request }) => {
+  let releaseStatus!: () => void;
+  const statusGate = new Promise<void>(resolve => { releaseStatus = resolve; });
+  let heldStatusRequests = 0;
+  await page.route('**/nbinlineai/status', async route => {
+    heldStatusRequests++;
+    await statusGate;
+    await route.continue();
+  });
+  await openNotebook(page, request);
+  const status = await request.get('/nbinlineai/status');
+  expect(status.ok()).toBeTruthy();
+  const serverDefault = (await status.json()).common_response_instructions as string;
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await showDefaults(dialog);
+  const common = dialog.locator('[data-nbinlineai-common-instructions]');
+  const editor = common.locator('[data-nbinlineai-common-editor]');
+  const save = common.locator('[data-nbinlineai-common-save]');
+  await expect(dialog.locator('select[data-nbinlineai-prompt-mode]')).toBeEnabled();
+  await expect.poll(() => heldStatusRequests).toBeGreaterThanOrEqual(2);
+  await expect(editor).toHaveValue('');
+  const saveWasDisabled = await save.isDisabled();
+  releaseStatus();
+  expect(saveWasDisabled).toBe(true);
+  await expect(editor).toHaveValue(serverDefault);
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('Using server default');
+  await expect(save).toBeEnabled();
+});
+
 test('fenced code copy works in compact and full modes without changing notebook source', async ({ page, request }) => {
   await page.addInitScript(() => {
     (window as any).__copiedCode = [];

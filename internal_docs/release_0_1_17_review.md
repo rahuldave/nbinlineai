@@ -60,6 +60,15 @@ merged delta from `62d227c5c6142cf87c8b12b39062412fdc280fe3` through
 - No other actionable baseline finding. All 187 gallery questions have
   nonempty completed answers, and the 158 older answer texts remain unchanged.
 
+`feature_review` (gpt-6-sol) reviewed main `0226d33d` through candidate
+`ca392a5bd356b12fc9ad6f15aecc8fc7ed8cc233`. Its P2 finding reproduced a
+delayed-status race: the common editor could remain blank before server defaults
+arrived, permitting an accidental empty save. The repair disables that ambiguous
+Save, refreshes after status arrives and preserves unsaved typing. The new
+browser test failed before the repair and passed afterward; all three common
+instruction browser flows passed together. No other actionable feature finding
+was reported. Follow-up review checks this repair at the final candidate.
+
 The release PR records the final independent feature review's exact base/head,
 findings and dispositions, along with exact-head CI results. Passing tests are
 separate from independent review; no GitHub approval from a second human
