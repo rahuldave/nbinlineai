@@ -11,6 +11,7 @@ from nbinlineai.config import DEFAULT_MODELS, MODEL_CAPABILITIES, MODEL_CHOICES
 from nbinlineai.context_budget import MAX_CONTEXT_CHARS, build_context, eligible_units
 from nbinlineai.kernel import KernelDispatcher
 from nbinlineai.prompt import (
+    COMMON_RESPONSE_INSTRUCTIONS,
     PROMPT_MODE_INSTRUCTIONS,
     run_prompt,
     validate_request,
@@ -237,6 +238,46 @@ def test_custom_instructions_and_effort_validation(monkeypatch):
             validate_request(request)
     assert validate_request({**base, "model": "custom-model", "reasoning_effort": "default"})[
         "reasoning_effort"] is None
+
+
+def test_common_instructions_validation(monkeypatch):
+    monkeypatch.setattr("nbinlineai.prompt.provider_status", lambda: {"openai_api": {"configured": True}})
+    base = _body("Hello")
+    for value in ("", "Use $x$ inline.", "x" * 8000):
+        assert validate_request({**base, "common_instructions": value})["common_instructions"] == value
+    for value in (None, 42, [], "x" * 8001):
+        with pytest.raises(ValueError, match="common_instructions must be text of at most 8000"):
+            validate_request({**base, "common_instructions": value})
+
+
+@pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])
+@pytest.mark.parametrize("mode", ["compact", "full", "learning"])
+@pytest.mark.parametrize("common", [None, "Custom shared text", ""])
+def test_common_instructions_precede_each_style(monkeypatch, backend, mode, common):
+    captured = []
+
+    async def fake_complete(selected, model, messages, tools):
+        captured.append(messages[0].text)
+        return Completion(model, Msg("assistant", [Text("OK")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+    request = {**_body("Explain"), "backend": backend, "prompt_mode": mode}
+    if common is not None:
+        request["common_instructions"] = common
+    if mode == "full":
+        request["prompt_instructions"] = "Custom full style"
+    asyncio.run(_collect_common(run_prompt(request, None, "kernel", None)))
+    system = captured[0]
+    expected = COMMON_RESPONSE_INSTRUCTIONS if common is None else common
+    assert system.count("Common response instructions:") == (1 if expected else 0)
+    if expected:
+        assert system.count(expected) == 1
+    assert system.index("Common response instructions:") < system.index("Response style for this run") if expected else "Common response instructions:" not in system
+    assert system.endswith("Custom full style" if mode == "full" else PROMPT_MODE_INSTRUCTIONS[mode])
+
+
+async def _collect_common(stream):
+    return [event async for event in stream]
 
 
 @pytest.mark.parametrize("backend", ["openai_api", "anthropic_api"])

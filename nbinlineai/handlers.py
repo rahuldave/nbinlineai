@@ -23,7 +23,13 @@ from .credentials import CredentialStore
 from .frontend_bridge import BridgeConflict, BridgeNotFound, FrontendBridge
 from .kernel import KernelDispatcher
 from .notebook_scope import NotebookScopeResolver
-from .prompt import PROMPT_MODE_INSTRUCTIONS, preview_context, run_prompt, validate_request
+from .prompt import (
+    COMMON_RESPONSE_INSTRUCTIONS,
+    PROMPT_MODE_INSTRUCTIONS,
+    preview_context,
+    run_prompt,
+    validate_request,
+)
 from .subscription_runtime import SubscriptionRuntimeError
 from .subscription_settings import SubscriptionSettings
 
@@ -210,6 +216,7 @@ class StatusHandler(APIHandler):
             "providers": providers,
             "default_models": DEFAULT_MODELS,
             "prompt_mode_instructions": PROMPT_MODE_INSTRUCTIONS,
+            "common_response_instructions": COMMON_RESPONSE_INSTRUCTIONS,
             "model_capabilities": capabilities,
             "subscription_capable": self.subscription_manager is not None,
         })

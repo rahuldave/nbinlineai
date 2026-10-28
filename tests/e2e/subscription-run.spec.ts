@@ -69,7 +69,9 @@ test('ChatGPT-only Run All executes declared notebook tools, context, and Keep t
   });
   const prompt = panel.locator('.nbinlineai-prompt-cell').first();
   await prompt.locator('[data-nbinlineai-override]').click();
-  await expect(prompt.locator('[data-nbinlineai-provider]')).toHaveValue('openai_codex_subscription');
+  await expect(panel.locator('[data-nbinlineai-notebook-provider]')).toHaveValue('openai_codex_subscription');
+  await expect(prompt.locator('[data-nbinlineai-provider]')).toHaveValue('');
+  await expect(prompt.locator('[data-nbinlineai-provider] option:checked')).toHaveText('Notebook default (ChatGPT)');
   await expect(prompt.locator('[data-nbinlineai-provider]')).toBeEnabled();
   await expect(prompt.locator('[data-nbinlineai-run]')).toBeEnabled();
   await runAll(page);

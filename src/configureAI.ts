@@ -18,6 +18,9 @@ export interface ConfigureAIState {
   confirmedPromptMode: PromptMode;
   confirmedInstructions: Partial<Record<PromptMode, string>>;
   instructionNotices: Partial<Record<PromptMode, string>>;
+  confirmedCommonInstructions: string | undefined;
+  commonInstructionsSavePending: boolean;
+  commonInstructionNotice: string | null;
 }
 
 export interface ConfigureAIEnvironment {
@@ -26,17 +29,19 @@ export interface ConfigureAIEnvironment {
   currentPromptMode: () => PromptMode;
   reloadResponseSettings: () => Promise<void>;
   readInstructionOverrides: (value: unknown) => Partial<Record<PromptMode, string>>;
+  readCommonOverride: (value: unknown) => string | undefined;
   fetchKeyStatus: () => Promise<KeyStatus>;
   changeKey: (backend: ApiBackend, method: 'POST' | 'DELETE', key?: string) => Promise<KeyStatus>;
   mergeKeyStatus: (result: KeyStatus) => void;
   fetchStatus: () => Promise<void>;
   getServerStatus: () => ServerStatus | null;
   decorate: (panel: import('@jupyterlab/notebook').NotebookPanel) => void;
+  invalidateContextPreviews: () => void;
   subscription: SubscriptionSetupEnvironment;
 }
 
 export async function showConfigureProviders(tracker: INotebookTracker, env: ConfigureAIEnvironment): Promise<void> {
-  const { state, settingsReady, currentPromptMode, reloadResponseSettings, readInstructionOverrides,
+  const { state, settingsReady, currentPromptMode, reloadResponseSettings, readInstructionOverrides, readCommonOverride,
     fetchKeyStatus, changeKey, mergeKeyStatus, fetchStatus, decorate } = env;
   let settings = state.settings;
   const body = new Widget();
@@ -169,6 +174,8 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
   styleNotice.setAttribute('role', 'status');
   styleNotice.textContent = 'Loading response style settings…';
   let refreshInstructionEditors: () => void = () => undefined;
+  let refreshCommonEditor: () => void = () => undefined;
+  let commonEditorDirty = false;
   const styleRetry = document.createElement('button');
   styleRetry.type = 'button';
   styleRetry.textContent = 'Retry response style settings';
@@ -182,6 +189,8 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       styleSelect.value = currentPromptMode();
       styleSelect.disabled = false;
       refreshInstructionEditors();
+      commonEditorDirty = false;
+      refreshCommonEditor();
       styleRetry.hidden = true;
       styleNotice.textContent = `${promptModeLabel(currentPromptMode())} is the current response style.`;
     }).catch(() => {
@@ -201,6 +210,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
     styleSelect.value = currentPromptMode();
     styleSelect.disabled = false;
     refreshInstructionEditors();
+    refreshCommonEditor();
     styleRetry.hidden = !state.settingsWarning;
     styleNotice.textContent = state.settingsWarning || '';
   });
@@ -251,6 +261,84 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       tracker.forEach(decorate);
     }).finally(() => { state.modeSavePending = false; styleSelect.disabled = false; });
   });
+  const commonSection = document.createElement('section');
+  commonSection.className = 'nbinlineai-common-instructions';
+  commonSection.dataset.nbinlineaiCommonInstructions = '';
+  const commonHeading = document.createElement('h3');
+  commonHeading.textContent = 'Common response instructions';
+  const commonDescription = document.createElement('p');
+  commonDescription.textContent = 'These instructions apply before Compact, Full, and Learning. Empty text disables them. Reset restores the current server default.';
+  const commonLabel = document.createElement('label');
+  commonLabel.textContent = 'Instructions for every response style';
+  const commonEditor = document.createElement('textarea');
+  commonEditor.dataset.nbinlineaiCommonEditor = '';
+  commonEditor.setAttribute('aria-label', 'Common response instructions');
+  commonEditor.maxLength = 8000;
+  commonEditor.rows = 4;
+  commonEditor.addEventListener('input', () => { commonEditorDirty = true; });
+  commonLabel.appendChild(commonEditor);
+  const commonNotice = document.createElement('span');
+  commonNotice.className = 'nbinlineai-template-state';
+  commonNotice.setAttribute('role', 'status');
+  commonNotice.dataset.nbinlineaiCommonNotice = '';
+  const commonSave = document.createElement('button');
+  commonSave.type = 'button'; commonSave.textContent = 'Save'; commonSave.dataset.nbinlineaiCommonSave = '';
+  const commonReset = document.createElement('button');
+  commonReset.type = 'button'; commonReset.textContent = 'Reset'; commonReset.dataset.nbinlineaiCommonReset = '';
+  commonSection.append(commonHeading, commonDescription, commonLabel, commonNotice, commonSave, commonReset);
+  defaultsPanel.insertBefore(commonSection, styleHeading);
+  refreshCommonEditor = () => {
+    const custom = state.confirmedCommonInstructions;
+    const serverDefault = env.getServerStatus()?.common_response_instructions;
+    if (!commonEditorDirty) commonEditor.value = custom === undefined ? serverDefault || '' : custom;
+    commonNotice.textContent = state.commonInstructionNotice || (custom === undefined
+      ? typeof serverDefault === 'string' ? 'Using server default' : 'Server default unavailable'
+      : custom ? 'Custom instructions saved' : 'Common instructions disabled');
+    commonSave.disabled = !settings || state.commonInstructionsSavePending ||
+      (custom === undefined && typeof serverDefault !== 'string');
+    commonReset.disabled = !settings || state.commonInstructionsSavePending || custom === undefined;
+  };
+  const writeCommon = async (requested: string | undefined) => {
+    if (!settings) { commonNotice.textContent = 'Response style settings are unavailable. Nothing was saved.'; return; }
+    if (state.commonInstructionsSavePending) return;
+    const previous = state.confirmedCommonInstructions;
+    state.commonInstructionsSavePending = true;
+    refreshCommonEditor();
+    commonNotice.textContent = requested === undefined ? 'Resetting to server default…' : 'Saving common instructions…';
+    try {
+      if (requested === undefined) await settings.remove('commonInstructions');
+      else await settings.set('commonInstructions', requested);
+      const authoritative = readCommonOverride(settings.get('commonInstructions').composite);
+      state.confirmedCommonInstructions = authoritative;
+      if (authoritative === requested) {
+        state.settingsWarning = null;
+        styleRetry.hidden = true;
+        state.commonInstructionNotice = requested === undefined ? 'Using server default for future runs.'
+          : requested ? 'Common instructions saved for future runs.' : 'Common instructions disabled for future runs.';
+      } else {
+        state.settingsWarning = 'Could not confirm common instructions.';
+        styleRetry.hidden = false;
+        state.commonInstructionNotice = 'Saved instructions differ from the requested change. Choose Retry response style settings.';
+      }
+    } catch {
+      state.confirmedCommonInstructions = previous;
+      state.settingsWarning = 'Could not confirm common instructions save.';
+      styleRetry.hidden = false;
+      state.commonInstructionNotice = 'Could not confirm this change. Choose Retry response style settings to check what was saved.';
+    } finally {
+      state.commonInstructionsSavePending = false;
+      commonEditorDirty = false;
+      refreshCommonEditor();
+      env.invalidateContextPreviews();
+      tracker.forEach(decorate);
+    }
+  };
+  commonSave.addEventListener('click', () => {
+    if (commonEditor.value.length > 8000) { commonNotice.textContent = 'Instructions must be 8000 characters or fewer.'; return; }
+    void writeCommon(commonEditor.value);
+  });
+  commonReset.addEventListener('click', () => { void writeCommon(undefined); });
+  refreshCommonEditor();
   const templateDetails = document.createElement('details');
   templateDetails.className = 'nbinlineai-template-details';
   templateDetails.dataset.nbinlineaiTemplateDetails = '';
@@ -459,6 +547,7 @@ export async function showConfigureProviders(tracker: INotebookTracker, env: Con
       try {
         await fetchStatus();
         refreshInstructionEditors();
+        refreshCommonEditor();
         syncConnectionDetails();
         retry.hidden = true;
         notice.textContent = '';

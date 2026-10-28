@@ -24,6 +24,17 @@ try {
   await dialog.locator('[data-nbinlineai-key-provider="anthropic_api"]').waitFor();
   await dialog.getByRole('tab', { name: 'Defaults' }).click();
   await dialog.locator('[data-nbinlineai-default-backend]').waitFor();
+  const common = dialog.locator('[data-nbinlineai-common-instructions]');
+  const commonEditor = common.getByRole('textbox', { name: 'Common response instructions' });
+  await commonEditor.waitFor();
+  const instructions = await commonEditor.inputValue();
+  if (!instructions.includes('single dollar delimiters') || !instructions.includes('double dollar delimiters')) {
+    throw new Error('Installed-wheel common instructions did not load the math default');
+  }
+  await common.locator('[data-nbinlineai-common-save]').scrollIntoViewIfNeeded();
+  if (!await common.locator('[data-nbinlineai-common-save]').isVisible()) {
+    throw new Error('Installed-wheel common instructions Save control is not visible');
+  }
   if (promptRequests !== 0) throw new Error('Installed-wheel UI unexpectedly sent a prompt');
 } finally {
   await browser.close();

@@ -34,6 +34,8 @@ What is $`score`? Call &`add_bonus` with value 3 and explain the result briefly.
 
 Questions use the notebook's **Context** choice and can include earlier code, notes, and completed AI exchanges. **Details → Check context** previews the current selection without contacting a provider. A saved answer can be edited like any other Markdown; turn off **Keep answer** before rerunning its question. JupyterLab's **Run All Cells** includes AI questions in order, while kept completed answers avoid repeating their tool actions. [Read the manual](https://rahuldave.com/nbinlineai/user-guide.html) for context, editing, and Run All.
 
+Use **Configure AI → Defaults → Common response instructions** to set guidance shared by every response style. The default requests dollar-delimited inline and display math; edit it, clear it, or reset it to suit your notebooks. [Response instructions](https://rahuldave.com/nbinlineai/manual/models-and-styles.html#common-instructions-for-every-style) explains the controls.
+
 ## Explore the tool catalog and examples
 
 The [Tool catalog](https://rahuldave.com/nbinlineai/tools.html) lists each function and links to a normal Python or JupyterLab demonstration and a concise AI-tool question. The [notebook examples](https://rahuldave.com/nbinlineai/examples.html) include task walkthroughs and complete tool-catalog notebooks using disposable inputs. Open a copy before editing it. Generated code cells are left unexecuted for your review.

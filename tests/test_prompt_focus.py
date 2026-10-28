@@ -8,7 +8,12 @@ from aidialog.msg_parts import Completion, Msg, Text
 from nbinlineai import context_budget, providers
 from nbinlineai.context_budget import build_context
 from nbinlineai.context_selection import select_context
-from nbinlineai.prompt import PROMPT_MODE_INSTRUCTIONS, preview_context, run_prompt
+from nbinlineai.prompt import (
+    COMMON_RESPONSE_INSTRUCTIONS,
+    PROMPT_MODE_INSTRUCTIONS,
+    preview_context,
+    run_prompt,
+)
 from nbinlineai.prompt_focus import locate_focus
 
 
@@ -156,6 +161,37 @@ def test_budget_rounds_recompute_partial_landmarks_and_preview_parity(monkeypatc
     assert preview["context_chars"] == events[0]["context_chars"]
     assert preview["partial_cell_ids"] == events[0]["partial_cell_ids"]
     assert "Notebook cell landmarks:" in captured["system"]
+
+
+def test_common_instructions_are_budgeted_once_and_preview_matches_run(monkeypatch):
+    cells = [cell("code", "x = 1", kind="code"), current()]
+    captured = []
+
+    async def fake_complete(backend, model, messages, tools):
+        captured.append(messages[0].text)
+        return Completion(model, Msg("assistant", [Text("OK")]))
+
+    monkeypatch.setattr(providers, "complete", fake_complete)
+
+    async def exercise(common):
+        request = body(cells, **({"common_instructions": common} if common is not None else {}))
+        preview = await preview_context(request, None, "kernel", None)
+        events = await _collect(run_prompt(request, None, "kernel", None))
+        assert preview["context_chars"] == events[0]["context_chars"]
+        return preview
+
+    inherited = asyncio.run(exercise(None))
+    assert captured[-1].count(COMMON_RESPONSE_INSTRUCTIONS) == 1
+    disabled = asyncio.run(exercise(""))
+    assert "Common response instructions:" not in captured[-1]
+    assert disabled["context_chars"] < inherited["context_chars"]
+    custom = asyncio.run(exercise("x" * 8000))
+    assert captured[-1].count("x" * 8000) == 1
+    assert custom["context_chars"] > inherited["context_chars"]
+    with monkeypatch.context() as budget_patch:
+        budget_patch.setattr(context_budget, "MAX_CONTEXT_CHARS", 8000)
+        with pytest.raises(context_budget.ContextWindowExceededError):
+            asyncio.run(exercise("x" * 8000))
 
 
 async def _collect(stream):
