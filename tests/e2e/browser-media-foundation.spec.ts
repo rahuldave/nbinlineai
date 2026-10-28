@@ -228,9 +228,14 @@ test('model save_media returns a bounded descriptor without encoded image bytes'
 
 test('operation routes reject a second browser client and a known ID without owner proof', async ({ page, request }) => {
   const name = await open(page, request, 'pass');
-  const sessions = await (await request.get('/api/sessions')).json() as Array<{ id: string; path: string }>;
-  const sessionId = sessions.find(session => session.path === name)?.id;
-  expect(sessionId).toBeTruthy();
+  let sessionId: string | undefined;
+  await expect.poll(async () => {
+    const response = await request.get('/api/sessions');
+    if (!response.ok()) return undefined;
+    const sessions = await response.json() as Array<{ id: string; path: string; kernel?: { id?: string } }>;
+    sessionId = sessions.find(session => session.path === name && session.kernel?.id)?.id;
+    return sessionId;
+  }).toBeTruthy();
   const xsrf = (await request.storageState()).cookies.find(cookie => cookie.name === '_xsrf')?.value;
   const identity = { session_id: sessionId, model_id: 'model-one', client_id: 'browser-one' };
   const ownerResponse = await request.post('/nbinlineai/browser-media/owner', {
