@@ -25,6 +25,11 @@ MAX_CELLS = 10_000
 MAX_SNAPSHOT_CHARS = 4_000_000
 MAX_PROMPT_CHARS = 16000
 MAX_PROMPT_INSTRUCTIONS_CHARS = 8000
+COMMON_RESPONSE_INSTRUCTIONS = (
+    "Use single dollar delimiters ($...$) for inline math. For display math, put "
+    "double dollar delimiters ($$) on separate lines around the equation. "
+    "Do not use \\( \\) or \\[ \\] math delimiters."
+)
 PROMPT_MODE_INSTRUCTIONS = {
     "compact": (
         "Answer the current question directly and very succinctly. Give only the explanation needed "
@@ -71,6 +76,10 @@ def validate_request(body: dict, *, preview: bool = False) -> dict:
         if (not isinstance(instructions, str) or not instructions.strip()
                 or len(instructions) > MAX_PROMPT_INSTRUCTIONS_CHARS):
             raise ValueError("prompt_instructions must be nonempty text of at most 8000 characters")
+    if "common_instructions" in body:
+        common = body["common_instructions"]
+        if not isinstance(common, str) or len(common) > MAX_PROMPT_INSTRUCTIONS_CHARS:
+            raise ValueError("common_instructions must be text of at most 8000 characters")
     backend = body.get("backend", "openai_api" if preview else None)
     route = get_backend(backend)
     body["backend"] = backend
@@ -315,9 +324,10 @@ async def prepare_context(body: dict, dispatcher, kernel_id: str, kernel, *, pre
         "If the request has no reasonable target, ask one brief clarifying question. Apply the "
         "selected response style to tool-created content as well as answer text."
     )
+    common = body.get("common_instructions", COMMON_RESPONSE_INSTRUCTIONS)
     system_suffix = (
-        "\n\n"
-        "Response style for this run (" + mode + "): "
+        ("\n\nCommon response instructions: " + common if common else "")
+        + "\n\nResponse style for this run (" + mode + "): "
         + body.get("prompt_instructions", PROMPT_MODE_INSTRUCTIONS[mode])
     )
     focus = locate_focus(cells, body["prompt_cell_id"],

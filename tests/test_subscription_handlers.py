@@ -264,7 +264,11 @@ class SubscriptionRouteTests(AsyncHTTPTestCase):
             "prompt": "Hello", "session_id": "session-one", "prompt_cell_id": "prompt-one",
             "preceding_cells": [], "backend": "openai_codex_subscription",
             "model": "synthetic-model", "reasoning_effort": "low",
+            "common_instructions": "SUBSCRIPTION_COMMON math uses $x$.",
         }
+        preview = self._fetch("/nbinlineai/context-preview", method="POST", data=body)
+        assert preview.code == 200
+        preview_chars = json.loads(preview.body)["context_chars"]
         response = self._fetch("/nbinlineai/prompt", method="POST", data=body)
         assert response.code == 200
         events = [json.loads(line.removeprefix("data: ")) for line in response.body.decode().splitlines()
@@ -272,6 +276,7 @@ class SubscriptionRouteTests(AsyncHTTPTestCase):
         assert [event["type"] for event in events] == ["context", "text_delta", "done"]
         assert events[1]["text"] == "synthetic subscription answer"
         assert events[0]["round_wire_chars"] == events[0]["context_chars"]
+        assert events[0]["context_chars"] == preview_chars
         round_call = next(call for call in self.manager.calls if call[0] == "round")
         assert round_call[1:3] == ("synthetic-model", "low")
         assert round_call[3]["session_id"] == "session-one"
@@ -279,6 +284,8 @@ class SubscriptionRouteTests(AsyncHTTPTestCase):
         assert round_call[3]["file_access_root"].endswith("/course")
         assert len(round_call[4]) == 32
         assert "Originating notebook folder" in round_call[5][0].text
+        assert round_call[5][0].text.count("SUBSCRIPTION_COMMON math uses $x$.") == 1
+        assert round_call[5][0].text.index("SUBSCRIPTION_COMMON") < round_call[5][0].text.index("Response style for this run")
         assert "kernel's current working directory" in round_call[5][0].text
         assert ("run-cancel", round_call[4]) in self.manager.calls
 
@@ -295,6 +302,7 @@ class SubscriptionRouteTests(AsyncHTTPTestCase):
             "preceding_cells": [{"id": "long", "cell_type": "markdown", "source": "A" * 65_000}],
             "backend": "openai_codex_subscription", "model": "synthetic-model",
             "max_tool_steps": 1,
+            "common_instructions": "SUBSCRIPTION_ROUND_COMMON",
         }
         response = self._fetch("/nbinlineai/prompt", method="POST", data=body)
         assert response.code == 200
@@ -310,6 +318,7 @@ class SubscriptionRouteTests(AsyncHTTPTestCase):
         assert self.dispatcher.tool_calls[0][4:] == ("add", {"n": 1})
         rounds = [call for call in self.manager.calls if call[0] == "round"]
         assert len(rounds) == 2
+        assert all(call[5][0].text.count("SUBSCRIPTION_ROUND_COMMON") == 1 for call in rounds)
         assert sum(message.role == "tool" for message in rounds[1][5]) == 1
         assert events[-1]["tool_steps"] == 1
 

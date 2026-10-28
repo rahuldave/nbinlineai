@@ -55,6 +55,12 @@
       ],
       "default": "compact"
     },
+    "commonInstructions": {
+      "type": "string",
+      "title": "Common response instructions",
+      "description": "Instructions before every response style. Unset uses the current server default; an empty value disables these instructions.",
+      "maxLength": 8000
+    },
     "promptInstructions": {
       "type": "object",
       "title": "Custom response instructions",

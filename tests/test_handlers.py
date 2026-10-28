@@ -219,6 +219,7 @@ class HandlerTests(AsyncHTTPTestCase):
         status = json.loads(response.body)
         assert status["extension"] == "nbinlineai"
         assert set(status["prompt_mode_instructions"]) == {"compact", "full", "learning"}
+        assert "single dollar delimiters" in status["common_response_instructions"]
         assert status["model_capabilities"]["openai_api"]["gpt-6-sol"]["default_effort"] == "medium"
         assert status["model_capabilities"]["anthropic_api"]["claude-haiku-4-5-20251001"]["efforts"] == []
         assert "api_key" not in response.body.decode().lower()

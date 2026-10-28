@@ -97,10 +97,13 @@
 .nbinlineai-override-editor { display: flex; flex-basis: 100%; align-items: center; flex-wrap: wrap; gap: 5px; padding: 4px 0 0; border-top: 1px solid var(--jp-border-color2); }
 .nbinlineai-override-editor[hidden] { display: none; }
 .nbinlineai-template-row { padding: 8px 0; border-top: 1px solid var(--jp-border-color2); }
-.nbinlineai-template-row label { display: block; font-weight: 600; }
-.nbinlineai-template-row textarea { display: block; box-sizing: border-box; width: 100%; margin: 5px 0; padding: 7px; resize: vertical; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; font: var(--jp-code-font-size) var(--jp-code-font-family); }
-.nbinlineai-template-row button { margin-right: 5px; padding: 4px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
-.nbinlineai-template-row button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-template-row label, .nbinlineai-common-instructions label { display: block; font-weight: 600; }
+.nbinlineai-template-row textarea, .nbinlineai-common-instructions textarea { display: block; box-sizing: border-box; width: 100%; margin: 5px 0; padding: 7px; resize: vertical; color: var(--jp-ui-font-color1); background: var(--jp-layout-color1); border: 1px solid var(--jp-border-color2); border-radius: 3px; font: var(--jp-code-font-size) var(--jp-code-font-family); }
+.nbinlineai-template-row button, .nbinlineai-common-instructions button { margin-right: 5px; padding: 4px 9px; color: var(--jp-ui-font-color1); background: var(--jp-layout-color2); border: 1px solid var(--jp-border-color2); border-radius: 3px; cursor: pointer; }
+.nbinlineai-template-row button:disabled, .nbinlineai-common-instructions button:disabled { opacity: .5; cursor: default; }
+.nbinlineai-common-instructions { margin: 10px 0; padding: 6px 8px; border: 1px solid var(--jp-border-color2); border-radius: 3px; }
+.nbinlineai-common-instructions > h3 { margin: 2px 0 6px; }
+.nbinlineai-common-instructions > p { margin: 6px 0 10px; }
 .nbinlineai-template-state { display: block; min-height: 1.3em; color: var(--jp-ui-font-color2); }
 .nbinlineai-template-details { margin: 10px 0; padding: 6px 8px; border: 1px solid var(--jp-border-color2); border-radius: 3px; }
 .nbinlineai-template-details > summary, .nbinlineai-template-row > summary { cursor: pointer; font-weight: 600; }

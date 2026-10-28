@@ -542,6 +542,10 @@ Live-cell tools can find, replace, delete, move, copy, split, and merge **ordina
 
 Your Jupyter server and notebook kernel may use different Python environments. Install nbinlineai in the kernel's environment as well, then rerun the import cell. After a kernel restart, previous imports are gone even though their code and old answers remain visible.
 
+### How do I ask every response style to use dollar signs for math?
+
+Open **Configure AI → Defaults → Common response instructions**. Its default asks for `$...$` inline math and `$$` on separate lines around display equations, avoiding backslash-parenthesis and backslash-bracket delimiters. Edit and Save to replace this text, save an empty field to disable it, or Reset to restore the bundled default. The common text applies before Compact, Full, and Learning with ChatGPT and both API connections. It changes future responses, not saved answers. See [common instructions](manual/models-and-styles.md#common-instructions-for-every-style).
+
 ### Does Learning mode guarantee the AI will never reveal a solution?
 
 No. Its instructions ask for Socratic questions and small hints, but this is model guidance, not an enforced assessment restriction. You can edit the style instructions in Configure AI. See [response styles](manual/models-and-styles.md#response-styles).

@@ -34,6 +34,7 @@ import { registerPlaybackOperations } from './browserMediaPlayback';
 import { registerTransformOperations } from './browserMediaTransforms';
 import { registerBrowserMediaAttachment } from './browserMediaAttachment';
 import '../style/index.css';
+import { commonRequestFields, readCommonOverride } from './commonInstructions';
 
 registerBrowserMediaCapture();
 
@@ -73,6 +74,9 @@ let confirmedPromptMode: PromptMode = 'compact';
 let modeSavePending = false;
 let instructionsSavePending = false;
 let confirmedInstructions: Partial<Record<PromptMode, string>> = {};
+let confirmedCommonInstructions: string | undefined;
+let commonInstructionsSavePending = false;
+let commonInstructionNotice: string | null = null;
 let instructionNotices: Partial<Record<PromptMode, string>> = {};
 let serverStatus: ServerStatus | null = null;
 let serverStatusError: string | null = null;
@@ -165,6 +169,7 @@ function resolvedFor(panel: NotebookPanel, cell?: ICellModel | null) {
 function onResponseSettingsChanged(): void {
   if (!modeSavePending) confirmedPromptMode = normalizePromptMode(settings?.get('promptMode').composite);
   if (!instructionsSavePending) confirmedInstructions = readInstructionOverrides(settings?.get('promptInstructions').composite);
+  if (!commonInstructionsSavePending) confirmedCommonInstructions = readCommonOverride(settings?.get('commonInstructions').composite);
   notebookTracker?.forEach(panel => { contextControls.get(panel)?.invalidate(); decorate(panel); });
 }
 function bindResponseSettings(value: ISettingRegistry.ISettings): void {
@@ -174,7 +179,9 @@ function bindResponseSettings(value: ISettingRegistry.ISettings): void {
   settingsWarning = null;
   confirmedPromptMode = normalizePromptMode(value.get('promptMode').composite);
   confirmedInstructions = readInstructionOverrides(value.get('promptInstructions').composite);
+  confirmedCommonInstructions = readCommonOverride(value.get('commonInstructions').composite);
   instructionNotices = {};
+  commonInstructionNotice = null;
   settings.changed.connect(onResponseSettingsChanged);
   flushPendingSnapshots();
   notebookTracker?.forEach(panel => { contextControls.get(panel)?.invalidate(); decorate(panel); });
@@ -348,7 +355,8 @@ async function fetchContextPreview(panel: NotebookPanel, body: PreviewRequest, s
   const response = await fetch(serverUrl('nbinlineai/context-preview'), {
     method: 'POST', credentials: 'same-origin', headers: requestHeaders, signal,
     body: JSON.stringify({ ...body, backend: effective.backend, model: effective.model || undefined,
-      prompt_mode: effective.promptMode, ...(instructions ? { prompt_instructions: instructions } : {}) })
+      prompt_mode: effective.promptMode, ...commonRequestFields(confirmedCommonInstructions),
+      ...(instructions ? { prompt_instructions: instructions } : {}) })
   });
   if (!response.ok) {
     const result = await response.json().catch(() => ({})) as { message?: string; error?: string };
@@ -444,10 +452,14 @@ function configureProviders(tracker: INotebookTracker): Promise<void> {
       get instructionsSavePending() { return instructionsSavePending; }, set instructionsSavePending(value) { instructionsSavePending = value; },
       get confirmedPromptMode() { return confirmedPromptMode; }, set confirmedPromptMode(value) { confirmedPromptMode = value; },
       get confirmedInstructions() { return confirmedInstructions; }, set confirmedInstructions(value) { confirmedInstructions = value; },
+      get confirmedCommonInstructions() { return confirmedCommonInstructions; }, set confirmedCommonInstructions(value) { confirmedCommonInstructions = value; },
+      get commonInstructionsSavePending() { return commonInstructionsSavePending; }, set commonInstructionsSavePending(value) { commonInstructionsSavePending = value; },
+      get commonInstructionNotice() { return commonInstructionNotice; }, set commonInstructionNotice(value) { commonInstructionNotice = value; },
       get instructionNotices() { return instructionNotices; }, set instructionNotices(value) { instructionNotices = value; }
     },
-    settingsReady, currentPromptMode, reloadResponseSettings, readInstructionOverrides,
+    settingsReady, currentPromptMode, reloadResponseSettings, readInstructionOverrides, readCommonOverride,
     fetchKeyStatus, changeKey, mergeKeyStatus, fetchStatus, getServerStatus: () => serverStatus, decorate,
+    invalidateContextPreviews: () => tracker.forEach(panel => contextControls.get(panel)?.invalidate()),
     subscription
   }).finally(() => { configureDialog = null; });
   return configureDialog;
@@ -520,6 +532,7 @@ async function executePrompt(panel: NotebookPanel, promptId: string): Promise<bo
         prompt: promptText, session_id: sessionId, prompt_cell_id: promptId,
         snapshot_version: 1, notebook_cells: cells, context_mode: notebookContextMode(panel),
         backend, model: selectedModel, max_tool_steps: maxToolSteps(), prompt_mode: mode,
+        ...commonRequestFields(confirmedCommonInstructions),
         ...(instructions ? { prompt_instructions: instructions } : {}),
         ...(effort ? { reasoning_effort: effort } : {})
       })
@@ -1253,7 +1266,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         panel.content.modelChanged.connect(bindMediaStatus);
         const context = new NotebookContextControls(panel, (body, signal) => fetchContextPreview(panel, body, signal), () => decorate(panel), targetId => {
           const effective = resolvedFor(panel, targetId ? getCell(panel, targetId) : undefined);
-          return [effective, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];
+          return [effective, confirmedCommonInstructions, confirmedInstructions[effective.promptMode], settings?.get('maxToolSteps').composite];
         });
         contextControls.set(panel, context);
         const configureButton = new ToolbarButton({ label: 'Configure AI', tooltip: 'Set up ChatGPT or API keys', onClick: () => { void configureProviders(tracker); } });

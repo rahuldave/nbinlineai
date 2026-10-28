@@ -138,6 +138,78 @@ test('saved response style controls requests, server instructions, and learning 
   await expect(nextAnswer).toContainText('E2E_FIRST_TUTOR_REPLY');
 });
 
+test('common instructions save, disable, reset, and reach preview and runs', async ({ page, request }) => {
+  await openNotebook(page, request);
+  const status = await request.get('/nbinlineai/status');
+  expect(status.ok()).toBeTruthy();
+  const serverDefault = (await status.json()).common_response_instructions as string;
+  expect(serverDefault).toContain('single dollar delimiters');
+  const prompt = await addPromptAfter(page, 0, 'E2E_STYLE show common instructions');
+  const answer = page.locator('.jp-NotebookPanel:visible .jp-Notebook .nbinlineai-response-cell').first();
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  const common = dialog.locator('[data-nbinlineai-common-instructions]');
+  const editor = common.locator('[data-nbinlineai-common-editor]');
+  await expect(editor).toHaveValue(serverDefault);
+  await common.scrollIntoViewIfNeeded();
+  await common.screenshot({ path: 'test-results/common-instructions.png' });
+  await editor.fill('E2E_COMMON_CUSTOM use a single sentence.');
+  await common.locator('[data-nbinlineai-common-save]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('saved for future runs');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await prompt.locator('.jp-Cell-inputWrapper').click();
+  const details = page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-details]');
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
+  const check = page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-refresh]');
+  let preview = page.waitForRequest(item => item.url().endsWith('/nbinlineai/context-preview') && item.method() === 'POST');
+  await check.click();
+  expect((await preview).postDataJSON().common_instructions).toBe('E2E_COMMON_CUSTOM use a single sentence.');
+  await expect(page.locator('.jp-NotebookPanel:visible [data-nbinlineai-context-report]')).toContainText('First-round estimate:');
+  let posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  expect((await posted).postDataJSON().common_instructions).toBe('E2E_COMMON_CUSTOM use a single sentence.');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  await expect(answer).toContainText('E2E_COMMON_CUSTOM');
+
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(page.getByText('Saving completed')).toBeVisible();
+  await page.reload();
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  await expect(editor).toHaveValue('E2E_COMMON_CUSTOM use a single sentence.');
+  await editor.fill('');
+  await common.locator('[data-nbinlineai-common-save]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('disabled for future runs');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await prompt.locator('.jp-Cell-inputWrapper').click();
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
+  preview = page.waitForRequest(item => item.url().endsWith('/nbinlineai/context-preview') && item.method() === 'POST');
+  await check.click();
+  expect((await preview).postDataJSON().common_instructions).toBe('');
+  await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
+  posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  expect((await posted).postDataJSON().common_instructions).toBe('');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  await expect(answer).not.toContainText('E2E_COMMON_CUSTOM');
+  await expect(answer).not.toContainText('single dollar delimiters');
+
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  await common.locator('[data-nbinlineai-common-reset]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('Using server default for future runs');
+  await expect(editor).toHaveValue(serverDefault);
+  await page.getByRole('button', { name: 'Done' }).click();
+  posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  expect((await posted).postDataJSON().common_instructions).toBeUndefined();
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  await expect(answer).toContainText('single dollar delimiters');
+});
+
 test('fenced code copy works in compact and full modes without changing notebook source', async ({ page, request }) => {
   await page.addInitScript(() => {
     (window as any).__copiedCode = [];
@@ -249,4 +321,48 @@ test('uncertain style save keeps the last confirmed mode until Retry reconciles 
   await expect(dialog.locator('.nbinlineai-style-notice')).toContainText('Full is the current response style.');
   await page.getByRole('button', { name: 'Done' }).click();
   await runAndCaptureMode(page, prompt, 'full');
+});
+
+test('unconfirmed common save keeps last confirmed text until Retry', async ({ page, request }) => {
+  await openNotebook(page, request);
+  const prompt = await addPromptAfter(page, 0, 'E2E_STYLE inspect common settings');
+  const dialog = page.locator('[data-nbinlineai-keys-dialog]');
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  const common = dialog.locator('[data-nbinlineai-common-instructions]');
+  const editor = common.locator('[data-nbinlineai-common-editor]');
+  await editor.fill('E2E_COMMON_OLD');
+  await common.locator('[data-nbinlineai-common-save]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('saved for future runs');
+  let putSeen = false;
+  await page.route('**/api/settings/**', async route => {
+    if (!route.request().url().includes('nbinlineai')) return route.continue();
+    if (route.request().method() === 'PUT') { putSeen = true; return route.continue(); }
+    if (route.request().method() === 'GET' && putSeen) return route.fulfill({ status: 503, body: 'E2E confirmation unavailable' });
+    return route.continue();
+  });
+  await editor.fill('E2E_COMMON_NEW');
+  await common.locator('[data-nbinlineai-common-save]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('Could not confirm this change');
+  expect(putSeen).toBe(true);
+  await page.getByRole('button', { name: 'Done' }).click();
+  let posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  expect((await posted).postDataJSON().common_instructions).toBe('E2E_COMMON_OLD');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  await page.unroute('**/api/settings/**');
+  await dialog.locator('[data-nbinlineai-style-retry]').click();
+  await expect(editor).toHaveValue('E2E_COMMON_NEW');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await prompt.locator('[data-nbinlineai-keep-answer]').uncheck();
+  posted = page.waitForRequest(item => item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST');
+  await prompt.locator('[data-nbinlineai-run]').click();
+  expect((await posted).postDataJSON().common_instructions).toBe('E2E_COMMON_NEW');
+  await expect(prompt.locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
+  await page.getByRole('button', { name: 'Configure AI' }).first().click();
+  await showDefaults(dialog);
+  await common.locator('[data-nbinlineai-common-reset]').click();
+  await expect(common.locator('[data-nbinlineai-common-notice]')).toContainText('Using server default for future runs');
 });

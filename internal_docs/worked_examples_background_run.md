@@ -1,6 +1,6 @@
 # Background worked-example refresh
 
-Status: implemented on the owned `codex/worked-ai-examples` topic for a PR to `main`; source and documentation only, with no version bump, tag or PyPI publication. Publication of the website follows a reviewed merge to `main`.
+Status: merged to `main` by PR #47 as `0226d33d5a9e9c2a52b7c734958a1224c7ce8ee9`. Documentation deployment `39627458417` succeeded. This was a source/documentation update with no version bump, tag or PyPI publication; the saved examples are included in the subsequent 0.1.17 release candidate.
 
 ## Source and execution boundaries
 

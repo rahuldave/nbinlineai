@@ -20,6 +20,7 @@ export interface ServerStatus {
   providers: Partial<Record<Backend, ProviderStatus>>;
   default_models: Partial<Record<Backend, string | null>>;
   prompt_mode_instructions?: Record<'compact' | 'full' | 'learning', string>;
+  common_response_instructions?: string;
   model_capabilities?: Partial<Record<Backend, Record<string, { efforts: string[]; default_effort: string | null;
     input_modalities?: string[] }>>>;
 }

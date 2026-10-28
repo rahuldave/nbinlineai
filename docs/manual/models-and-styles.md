@@ -35,6 +35,24 @@ Use the notebook's **AI defaults** row to choose how the model should answer, or
 
 The notebook's style choice is saved in its `.ipynb` metadata. A cell uses this choice unless it has an explicit override. Reruns use the current effective choices; changing defaults does not rewrite saved answers or alter a response already in progress. JupyterLab user preferences provide initial defaults for notebooks without saved choices.
 
+## Common instructions for every style
+
+Open **Configure AI → Defaults → Common response instructions** to set wording that comes before Compact, Full, or Learning. The bundled instructions ask for single dollar delimiters for inline math, such as `$x^2$`, and double dollar delimiters on separate lines around a display equation:
+
+```text
+$$
+x^2 + y^2 = z^2
+$$
+```
+
+They also ask the model to avoid `\( ... \)` and `\[ ... \]` math delimiters. These preferences apply to ChatGPT and both API connections. They guide future model responses; they do not rewrite saved answers or guarantee every model follows the formatting.
+
+Edit the common text and click **Save** to replace it. Save an empty field to disable common instructions. **Reset** removes your override and restores the current bundled default. Common text can contain up to 8,000 characters and counts toward the same request budget as the selected style. You can also edit `commonInstructions` in JupyterLab's nbinlineai settings; remove that setting to inherit the server default.
+
+![Common instructions with dollar-delimited math guidance and Save and Reset controls](../images/common-instructions.png)
+
+The common text is stored in your JupyterLab user settings, outside notebooks. Changing it preserves each style's separate custom wording. If a save cannot be confirmed, future runs keep the last confirmed common text until **Retry response style settings** reconciles the saved value. Context previews use the same confirmed text as runs and reruns.
+
 ## Edit the style instructions
 
 Open **Configure AI → Defaults** and expand the style-instruction editors. Compact, Full, and Learning start with our bundled instructions. Edit a style's text and click **Save** to use your own wording. **Reset** removes that override and restores the current bundled instructions. Empty instructions are rejected; use Reset instead. Each custom instruction can contain at most 8,000 characters.

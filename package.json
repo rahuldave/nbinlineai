@@ -1,6 +1,6 @@
 {
   "name": "nbinlineai",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "AI prompt cells for JupyterLab",
   "license": "GPL-3.0-only",
   "repository": {
