@@ -78,11 +78,24 @@ def test_capture_receipt_helper_redacts_identifiers_on_rerun(capsys: pytest.Capt
 
 
 TOOL_REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z0-9_]*)`")
+# These two cells need a live JupyterLab execution-bound comm; the second also
+# depends on the inserted-cell receipt from the first.
+CATALOG_UI_CELLS = {
+    ("live-variables-and-tools.ipynb", "live-insert-catalog-call"),
+    ("live-variables-and-tools.ipynb", "live-insert-catalog-inspect"),
+}
 HEADLESS_UI_CELLS = {
     ("live-variables-and-tools.ipynb", "live-insert-tools-optional"):
         "insert_tools(",
     ("live-variables-and-tools.ipynb", "live-insert-tools-inspect"):
         "receipt.status",
+    ("live-variables-and-tools.ipynb", "live-insert-catalog-call"):
+        'from nbinlineai.tools import *\n\ncatalog_receipt = insert_tool_catalog(group="code")\n'
+        'catalog_receipt\n',
+    ("live-variables-and-tools.ipynb", "live-insert-catalog-inspect"):
+        'print(catalog_receipt.status, catalog_receipt.cell_id, catalog_receipt.error)\n'
+        'assert catalog_receipt.status == "inserted", "Wait for the note, then rerun this cell."\n'
+        'assert catalog_receipt.cell_id\n',
     ("browser-media-foundation.ipynb", "media-capabilities-call"): "browser_capabilities(",
     ("browser-media-foundation.ipynb", "media-capabilities-inspect"): "capabilities.status",
     ("browser-media-foundation.ipynb", "media-save-call"): "save_media(",
@@ -264,6 +277,8 @@ def test_shipped_example_code_cells_run_headlessly(relative_path: str) -> None: 
                     if (relative_path, cell["id"]) in HEADLESS_UI_CELLS:
                         assert "nbinlineai-ui-only" in tags
                         assert HEADLESS_UI_CELLS[(relative_path, cell["id"])] in source
+                        if (relative_path, cell["id"]) in CATALOG_UI_CELLS:
+                            assert source == HEADLESS_UI_CELLS[(relative_path, cell["id"])]
                     else:
                         outputs.append(await _run_code(kernel, source))
                     continue
