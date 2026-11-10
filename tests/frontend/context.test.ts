@@ -11,6 +11,21 @@ function fakeModel(cells: Array<{id: string; cell_type: string; source: string; 
   }) } };
 }
 
+test('output truncation preserves Unicode characters at the boundary', () => {
+  for (const prefix of ['', 'x']) {
+    const snapshot = notebookCells(fakeModel([
+      { id: 'code', cell_type: 'code', source: '', outputs: [
+        { output_type: 'stream', name: 'stdout', text: prefix + '😀'.repeat(8000) }
+      ] },
+      { id: 'prompt', cell_type: 'markdown', source: 'What printed?' }
+    ]), 'prompt');
+    const text = snapshot[0].output_text!;
+    assert.ok(text.length <= 12000);
+    assert.match(text, /displayed text output truncated/);
+    assert.doesNotThrow(() => encodeURIComponent(text));
+  }
+});
+
 test('context reads earlier models and preserves AI history, excluding later cells', () => {
   const model = fakeModel([
     { id: 'code', cell_type: 'code', source: 'x = 1', execution_count: null },

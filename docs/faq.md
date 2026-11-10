@@ -164,6 +164,14 @@ To repeat a demonstration, use a copy, run its setup, and follow the separate ac
 
 ## Corrections and context
 
+### Does the AI see print output and stderr?
+
+Yes. From **0.1.18**, including a code cell includes its displayed output with its source: expression results, `print()`/stdout, stderr and error tracebacks. Rich displays use their text or JSON representation. The live snapshot includes unsaved output and does not execute code. Cell selection and character-budget trimming apply to both source and output; **Details → Check context** uses the same rules. Image pixels still require an explicit image attachment. Before 0.1.18, ordinary context omitted code outputs.
+
+### Can I insert a tool catalog group as Markdown?
+
+Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell. It inserts editable ``&`tool_name` `` declarations immediately below the calling cell. Inspect the receipt in a later cell and save the notebook. Choose another group from `tool_catalog()` or omit the argument for the 19-tool starter group. Use `insert_tools([...])` for individual functions. Enabled declarations and live-variable references share the 20-name limit. [The catalog](tools.md#choose-and-declare-tools) explains selection and imports.
+
 ### Are the starter suggestions separate prompt types? Do they run immediately?
 
 No. They are buttons shown only in an empty AI question. Choosing one inserts ordinary editable text and focuses the editor. The suggestions disappear when you type or choose one; clearing the question brings them back. Use **Run AI** or Shift+Enter when you are ready to submit. The notebook's response style and Context mode still apply.

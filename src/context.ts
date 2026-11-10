@@ -29,6 +29,12 @@ function plainText(value: unknown): string | null {
   return null;
 }
 
+function textPrefix(value: string, length: number): string {
+  const prefix = value.slice(0, Math.max(0, length));
+  // A split UTF-16 pair becomes an invalid lone surrogate in the Python request.
+  return /[\uD800-\uDBFF]$/.test(prefix) ? prefix.slice(0, -1) : prefix;
+}
+
 /** Extract bounded textual representations without binary MIME payloads or attachments. */
 export function displayedTextOutput(outputs: unknown): string | undefined {
   if (!Array.isArray(outputs)) return undefined;
@@ -77,7 +83,7 @@ export function displayedTextOutput(outputs: unknown): string | undefined {
       const section = `${label}:\n${value}`;
       const remaining = MAX_OUTPUT_TEXT_CHARS - chars - (sections.length ? 2 : 0);
       if (section.length > remaining) {
-        sections.push(section.slice(0, Math.max(0, remaining)));
+        sections.push(textPrefix(section, remaining));
         truncated = true;
         break;
       }
@@ -89,7 +95,7 @@ export function displayedTextOutput(outputs: unknown): string | undefined {
   const joined = sections.join('\n\n');
   if (!truncated) return joined;
   const marker = '\n[displayed text output truncated]';
-  return joined.slice(0, MAX_OUTPUT_TEXT_CHARS - marker.length) + marker;
+  return textPrefix(joined, MAX_OUTPUT_TEXT_CHARS - marker.length) + marker;
 }
 
 /** Read notebook models, never rendered widgets, so windowed notebooks work. */

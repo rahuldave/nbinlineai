@@ -25,6 +25,8 @@ Someone opening the saved notebook without nbinlineai can still read the Markdow
 
 Browser-media captures are separate from notebook Markdown. A completed Python receipt may hold a Pillow image or media clip in the live kernel; managed bytes on the Jupyter server expire or can be released. `save_media` writes a new file only when you request it. A saved notebook can retain a rendered code-cell display, but that display does not keep a managed media reference alive. Use the media notebook's cleanup steps for temporary sources and files. [Browser media operations](../browser-media-foundation.md) explains the receipt and save paths.
 
+Selected code cells send their displayed text outputs with their source, including stdout, stderr, expression results and error tracebacks. Treat printed sensitive data as context too: exclude that cell in Custom context or clear its output before asking. The snapshot uses the live notebook, so unsaved output can be included. [Context selection](context-selection.md) explains selection and budget limits.
+
 An image is not sent to the model merely because you opened, captured, previewed, or saved it. `attach_media` asks you to confirm one image for one AI question. Confirmation changes that question's pending attachment; it does not run the question. Review the image and run the question when ready. Removing the attachment or deleting the question changes later submissions, not an answer that already ran. See [Attach an image](../browser-media-attachment.md).
 
 ## Where keys are stored

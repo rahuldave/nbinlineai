@@ -75,7 +75,7 @@ Full notebook also considers E; D is always excluded for C
 Explicit live references: selected names from the kernel namespace
 ```
 
-The browser sends a versioned ordered snapshot with IDs, types, current source, relevant metadata, explicit Custom choices and code execution counts, along with the prompt text and notebook session ID. The server then enforces the cell-count and source/history limits. Code execution counts are descriptive; they do not decide inclusion. A range execution snapshots each AI prompt when it reaches its turn, so earlier updated answers can enter later requests.
+The browser sends a versioned ordered snapshot with IDs, types, current source, relevant metadata, explicit Custom choices, code execution counts and bounded displayed text outputs, along with the prompt text and notebook session ID. The server then enforces the cell-count and source/history limits. Code execution counts are descriptive; they do not decide inclusion. A range execution snapshots each AI prompt when it reaches its turn, so earlier updated answers can enter later requests.
 
 ### What the kernel knows
 
@@ -101,7 +101,7 @@ Selection uses the shared backend path for both preview and execution. Default p
 
 The current question and every linked answer are excluded by ID everywhere. Earlier completed pairs become history only when both cells are selected and above; deterministic duplicate handling chooses one completed answer. Independently selected AI cells and AI material below or straddling the question are explicitly labeled source with role, link and position. Running, failed, cancelled and orphaned answers remain ineligible. Default retains its legacy pair-only eligibility.
 
-Source appears with system instructions; complete earlier pairs become user/assistant messages. Each representation preserves notebook order. Code outputs, raw-cell content, image pixels and automatic file contents are absent from ordinary context selection, and linked pages are not fetched. A user-confirmed image attachment is a separate input to its chosen question. [Troubleshooting and limits](manual/troubleshooting.md) lists limits.
+Source appears with system instructions; complete earlier pairs become user/assistant messages. Each representation preserves notebook order. Selected code cells include their displayed text outputs after source, with channel labels for stdout, stderr, results and errors. Rich displays use plain text first, then Markdown, HTML text or JSON. Source and output share one cell selection and the character budget. Output can be stale relative to edited source and never declares tools. Raw-cell content, image pixels and automatic file contents are absent from ordinary context selection, and linked pages are not fetched. A user-confirmed image attachment is a separate input to its chosen question. [Troubleshooting and limits](manual/troubleshooting.md) lists limits.
 
 Live state is separate. A variable can come from a cell executed below the prompt or out of order. The extension reads the running kernel namespace, not a value inferred from source. Only current-question `$` references retrieve bounded representations. Enabled earlier ordinary Markdown/AI-question tool declarations remain in scope independently of selected prose; selected below-question declarations never register tools.
 
@@ -200,7 +200,7 @@ Live notebook operations use the original browser document model. They can list,
 
 `insert_tools(names=None, custom=None, group="starter")` is a user helper, separate from the model tools. It formats the same declarations as `tools_markdown()` and requests an ordinary Markdown cell below its calling code cell. It makes no provider request and requires no API key.
 
-The Python helper sends a bounded request through a Jupyter comm. The frontend's native execution wrapper binds the actual outgoing execute-request ID and cell ID to the original notebook model and kernel. A matching comm request can insert the note; later active-cell or tab changes do not redirect it. The frontend acknowledges the inserted cell ID after the live-model change. Several calls in one execution preserve their order. Reexecuting the code deliberately creates fresh notes; rendering saved outputs does not replay an insertion.
+`insert_tools()` and `insert_tool_catalog()` send a bounded request through a Jupyter comm. The frontend's native execution wrapper binds the actual outgoing execute-request ID and cell ID to the original notebook model and kernel. A matching comm request can insert the note; later active-cell or tab changes do not redirect it. The frontend acknowledges the inserted cell ID after the live-model change. Several calls in one execution preserve their order. Reexecuting the code deliberately creates fresh notes; rendering saved outputs does not replay an insertion.
 
 The helper returns an asynchronous receipt and does not wait inside the kernel's event loop. An immediate display can therefore say **requested** before the acknowledgement arrives. There is no nested event loop, provider tool loop, or automatic disk save. This bridge only inserts the generated Markdown; it does not expose arbitrary browser operations. Sources: `nbinlineai/kernel_insert_tools.py`, `src/insertTools.ts`, and `src/insertToolsProtocol.ts`.
 

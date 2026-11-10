@@ -4,6 +4,8 @@ Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7*
 
 **0.1.12 source contract (2026-09-23):** `nbinlineai.tools.TOOL_FUNCTIONS` has 51 curated callables. The four 0.1.11 syntax tools (`ast_search`, `ast_rewrite`, `file_ast_replace`, `python_symbols`) are deferred. `search_files` and `search_notebooks` use bounded Python matching and `pathspec` ignore rules; pathological regexes have a hard timeout. `document_outline` and `read_document_section` use `markdown-it-py` for Markdown and standard-library AST for Python, with SHA-256-bound opaque addresses that become stale after any file change. Other language outlines are deferred. The original eleven and eight fastcore documentation/file tools remain. `TOOL_GROUPS` still names eight setup groups (code: nine tools); `tool_catalog()` lists names without declarations; `tools_markdown()` and `insert_tools()` default to the 19-tool starter group. The same 20 combined tool/variable name limit and two authenticated browser transports apply. See the [current public contracts](../docs/tools.md) and [implementation matrix](fastcore_tool_candidates.md).
 
+**0.1.18 catalog helper:** `insert_tool_catalog(group="starter")` selects an entire named group and delegates to `insert_tools(group=...)`. It uses the same execution-bound comm, origin checks, asynchronous receipt and ordinary Markdown insertion below the caller. The default is 19 starter tools, not the full catalog; the combined 20-reference limit is unchanged. Functions must be imported into the bound kernel. It is a fourth setup helper, not a registered model tool.
+
 ## Who owns what?
 
 | Data or action | Owner / execution location | Consequence |
@@ -16,7 +18,7 @@ Implementation design introduced in **0.1.6**, with tool inheritance in **0.1.7*
 | Web fetch for `url_to_note` | Server worker thread | Fetched Markdown goes to the original browser model for insertion. |
 | Persisting notes | Normal Jupyter document save | Action acknowledgement means live-model mutation, never disk persistence. |
 
-Default context is a bounded source snapshot above the prompt plus completed earlier AI exchanges. Since 0.1.8, whole-notebook, nearby-cell, individual Custom and current-question-only choices are available. Explicit tools can obtain additional context independently of those source choices.
+Default context is a bounded live-cell snapshot above the prompt plus completed earlier AI exchanges. From 0.1.18, selected code cells include displayed textual outputs alongside source; output text never declares tools. Since 0.1.8, whole-notebook, nearby-cell, individual Custom and current-question-only choices are available. Explicit tools can obtain additional context independently of those source choices.
 
 ## Tool surface and registration
 

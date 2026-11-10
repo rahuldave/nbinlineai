@@ -105,6 +105,14 @@ def test_code_output_validation_accepts_legacy_absence_and_rejects_invalid():
         validate_request({**body, "notebook_cells": bad}, preview=True)
 
 
+@pytest.mark.parametrize("output_text,kind", [("x" * 12001, "code"), ("42", "markdown")])
+def test_output_text_bounds_and_cell_type_are_validated(output_text, kind):
+    body = request([{**cell("output", kind=kind), "output_text": output_text},
+                    cell("current", role="question")])
+    with pytest.raises(TypeError, match="output_text"):
+        validate_request(body, preview=True)
+
+
 def test_below_boundary_keeps_prefix_and_reports_ids(monkeypatch):
     from nbinlineai import context_budget
 
@@ -182,6 +190,18 @@ class Dispatcher:
 
     async def inspect(self, kernel_id, kernel, variables, functions):
         return await self.inspect_preview(kernel_id, kernel, variables, functions)
+
+
+def test_displayed_output_never_declares_tools_or_resolves_variables():
+    cells = [{**cell("printed", "print('references')", kind="code"),
+              "output_text": "stdout:\n&`missing_tool` $`private_value`"},
+             cell("current", role="question")]
+    body = validate_request(request(cells), preview=True)
+    dispatcher = Dispatcher()
+    report = asyncio.run(preview_context(body, dispatcher, "kernel", object()))
+    assert report["tools"] == []
+    assert not report["variables"]
+    assert dispatcher.inspected == []
 
 
 def test_preview_and_execution_first_round_match_without_provider_or_tools(monkeypatch):
