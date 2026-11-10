@@ -2130,5 +2130,42 @@
       "notebook": "browser-media-attachment.ipynb",
       "cell_id": "attachment-tool-ai-question"
     }
+  },
+  "insert_tool_catalog": {
+    "notebook": "live-variables-and-tools.ipynb",
+    "section": "Optional: insert a tool catalog group",
+    "cell_id": "live-insert-catalog-call",
+    "setup_helper": true,
+    "execution": "setup-ui-receipt",
+    "platform_note": "Requires JupyterLab frontend and execution-bound comm acknowledgement.",
+    "verification": {
+      "unit": "tests/test_insert_tool_catalog.py",
+      "browser": "tests/e2e/inherited-tools.spec.ts"
+    },
+    "checkpoint_evidence": "The exact public call and inspection cells ran in isolated Chromium JupyterLab with a real Python kernel. The code group inserted nine declarations immediately below the caller, the later receipt reported inserted with the matching live cell ID, and save/reload preserved the Markdown cell. No model request was made.",
+    "normal_example": {
+      "notebook": "live-variables-and-tools.ipynb",
+      "cell_id": "live-insert-catalog-call",
+      "mode": "python"
+    },
+    "ai_example": null,
+    "ai_exception_reason": "Setup helper formats or inserts declarations; use it in a code cell before a later AI question.",
+    "receipt_variable": "catalog_receipt",
+    "receipt_inspect_cell": "live-insert-catalog-inspect",
+    "receipt_kind": "insert_tools",
+    "receipt_success_status": "inserted",
+    "receipt_cell_id_required": true,
+    "catalog_group": "code",
+    "catalog_names": [
+      "search_files",
+      "search_notebooks",
+      "source_doc",
+      "source_files",
+      "view_file",
+      "view_file_hashes",
+      "file_replace_checked",
+      "inspect_python",
+      "show_doc"
+    ]
   }
 }

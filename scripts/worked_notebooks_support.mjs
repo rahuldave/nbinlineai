@@ -34,7 +34,7 @@ export function prepareDisposableExecutedCells(notebook, steps) {
   return notebook;
 }
 
-export function verifiedInsertionCell(cells, { callId, inspectId, variable, receipt }) {
+export function verifiedInsertionCell(cells, { callId, inspectId, variable, receipt, catalogGroup, catalogNames }) {
   if (!Array.isArray(cells) || !receipt || receipt.status !== 'inserted' ||
       typeof receipt.cellId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(receipt.cellId) ||
       typeof variable !== 'string' || !/^[A-Za-z_][A-Za-z_0-9]{0,100}$/.test(variable)) {
@@ -53,6 +53,16 @@ export function verifiedInsertionCell(cells, { callId, inspectId, variable, rece
     /\binsert_tools\(\s*(\[[^\]]+\])/.exec(callSource)?.[1];
   let requested;
   try { requested = JSON.parse(namesLiteral); } catch { /* Literal request is required. */ }
+  if (catalogGroup) {
+    const groupCall = typeof callSource === 'string' &&
+      /\binsert_tool_catalog\(\s*(?:(?:group\s*=\s*)?["']([a-z_]+)["']\s*)?\)/.exec(callSource);
+    if (!groupCall || (groupCall[1] ?? 'starter') !== catalogGroup ||
+        !Array.isArray(catalogNames) || !catalogNames.length || catalogNames.length > 20 ||
+        new Set(catalogNames).size !== catalogNames.length) {
+      throw new Error('Catalog declaration request does not match its group');
+    }
+    requested = catalogNames;
+  }
   const lines = typeof source === 'string' ? source.trimEnd().split('\n') : [];
   const declarations = lines.slice(1).map(line =>
     /^- &`([A-Za-z_][A-Za-z_0-9]*)` — .+$/.exec(line)?.[1]);

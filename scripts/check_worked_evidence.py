@@ -14,9 +14,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from nbinlineai.tools import TOOL_FUNCTIONS
+from nbinlineai.tools import TOOL_FUNCTIONS, TOOL_GROUPS
 
-HELPERS = frozenset({"insert_tools", "tool_catalog", "tools_markdown"})
+HELPERS = frozenset({"insert_tools", "insert_tool_catalog", "tool_catalog", "tools_markdown"})
 TERMINAL_SUCCESS = frozenset({"completed"})
 CONTROL_TARGET_STATES = {
     "pause_recording": frozenset({"paused"}),
@@ -63,10 +63,21 @@ def _literal_insert_names(source: str) -> set[str]:
     tree = ast.parse(source)
     calls = [node for node in ast.walk(tree)
              if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-             and node.func.id == "insert_tools"]
+             and node.func.id in {"insert_tools", "insert_tool_catalog"}]
     if len(calls) != 1:
         raise ValueError("insert_tools example needs one explicit request")
     call = calls[0]
+    if call.func.id == "insert_tool_catalog":
+        group_arg = call.args[0] if call.args else next(
+            (keyword.value for keyword in call.keywords if keyword.arg == "group"), None
+        )
+        try:
+            group = "starter" if group_arg is None else ast.literal_eval(group_arg)
+        except (ValueError, TypeError, SyntaxError) as exc:
+            raise ValueError("catalog insertion example needs a literal group") from exc
+        if not isinstance(group, str) or group not in TOOL_GROUPS:
+            raise ValueError("catalog insertion example needs a known group")
+        return set(TOOL_GROUPS[group])
     names_arg = call.args[0] if call.args else next(
         (keyword.value for keyword in call.keywords if keyword.arg == "names"), None
     )

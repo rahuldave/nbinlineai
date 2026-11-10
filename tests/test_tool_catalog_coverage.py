@@ -11,7 +11,13 @@ import nbformat
 import pytest
 import tomllib
 
-from nbinlineai.tools import TOOL_FUNCTIONS, insert_tools, tool_catalog, tools_markdown
+from nbinlineai.tools import (
+    TOOL_FUNCTIONS,
+    insert_tool_catalog,
+    insert_tools,
+    tool_catalog,
+    tools_markdown,
+)
 from scripts.check_worked_evidence import validate_examples
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +27,7 @@ FUNCTION_ROW = re.compile(r"^\| `(?P<signature>[a-z_]+\([^`]*\))` \| (?P<body>.*
                           re.MULTILINE)
 REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z_0-9]*)`")
 HELPERS = {"tool_catalog": tool_catalog, "tools_markdown": tools_markdown,
-           "insert_tools": insert_tools}
+           "insert_tools": insert_tools, "insert_tool_catalog": insert_tool_catalog}
 
 
 def test_worked_examples_pair_every_registered_tool() -> None:
