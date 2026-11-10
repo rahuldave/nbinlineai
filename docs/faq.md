@@ -225,7 +225,7 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 ### Does the AI see every cell and all Python variables?
 
-No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content, and file contents are not automatically included. An offered tool can read selected outputs or files, and a confirmed image attachment explicitly provides pixels to an image-capable model.
+No. Default receives bounded cell context above the current question and completed earlier AI pairs. Selected code includes its displayed text outputs: direct results, stdout, stderr and errors, with text/data representations for rich displays. Other Context modes can select below-question material or individual AI cells as labeled source. Image pixels, raw-cell content and file contents are not automatically included. An offered tool can inspect selected outputs or files beyond the snapshot, and a confirmed image attachment provides pixels to an image-capable model.
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See [choose notebook context](manual/context-selection.md).
 

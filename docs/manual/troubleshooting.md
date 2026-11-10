@@ -13,7 +13,7 @@ title: Troubleshooting and limits
 | Provider unavailable / Run disabled | Save that provider's key, or select one already configured. |
 | Name is not defined | Run the Python cell defining the referenced variable or function in this notebook's kernel. |
 | AI misses your notes | Select the intended question, check its Context mode and cell choices, use **Details → Check context** if you want a fresh estimate, and inspect partial/omitted feedback. Rerun with Keep answer off after editing. |
-| AI misses a plot or code output | Context checkboxes do not automatically include rich output. Declare `list_outputs`/`read_output` to inspect a selected result, add a text explanation to Markdown, or explicitly confirm a still-image attachment for one question. |
+| AI misses code output | In 0.1.18 or later, selecting a code cell includes displayed text results, prints/stdout, stderr and errors. Check the cell selection, output truncation and request budget in **Details → Check context**, then rerun the question with Keep answer off. For plot pixels, confirm an image attachment; output tools can inspect additional data. |
 | AI asks questions when you want a direct answer | Choose Compact or Full in the notebook defaults or the cell's Override controls, then run it again. |
 | One cell ignores changed notebook defaults | Check its **Override** controls. Choose **Notebook default** in the provider menu to clear its provider, model, and effort choices, or **Use notebook defaults** to clear its provider, model, style, and effort choices. |
 | A completed AI prompt will not run again | Turn off Keep answer on that prompt. Protected prompts are skipped by Shift+Enter. |
@@ -40,9 +40,10 @@ Current size limits are deliberately bounded:
 | Current prompt | Up to 16,000 characters before live-value substitution. |
 | Live references | Up to 20 distinct names combined: current-question variables plus all inherited/current tools. |
 | Variable representation | Up to 2,000 characters per value. |
+| Displayed code output | Up to 12,000 characters per selected code cell, with a truncation marker; source and outputs also share the request budget. |
 | Function result | Up to 4,000 characters per tool result. |
 | Notebook-tool rounds | Default 5; configurable from 0 to 10 in nbinlineai's JupyterLab settings. One returned group may contain several declared tool calls; internal ChatGPT inference does not count as another notebook-tool round. |
 
-Code outputs and plots are not automatically read as notebook text. Use a declared output tool to inspect a selected output, or explicitly confirm an image attachment for one question. Generated code remains unexecuted until you choose to run it.
+Selected code cells include displayed text outputs with their source, subject to the per-cell output limit and shared context budget. Plot text/data representations are included; image pixels and interactive media need an output tool or an explicitly confirmed image attachment. Generated code remains unexecuted until you choose to run it.
 
 [Manual](../user-guide.md) · [Previous: Saved notebooks and privacy](saving-and-privacy.md)
