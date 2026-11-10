@@ -72,7 +72,8 @@ def select_context(cells: list[dict[str, Any]], prompt_id: str, mode: str) -> Se
             reason = "answer-to-current-question"
         elif cell["cell_type"] == "raw":
             reason = "raw-cell"
-        elif (not cell["source"] or (mode != "default" and not cell["source"].strip())) and not (
+        elif (not (cell["source"] or cell.get("output_text")) or
+              (mode != "default" and not (cell["source"].strip() or cell.get("output_text", "").strip()))) and not (
             mode == "default" and cell_id in legacy_ids
         ):
             reason = "empty-cell"

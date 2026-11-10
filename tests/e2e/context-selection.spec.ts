@@ -6,7 +6,7 @@ type Cell = {
   source: string;
   metadata: Record<string, unknown>;
   outputs?: unknown[];
-  execution_count?: null;
+  execution_count?: number | null;
 };
 
 const code = (id: string, source: string, metadata: Record<string, unknown> = {}): Cell =>
@@ -424,6 +424,25 @@ test('Default retains legacy whitespace source while explicit scope treats it as
   const explicit = await preview(page);
   expect(explicit.body.selected_cell_ids).not.toContain('spaces');
   await expect(box(cells(page).first())).toBeDisabled();
+});
+
+test('saved and fresh printed output reach the AI context from the live cell model', async ({ page, request }) => {
+  const setup = code('setup', 'print("LIVE_FRESH_TEXT")');
+  setup.execution_count = 1;
+  setup.outputs = [{ output_type: 'stream', name: 'stdout', text: 'SAVED_OLD_TEXT\n' }];
+  await openNotebook(page, request, [setup, question('current', 'E2E_CONTEXT_AUDIT What printed?')]);
+  await selectQuestion(page, 1);
+  const saved = await preview(page);
+  expect(saved.request.notebook_cells[0].output_text).toContain('SAVED_OLD_TEXT');
+  await cells(page).first().click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(cells(page).first().locator('.jp-OutputArea')).toContainText('LIVE_FRESH_TEXT');
+  await selectQuestion(page, 1);
+  const fresh = await preview(page);
+  expect(fresh.request.notebook_cells[0].output_text).toContain('LIVE_FRESH_TEXT');
+  expect(fresh.request.notebook_cells[0].output_text).not.toContain('SAVED_OLD_TEXT');
+  await cells(page).nth(1).locator('[data-nbinlineai-run]').click();
+  await expect(panel(page).locator('.nbinlineai-response-cell')).toContainText('LIVE_FRESH_TEXT');
 });
 
 test('the AI Prompt toolbar immediately targets its newly inserted question', async ({ page, request }) => {

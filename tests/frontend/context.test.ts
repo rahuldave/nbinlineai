@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { contextMode, contextRevisionKey, customSeed, emptySourceForMode, modeCandidateIds, notebookCells, precedingCells, snapshotTransportError, toolChoiceMetadata, toolDeclarationNames } from '../../src/context';
 import { SSEParser, readEventStream } from '../../src/sse';
 
-function fakeModel(cells: Array<{id: string; cell_type: string; source: string; metadata?: object; execution_count?: number | null}>): any {
+function fakeModel(cells: Array<{id: string; cell_type: string; source: string; metadata?: object; execution_count?: number | null; outputs?: unknown[]}>): any {
   return { cells: { length: cells.length, get: (i: number) => ({
     id: cells[i].id, type: cells[i].cell_type,
     sharedModel: { getSource: () => cells[i].source },
@@ -68,6 +68,7 @@ test('eligibility excludes whitespace and orphan answers while missing Custom fl
   assert.deepEqual([...modeCandidateIds(snapshot, 'prompt', 'custom')], ['question', 'answer', 'new']);
   assert.equal(emptySourceForMode('  ', 'default'), false);
   assert.equal(emptySourceForMode('  ', 'all-above'), true);
+  assert.equal(emptySourceForMode('', 'all-above', 'stdout:\n42'), false);
 });
 
 test('Custom initialization writes every existing choice and preserves unrelated metadata', () => {
@@ -98,6 +99,35 @@ test('preview revision changes for source, settings, mode, target and kernel', (
   assert.notEqual(base, contextRevisionKey(cells, 'prompt', 'all-above', 'session', 'kernel', { style: 'compact' }));
   assert.notEqual(base, contextRevisionKey(cells, 'a', 'default', 'session', 'kernel', { style: 'compact' }));
   assert.notEqual(base, contextRevisionKey(cells, 'prompt', 'default', 'session', 'restarted', { style: 'compact' }));
+  assert.notEqual(base, contextRevisionKey([{ ...cells[0], output_text: 'stdout:\n42' }, cells[1]], 'prompt', 'default', 'session', 'kernel', { style: 'compact' }));
+});
+
+test('snapshot captures only bounded displayed plain text from code outputs', () => {
+  const cells = notebookCells(fakeModel([
+    { id: 'code', cell_type: 'code', source: 'print(42)', outputs: [
+      { output_type: 'stream', name: 'stdout', text: ['4', '2'] },
+      { output_type: 'execute_result', data: { 'text/plain': ['answer', '\n42'], 'text/html': '<b>private</b>', 'image/png': 'secret' } },
+      { output_type: 'error', ename: 'ValueError', evalue: 'bad', traceback: ['\u001b[31mValueError: bad\u001b[0m'] },
+      { output_type: 'display_data', data: { 'text/html': '<b>html only</b>' } },
+      { output_type: 'display_data', data: { 'application/json': { ok: true } } }
+    ] },
+    { id: 'prompt', cell_type: 'markdown', source: 'What printed?' }
+  ]), 'prompt');
+  assert.match(cells[0].output_text || '', /stdout:\n42/);
+  assert.match(cells[0].output_text || '', /execute_result:\nanswer\n42/);
+  assert.match(cells[0].output_text || '', /ValueError: bad/);
+  assert.match(cells[0].output_text || '', /display_data text\/html:\nhtml only/);
+  assert.match(cells[0].output_text || '', /display_data application\/json:\n\{"ok":true\}/);
+  assert.doesNotMatch(cells[0].output_text || '', /secret|private|\u001b/);
+  assert.ok((cells[0].output_text || '').length <= 12000);
+  const huge = notebookCells(fakeModel([
+    { id: 'code', cell_type: 'code', source: '', outputs: [{ output_type: 'stream', name: 'stderr', text: 'x'.repeat(20000) }] },
+    { id: 'prompt', cell_type: 'markdown', source: 'What happened?' }
+  ]), 'prompt');
+  assert.equal(huge[0].output_text?.length, 12000);
+  assert.match(huge[0].output_text || '', /displayed text output truncated/);
+  assert.deepEqual([...modeCandidateIds(huge, 'prompt', 'all-above')], ['code']);
+  assert.deepEqual(toolDeclarationNames({ ...huge[0], output_text: '&`read_url`' }), []);
 });
 
 test('snapshot transport reports cell and character limits before answer creation', () => {

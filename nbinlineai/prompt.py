@@ -137,6 +137,11 @@ def validate_request(body: dict, *, preview: bool = False) -> dict:
             raise ValueError("Invalid notebook cell type")
         if not isinstance(cell.get("source"), str):
             raise TypeError("Invalid notebook cell source")
+        if "output_text" in cell:
+            output_text = cell["output_text"]
+            if (cell["cell_type"] != "code" or not isinstance(output_text, str)
+                    or len(output_text) > 12000):
+                raise TypeError("output_text must be code-cell text of at most 12000 characters")
         if not isinstance(cell.get("metadata", {}), dict):
             raise TypeError("Invalid notebook cell metadata")
         ai = cell.get("metadata", {}).get("nbinlineai")
