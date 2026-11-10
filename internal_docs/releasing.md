@@ -383,3 +383,10 @@ resources were verified, including 54 HTML pages, 30 notebook pages and the
 new editor screenshot. Bytes match except expected sitemap checkout timestamps.
 The [full release record](release_0_1_17_review.md) contains review dispositions,
 local-test limitations, installation provenance and exact source/CI evidence.
+
+
+## Version 0.1.18 — published and verified
+
+Version **0.1.18** was published on November 10, 2026 from PR #51 merge `bbedb3430a03c8b688147195bfd716dd261f6b86`, whose tree matches independently reviewed `68bca85b189069ff909f44956f9005242a264824`. The pushed annotated `v0.1.18` tag points to that merge. Selected code now includes displayed text output, and `insert_tool_catalog()` inserts a named catalog group's Markdown declarations below its calling code cell. Notebook-agent experiments remain outside the release.
+
+All required PR checks passed: 718 Python, 102 frontend, 21 background checks, 109 default browser scenarios and all 14 runtime variants. Both optional offline ChatGPT cases passed separately. Independent source/artifact review, strict archive checks, clean installed-wheel UI, public artifact hashes and the complete live-site check passed. The [full release record](release_0_1_18_review.md) contains hashes, finding dispositions, installation provenance and exact CI/deployment references.
