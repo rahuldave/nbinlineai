@@ -62,6 +62,7 @@ __all__ = [
     "find_notebook_cells",
     "insert_code",
     "insert_markdown",
+    "insert_tool_catalog",
     "insert_tools",
     "inspect_python",
     "list_cells",
@@ -507,3 +508,16 @@ def insert_tools(
     if markdown == "No built-in tools selected.":
         raise ValueError("Choose at least one tool to insert")
     return request_insert_tools(markdown)
+
+
+def insert_tool_catalog(
+    group: str = "starter",  # Catalog group to declare; tool_catalog() lists choices.
+) -> "InsertToolsReceipt":  # Asynchronous status of the new Markdown cell.
+    """Insert a catalog group's editable & references below this code cell.
+
+    Import the group's functions into the notebook kernel first. The default
+    starter group offers 19 tools; tool_catalog() lists all available groups.
+    Inspect the returned receipt in a later code cell and save the notebook.
+    Use insert_tools(names=[...]) for individual tools or custom aliases.
+    """
+    return insert_tools(group=group)

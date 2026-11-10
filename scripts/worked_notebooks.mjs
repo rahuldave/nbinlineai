@@ -303,12 +303,16 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   const receiptVariables = new Map();
   const insertionVariables = new Map();
   const insertionCalls = new Map();
+  const insertionCatalogs = new Map();
   const directNames = new Map();
   for (const entry of Object.values(coverage)) {
     if (entry.normal_example?.notebook !== name || !entry.receipt_inspect_cell || !entry.receipt_variable) continue;
     if (entry.receipt_kind === 'insert_tools') {
       insertionVariables.set(entry.receipt_inspect_cell, entry.receipt_variable);
       insertionCalls.set(entry.receipt_inspect_cell, entry.normal_example.cell_id);
+      if (entry.catalog_group) insertionCatalogs.set(entry.receipt_inspect_cell, {
+        catalogGroup: entry.catalog_group, catalogNames: entry.catalog_names,
+      });
     } else {
       const values = receiptVariables.get(entry.receipt_inspect_cell) ?? new Set();
       values.add(entry.receipt_variable);
@@ -317,7 +321,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   }
   for (const [toolName, entry] of Object.entries(coverage)) {
     if (entry.normal_example?.notebook !== name || entry.normal_example.mode !== 'python' ||
-        ['insert_tools', 'tool_catalog', 'tools_markdown'].includes(toolName)) continue;
+        ['insert_tools', 'insert_tool_catalog', 'tool_catalog', 'tools_markdown'].includes(toolName)) continue;
     const values = directNames.get(entry.normal_example.cell_id) ?? new Set();
     values.add(toolName);
     directNames.set(entry.normal_example.cell_id, values);
@@ -694,6 +698,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
     cell.metadata ??= {};
     cell.metadata.nbinlineaiWorkedInsertion = verifiedInsertionCell(notebook.cells, {
       callId: insertionCalls.get(cellId), inspectId: cellId, variable, receipt,
+      ...insertionCatalogs.get(cellId),
     });
   }
   for (const [cellId, calls] of directByCell) {

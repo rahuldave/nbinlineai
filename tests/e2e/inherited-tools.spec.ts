@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '../support/e2e-fixtures';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 type Cell = {
@@ -287,4 +287,55 @@ test('native Run All waits for two helper insertions in order before the next AI
     return helper >= 0 && cells[helper + 1]?.source.includes('&`bump_alias`')
       && cells[helper + 2]?.source.includes('&`search_kernel_names`');
   }).toBeTruthy();
+});
+
+test('catalog group helper inserts editable references after its caller and acknowledges them', async ({ page, request }, testInfo) => {
+  const example = JSON.parse(readFileSync(resolve('examples/live-variables-and-tools.ipynb'), 'utf8'));
+  const cells = example.cells.filter((cell: Cell) => [
+    'live-insert-catalog-guide', 'live-insert-catalog-call', 'live-insert-catalog-inspect'
+  ].includes(cell.id)).map((cell: Cell) => ({
+    ...cell, source: Array.isArray(cell.source) ? cell.source.join('') : cell.source,
+    ...(cell.cell_type === 'code' ? { outputs: [], execution_count: null } : {})
+  }));
+  const name = await openNotebook(page, request, cells);
+  const notebook = page.locator('.jp-NotebookPanel:visible .jp-Notebook');
+  let modelRequests = 0;
+  page.on('request', item => {
+    if (item.url().endsWith('/nbinlineai/prompt') && item.method() === 'POST') modelRequests += 1;
+  });
+  await notebook.locator('.jp-CodeCell').first().click();
+  await page.keyboard.press('Shift+Enter');
+  const declaration = notebook.locator('.jp-MarkdownCell').filter({ hasText: 'Available tools (delete any line' });
+  await expect(declaration).toHaveCount(1);
+  await expect(declaration).toContainText('search_files');
+  await expect(notebook.locator('.jp-CodeCell').first().locator('.jp-InputPrompt')).toContainText(/\[\d+\]/);
+  await expect(page.getByRole('button', { name: /Python.*\| Idle$/ })).toBeVisible();
+  const inspection = notebook.locator('.jp-CodeCell').nth(1);
+  await inspection.click();
+  await page.keyboard.press('Shift+Enter');
+  await expect(inspection.locator('.jp-OutputArea')).toContainText('inserted');
+  expect(modelRequests).toBe(0);
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect.poll(async () => {
+    const response = await request.get(`/api/contents/${name}?content=1`);
+    if (!response.ok()) return false;
+    const cells = (await response.json()).content.cells;
+    const inspected = cells.find((cell: Cell) => cell.id === 'live-insert-catalog-inspect');
+    return JSON.stringify(inspected?.outputs).includes('inserted');
+  }).toBeTruthy();
+  const response = await request.get(`/api/contents/${name}?content=1`);
+  const content = (await response.json()).content;
+  const callIndex = content.cells.findIndex((cell: Cell) => cell.id === 'live-insert-catalog-call');
+  const inserted = content.cells[callIndex + 1];
+  expect(inserted.cell_type).toBe('markdown');
+  expect(inserted.source.match(/&`[a-z_]+`/g)).toHaveLength(9);
+  expect(inserted.source).toContain('&`source_doc`');
+  expect(inserted.metadata.nbinlineai?.isOutputCell).toBeFalsy();
+  const inspected = content.cells.find((cell: Cell) => cell.id === 'live-insert-catalog-inspect');
+  const output = JSON.stringify(inspected.outputs);
+  expect(output).toContain(inserted.id);
+  expect(output).not.toContain('AssertionError');
+  writeFileSync(testInfo.outputPath('catalog-helper.ipynb'), JSON.stringify(content, null, 1));
+  await page.reload();
+  await expect(notebook.locator('.jp-MarkdownCell').filter({ hasText: 'Available tools (delete any line' })).toHaveCount(1);
 });

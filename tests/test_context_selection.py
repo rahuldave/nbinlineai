@@ -62,6 +62,57 @@ def test_independent_ai_source_and_prior_pair_roles():
     assert "unchecked answer" not in system
 
 
+def test_code_output_is_labeled_budgeted_and_selected_with_its_cell(monkeypatch):
+    from nbinlineai import context_budget
+
+    cells = [cell("code", "print(42)", kind="code"), cell("current", role="question")]
+    cells[0]["output_text"] = "stdout:\n42"
+    selected = select_context(cells, "current", "default")
+    built = build_context(cells, selected.units, [], "Prefix\n", "\nSuffix", "Now?", [], selected.report)
+    assert "print(42)" in built.messages[0].text
+    assert "[Displayed text output from code cell code]" in built.messages[0].text
+    assert "stdout:\n42" in built.messages[0].text
+    assert built.counts["context_chars"] <= 64000
+    assert select_context(cells, "current", "current-only").units == []
+
+    output_only = [{**cells[0], "source": ""}, cells[1]]
+    assert select_context(output_only, "current", "all-above").report["selected_cell_ids"] == ["code"]
+    output_built = build_context(output_only, select_context(output_only, "current", "all-above").units,
+                                 [], "Prefix\n", "\nSuffix", "Now?", [])
+    assert "stdout:\n42" in output_built.messages[0].text
+    assert output_built.counts["source_chars"] == 0
+
+    cells[0]["source"] += "x" * 1000
+    selected = select_context(cells, "current", "default")
+    monkeypatch.setattr(context_budget, "MAX_CONTEXT_CHARS", 800)
+    partial = build_context(cells, selected.units, [], "Prefix\n", "\nSuffix", "Now?", [], selected.report)
+    assert "stdout:\n42" in partial.messages[0].text
+    assert partial.counts["partial_cell_ids"] == ["code"]
+    from nbinlineai.context_budget import json_chars, messages_chars
+
+    wire = build_context(cells, selected.units, [], "Prefix\n", "\nSuffix", "Now?", [],
+                         selected.report,
+                         round_wire_cost=lambda messages, tools: messages_chars(messages) + json_chars(tools) + 80)
+    assert "stdout:\n42" in wire.messages[0].text
+    assert wire.counts["round_wire_chars"] <= 800
+
+
+def test_code_output_validation_accepts_legacy_absence_and_rejects_invalid():
+    body = request([cell("code", "print(42)", kind="code"), cell("current", role="question")])
+    validate_request(body.copy(), preview=True)
+    bad = [{**body["notebook_cells"][0], "output_text": ["42"]}, body["notebook_cells"][1]]
+    with pytest.raises(TypeError, match="output_text"):
+        validate_request({**body, "notebook_cells": bad}, preview=True)
+
+
+@pytest.mark.parametrize("output_text,kind", [("x" * 12001, "code"), ("42", "markdown")])
+def test_output_text_bounds_and_cell_type_are_validated(output_text, kind):
+    body = request([{**cell("output", kind=kind), "output_text": output_text},
+                    cell("current", role="question")])
+    with pytest.raises(TypeError, match="output_text"):
+        validate_request(body, preview=True)
+
+
 def test_below_boundary_keeps_prefix_and_reports_ids(monkeypatch):
     from nbinlineai import context_budget
 
@@ -139,6 +190,18 @@ class Dispatcher:
 
     async def inspect(self, kernel_id, kernel, variables, functions):
         return await self.inspect_preview(kernel_id, kernel, variables, functions)
+
+
+def test_displayed_output_never_declares_tools_or_resolves_variables():
+    cells = [{**cell("printed", "print('references')", kind="code"),
+              "output_text": "stdout:\n&`missing_tool` $`private_value`"},
+             cell("current", role="question")]
+    body = validate_request(request(cells), preview=True)
+    dispatcher = Dispatcher()
+    report = asyncio.run(preview_context(body, dispatcher, "kernel", object()))
+    assert report["tools"] == []
+    assert not report["variables"]
+    assert dispatcher.inspected == []
 
 
 def test_preview_and_execution_first_round_match_without_provider_or_tools(monkeypatch):

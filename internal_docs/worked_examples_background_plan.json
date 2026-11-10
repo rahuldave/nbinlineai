@@ -243,6 +243,34 @@
           "action": "code",
           "cellId": "live-state-check",
           "contains": "Bonus now in the Python kernel: 4"
+        },
+        {
+          "action": "code",
+          "cellId": "live-insert-tools-optional"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": ["receipt"],
+          "status": "inserted"
+        },
+        {
+          "action": "code",
+          "cellId": "live-insert-tools-inspect",
+          "contains": "inserted"
+        },
+        {
+          "action": "code",
+          "cellId": "live-insert-catalog-call"
+        },
+        {
+          "action": "receipt-ready",
+          "variables": ["catalog_receipt"],
+          "status": "inserted"
+        },
+        {
+          "action": "code",
+          "cellId": "live-insert-catalog-inspect",
+          "contains": "inserted"
         }
       ]
     },

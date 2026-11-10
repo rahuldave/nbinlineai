@@ -13,12 +13,90 @@ export interface NotebookCellSnapshot {
   id: string;
   cell_type: string;
   source: string;
+  output_text?: string;
   metadata?: Record<string, unknown>;
   execution_count?: number | null;
   context_include?: boolean;
   tools_include?: boolean;
 }
 export type PrecedingCell = NotebookCellSnapshot;
+
+const MAX_OUTPUT_TEXT_CHARS = 12000;
+
+function plainText(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value) && value.every(part => typeof part === 'string')) return value.join('');
+  return null;
+}
+
+function textPrefix(value: string, length: number): string {
+  const prefix = value.slice(0, Math.max(0, length));
+  // A split UTF-16 pair becomes an invalid lone surrogate in the Python request.
+  return /[\uD800-\uDBFF]$/.test(prefix) ? prefix.slice(0, -1) : prefix;
+}
+
+/** Extract bounded textual representations without binary MIME payloads or attachments. */
+export function displayedTextOutput(outputs: unknown): string | undefined {
+  if (!Array.isArray(outputs)) return undefined;
+  const sections: string[] = [];
+  let chars = 0;
+  let truncated = false;
+  for (const output of outputs) {
+    if (!output || typeof output !== 'object') continue;
+    const item = output as Record<string, unknown>;
+    let label: string | undefined;
+    let value: string | null = null;
+    if (item.output_type === 'stream' && (item.name === 'stdout' || item.name === 'stderr')) {
+      label = item.name;
+      value = plainText(item.text);
+    } else if (item.output_type === 'execute_result' || item.output_type === 'display_data') {
+      label = item.output_type;
+      const data = item.data;
+      if (data && typeof data === 'object') {
+        const mime = data as Record<string, unknown>;
+        value = plainText(mime['text/plain']);
+        if (!value) {
+          value = plainText(mime['text/markdown']);
+          if (value !== null) label += ' text/markdown';
+        }
+        if (!value) {
+          value = plainText(mime['text/html']);
+          if (value !== null) {
+            label += ' text/html';
+            value = value.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
+              .replace(/<[^>]*>/g, '');
+          }
+        }
+        if (!value && mime['application/json'] !== undefined) {
+          label += ' application/json';
+          value = JSON.stringify(mime['application/json']);
+        }
+      }
+    } else if (item.output_type === 'error') {
+      label = 'error';
+      const traceback = Array.isArray(item.traceback) && item.traceback.every(line => typeof line === 'string')
+        ? item.traceback.join('\n') : plainText(item.traceback);
+      value = traceback || [item.ename, item.evalue].filter(part => typeof part === 'string').join(': ');
+    }
+    if (label && value) {
+      value = value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+      const section = `${label}:\n${value}`;
+      const remaining = MAX_OUTPUT_TEXT_CHARS - chars - (sections.length ? 2 : 0);
+      if (section.length > remaining) {
+        sections.push(textPrefix(section, remaining));
+        truncated = true;
+        break;
+      }
+      sections.push(section);
+      chars += section.length + (sections.length > 1 ? 2 : 0);
+    }
+  }
+  if (!sections.length) return undefined;
+  const joined = sections.join('\n\n');
+  if (!truncated) return joined;
+  const marker = '\n[displayed text output truncated]';
+  return textPrefix(joined, MAX_OUTPUT_TEXT_CHARS - marker.length) + marker;
+}
 
 /** Read notebook models, never rendered widgets, so windowed notebooks work. */
 export function notebookCells(model: INotebookModel, promptCellId: string): NotebookCellSnapshot[] {
@@ -36,7 +114,10 @@ export function notebookCells(model: INotebookModel, promptCellId: string): Note
       source: cell.sharedModel.getSource(),
       metadata
     };
-    if (cell.type === 'code') entry.execution_count = json.cell_type === 'code' && typeof json.execution_count === 'number' ? json.execution_count : null;
+    if (cell.type === 'code') {
+      entry.execution_count = json.cell_type === 'code' && typeof json.execution_count === 'number' ? json.execution_count : null;
+      entry.output_text = displayedTextOutput(json.cell_type === 'code' ? json.outputs : undefined);
+    }
     if (typeof ai?.contextInclude === 'boolean') entry.context_include = ai.contextInclude;
     if (typeof ai?.toolsInclude === 'boolean') entry.tools_include = ai.toolsInclude;
     result.push(entry);
@@ -62,14 +143,15 @@ export function aiRole(cell: NotebookCellSnapshot): 'prompt' | 'response' | null
   return null;
 }
 export function locallyEligible(cell: NotebookCellSnapshot, promptId: string): boolean {
-  if (linkedToCurrent(cell, promptId) || cell.cell_type === 'raw' || !cell.source.trim()) return false;
+  if (linkedToCurrent(cell, promptId) || cell.cell_type === 'raw' || !(cell.source.trim() || cell.output_text?.trim())) return false;
   const ai = cell.metadata?.nbinlineai as Record<string, unknown> | undefined;
   if (aiRole(cell) !== 'response') return true;
   return (ai?.status === undefined || ai.status === 'done') && typeof (ai?.promptCellId || ai?.prompt_cell_id) === 'string';
 }
 /** Default retains the 0.1.7 truthy-source rule; explicit modes trim whitespace. */
-export function emptySourceForMode(source: string, mode: ContextMode): boolean {
-  return mode === 'default' ? source.length === 0 : source.trim().length === 0;
+export function emptySourceForMode(source: string, mode: ContextMode, outputText = ''): boolean {
+  return mode === 'default' ? source.length === 0 && outputText.length === 0
+    : source.trim().length === 0 && outputText.trim().length === 0;
 }
 
 /** Physical windows count raw, empty and other ineligible cells. */
@@ -104,7 +186,7 @@ export function customSeed(cells: readonly NotebookCellSnapshot[], selected: Rea
 export function contextRevisionKey(cells: readonly NotebookCellSnapshot[], targetId: string | null,
   mode: ContextMode, sessionId: string | undefined, kernelId: string | undefined, settings: unknown): string {
   return JSON.stringify([targetId, mode, sessionId, kernelId, settings, cells.map(cell =>
-    [cell.id, cell.cell_type, cell.source, cell.execution_count, cell.metadata, cell.context_include, cell.tools_include])]);
+    [cell.id, cell.cell_type, cell.source, cell.output_text, cell.execution_count, cell.metadata, cell.context_include, cell.tools_include])]);
 }
 
 /** The server recognizes literal &`name` declarations in Markdown source. */

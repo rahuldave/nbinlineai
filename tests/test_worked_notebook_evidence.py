@@ -7,6 +7,7 @@ import pytest
 
 from scripts.check_worked_evidence import (
     _later_effect,
+    _literal_insert_names,
     _observed_resume_transition,
     execution_deferral_summary,
     validate_examples,
@@ -63,7 +64,7 @@ def _fixture(tmp_path: Path, *, state: str = "completed", later: bool = False) -
                 }],
             }}),
         ])
-    for helper in ("insert_tools", "tool_catalog", "tools_markdown"):
+    for helper in ("insert_tools", "insert_tool_catalog", "tool_catalog", "tools_markdown"):
         rows[helper] = {
             "normal_example": {"notebook": "example.ipynb", "cell_id": helper, "mode": "python"},
             "ai_example": None, "ai_exception_reason": "This is a setup helper.",
@@ -418,3 +419,23 @@ def test_published_examples_have_saved_real_execution_evidence() -> None:
     errors = validate_examples(PROJECT_ROOT / "examples", require_executed=True)
     summary = execution_deferral_summary(PROJECT_ROOT / "examples")
     assert not errors, summary + "\n" + "\n".join(errors)
+
+
+@pytest.mark.parametrize("source,group", [
+    ("insert_tool_catalog()", "starter"),
+    ('insert_tool_catalog("code")', "code"),
+    ('insert_tool_catalog(group="web")', "web"),
+])
+def test_catalog_insertion_evidence_resolves_literal_group(source, group):
+    from nbinlineai.tools import TOOL_GROUPS
+    assert _literal_insert_names(source) == set(TOOL_GROUPS[group])
+
+
+@pytest.mark.parametrize("source", [
+    'insert_tool_catalog("missing")',
+    "insert_tool_catalog(group=selected)",
+    "insert_tool_catalog([])",
+])
+def test_catalog_insertion_evidence_rejects_unknown_or_dynamic_group(source):
+    with pytest.raises(ValueError, match="group"):
+        _literal_insert_names(source)

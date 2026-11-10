@@ -167,7 +167,78 @@ def test_direct_insert_tools_preserves_only_inspected_exact_declaration(tmp_path
     reject(changed_call={**executed_call, "source": ["receipt = insert_tools([\"other_tool\"])\n"]},
            match="latest source")
     _write(direct, [executed_call, executed_inspect, inserted, question])
-    with pytest.raises(ValueError, match="calling cell"):
+    with pytest.raises(ValueError, match="unexpected inserted cell"):
+        merge(source, direct, ai)
+
+
+def test_two_mapped_direct_insertions_each_need_their_own_receipt(tmp_path):
+    source = tmp_path / "live-variables-and-tools.ipynb"
+    direct = tmp_path / "direct.ipynb"
+    ai = tmp_path / "ai.ipynb"
+    first = {"id": "live-insert-tools-optional", "cell_type": "code",
+             "source": ['receipt = insert_tools(["record_bonus"], custom={"record_bonus": record_bonus})\n'],
+             "metadata": {}, "execution_count": None, "outputs": []}
+    first_inspect = {"id": "live-insert-tools-inspect", "cell_type": "code",
+                     "source": ["print(receipt.status, receipt.cell_id, receipt.error)\n"],
+                     "metadata": {}, "execution_count": None, "outputs": []}
+    second = {"id": "live-insert-catalog-call", "cell_type": "code",
+              "source": ['catalog_receipt = insert_tool_catalog(group="code")\n'],
+              "metadata": {}, "execution_count": None, "outputs": []}
+    second_inspect = {"id": "live-insert-catalog-inspect", "cell_type": "code",
+                      "source": ["print(catalog_receipt.status, catalog_receipt.cell_id, catalog_receipt.error)\n"],
+                      "metadata": {}, "execution_count": None, "outputs": []}
+    names = ["search_files", "search_notebooks", "source_doc", "source_files", "view_file",
+             "view_file_hashes", "file_replace_checked", "inspect_python", "show_doc"]
+    inserted_first = {"id": "first-inserted", "cell_type": "markdown", "metadata": {},
+                      "source": ["Available tools (delete any line you do not want to offer):\n",
+                                 "- &`record_bonus` — Add a bonus.\n"]}
+    inserted_second = {"id": "catalog-inserted", "cell_type": "markdown", "metadata": {},
+                       "source": ["Available tools (delete any line you do not want to offer):\n",
+                                  *[f"- &`{name}` — Tool description.\n" for name in names]]}
+
+    def executed(cell, number, inserted, variable, declarations):
+        return {**cell, "execution_count": number,
+                "outputs": [{"output_type": "stream", "name": "stdout",
+                             "text": [f"inserted {inserted['id']} None\n"]}],
+                "metadata": {"nbinlineaiWorkedInsertion": {
+                    "variable": variable, "status": "inserted", "cellPresent": True,
+                    "insertedCellId": inserted["id"], "declarations": declarations}}}
+
+    question = {"id": "question", "cell_type": "markdown", "source": ["Explain."],
+                "metadata": {"nbinlineai": {"isPromptCell": True}}}
+    answer = {"id": "answer", "cell_type": "markdown", "source": ["Done."],
+              "metadata": {"nbinlineai": {"isOutputCell": True, "promptCellId": "question",
+                                       "status": "done"}}}
+    original = [first, first_inspect, second, second_inspect, question]
+    direct_cells = [
+        {**first, "execution_count": 1}, inserted_first,
+        executed(first_inspect, 2, inserted_first, "receipt", ["record_bonus"]),
+        {**second, "execution_count": 3}, inserted_second,
+        executed(second_inspect, 4, inserted_second, "catalog_receipt", names), question]
+    _write(source, original)
+    _write(direct, direct_cells)
+    _write(ai, [*original, answer])
+    assert [cell["id"] for cell in merge(source, direct, ai)["cells"]] == [
+        first["id"], inserted_first["id"], first_inspect["id"], second["id"],
+        inserted_second["id"], second_inspect["id"], question["id"], answer["id"]]
+    _write(direct, [*direct_cells[:4], {**inserted_second, "id": "unexpected"}, *direct_cells[5:]])
+    with pytest.raises(ValueError, match="completed later receipt"):
+        merge(source, direct, ai)
+    _write(direct, [*direct_cells[:5], {**direct_cells[5], "metadata": {}}, *direct_cells[6:]])
+    with pytest.raises(ValueError, match="completed later receipt"):
+        merge(source, direct, ai)
+    wrong_receipt = {**direct_cells[5], "metadata": {"nbinlineaiWorkedInsertion": {
+        **direct_cells[5]["metadata"]["nbinlineaiWorkedInsertion"], "variable": "receipt"}}}
+    _write(direct, [*direct_cells[:5], wrong_receipt, *direct_cells[6:]])
+    with pytest.raises(ValueError, match="completed later receipt"):
+        merge(source, direct, ai)
+    wrong_names = {**direct_cells[5], "metadata": {"nbinlineaiWorkedInsertion": {
+        **direct_cells[5]["metadata"]["nbinlineaiWorkedInsertion"], "declarations": ["show_doc"]}}}
+    _write(direct, [*direct_cells[:5], wrong_names, *direct_cells[6:]])
+    with pytest.raises(ValueError, match="content does not match"):
+        merge(source, direct, ai)
+    _write(direct, [*direct_cells[:5], {**inserted_second, "id": "unmapped-extra"}, *direct_cells[5:]])
+    with pytest.raises(ValueError, match="unexpected inserted cell"):
         merge(source, direct, ai)
 
 

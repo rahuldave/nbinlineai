@@ -76,7 +76,7 @@ def eligible_units(
                 if prompt_index < index:
                     # The latest completed output wins for duplicate links.
                     pairs[prompt_id] = ContextUnit("pair", index, prompt=prompt, answer=cell)
-        elif cell["cell_type"] in ("code", "markdown") and cell["source"]:
+        elif cell["cell_type"] in ("code", "markdown") and (cell["source"] or cell.get("output_text")):
             sources.append(ContextUnit("source", index, cell=cell))
     return sorted([*sources, *pairs.values()], key=lambda unit: unit.anchor, reverse=True)
 
@@ -129,26 +129,54 @@ def _source_label(
                  if cell["cell_type"] == "code" else f"Markdown cell {cell['id']} (source {position})")
     if partial:
         label += f" [partial; nearest source {'suffix' if position == 'above' else 'prefix'} retained]"
-    return f"[{label}]\n"
+    result = f"[{label}]\n"
+    return result
 
 
-def _partial_suffix(
-    cell: dict[str, Any],  # Source cell at the budget boundary.
-    remaining: int,  # Escaped-character allowance for this source chunk.
-    position: str = "above",
-) -> str:  # Largest labeled nonempty suffix that fits, or empty.
-    """Clip one boundary cell from its top while keeping nearest text."""
+def _cell_text(cell: dict[str, Any], position: str) -> str:
+    """Keep notebook source and its displayed text visibly distinct."""
+    source = _source_label(cell, partial=False, position=position) + cell["source"]
+    output = cell.get("output_text") if cell["cell_type"] == "code" else None
+    if output:
+        source += f"\n[Displayed text output from code cell {cell['id']}]\n{output}"
+    return source
+
+
+def _partial_cell(
+    cell: dict[str, Any], position: str, fits: Callable[[str], bool],
+) -> tuple[str, int]:
+    """Retain displayed output at the boundary; shorten source separately."""
     source = cell["source"]
+    output = cell.get("output_text", "") if cell["cell_type"] == "code" else ""
     label = _source_label(cell, partial=True, position=position)
-    low, high = 0, len(source)
-    while low < high:
-        middle = (low + high + 1) // 2
-        chunk = source[-middle:] if position == "above" else source[:middle]
-        if _escaped_chars(label + chunk) <= remaining:
-            low = middle
-        else:
-            high = middle - 1
-    return label + (source[-low:] if position == "above" else source[:low]) if low else ""
+    output_tail = f"\n[Displayed text output from code cell {cell['id']}]\n{output}" if output else ""
+    nearest = source[-1:] if position == "above" else source[:1]
+    if source and (not output or fits(label + nearest + output_tail)):
+        low, high = 0, len(source)
+        while low < high:
+            middle = (low + high + 1) // 2
+            chunk = source[-middle:] if position == "above" else source[:middle]
+            if fits(label + chunk + output_tail):
+                low = middle
+            else:
+                high = middle - 1
+        if low:
+            chunk = source[-low:] if position == "above" else source[:low]
+            return label + chunk + output_tail, low
+    if output:
+        output_label = (_source_label(cell, partial=False, position=position)
+                        + ("[Source omitted at context boundary]\n" if source else "")
+                        + f"[Displayed text output from code cell {cell['id']}; partial]\n")
+        low, high = 0, len(output)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if fits(output_label + output[:middle]):
+                low = middle
+            else:
+                high = middle - 1
+        if low:
+            return output_label + output[:low], 0
+    return "", 0
 
 
 def build_context(
@@ -236,7 +264,7 @@ def build_context(
         assert unit.cell is not None
         cell = unit.cell
         separator = separator_cost if selected_sources else 0
-        full = _source_label(cell, partial=False, position=unit.position) + cell["source"]
+        full = _cell_text(cell, unit.position)
         if round_wire_cost:
             selected_sources.append((unit.anchor, cell, full, len(cell["source"]), False))
             candidate = candidate_wire_cost()
@@ -244,34 +272,28 @@ def build_context(
                 used = candidate
                 continue
             selected_sources.pop()
-            label = _source_label(cell, partial=True, position=unit.position)
-            low, high = 0, len(cell["source"])
-            partial = ""
-            while low < high:
-                middle = (low + high + 1) // 2
-                chunk = (cell["source"][-middle:] if unit.position == "above"
-                         else cell["source"][:middle])
-                text = label + chunk
-                selected_sources.append((unit.anchor, cell, text, middle, True))
+            def fits_wire(text: str, anchor: int = unit.anchor,
+                          selected_cell: dict[str, Any] = cell) -> bool:
+                selected_sources.append((anchor, selected_cell, text, 0, True))
                 cost = candidate_wire_cost()
                 selected_sources.pop()
-                if cost <= MAX_CONTEXT_CHARS:
-                    low = middle
-                    partial = text
-                    used = cost
-                else:
-                    high = middle - 1
+                return cost <= MAX_CONTEXT_CHARS
+
+            partial, retained = _partial_cell(cell, unit.position, fits_wire)
             if partial:
-                selected_sources.append((unit.anchor, cell, partial, low, True))
+                selected_sources.append((unit.anchor, cell, partial, retained, True))
+                used = candidate_wire_cost()
             break
         cost = _escaped_chars(full) + separator
         if used + cost <= MAX_CONTEXT_CHARS:
             selected_sources.append((unit.anchor, cell, full, len(cell["source"]), False))
             used += cost
             continue
-        partial = _partial_suffix(cell, MAX_CONTEXT_CHARS - used - separator, unit.position)
+        partial, retained = _partial_cell(
+            cell, unit.position,
+            lambda text, remaining=MAX_CONTEXT_CHARS - used - separator: _escaped_chars(text) <= remaining,
+        )
         if partial:
-            retained = len(partial) - len(_source_label(cell, partial=True, position=unit.position))
             selected_sources.append((unit.anchor, cell, partial, retained, True))
             used += _escaped_chars(partial) + separator
         break

@@ -4,7 +4,7 @@ title: Tool catalog
 
 # Tool catalog
 
-Use this catalog to choose a tool, see what it does, and open the linked notebook at the exact demonstration. Each model-tool row has an ordinary **Python example** or **JupyterLab example**, plus an **AI tool call**. The rendered notebook also offers its `.ipynb` source for opening in JupyterLab. Related tools share notebooks where their calls form one workflow. The three setup helpers have ordinary examples only.
+Use this catalog to choose a tool, see what it does, and open the linked notebook at the exact demonstration. Each model-tool row has an ordinary **Python example** or **JupyterLab example**, plus an **AI tool call**. The rendered notebook also offers its `.ipynb` source for opening in JupyterLab. Related tools share notebooks where their calls form one workflow. The four setup helpers have ordinary examples only.
 
 To give a tool to an AI question, import it into that notebook's Python kernel and write its ``&`name` `` declaration in the question or an ordinary Markdown cell above it. Importing a function alone does not offer it to the model. A direct Python example calls the function yourself; an AI example asks the model to call the declared function. Live-cell editing tools have no direct Python call, so their ordinary examples show the equivalent JupyterLab editor action.
 
@@ -12,21 +12,31 @@ After installing an update with frontend changes, restart JupyterLab, reload the
 
 ## Choose and declare tools
 
+Run this ordinary Python cell in JupyterLab to insert the `code` catalog group immediately below it:
+
 ```python
-from nbinlineai.tools import search_files, source_doc, tools_markdown
-print(tools_markdown(["search_files", "source_doc"]))
+from nbinlineai.tools import *
+catalog_receipt = insert_tool_catalog(group="code")
 ```
 
-Paste the output into an ordinary Markdown cell above your AI question; delete any references you do not want to offer. To have the frontend insert that note below the calling code cell, use `insert_tools(["search_files", "source_doc"])`. The helper returns an asynchronous receipt: check its `status`, `cell_id`, or `error` in a later code cell. Save the notebook after insertion. The helper needs the nbinlineai frontend and ipykernel 6.18 or newer; `tools_markdown()` also works without the frontend.
+The new cell is editable Markdown with one ``&`tool_name` `` declaration per tool. Delete any lines you do not want, then save the notebook. Importing the toolbox makes its functions available in the kernel; only enabled declarations offer them to later AI questions. In a **later code cell**, inspect `catalog_receipt.status`, `catalog_receipt.cell_id`, and `catalog_receipt.error`. No model connection is needed to insert the note. The helper needs the nbinlineai frontend and ipykernel 6.18 or newer.
 
-`tool_catalog(group="")` lists group names and member names **without `&` declarations** ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-files.html#catalog-setup-tool_catalog), § Tool catalog: saved files and source, cell `catalog-setup-tool_catalog`). `tools_markdown(names=None, custom=None, group="starter")` prints references ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html#catalog-setup-tools_markdown), § Tool catalog: live notebook cells, cell `catalog-setup-tools_markdown`). `insert_tools(names=None, custom=None, group="starter")` inserts a declaration in JupyterLab and returns a receipt ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html#live-insert-tools-optional), § Optional: add a declaration from Python, cell `live-insert-tools-optional`). The latter two default to the 19-tool starter group. Pass a group such as `"code"` (nine tools), `"notebook"`, or `"web"`, or pass an explicit `names` list to select individual functions. `names` takes precedence over the group. Some groups contain overlapping tools, and the 20-reference limit still applies to a generated note. The available groups are `starter`, `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, `execution`, `browser_media`, `browser_outputs`, `camera`, `screen`, `browser_playback`, `browser_transforms`, and `browser_attachment`.
+`insert_tool_catalog(group="starter")` inserts all references from one catalog group ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html#live-insert-catalog-call), § Optional: insert a tool catalog group, cell `live-insert-catalog-call`). With no argument it uses the **19-tool starter group**, rather than enabling the entire catalog. Select a group such as `"code"` (nine tools), `"notebook"`, or `"web"`. Groups may overlap; enabled declarations above a question and its live variable references share the **20-name limit**. Remove unwanted lines or turn off a note's **Tools** checkbox before accumulating more groups.
 
-Use `tool_catalog()` to discover which tools belong to `saved_notebooks` before writing a question. Use `tools_markdown()` to make a removable declaration note for a question comparing saved source with live cell source. Use `insert_tools()` to place that declaration beside the current lesson in JupyterLab; inspect its receipt and save the notebook after reviewing the note.
+`tool_catalog(group="")` lists group names and member names **without `&` declarations** ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-files.html#catalog-setup-tool_catalog), § Tool catalog: saved files and source, cell `catalog-setup-tool_catalog`). The available groups are `starter`, `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, `execution`, `browser_media`, `browser_outputs`, `camera`, `screen`, `browser_playback`, `browser_transforms`, and `browser_attachment`.
+
+For individual tools or custom aliases, use `insert_tools(names=None, custom=None, group="starter")` ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html#live-insert-tools-optional), § Optional: add a declaration from Python, cell `live-insert-tools-optional`). It uses the same insertion mechanism, defaults to the starter group, and gives an explicit `names` list precedence over the group:
 
 ```python
-from nbinlineai.tools import *         # Import the toolbox; declarations choose model access.
-print(tool_catalog())                  # names only; no declarations
-print(tools_markdown(group="code"))    # removable & references
+from nbinlineai.tools import insert_tools, search_files, source_doc
+receipt = insert_tools(["search_files", "source_doc"])
+```
+
+Without the frontend, `tools_markdown(names=None, custom=None, group="starter")` returns references to paste into a Markdown note ([Setup helper example](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-live-notebook.html#catalog-setup-tools_markdown), § Tool catalog: live notebook cells, cell `catalog-setup-tools_markdown`). It defaults to the same starter group. **Printed references never enable tools**, even though their text can now enter context as code output. Put declarations in an ordinary Markdown cell or an AI question.
+
+```python
+print(tool_catalog())                 # List groups without enabling tools.
+print(tools_markdown(group="code"))   # Copy these references into Markdown.
 ```
 
 An eligible ordinary Markdown cell or earlier AI question can declare tools for later questions. AI answers, code cells, raw cells, output, and cells below the question do not declare them. The **Tools** checkbox on each declaration cell controls whether its references count; it is independent of the **Context** text checkbox. The server discovers enabled references before optional context trimming, and Current question only retains enabled tool choices. Duplicate names count once. A missing imported name fails before the provider call. The current question's ``$`name` `` reads a live kernel value; earlier `$` references stay literal. A request permits **20 distinct tool and variable names combined**. This is nbinlineai’s own guardrail, not a provider-imposed tool limit. Schemas, instructions, and executed tool results use the 64,000-character host-submitted estimate before optional notebook text. ChatGPT's internal inference calls are outside that estimate. **Maximum tool steps** counts host-executed groups of declared notebook-tool calls, with several calls possible in one group. The same tool declarations work with ChatGPT and API connections. Keep answer skips a completed tool run; cancellation does not undo completed effects.
@@ -51,9 +61,9 @@ For an AI tool call, the answer contains a **fixed status snapshot**, not a chan
 
 ## Function index
 
-Every row below is an import from `nbinlineai.tools`. Signatures show callable parameters and defaults. Browser-media functions return a mutable receipt promptly; inspect its result in a later code cell. Model calls use named arguments. `tools_markdown`, `insert_tools`, and `tool_catalog` are setup helpers rather than model tools.
+Every row below is an import from `nbinlineai.tools`. Signatures show callable parameters and defaults. Browser-media functions return a mutable receipt promptly; inspect its result in a later code cell. Model calls use named arguments. `tools_markdown`, `insert_tools`, `insert_tool_catalog`, and `tool_catalog` are setup helpers rather than model tools.
 
-Each row gives a short task and links to two demonstrations: **Python example** for a direct callable tool, or **JupyterLab example** for an ordinary editor action, and **AI tool call** for a model question. A linked AI question needs the tool imported and its ``&`name` `` reference enabled in that question or an earlier Markdown note. Offering a tool does not force a call. The three setup helpers have ordinary examples only. See the [complete declaration-to-question example](examples.md#ask-after-declaring-a-tool).
+Each row gives a short task and links to two demonstrations: **Python example** for a direct callable tool, or **JupyterLab example** for an ordinary editor action, and **AI tool call** for a model question. A linked AI question needs the tool imported and its ``&`name` `` reference enabled in that question or an earlier Markdown note. Offering a tool does not force a call. The four setup helpers have ordinary examples only. See the [complete declaration-to-question example](examples.md#ask-after-declaring-a-tool).
 
 The short tasks in the table are adaptable; follow the linked notebook for concrete inputs and the prior cells each task needs. Each **Application** is a possible use of the current function, not a claim that the linked disposable demonstration performs that whole workflow. Compositions require the listed functions, the user actions they request, and any needed model or notebook work. `create_file` needs an existing parent folder and a new filename. A task that uses an earlier search, outline, or listing needs that result in the question's selected context, or its reading tool declared too. Copy actual cell IDs, section addresses, and digests from tool results. Source-checked cell edits need the **complete** current cell source; read any remaining lines before editing a long cell. Write and execution tools perform the requested action when called.
 

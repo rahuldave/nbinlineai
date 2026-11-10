@@ -414,7 +414,7 @@ export class NotebookContextControls {
     if (!targetId || !cells) reason = 'Select an AI question';
     else if (cell.id === targetId) reason = 'Current question';
     else if (role === 'response' && (ai.promptCellId || ai.prompt_cell_id) === targetId) reason = 'Answer to this question';
-    else if (cell.type === 'raw' || emptySourceForMode(cell.sharedModel.getSource(), mode)) reason = 'Empty or raw cell';
+    else if (cell.type === 'raw' || emptySourceForMode(cell.sharedModel.getSource(), mode, snapshot?.output_text)) reason = 'Empty or raw cell';
     else if (role === 'response' && ai.status !== undefined && ai.status !== 'done') reason = 'Answer is not complete';
     else if (role === 'response' && !this.viewPromptIds.has(String(ai.promptCellId || ai.prompt_cell_id))) reason = 'Orphan AI answer';
     else reason = this.viewPreview?.ineligible_cells?.find(item => item.id === cell.id)?.reason || '';

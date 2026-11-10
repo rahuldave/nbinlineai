@@ -164,6 +164,14 @@ To repeat a demonstration, use a copy, run its setup, and follow the separate ac
 
 ## Corrections and context
 
+### Does the AI see print output and stderr?
+
+Yes. From **0.1.18**, including a code cell includes its displayed output with its source: expression results, `print()`/stdout, stderr and error tracebacks. Rich displays use their text or JSON representation. The live snapshot includes unsaved output and does not execute code. Cell selection and character-budget trimming apply to both source and output; **Details → Check context** uses the same rules. Image pixels still require an explicit image attachment. Before 0.1.18, ordinary context omitted code outputs.
+
+### Can I insert a tool catalog group as Markdown?
+
+Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell. It inserts editable ``&`tool_name` `` declarations immediately below the calling cell. Inspect the receipt in a later cell and save the notebook. Choose another group from `tool_catalog()` or omit the argument for the 19-tool starter group. Use `insert_tools([...])` for individual functions. Enabled declarations and live-variable references share the 20-name limit. [The catalog](tools.md#choose-and-declare-tools) explains selection and imports.
+
 ### Are the starter suggestions separate prompt types? Do they run immediately?
 
 No. They are buttons shown only in an empty AI question. Choosing one inserts ordinary editable text and focuses the editor. The suggestions disappear when you type or choose one; clearing the question brings them back. Use **Run AI** or Shift+Enter when you are ready to submit. The notebook's response style and Context mode still apply.
@@ -217,7 +225,7 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 ### Does the AI see every cell and all Python variables?
 
-No. Default receives bounded source above the current question and completed earlier AI pairs. Other Context modes can select below-question material or individual AI cells as labeled source. Code outputs, plots, image pixels, raw-cell content, and file contents are not automatically included. An offered tool can read selected outputs or files, and a confirmed image attachment explicitly provides pixels to an image-capable model.
+No. Default receives bounded cell context above the current question and completed earlier AI pairs. Selected code includes its displayed text outputs: direct results, stdout, stderr and errors, with text/data representations for rich displays. Other Context modes can select below-question material or individual AI cells as labeled source. Image pixels, raw-cell content and file contents are not automatically included. An offered tool can inspect selected outputs or files beyond the snapshot, and a confirmed image attachment provides pixels to an image-capable model.
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See [choose notebook context](manual/context-selection.md).
 

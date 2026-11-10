@@ -1,5 +1,7 @@
 # Internal documentation index
 
+The [0.1.18 release candidate](release_0_1_18_review.md) adds displayed code outputs to selected context and a discoverable catalog-group insertion helper. Its record separates implementation, review, CI and publication status.
+
 [Project workflow](workflow.md) describes stable and experimental PR targets,
 the primary checkout on `main`, owned topic worktrees, installed skills, CI and
 safe cleanup.

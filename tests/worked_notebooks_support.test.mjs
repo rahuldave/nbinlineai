@@ -32,6 +32,20 @@ test('insert_tools requires its own inserted receipt, exact cell and visible dec
   assert.throws(() => verifiedInsertionCell(missingVisible, params), /unexpected source/);
 });
 
+test('catalog insertion evidence checks the literal group and exact names', () => {
+  const cells = [
+    { id: 'call', cell_type: 'code', source: 'receipt = insert_tool_catalog(group="web")' },
+    { id: 'new-cell', cell_type: 'markdown', metadata: {}, source:
+      'Available tools (delete any line you do not want to offer):\n- &`read_url` — Read a URL.' },
+    { id: 'inspect', cell_type: 'code', outputs: [{ output_type: 'stream', text: 'inserted new-cell None' }] },
+  ];
+  const params = { callId: 'call', inspectId: 'inspect', variable: 'receipt',
+    receipt: { status: 'inserted', cellId: 'new-cell' }, catalogGroup: 'web', catalogNames: ['read_url'] };
+  assert.deepEqual(verifiedInsertionCell(cells, params).declarations, ['read_url']);
+  assert.throws(() => verifiedInsertionCell(cells, { ...params, catalogGroup: 'code' }), /group/);
+  assert.throws(() => verifiedInsertionCell(cells, { ...params, catalogNames: ['other'] }), /source/);
+});
+
 test('fresh disposable run clears only planned code history, including same-count prompts', () => {
   const notebook = { cells: [
     { id: 'setup', cell_type: 'code', source: ['x = 1\n'], execution_count: 1,
