@@ -12,7 +12,7 @@ Start with the [user guide](user-guide.md) for a first question, the [Tool catal
 
 A cell's Context and Tools controls sit above its own content. An AI question also has **Run AI**, **Cancel**, **Keep answer**, and **Override** above its question text. An answer has Context but no Tools switch. The **AI defaults** and **Context** rows at the top set notebook-wide choices; Override changes only that question.
 
-The question being inspected is labeled **Current question · always included**: its own text is always sent.
+The question being inspected is labeled **`Current question · always included`**. Its own text is always sent.
 
 ### Why does a cell still show Anthropic after I choose ChatGPT for the notebook?
 
@@ -96,7 +96,7 @@ If it is still active, inspect it again later. The [Browser media receipts guide
 
 Printed output does not update. The receipt object updates in Python as messages arrive from the browser; an earlier `print(receipt)` remains a snapshot. Run `receipt.status` again in another cell to see its current state.
 
-Do not put a blocking loop in the original call cell to wait for completion. Let that cell return so the kernel can receive the browser's replies. Calling `browser_capabilities().result` immediately has the same timing problem: keep the receipt in a variable and inspect it later.
+Do not put a blocking loop in the original call cell to wait for completion. Let that cell return so the kernel can receive the browser's replies. Calling `browser_capabilities().result` immediately has the same timing problem. Keep the receipt in a variable and inspect it later.
 
 ### Which receipt fields should I read?
 
@@ -166,11 +166,15 @@ To repeat a demonstration, use a copy, run its setup, and follow the separate ac
 
 ### Does the AI see print output and stderr?
 
-Yes. From **0.1.18**, including a code cell includes its displayed output with its source: expression results, `print()`/stdout, stderr and error tracebacks. Rich displays use their text or JSON representation. The live snapshot includes unsaved output and does not execute code. Cell selection and character-budget trimming apply to both source and output; **Details → Check context** uses the same rules. Image pixels still require an explicit image attachment. Before 0.1.18, ordinary context omitted code outputs.
+Yes. From **0.1.18**, including a code cell includes its displayed output with its source. That includes expression results, `print()`/stdout, stderr and error tracebacks. Rich displays use their text or JSON representation. The live snapshot includes unsaved output and does not execute code.
+
+Cell selection and character-budget trimming apply to both source and output; **Details → Check context** uses the same rules. Image pixels still require an explicit image attachment. Before 0.1.18, ordinary context omitted code outputs.
 
 ### Can I insert a tool catalog group as Markdown?
 
-Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell. It inserts editable ``&`tool_name` `` declarations immediately below the calling cell. Inspect the receipt in a later cell and save the notebook. Choose another group from `tool_catalog()` or omit the argument for the 19-tool starter group. Use `insert_tools([...])` for individual functions. Enabled declarations and live-variable references share the 20-name limit. [The catalog](tools.md#choose-and-declare-tools) explains selection and imports.
+Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell. It inserts editable ``&`tool_name` `` declarations immediately below the calling cell. Inspect the receipt in a later cell and save the notebook. Choose another group from `tool_catalog()` or omit the argument for the 19-tool starter group.
+
+Use `insert_tools([...])` for individual functions. Enabled declarations and live-variable references share the 20-name limit. [The catalog](tools.md#choose-and-declare-tools) explains selection and imports.
 
 ### Are the starter suggestions separate prompt types? Do they run immediately?
 
@@ -186,13 +190,13 @@ For a new piece of code, try:
 
 > Write code to plot the grouped results. Reuse the variable names and imports already in this notebook. Put the proposed code in a fenced Python block.
 
-These are ordinary questions, not special commands or new response styles. Learning mode still asks for tutoring rather than a complete solution. If several earlier cells could be the target, name a distinctive function, variable, or heading in your question. Check that the relevant source is included in Context; a narrow question does not automatically include an unchecked cell.
+The prompts are ordinary questions, not special commands or new response styles. Learning mode still asks for tutoring rather than a complete solution. If several earlier cells could be the target, name a distinctive function, variable, or heading in your question. Check that the relevant source is included in Context; a narrow question does not automatically include an unchecked cell.
 
-### What does “above” mean when another AI answer is between my question and the code?
+### What does &ldquo;above&rdquo; mean when another AI answer is between my question and the code?
 
 The shared instructions distinguish the **cell immediately above** from the **nearest code cell above**. The immediate cell can be an AI answer; the nearest code cell skips intervening notes and AI exchanges. The model receives their real notebook positions and whether their source is available, even when context trimming removes other cells.
 
-“Section above” uses the nearest earlier ordinary Markdown heading cell through the cell before your question. Section anchors currently use `#` through `######` headings outside fenced code; underline-style headings are not recognized. You can always name the intended heading or function explicitly. If the needed source is excluded or clipped, the model is instructed to explain the limitation instead of silently choosing another cell.
+"Section above" uses the nearest earlier ordinary Markdown heading cell through the cell before your question. Section anchors currently use `#` through `######` headings outside fenced code; underline-style headings are not recognized. You can always name the intended heading or function explicitly. If the needed source is excluded or clipped, the model is instructed to explain the limitation instead of silently choosing another cell.
 
 ### Can I edit an AI answer directly?
 
@@ -225,7 +229,7 @@ Manually editing that partial text does not mark the exchange completed. To use 
 
 ### Does the AI see every cell and all Python variables?
 
-No. Default receives bounded cell context above the current question and completed earlier AI pairs. Selected code includes its displayed text outputs: direct results, stdout, stderr and errors, with text/data representations for rich displays. Other Context modes can select below-question material or individual AI cells as labeled source. Image pixels, raw-cell content and file contents are not automatically included. An offered tool can inspect selected outputs or files beyond the snapshot, and a confirmed image attachment provides pixels to an image-capable model.
+No. Default receives bounded cell context above the current question and completed earlier AI pairs. Selected code includes its displayed text outputs, including direct results, stdout, stderr and errors, with text/data representations for rich displays. Other Context modes can select below-question material or individual AI cells as labeled source. Image pixels, raw-cell content and file contents are not automatically included. An offered tool can inspect selected outputs or files beyond the snapshot, and a confirmed image attachment provides pixels to an image-capable model.
 
 Explicit references such as ``$`score` `` retrieve selected live values. A live value can have been created by a cell run below the prompt or out of order. Source context follows notebook order; live values reflect the current kernel. See [choose notebook context](manual/context-selection.md).
 
@@ -243,7 +247,7 @@ Every Context mode uses a **64,000-character host estimate** for each submitted 
 
 There is no relevance search or automatic summary. Selection stops at the first budget boundary instead of skipping to smaller distant cells. These limits do not modify or delete notebook cells. A separate transport safety limit accepts up to 10,000 cells in the ordered snapshot; oversize snapshots fail explicitly. ChatGPT may make internal inference or recovery requests within one host round; those internal calls are outside the submitted-payload character estimate. **Maximum tool steps** counts groups of declared notebook-tool calls returned to the host, not those internal calls; one group may contain several tools.
 
-The status reports included cells and offered tools. **Done · context trimmed** means a provider round omitted or shortened eligible context. Hover over the status for included, omitted, and partial cell counts, tool names, and the character estimate. This report lasts in the open browser session; it is not a saved transcript or exact model-token count.
+The status reports included cells and offered tools. **`Done · context trimmed`** means a provider round omitted or shortened eligible context. Hover over the status for included, omitted, and partial cell counts, tool names, and the character estimate. This report lasts in the open browser session; it is not a saved transcript or exact model-token count.
 
 ### How do Default and All above differ?
 
@@ -271,15 +275,17 @@ The button shows **Checking…** during inspection. Success displays **Context c
 
 Unchecking a cell switches to **Custom**. Checking it again stays in Custom, even if the choices now match a preset. To restore automatic selection, choose **Default** in the main **Context** dropdown; use that same dropdown for any other preset.
 
-Returning to Custom restores your choices. Editing a preset checkbox instead starts a new Custom set from that preset's displayed selection. If Default preview is unavailable, use **Details → Check context** before initializing Custom or start from an explicit preset. Initial choices cover all existing cells; an empty or failed cell retains its choice if it later becomes eligible. Newly inserted cells default to included when eligible. Moves preserve choices; duplicates copy metadata with JupyterLab's fresh cell ID. The mode and choices save in the notebook, while previews do not.
+Returning to Custom restores your choices. Editing a preset checkbox instead starts a new Custom set from that preset's displayed selection. If Default preview is unavailable, use **Details → Check context** before initializing Custom or start from an explicit preset. Initial choices cover all existing cells; an empty or failed cell retains its choice if it later becomes eligible.
+
+Newly inserted cells default to included when eligible. Moves preserve choices; duplicates copy metadata with JupyterLab's fresh cell ID. The mode and choices save in the notebook, while previews do not.
 
 ### Why is preview pending, stale or unavailable?
 
 An accurate estimate needs an existing idle kernel and any functions/values referenced by this question. Preview does not start a kernel, contact a provider, run an offered function or create an answer. Source/settings/target/kernel changes invalidate a response. Use **Details → Check context** to inspect an updated estimate after changing live Python state. Running the question always takes a fresh snapshot; later tool rounds can trim more text. A preview is not a saved guarantee of a later request.
 
-In Default, an invalidated estimate can leave the boxes unchecked and disabled, including after a run inserts or updates an answer. That means the preview needs updating; it does not mean the completed request had no context. The question's run status reports what that request used. To inspect the next request, use **Details → Check context** once the kernel is idle.
+In Default, an invalidated estimate can leave the boxes unchecked and disabled, including after a run inserts or updates an answer. The unchecked state means the preview needs updating; it does not mean the completed request had no context. The question's run status reports what that request used. To inspect the next request, use **Details → Check context** once the kernel is idle.
 
-### How do I exclude text without losing tools—or disable the tools too?
+### How do I exclude text without losing tools&mdash;or disable the tools too? {#how-do-i-exclude-text-without-losing-toolsor-disable-the-tools-too}
 
 Use the two independent cell controls. **Context** selects text. **Tools** appears on Markdown and AI question cells containing declarations, and defaults to on. Uncheck Tools to withdraw that cell's declarations. A duplicate declaration in another enabled applicable cell can still offer the same tool. Tool choices save across every Context mode; new declaration cells default to enabled.
 
@@ -312,7 +318,7 @@ To reduce the request, shorten long source cells and questions, remove unwanted 
 
 ### Is a long answer hitting an output limit the same problem?
 
-No. A request can fit but the generated answer can reach its output allowance. nbinlineai reports **“Model response exceeded the output limit”** when the provider signals that condition, and marks the answer failed. It does not automatically continue the answer. Ask a narrower question or request a shorter response. See the [architecture's context and output limits](architecture.md#selection-budgets-and-provider-overflow).
+No. A request can fit but the generated answer can reach its output allowance. nbinlineai reports **`Model response exceeded the output limit`** when the provider signals that condition, and marks the answer failed. It does not automatically continue the answer. Ask a narrower question or request a shorter response. See the [architecture's context and output limits](architecture.md#selection-budgets-and-provider-overflow).
 
 ## Kernel, browser, and server changes
 
@@ -344,7 +350,7 @@ Use the AI prompt's **Cancel** control to cancel that request. The extension als
 
 A request cannot resume its stream after reconnecting. Reloading or closing the notebook disconnects the client request; a network failure while the page remains open may leave a partial answer and an error. If partial text was saved before the interruption, it can remain in the notebook with an incomplete status.
 
-Reopen the notebook, check that a Python kernel is connected, and rerun the prompt if needed. Reloading the browser alone does not necessarily restart the kernel: a still-running kernel can retain its state. Unsaved notebook changes have JupyterLab's usual save/recovery behavior; save important corrections normally.
+Reopen the notebook, check that a Python kernel is connected, and rerun the prompt if needed. Reloading the browser alone does not necessarily restart the kernel. A still-running kernel can retain its state. Unsaved notebook changes have JupyterLab's usual save/recovery behavior; save important corrections normally.
 
 ### Does closing the notebook cancel a tool's effects?
 
@@ -430,7 +436,9 @@ Restart the **whole Jupyter server**, then refresh the browser. Restarting only 
 
 ### Can I put all my tool references in an ordinary Markdown cell?
 
-Yes. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running. Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `tools_markdown([...])` with the names you imported to generate a list you can paste and shorten. See the [Tool catalog](tools.md) and [examples guide](examples.md).
+Yes. Import the functions into the kernel, then put their `&` references in an ordinary Markdown note above your AI questions. Every question below inherits them. Earlier AI questions can declare tools too, even without running.
+
+Several notes can add tools at different positions; duplicates are included once. AI answers, code, raw cells, and cells below the question do not register tools. Use `tools_markdown([...])` with the names you imported to generate a list you can paste and shorten. See the [Tool catalog](tools.md) and [examples guide](examples.md).
 
 Live `$` lookups still happen only in the current question. Tool references inside quotations or fenced code in eligible Markdown count as declarations; use a plain function name when merely discussing one.
 
@@ -462,7 +470,7 @@ Run `tool_catalog()` to list group names without any `&` declarations. `tools_ma
 
 ### Can a tool search my source project or run a command?
 
-Yes, if you import and declare it. `search_files` and `search_notebooks` search saved files starting from a path on the **selected kernel machine**. Relative paths start at the kernel's current working directory, not necessarily the notebook folder; a directory is a search location, not a sandbox. `run_python` runs a fresh interpreter process without access to live notebook variables, and `run_shell` runs a shell subprocess. Both use the kernel user's real permissions, are not sandboxed, and have a 1–20 second timeout. `trace_function` instead calls a live function and can repeat its effects.
+Yes, if you import and declare it. `search_files` and `search_notebooks` search saved files starting from a path on the **selected kernel machine**. Relative paths start at the kernel's current working directory, not necessarily the notebook folder; a directory is a search location, not a sandbox. `run_python` runs a fresh interpreter process without access to live notebook variables, and `run_shell` runs a shell subprocess. Both use the kernel user's real permissions, are not sandboxed, and have a 1 to 20 second timeout. `trace_function` instead calls a live function and can repeat its effects.
 
 ### Can the AI read cells below my question now?
 
@@ -503,7 +511,7 @@ An AI question below can then say:
 
 > Summarize the main ideas and insert the summary into a new Markdown cell below your answer.
 
-The question inherits the tool and its description. You do not need to repeat its reference or function name. Saying “Use `insert_markdown`” makes your request more explicit if the model does not choose it. Offering a tool permits its use; it does not guarantee a call. Keep the declaration's **Tools** checkbox on and rerun imports after a kernel restart.
+The question inherits the tool and its description. You do not need to repeat its reference or function name. Saying "Use `insert_markdown`" makes your request more explicit if the model does not choose it. Offering a tool permits its use; it does not guarantee a call. Keep the declaration's **Tools** checkbox on and rerun imports after a kernel restart.
 
 ### Is that the same as running `insert_tools()` in a code cell?
 
@@ -524,11 +532,13 @@ Run `from nbinlineai.tools import insert_code` in a code cell and put `` &`inser
 
 > Write code to plot these results and insert it into a new code cell below your answer. Explain briefly what the code does.
 
-The default order is **AI question → AI answer → new code cell**. The answer stays in its paired Markdown cell. The new code is ordinary editable source with no execution result; review it and run it yourself when ready. Insertion itself never executes code, even when the AI question is running as part of Run All: the new cell is outside that already-started batch. A later ordinary Run All includes that code cell. The model is instructed to apply your response style to inserted content too, including Learning's small-hint limit.
+The default order is **AI question → AI answer → new code cell**. The answer stays in its paired Markdown cell. The new code is ordinary editable source with no execution result; review it and run it yourself when ready. Insertion itself never executes code, even when the AI question is running as part of Run All. The new cell is outside that already-started batch.
+
+A later ordinary Run All includes that code cell. The model is instructed to apply your response style to inserted content too, including Learning's small-hint limit.
 
 ### Will rerunning or cancelling create or remove notes?
 
-A deliberate rerun can insert a new note; it does not replace or remove notes from previous runs. Keep answer skips the completed request and therefore skips its tools. Cancel stops waiting for further work but does not undo an insertion already performed. If a connection fails just after insertion, check the notebook before retrying: the note may exist even if its acknowledgement was lost.
+A deliberate rerun can insert a new note; it does not replace or remove notes from previous runs. Keep answer skips the completed request and therefore skips its tools. Cancel stops waiting for further work but does not undo an insertion already performed. If a connection fails just after insertion, check the notebook before retrying. The note may exist even if its acknowledgement was lost.
 
 Repeated delivery of the same action within one live request is deduplicated. A new AI run is a new request and can intentionally repeat the action.
 

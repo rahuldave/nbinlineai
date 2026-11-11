@@ -5,10 +5,10 @@ browser trials used disposable notebooks, real JupyterLab kernels, the isolated
 loopback server on port 8897, and the configured ChatGPT subscription with
 `gpt-6-sol` in Compact mode. AI answers and observed tool-call traces are saved
 in the example notebooks. A browser tool's initial operation receipt is not
-treated as a completed result: a later `operation_status` answer or a separately
+treated as a completed result. A later `operation_status` answer or a separately
 labeled browser observation establishes the outcome.
 
-Evidence revisions reviewed here: capture notebook `7eb77ec`, its focused
+The evidence revisions reviewed here are capture notebook `7eb77ec`, its focused
 recorder-resume checker `54c17dc`, and playback notebook `c26e16b` (source
 topic commits, subsequently integrated into the guide branch).
 
@@ -32,35 +32,14 @@ the AI run were 1280×800.
 
 ### Camera
 
-AI camera calls ran in the user's Chrome after camera permission was granted:
-`start_camera(audio=False)` returned a real source,
-`capture_camera` produced a 640×480 PNG, and `record_camera(audio=False,
-duration=5)` produced a five-second VP9/WebM clip. Later status answers verify
-each result. Camera image and video bytes, microphone bytes, and device IDs are
-omitted from the public notebook. A separate direct Python run of this exact
-notebook used the owned isolated JupyterLab server on port 8897 and installed
-Chrome with the real camera. Its saved call and later inspection cells now
-show `start_camera` completed with a 640×480 source, `capture_camera` completed
-with a 640×480 PNG, and `record_camera(audio=False, duration=5)` completed
-with a five-second VP9/WebM clip of 1,479,368 bytes. The later cleanup
-receipt confirms the camera stopped, and both managed captures returned
-`released: True`. The public outputs retain these summaries and direct-call
-attestations, withhold camera pixels, encoded video, and source/device IDs,
-and use zero execution deferrals. The earlier in-app-browser permission attempt
-expired and does not count as camera success.
+AI camera calls ran in the user's Chrome after camera permission was granted. `start_camera(audio=False)` returned a real source, `capture_camera` produced a 640×480 PNG, and `record_camera(audio=False,
+duration=5)` produced a five-second VP9/WebM clip. Later status answers verify each result. Camera image and video bytes, microphone bytes, and device IDs are omitted from the public notebook. A separate direct Python run of this exact notebook used the owned isolated JupyterLab server on port 8897 and installed Chrome with the real camera.
 
-The shared recorder was also exercised through AI on a generated, silent 64×32
-canvas source. The first recording reached `paused` after `pause_recording`; a
-guarded `resume_recording` call changed its visible Media row from `paused` to
-`running`. It later reached the 300-second wall limit before another AI status
-check, so its resume is a labeled browser observation rather than a terminal AI
-status claim. A separate recording was explicitly stopped and confirmed by
-`operation_status`: 54.5537 seconds of VP9/WebM video. The direct microphone
-pause/resume/stop run is independent evidence for those controls. An earlier AI
-microphone recording reached the 60-second memory limit before a pause could
-be confirmed. Three old media references expired before cleanup; one later
-`release_media` call returned `released: true`, but its status lookup was
-`stale_target`, so no terminal release status is claimed for it.
+Its saved call and later inspection cells now show `start_camera` completed with a 640×480 source, `capture_camera` completed with a 640×480 PNG, and `record_camera(audio=False, duration=5)` completed with a five-second VP9/WebM clip of 1,479,368 bytes. The later cleanup receipt confirms the camera stopped, and both managed captures returned `released: True`. The public outputs retain these summaries and direct-call attestations, withhold camera pixels, encoded video, and source/device IDs, and use zero execution deferrals. The earlier in-app-browser permission attempt expired and does not count as camera success.
+
+The shared recorder was also exercised through AI on a generated, silent 64×32 canvas source. The first recording reached `paused` after `pause_recording`; a guarded `resume_recording` call changed its visible Media row from `paused` to `running`. It later reached the 300-second wall limit before another AI status check, so its resume is a labeled browser observation rather than a terminal AI status claim. A separate recording was explicitly stopped and confirmed by `operation_status`; it produced 54.5537 seconds of VP9/WebM video.
+
+The direct microphone pause/resume/stop run is independent evidence for those controls. An earlier AI microphone recording reached the 60-second memory limit before a pause could be confirmed. Three old media references expired before cleanup; one later `release_media` call returned `released: true`, but its status lookup was `stale_target`, so no terminal release status is claimed for it.
 
 ## Import, playback, and clipboard
 
@@ -72,29 +51,16 @@ generated 60-second WAV played to 5.107 seconds before the direct Pause; Seek
 returned 2.5 seconds, volume returned 0.25, and the opened preview closed.
 The fixture files were removed after the run.
 
-The notebook also saves concise ChatGPT questions, observed calls, and final
-status answers for every import/playback/clipboard tool. AI file choice
-completed on the generated PNG, and its managed media was released. AI
-`open_media` created a separate audio preview; `close_media` closed that preview
-without targeting the direct example's preview. AI `play_media` was confirmed
-playing at 0.11235 seconds. A fresh muted run confirmed `pause_media` at
-41.751484 seconds with `playing: false`; the preview had been set to volume
-zero before this retry. AI Seek returned 2.5 seconds and volume returned 0.25
-while paused. The visible browser Copy control completed with `copied: true`.
-For AI Paste, the computer-control test clipboard was explicitly seeded with
-the known disposable sample before a real paste keystroke into the visible
-field. The later status returned that exact text without truncation. This
-demonstrates the paste flow; it does **not** establish that the preceding Copy
-transferred text into the computer-control virtual clipboard.
+The notebook also saves concise ChatGPT questions, observed calls, and final status answers for every import/playback/clipboard tool. AI file choice completed on the generated PNG, and its managed media was released. AI `open_media` created a separate audio preview; `close_media` closed that preview without targeting the direct example's preview. AI `play_media` was confirmed playing at 0.11235 seconds.
+
+A fresh muted run confirmed `pause_media` at 41.751484 seconds with `playing: false`; the preview had been set to volume zero before this retry. AI Seek returned 2.5 seconds and volume returned 0.25 while paused. The visible browser Copy control completed with `copied: true`. For AI Paste, the computer-control test clipboard was explicitly seeded with the known disposable sample before a real paste keystroke into the visible field.
+
+The later status returned that exact text without truncation. This demonstrates the paste flow; it does **not** establish that the preceding Copy transferred text into the computer-control virtual clipboard.
 
 ## Notebook outputs and canvas
 
 [`browser-media-outputs.ipynb`](../examples/browser-media-outputs.ipynb)
-retains real direct runs for reading the notebook view and selection, listing
-and reading existing outputs, exporting a generated 8×8 PNG, enumerating and
-capturing a generated 64×32 canvas, exporting that canvas, starting and
-stopping its source, capturing a visible output region, and releasing the
-managed results. A later direct selection trial returned the exact selected
+retains real direct runs for reading the notebook view and selection, listing and reading existing outputs, and exporting a generated 8×8 PNG. It also records enumeration and capture of a generated 64×32 canvas, canvas export, source start and stop, visible output-region capture, and managed-result release. A later direct selection trial returned the exact selected
 line `SELECT_ME = "blue square"` from its live editor cell.
 
 The saved ChatGPT sequence has guarded calls and terminal status answers for

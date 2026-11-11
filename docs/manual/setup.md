@@ -4,7 +4,8 @@ title: Install and connect
 
 # Install and connect
 
-[Manual](../user-guide.md) · [Next: Write and run AI questions](prompts.md)
+- [Manual](../user-guide.md)
+- [Next: Write and run AI questions](prompts.md)
 
 You need JupyterLab 4.2 or newer and Python 3.12 or newer. Use a ChatGPT subscription or an OpenAI or Anthropic **API key**.
 
@@ -41,8 +42,11 @@ For device-code sign-in, leave **Configure AI** open, choose **Use device code**
 
 If device-code login is disabled, enable it in your personal ChatGPT security settings, or ask your workspace administrator to enable it in workspace permissions. See [OpenAI's authentication guide](https://learn.chatgpt.com/docs/auth).
 
-Signing in, checking status, and opening Configure AI do not change the notebook. **Use for this notebook** explicitly saves the ChatGPT connection, model, and effort as notebook defaults. Setting **Default connection for new notebooks** saves a user preference; it does not replace an existing notebook's saved choice. A question with an explicit cell provider override keeps that choice until you select **Notebook default** in the cell's Override controls or click **Use notebook defaults**. Each notebook has its own questions, context, declared tools, and Keep choices; your ChatGPT sign-in is shared. If sign-in expires, a model becomes unavailable, or usage is limited, your saved selection remains visible and requests pause until you reconnect or deliberately change it. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
+Signing in, checking status, and opening Configure AI do not change the notebook. **Use for this notebook** explicitly saves the ChatGPT connection, model, and effort as notebook defaults. Setting **Default connection for new notebooks** saves a user preference; it does not replace an existing notebook's saved choice. A question with an explicit cell provider override keeps that choice until you select **Notebook default** in the cell's Override controls or click **Use notebook defaults**.
 
-The panel shows the notebook folder as location context and the JupyterLab project folder. **ChatGPT file access** currently reads **Notebook tools only**: built-in ChatGPT file, shell, and browser actions are disabled. Enabled notebook tools run separately in Python with the kernel user's normal permissions, including its own working directory. The displayed folder does not confine Python or promise that the kernel has changed directory.
+Each notebook has its own questions, context, declared tools, and Keep choices; your ChatGPT sign-in is shared. If sign-in expires, a model becomes unavailable, or usage is limited, your saved selection remains visible and requests pause until you reconnect or deliberately change it. **Disconnect** stops this Jupyter server's connection without signing you out of other apps or projects.
 
-[Manual](../user-guide.md) · [Next: Write and run AI questions](prompts.md)
+The panel shows the notebook folder as location context and the JupyterLab project folder. **ChatGPT file access** currently reads **Notebook tools only**. Built-in ChatGPT file, shell, and browser actions are disabled. Enabled notebook tools run separately in Python with the kernel user's normal permissions, including its own working directory. The displayed folder does not confine Python or promise that the kernel has changed directory.
+
+- [Manual](../user-guide.md)
+- [Next: Write and run AI questions](prompts.md)

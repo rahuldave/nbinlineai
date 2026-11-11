@@ -19,16 +19,9 @@ The release includes the intervening reviewed worked-example refresh and
 Litera Reading documentation theme, plus this common-instructions feature.
 The persistent notebook-agent experiment is outside the release.
 
-Root used `/Users/rahul/.codex/worktrees/common-prompt-release/nbinlineai`
-on branch `codex/common-prompt-release`, with PR base `main`, for the release
-candidate. The same owned worktree then hosted the docs-only
-`codex/0.1.17-publication-record` topic based on the released merge. The primary
-checkout stayed on `main`. Gest iteration `uwrkxvvp`, parent `lynsmxwt`, and leaves
-`trpktllr`, `vqqnnnkw`, `lwytqntm` track implementation, verification and
-publication. One gpt-6-sol implementation worker wrote the feature; root then handled
-documentation, versioning and delivery. Independent reviewers remained read-only.
-A separate GitHub issue was intentionally not created for this finite release;
-the release PR records the public scope, review and verification evidence.
+Root used `/Users/rahul/.codex/worktrees/common-prompt-release/nbinlineai` on branch `codex/common-prompt-release`, with PR base `main`, for the release candidate. The same owned worktree then hosted the docs-only `codex/0.1.17-publication-record` topic based on the released merge. The primary checkout stayed on `main`. Gest iteration `uwrkxvvp`, parent `lynsmxwt`, and leaves `trpktllr`, `vqqnnnkw`, `lwytqntm` track implementation, verification and publication.
+
+One gpt-6-sol implementation worker wrote the feature; root then handled documentation, versioning and delivery. Independent reviewers remained read-only. A separate GitHub issue was intentionally not created for this finite release; the release PR records the public scope, review and verification evidence.
 
 ## Behavior
 
@@ -39,16 +32,9 @@ parentheses or brackets. Users can save replacement text, save an empty field
 to disable common instructions, or Reset to the current server default.
 Compact, Full and Learning retain their existing separate editable text.
 
-The optional JupyterLab setting `commonInstructions` uses absence to inherit
-the server default; an empty string is an explicit override. The request field
-`common_instructions` accepts strings of at most 8,000 characters, including
-empty text. The status endpoint supplies `common_response_instructions`.
-Shared preparation places the common instructions before the selected style
-for API and ChatGPT requests, previews and repeated tool rounds. They count
-as fixed material within the existing 64,000-character budget. Confirmed
-settings and preview invalidation include the new field. Instructions remain
-user preferences outside notebook metadata; existing answers are unchanged.
-This is model guidance, not a postprocessing rewrite of model output.
+The optional JupyterLab setting `commonInstructions` uses absence to inherit the server default; an empty string is an explicit override. The request field `common_instructions` accepts strings of at most 8,000 characters, including empty text. The status endpoint supplies `common_response_instructions`. Shared preparation places the common instructions before the selected style for API and ChatGPT requests, previews and repeated tool rounds.
+
+They count as fixed material within the existing 64,000-character budget. Confirmed settings and preview invalidation include the new field. Instructions remain user preferences outside notebook metadata; existing answers are unchanged. The instruction is model guidance, not a postprocessing rewrite of model output.
 
 ## Independent review
 
@@ -67,19 +53,9 @@ merged delta from `62d227c5c6142cf87c8b12b39062412fdc280fe3` through
 - No other actionable baseline finding. All 187 gallery questions have
   nonempty completed answers, and the 158 older answer texts remain unchanged.
 
-`feature_review` (gpt-6-sol) reviewed main `0226d33d` through candidate
-`ca392a5bd356b12fc9ad6f15aecc8fc7ed8cc233`. Its P2 finding reproduced a
-delayed-status race: the common editor could remain blank before server defaults
-arrived, permitting an accidental empty save. The repair disables that ambiguous
-Save, refreshes after status arrives and preserves unsaved typing. The new
-browser test failed before the repair and passed afterward; all three common
-instruction browser flows passed together. No other actionable feature finding
-was reported. The reviewer verified the repair at `fbb3da1f`, the session-readiness test
-correction at `912c97dd`, and final test-only inherited-connection correction
-at `bd4b9d6c7e3591c35f28be85a8db8a3c56237b77` against the same main base,
-with no remaining actionable findings. A narrow existing recovery limitation
-is accepted: if key-status retrieval itself fails, Retry or reopening may be
-needed to refresh the field; Save remains safely disabled.
+`feature_review` (gpt-6-sol) reviewed main `0226d33d` through candidate `ca392a5bd356b12fc9ad6f15aecc8fc7ed8cc233`. Its P2 finding reproduced a delayed-status race. The common editor could remain blank before server defaults arrived, permitting an accidental empty save. The repair disables that ambiguous Save, refreshes after status arrives and preserves unsaved typing. The new browser test failed before the repair and passed afterward; all three common instruction browser flows passed together.
+
+No other actionable feature finding was reported. The reviewer verified the repair at `fbb3da1f`, the session-readiness test correction at `912c97dd`, and final test-only inherited-connection correction at `bd4b9d6c7e3591c35f28be85a8db8a3c56237b77` against the same main base, with no remaining actionable findings. A narrow existing recovery limitation is accepted. If key-status retrieval itself fails, Retry or reopening may be needed to refresh the field; Save remains safely disabled.
 
 The release PR records the final independent feature review's exact base/head,
 findings and dispositions, along with exact-head CI results. Passing tests are
@@ -118,19 +94,9 @@ unexpected differences. The archives include all 30 notebooks, the new editor
 screenshot, and all seven theme companions, with no internal docs, caches,
 environments or credential paths. The three CSS font references resolve.
 
-The checked wheel installed in a disposable Python 3.14 environment, imported
-from its own site-packages, and passed both extension discovery checks,
-status-version verification and the packaged quickstart UI including the new
-common editor. Both public PyPI downloads match the checked hashes above and
-neither is yanked. PyPI reports 0.1.17 as latest and renders the updated README.
-A separate fresh public-index Python 3.14 installation resolved 113 compatible
-packages, imported nbinlineai from its own site-packages and discovered both
-extensions enabled/OK. nbinlineai was refreshed from PyPI, while dependency
-wheels used the existing cache in a newly created environment. The original
-no-cache attempt was stopped when the large runtime dependency download
-restarted. The publicly downloaded wheel also passed its isolated quickstart UI check,
-including the common editor and bundled math default, then the owned server
-stopped.
+The checked wheel installed in a disposable Python 3.14 environment, imported from its own site-packages, and passed both extension discovery checks, status-version verification and the packaged quickstart UI including the new common editor. Both public PyPI downloads match the checked hashes above and neither is yanked. PyPI reports 0.1.17 as latest and renders the updated README. A separate fresh public-index Python 3.14 installation resolved 113 compatible packages, imported nbinlineai from its own site-packages and discovered both extensions enabled/OK.
+
+nbinlineai was refreshed from PyPI, while dependency wheels used the existing cache in a newly created environment. The original no-cache attempt was stopped when the large runtime dependency download restarted. The publicly downloaded wheel also passed its isolated quickstart UI check, including the common editor and bundled math default, then the owned server stopped.
 
 Pages deployment `40711719046` succeeded at the release merge. All
 94 public site resources, including 54 HTML pages and all 30 notebook

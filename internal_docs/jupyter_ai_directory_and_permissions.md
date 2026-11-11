@@ -1,6 +1,6 @@
 # Jupyter AI directories and permissions: measured prior art
 
-Research date: **2026-09-24**. Supports the
+Research date: **2026-09-24**. This note supports the
 [subscription integration spec](chatgpt_subscription_integration.md). No runtime
 feature or release was added. Only synthetic files were used; port 8888 and
 personal notebooks/configuration were untouched.
@@ -18,8 +18,8 @@ Neither a notebook parent nor the Lab content root automatically confines Python
 
 ## Experiment 1: real Jupyter session and Python kernel
 
-Used the repository environment: JupyterLab **4.6.4**, Jupyter Server **2.21.1**.
-Started an owned isolated Jupyter Server with the Lab extension on **8897**,
+The repository environment had JupyterLab **4.6.4** and Jupyter Server **2.21.1**.
+The experiment started an owned isolated Jupyter Server with the Lab extension on **8897**,
 temporary configuration/data/runtime/kernel specification, synthetic token and
 notebook, and no provider request. Created a real session through the authenticated
 Jupyter REST API and executed Python over its authenticated kernel channel.
@@ -47,12 +47,9 @@ Invoked real `PersonaManager.get_chat_dir`, `BasePersona.get_chat_dir`, and
 `JaiAcpClient.create_session/load_session` with a recording fake ACP connection.
 No agent process, model call, login or Jupyter server was needed.
 
-The test kept all locations different: server root, server process cwd,
-`server-root/course/chat/assistant.chat`, and
-`server-root/course/notebooks/lesson.ipynb`.
+The test kept all locations distinct. They were the server root, server process cwd, `server-root/course/chat/assistant.chat`, and `server-root/course/notebooks/lesson.ipynb`.
 
-Both session creation and loading sent **the chat document's parent** as ACP
-`cwd`: `server-root/course/chat/`. Neither sent a sandbox or permission setting.
+Both session creation and loading sent **the chat document's parent** as ACP `cwd`. The path was `server-root/course/chat/`. Neither sent a sandbox or permission setting.
 The empty MCP-server list in this synthetic fixture does not imply real sessions
 have no MCP server. The agent executable launch omits process cwd, while the
 later ACP session request explicitly supplies the chat directory.
@@ -62,7 +59,7 @@ Source evidence at
 
 - [`default_acp_client.py`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/jupyter_ai_acp_client/default_acp_client.py): session cwd; permission callback; file reads/writes use supplied paths without root containment (direct `.ipynb` writes are rejected).
 - [`base_acp_persona.py`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/jupyter_ai_acp_client/base_acp_persona.py): executable startup and session lifecycle.
-- [`routes.py`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/jupyter_ai_acp_client/routes.py) and [`tool-calls.tsx`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/src/tool-calls.tsx): resolve and display permission choices when the adapter requests them. This is not an extra check on every already-allowed tool call.
+- [`routes.py`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/jupyter_ai_acp_client/routes.py) and [`tool-calls.tsx`](https://github.com/jupyter-ai-contrib/jupyter-ai-acp-client/blob/b27e2fd932613fcfbbd75c9b8c5920abc9e84ef0/src/tool-calls.tsx): resolve and display permission choices when the adapter requests them. The directory prompt is not an extra check on every already-allowed tool call.
 
 ## Adapter defaults: source inspection, not live inference tests
 
@@ -117,7 +114,9 @@ remain outside that command sandbox. See official
 No ACP dependency is proposed for nbinlineai; these are prior-art observations.
 Use notebook parent for nbinlineai's working directory. Offer the notebook folder
 or Lab project/course root for direct Codex file access, with the course root as
-the proposed default for the user's course workflow. Resolve both on the server.
+the proposed default for the user's course workflow.
+
+Resolve both on the server.
 Keep the ordinary trusted-Python model; do not promise a whole-Jupyter sandbox.
 The project-access setting is useful even with that explicit kernel exception.
 Retain the original live notebook bridge for unsaved document operations.

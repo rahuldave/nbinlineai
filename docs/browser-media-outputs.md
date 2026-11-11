@@ -4,7 +4,9 @@ title: Live notebook outputs and canvas
 
 # Work with outputs in the open notebook
 
-The output tools inspect **what the current notebook has already produced**. They read the live JupyterLab model, including unsaved and offscreen outputs, without running cells. Start with the [worked output notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html): it creates a red PNG, a line of text, an SVG, structured data, and a small drawn canvas. Run the fixture cells before trying the calls below. Each direct Python call has a later inspection cell with a saved result. The completed AI sections show the question, answer, and observed tool call; running an AI question uses your selected connection and the `&` tool declaration in that question.
+The output tools inspect **what the current notebook has already produced**. They read the live JupyterLab model, including unsaved and offscreen outputs, without running cells. Start with the [worked output notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html). It creates a red PNG, a line of text, an SVG, structured data, and a small drawn canvas.
+
+Run the fixture cells before trying the calls below. Each direct Python call has a later inspection cell with a saved result. The completed AI sections show the question, answer, and observed tool call; running an AI question uses your selected connection and the `&` tool declaration in that question.
 
 ## Find and read an existing output
 
@@ -64,7 +66,9 @@ The notebook also [exports an existing data-resource output](https://rahuldave.c
 
 `read_notebook_view()` reports the originating notebook's active cell, selected cell IDs, and visible materialized range. The [direct call](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#view-call) and [AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-view-selection) show the same kind of snapshot. The AI [status answer](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-view-ready) describes the actual active and visible cells. It does not change selection or focus.
 
-`read_selection(max_chars=2000)` reads text only when an editor **in that same notebook** is focused and has a selection. The notebook first shows an [empty-selection result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-inspect). Its [direct selected-line example](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-call) gives you time to select the line in the nearby code editor; the [saved inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-inspect) reports that cell ID and `SELECT_ME = "blue square"`. The [AI selection question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-selection-nonempty) is a live exercise: select the text while its request is pending and use the following status question to see what the browser actually read. An empty result means the editor selection was unavailable; it is not a reason to infer text from notebook source. This tool does not read the global clipboard or another tab.
+`read_selection(max_chars=2000)` reads text only when an editor **in that same notebook** is focused and has a selection. The notebook first shows an [empty-selection result](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-inspect). Its [direct selected-line example](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-call) gives you time to select the line in the nearby code editor; the [saved inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#selection-nonempty-inspect) reports that cell ID and `SELECT_ME = "blue square"`. The [AI selection question](https://rahuldave.com/nbinlineai/notebooks/browser-media-outputs.html#outputs-ai-selection-nonempty) is a live exercise. Select the text while its request is pending and use the following status question to see what the browser actually read.
+
+An empty result means the editor selection was unavailable; it is not a reason to infer text from notebook source. This tool does not read the global clipboard or another tab.
 
 ## Capture a notebook canvas
 

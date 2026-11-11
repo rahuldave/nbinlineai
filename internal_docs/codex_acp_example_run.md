@@ -16,7 +16,7 @@ provider. PyPI remains unchanged.
   `nbformat==5.11.1`.
 - The existing `/opt/homebrew/bin/codex` launcher failed to start because its
   packaged executable was missing. Installed official npm packages locally,
-  inside ignored `.venv/npm`: `@openai/codex` (CLI 0.156.1) and
+  inside ignored `.venv/npm`. The packages were `@openai/codex` (CLI 0.156.1) and
   `@agentclientprotocol/codex-acp` (1.13.1). The local supported
   `codex login status` command returned **Logged in using ChatGPT**. No login
   flow or API-key fallback was needed. The Jupyter AI [getting-started guide](https://jupyter-ai.readthedocs.io/en/stable/getting-started.html)
@@ -32,8 +32,7 @@ provider. PyPI remains unchanged.
 
 1. `nbformat.validate` accepted the template. A headless pass executed its
    **three** ordinary Python cells in order in the project-local interpreter.
-   The draft diagnostic returned `False` and reported the expected five
-   mismatches: East absent, North count/mean, and South count/mean. This
+   The draft diagnostic returned `False` and reported the expected five mismatches. The five mismatches were the absent East bucket, North count and mean, and South count and mean. This
    validated the lesson's intentional starting defect without an agent call.
 2. In the isolated JupyterLab, both server extensions loaded, the notebook
    displayed nbinlineai controls, and Jupyter Chat offered the **Codex**
@@ -63,7 +62,7 @@ provider. PyPI remains unchanged.
 
 The live **Codex ACP interaction succeeded** through an existing ChatGPT
 login. This demonstrates the agent chat route and its explicit-cell notebook
-operations, not an nbinlineai subscription mode: the two inline question/answer
+operations, not an nbinlineai subscription mode. The two inline question/answer
 flows would still require nbinlineai's separately configured API provider and
 could incur provider charges. The example does not demonstrate `insert_code`;
 that is planned for 0.1.10 and must not be implied to exist in published

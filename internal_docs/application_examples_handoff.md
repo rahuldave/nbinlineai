@@ -74,7 +74,7 @@ writer and its invalid-input rejection; no model or device was called. An initia
 WAV fixture was rejected by the browser-recording MIME contract; the exporter
 check uses encoded WebM audio. Notebook source outputs remain empty.
 
-Independent review found and resolved two core workflow errors: nested dictionaries
+Independent review found and resolved two core workflow errors. Nested dictionaries
 were opaque to the data inspection/search tools (now a flat `reading_lines`
 projection), and the guide tried to capture before opening a camera (now separate
 source start, inspection, capture, and cleanup stages). New notebooks keep the

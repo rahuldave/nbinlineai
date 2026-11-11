@@ -15,14 +15,12 @@ Python kernel**. Read the [developer handoff](developer_handoff.md),
 [cell/kernel model](cell_kernel_model_and_context_selection.md),
 [bundled tool contract](bundled_tools.md), and
 [Jupyter AI coexistence investigation](jupyter_ai_compatibility.md) for current
-behavior. This is a proposal; no new tool, queue operation, or prompt behavior
-has shipped.
+behavior. The note proposes work; no new tool, queue operation, or prompt behavior has shipped.
 
 ## The question: two directions of handoff
 
 The useful primitives are best named by their arrows, since names such as
-`prompt_and_run` can otherwise mean either “start by prompting” or “prompt,
-then wait for a run”:
+`prompt_and_run` can otherwise mean either "start by prompting" or "prompt, then wait for a run":
 
 | Direction | Meaning | First same-notebook example |
 | --- | --- | --- |
@@ -31,13 +29,12 @@ then wait for a run”:
 
 The composed path is **AI question P0 → code C1 → AI question P1**. Solveit's
 public helper calls this `run_and_prompt` because P0 is already in progress
-when the helper is called: it queues C1 and then P1. We use “prompt → run”
-for the first edge and “run → prompt” for the second. A fixed sequence laid
+when the helper is called. It queues C1 and then P1. We use "prompt → run"
+for the first edge and "run → prompt" for the second. A fixed sequence laid
 out in advance can already use native Run All; the missing ability is a
 *dynamic handoff* chosen during a running cell or AI turn.
 
-For a Python-origin meaning of `prompt_and_run`—code C0 asks AI question P1,
-then runs already identified code C2—the same two edges compose as
+For a Python-origin meaning of `prompt_and_run`, code C0 asks AI question P1, then runs already identified code C2. The same two edges compose as
 **C0 → P1 → C2**. P1 cannot be expected to select C2 if C2 was fixed before
 P1 ran; selection by the AI is a prompt → run action made during P1. Product
 names should be chosen only after these meanings are fixed.
@@ -88,7 +85,7 @@ states that declared AI tools are looked up and executed in the dialog kernel.
 That establishes the tool location; it does not by itself establish where
 ordinary prompt inference runs in the private Solveit service.
 
-`Message.execute`/`Dialog.execute` are a **different** mechanism: they can
+`Message.execute`/`Dialog.execute` are a **different** mechanism. They can
 await another named message while their caller is still active. Their public
 code selects a [persistent kernel sidecar](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/core.py#L921-L939),
 and the [source notebook's explanation](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/nbs/00_core.ipynb)
@@ -100,11 +97,10 @@ handoff in our first same-kernel step.
 Solveit's multi-dialog client can address another dialog by path or an
 existing kernel ID through
 [`JupyAsyncCellsClient`](https://github.com/AnswerDotAI/jupyasyncclient/blob/5314e5272cce6feefc120bb90c6776e019965d94/jupyasyncclient/files.py#L111-L165).
-That is useful later prior art, but cross-notebook routing is outside this
-first proposal.
+The multi-dialog client is useful later prior art, but cross-notebook routing is outside this first proposal.
 
 The [published Solveit RLM example](https://share.solveit.pub/d/024412293157f7aabef9fc2e7746e8bd)
-uses yet another path: it creates an in-process
+uses yet another path. It creates an in-process
 [`TerminalInteractiveShell`](https://github.com/AnswerDotAI/toolslm/blob/67b3d6262535fc12629fca8b82bb455d07563d07/toolslm/shell.py#L37-L46),
 puts `context` and `llm_query` into its namespace, and lets an outer model
 call `run_repl`, which calls `shell.run_cell`. The inner `llm_query` makes a
@@ -123,20 +119,9 @@ session/serialization. The agent's model loop is outside the notebook kernel.
 MCP calls go **agent → Jupyter server/notebook**; MCP does not automatically
 provide a callable from a code cell back into that same agent turn.
 
-The inspected [Jupyter AI `run_cell`](https://github.com/jupyter-ai-contrib/jupyter-ai-tools/blob/4d1c823ed9e2d58c2a5690c8b7c440045df1ee01/jupyter_ai_tools/toolkits/jupyterlab.py#L77-L132)
-accepts a cell ID and optional notebook path. In the default non-RTC path,
-its [JupyterLab command](https://github.com/jupyter-ai-contrib/jupyterlab-ai-commands/blob/b696dbf2e1d4f56524a521183ad9fc94a8071170/src/notebook-commands.ts#L815-L930)
-calls `CodeCell.execute` directly for code and treats Markdown as a no-op;
-that bypasses our `INotebookCellExecutor` and cannot run an inline AI question.
-The tool does not return cell outputs. If its wait times out, the underlying
-command continues; a timeout is not an execution result. Jupyter AI's native
-Run All path does reach our executor. An authenticated
-[Codex ACP example](codex_acp_example_run.md) verified reads, an edit, and
-three explicit code-cell executions; it did not run an inline AI question.
-The [coexistence investigation](jupyter_ai_compatibility.md) records the
-released component versions and this command distinction. A future MCP
-adapter should call the *same handoff semantics* as inline AI rather than
-assuming Jupyter AI's current individual `run_cell` is equivalent.
+The inspected [Jupyter AI `run_cell`](https://github.com/jupyter-ai-contrib/jupyter-ai-tools/blob/4d1c823ed9e2d58c2a5690c8b7c440045df1ee01/jupyter_ai_tools/toolkits/jupyterlab.py#L77-L132) accepts a cell ID and optional notebook path. In the default non-RTC path, its [JupyterLab command](https://github.com/jupyter-ai-contrib/jupyterlab-ai-commands/blob/b696dbf2e1d4f56524a521183ad9fc94a8071170/src/notebook-commands.ts#L815-L930) calls `CodeCell.execute` directly for code and treats Markdown as a no-op; that bypasses our `INotebookCellExecutor` and cannot run an inline AI question. The tool does not return cell outputs. If its wait times out, the underlying command continues; a timeout is not an execution result.
+
+Jupyter AI's native Run All path does reach our executor. An authenticated [Codex ACP example](codex_acp_example_run.md) verified reads, an edit, and three explicit code-cell executions; it did not run an inline AI question. The [coexistence investigation](jupyter_ai_compatibility.md) records the released component versions and this command distinction. A future MCP adapter should call the *same handoff semantics* as inline AI rather than assuming Jupyter AI's current individual `run_cell` is equivalent.
 
 The two agents also have distinct histories. A Jupyter AI `.chat` and an
 nbinlineai AI question are separate objects, with separate authentication,
@@ -155,20 +140,9 @@ explains why ordinary shell requests are serial and how an optional subshell
 thread can receive concurrent requests. A subshell shares the kernel process
 and namespace; on an ordinary CPython build it does not provide another GIL.
 
-Python 3.14 introduces standard-library
-[`concurrent.interpreters`](https://docs.python.org/3.14/library/concurrent.interpreters.html)
-and [`InterpreterPoolExecutor`](https://docs.python.org/3.14/library/concurrent.futures.html#interpreterpoolexecutor).
-An interpreter on another thread has its own GIL, but its namespace is
-isolated and values/results must be passed explicitly. The optional Python
-3.14 free-threaded build is a separate facility; it is not enabled simply by
-using Python 3.14. Neither facility makes Jupyter accept another main-shell
-request while an ordinary cell is active. `await`ing an interpreter worker
-can leave the event loop responsive while the cell itself remains busy;
-launching it and returning frees the main shell but requires worker/result
-identity. The [Python asyncio guide](https://docs.python.org/3.14/library/asyncio-eventloop.html#executing-code-in-thread-or-process-pools)
-shows interpreter pools as an executor option. Project minimum Python is
-still 3.12; the handoff records an isolated Python 3.14 package smoke, not
-this execution architecture.
+Python 3.14 introduces standard-library [`concurrent.interpreters`](https://docs.python.org/3.14/library/concurrent.interpreters.html) and [`InterpreterPoolExecutor`](https://docs.python.org/3.14/library/concurrent.futures.html#interpreterpoolexecutor). An interpreter on another thread has its own GIL, but its namespace is isolated and values/results must be passed explicitly. The optional Python 3.14 free-threaded build is a separate facility; it is not enabled simply by using Python 3.14. Neither facility makes Jupyter accept another main-shell request while an ordinary cell is active.
+
+`await`ing an interpreter worker can leave the event loop responsive while the cell itself remains busy; launching it and returning frees the main shell but requires worker/result identity. The [Python asyncio guide](https://docs.python.org/3.14/library/asyncio-eventloop.html#executing-code-in-thread-or-process-pools) shows interpreter pools as an executor option. Project minimum Python is still 3.12; the handoff records an isolated Python 3.14 package smoke, not this execution architecture.
 
 Subshells, subinterpreters, independent kernels, and nested RLM sessions
 therefore remain future *execution venues*. The first notebook handoff
@@ -188,7 +162,7 @@ are design recommendations, not an implementation commitment.
    model and checks the expected source, session, and kernel at execution.
    The AI turn finishes before the notebook queue runs the cell through the
    normal executor. Its output, error, cancellation, and execute-request ID
-   belong to a single recorded run. This can stand alone: the user sees the
+   belong to a single recorded run. The identified-cell execution can stand alone. The user sees the
    result and no further AI call occurs. No synchronous kernel tool waits for
    its own main shell.
 2. **Run → prompt: schedule one identified AI question after that code run.**
@@ -202,7 +176,7 @@ are design recommendations, not an implementation commitment.
    notebook context. A successor created by an AI tool is the second half of
    Solveit's `run_and_prompt` pattern.
 3. **Permit a code cell to request a following prompt without waiting.**
-   This is the Python-origin form of run → prompt. The current execution's
+   The following prompt is the Python-origin form of run → prompt. The current execution's
    request ID and source cell ID can establish origin, following the existing
    `insert_tools()` comm pattern. The request is acknowledged as *scheduled*;
    the code cell returns, and only then can the queued AI question run. A
@@ -220,7 +194,7 @@ target and status in the notebook so the user can tell what will run next.
 - **A target is a cell, not a position.** `after_cell_id` describes where to
   place a cell; it does not identify which cell will execute. Reordering
   should not silently retarget a queued run. Missing or changed targets fail
-  visibly rather than selecting the new “next” cell.
+  visibly rather than selecting the new "next" cell.
 - **A result is a run, not the latest cell output.** A run ID and Jupyter
   execute-request ID correlate the scheduled step, native cell outputs, and
   successor. Rerunning the cell later must not change what an already queued
@@ -239,7 +213,7 @@ target and status in the notebook so the user can tell what will run next.
   described as completed execution. Do not infer execution from a code cell's
   old count or source.
 
-The first useful acceptance sequence is: **P0 inserts C1 → P0 requests
+The first useful acceptance sequence is **P0 inserts C1 → P0 requests
 execution of C1 → P0 ends → C1 runs once → P1 runs once with C1's observed
 result**. A separate sequence starts with **C0 scheduling P1**, proving that
 Python-origin prompting does not need a nested event loop or a second kernel.
@@ -259,5 +233,5 @@ external-agent adapter is added.
    debugging? The first cut should stop on failure and make retry an explicit
    new run.
 4. Should the user-facing controls name the two arrows, or expose one
-   “Run this, then continue” action built from them? The arrows remain
+   "Run this, then continue" action built from them? The arrows remain
    separate capabilities regardless of the control wording.

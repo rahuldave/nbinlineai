@@ -4,7 +4,9 @@ title: Edit, rerun, and run notebooks
 
 # Edit, rerun, and run notebooks
 
-[Manual](../user-guide.md) · [Previous: Models, styles, and effort](models-and-styles.md) · [Next: Choose notebook context](context-selection.md)
+- [Manual](../user-guide.md)
+- [Previous: Models, styles, and effort](models-and-styles.md)
+- [Next: Choose notebook context](context-selection.md)
 
 ## Edit questions and answers
 
@@ -25,7 +27,7 @@ The notebook's **AI defaults** row includes **Keep AI answers**, on by default:
 | **On** | Keep its completed, nonempty answer without a provider request. A prompt without a completed answer can still run. |
 | **Off** | Request a fresh answer, using the current context and settings. Useful while developing a notebook. |
 
-Each prompt's **Keep answer** checkbox shows its effective choice. New prompts inherit the notebook default. Changing the cell checkbox creates an explicit override: keep a particular answer while the notebook default is off, or rerun one prompt while the notebook default is on. Click **Use notebook setting**, shown when the cell has an explicit Keep override, to make it inherit again.
+Each prompt's **Keep answer** checkbox shows its effective choice. New prompts inherit the notebook default. Changing the cell checkbox creates an explicit override. Keep a particular answer while the notebook default is off, or rerun one prompt while the notebook default is on. Click **Use notebook setting**, shown when the cell has an explicit Keep override, to make it inherit again.
 
 Notebook defaults and explicit cell choices survive saving and reopening. The reset for provider/model/style/effort is separate from the Keep answer reset.
 
@@ -50,7 +52,7 @@ Each run uses the notebook's current context policy and cell choices, selected m
 
 ## Run a whole notebook or a range
 
-JupyterLab's normal execution commands recognize AI prompts. Code and AI work complete in notebook order: an AI answer and its model tool calls finish before the next selected cell runs. Each AI prompt uses its effective notebook/cell Keep answer choice.
+JupyterLab's normal execution commands recognize AI prompts. Code and AI work complete in notebook order. An AI answer and its model tool calls finish before the next selected cell runs. Each AI prompt uses its effective notebook/cell Keep answer choice.
 
 | Action in JupyterLab | Behavior with nbinlineai |
 | --- | --- |
@@ -67,7 +69,7 @@ With the notebook default off, Run All can make a provider request for every eli
 
 The execution queue waits for the AI answer or Python code cell. It cannot make a camera permission choice, wait through a recording, or keep a file chooser open on your behalf. Browser-media Python calls return a mutable receipt promptly; the next code cell may run while that receipt still says `running` or `waiting_for_user`. Run its later inspection cell after the visible action completes. Reinspect the **same receipt** to read its typed `result`, `media`, or `error`; do not treat the value printed in the requesting cell as the final result.
 
-An AI browser-tool reply is an initial operation snapshot. When a later question needs its source ID, media ID, or saved path, ask `operation_status` for that exact operation in a separate turn and continue only after it reports the needed state. The lookup returns one snapshot, so a still-running operation may need another later check. This is why the [media notebooks](../examples.md#tool-catalog-notebooks) run dependent interactive cells separately even though ordinary AI questions work in Run All. See [Browser media operations](../browser-media-foundation.md) for a complete receipt example.
+An AI browser-tool reply is an initial operation snapshot. When a later question needs its source ID, media ID, or saved path, ask `operation_status` for that exact operation in a separate turn and continue only after it reports the needed state. The lookup returns one snapshot, so a still-running operation may need another later check. The unfinished browser operation is why the [media notebooks](../examples.md#tool-catalog-notebooks) run dependent interactive cells separately even though ordinary AI questions work in Run All. See [Browser media operations](../browser-media-foundation.md) for a complete receipt example.
 
 An AI error or cancellation stops the remaining cells in that execution batch. Correct the problem and start another run when ready. Do not edit, move, or delete cells during a batch if you want a reproducible sequence.
 
@@ -75,6 +77,8 @@ Click **Cancel** to stop an active response. Cancelling does not undo function c
 
 Editing the text of a failed or cancelled answer does not turn it into a completed exchange. To provide that corrected text as context, copy it into an ordinary Markdown cell above the next prompt, or rerun the original prompt successfully.
 
-Save the notebook normally to keep the prompt and answer text. Reopening it restores the cells and their saved choices. Python variables and functions are kernel state: after restarting the kernel, rerun the code that defines them.
+Save the notebook normally to keep the prompt and answer text. Reopening it restores the cells and their saved choices. Python variables and functions are kernel state. After restarting the kernel, rerun the code that defines them.
 
-[Manual](../user-guide.md) · [Previous: Models, styles, and effort](models-and-styles.md) · [Next: Choose notebook context](context-selection.md)
+- [Manual](../user-guide.md)
+- [Previous: Models, styles, and effort](models-and-styles.md)
+- [Next: Choose notebook context](context-selection.md)

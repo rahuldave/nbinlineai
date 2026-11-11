@@ -2,7 +2,7 @@
 
 Later source update: the [2026-10-21 background run](worked_examples_background_run.md) fills the missing gallery answers using disclosed synthetic media where needed. The original physical-device evidence and Run All limits below remain historical records of their own runs.
 
-This is the source-work checkpoint for [PR #35](https://github.com/rahuldave/nbinlineai/pull/35),
+The source-work checkpoint is for [PR #35](https://github.com/rahuldave/nbinlineai/pull/35),
 based on the integrated `codex/worked-guide` commit `6ac3dc5`. It is not a
 release record. The browser/media API specification was approved on `main` at
 `61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected revised task
@@ -32,31 +32,13 @@ deferrals:
 Worked demonstration evidence matches the registered tools; 0 execution deferrals.
 ```
 
-The direct Python `start_camera`, `capture_camera`, and `record_camera` cells
-were then run in an isolated Chrome/JupyterLab session against the real camera.
-Later receipts confirmed a 640×480 source, a 640×480 PNG, and a five-second
-VP9/WebM clip. Camera cleanup stopped the source and released both managed
-captures. The corresponding concise AI questions had independently completed
-on the real camera. No camera bytes or device IDs are embedded in the public
-notebook. The checker rejects any new execution deferral. It also includes a
-focused guard linking a recorder's paused status, resume call, and observed
-running state to the same recording.
+The direct Python `start_camera`, `capture_camera`, and `record_camera` cells were then run in an isolated Chrome/JupyterLab session against the real camera. Later receipts confirmed a 640×480 source, a 640×480 PNG, and a five-second VP9/WebM clip. Camera cleanup stopped the source and released both managed captures. The corresponding concise AI questions had independently completed on the real camera.
 
-The browser-media notebooks retain real microphone clips and audio levels,
-direct and AI screen-sharing/capture, silent-canvas recorder controls, output
-and canvas inspection/export, import and file choice, playback controls,
-clipboard actions, and explicit managed-media cleanup. Direct microphone
-pause/resume/stop is separately saved. AI `pause_recording` has a confirmed
-paused status; AI `resume_recording` has an observed Media row transition to
-running, labeled as a UI observation because the recording hit its wall limit
-before a later status check. A second canvas recording was explicitly stopped
-and terminally verified. Playback's AI Pause was verified with the preview
-muted. The AI Paste test seeded the computer-control virtual clipboard with a
-known disposable sample before a real paste event; it does not claim that the
-preceding Copy populated that virtual clipboard. The outputs notebook retains
-both an honest empty-selection answer and a separately verified nonempty AI
-selection. Detailed results and partial outcomes are in
-[`worked_notebooks_run.md`](worked_notebooks_run.md).
+No camera bytes or device IDs are embedded in the public notebook. The checker rejects any new execution deferral. It also includes a focused guard linking a recorder's paused status, resume call, and observed running state to the same recording.
+
+The browser-media notebooks retain real microphone clips and audio levels, direct and AI screen-sharing/capture, silent-canvas recorder controls, output and canvas inspection/export, import and file choice, playback controls, clipboard actions, and explicit managed-media cleanup. Direct microphone pause/resume/stop is separately saved. AI `pause_recording` has a confirmed paused status; AI `resume_recording` has an observed Media row transition to running, labeled as a UI observation because the recording hit its wall limit before a later status check. A second canvas recording was explicitly stopped and terminally verified.
+
+Playback's AI Pause was verified with the preview muted. The AI Paste test seeded the computer-control virtual clipboard with a known disposable sample before a real paste event; it does not claim that the preceding Copy populated that virtual clipboard. The outputs notebook retains both an honest empty-selection answer and a separately verified nonempty AI selection. Detailed results and partial outcomes are in [`worked_notebooks_run.md`](worked_notebooks_run.md).
 
 Fourteen live-editor normal examples and the `url_to_note` comparison have
 observed ordinary JupyterLab results. The Quarto gallery renders saved
@@ -78,9 +60,8 @@ its later lookup was `stale_target`; no terminal release is inferred. The
 gallery does not claim Safari, mobile, or broader device coverage from these
 Chromium/Chrome trials.
 
-Native Run All was checked with a pending direct `start_share`: the next cell
-ran before the user completed the browser share choice. This shows Run All
-does not wait for an interactive operation's terminal receipt. The analogous
+Native Run All was checked with a pending direct `start_share`. The next cell
+ran before the user completed the browser share choice. The sequence shows Run All does not wait for an interactive operation's terminal receipt. The analogous
 AI-question Run All path remains untested and should be addressed separately;
 ordinary saved notebook outputs must not be read as a Run All guarantee.
 

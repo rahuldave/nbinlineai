@@ -11,8 +11,7 @@ prompt is supplied yet. All internal documentation remains canonical on main.
 
 An app could be an existing interactive notebook widget exposed to an agent,
 or a small inline JavaScript component. Avoid requiring users to rewrite
-widgets as a new app framework. Start by evaluating one shared Jupyter Widgets
-adapter: anywidget participates in that ecosystem rather than being a separate
+widgets as a new app framework. Start by evaluating one shared Jupyter Widgets adapter. Anywidget participates in that ecosystem rather than being a separate
 competing transport. A managed inline JavaScript surface is a second option.
 A bare `IPython.display.HTML` div does not provide identity, state, lifecycle
 or an agent message protocol on its own.
@@ -21,8 +20,7 @@ The useful common surface is declared state, actions, events and native export.
 Ordinary synced traits can support generic inspection; meaningful operations
 such as selecting a region or changing an array slice need explicit semantics.
 Do not infer arbitrary callable actions from every Python attribute or expose
-an entire dataset in model context. Keep model identity distinct from each
-rendered view: one widget can appear twice, and closing a view must not destroy
+an entire dataset in model context. Keep model identity distinct from each rendered view. One widget can appear twice, and closing a view must not destroy
 a shared model.
 
 Browser-visible state can change before Python processes a widget message.
@@ -43,9 +41,9 @@ compositions, not requirements for ordinary widget interaction.
 | [ipyleaflet](https://ipyleaflet.readthedocs.io/en/master/) and [xarray-leaflet](https://xarray-leaflet.readthedocs.io/en/latest/usage.html) | Widget maps and tiled array views | Viewport, layers and selected regions; assess tile/data-serving requirements separately |
 | [fastplotlib](https://github.com/fastplotlib/fastplotlib) | High-performance scientific graphics with its own rendering/backend requirements | Camera/view, data slice, selection and supported export; evaluate backend and browser limits explicitly |
 
-These are research candidates, not installed dependencies or verified
+The named adapters are research candidates, not installed dependencies or verified
 cross-browser/mobile integrations. Specialist adapters should be optional
-library integrations. Here “extensions” means adapters or packages within the
+library integrations. Here "extensions" means adapters or packages within the
 notebook ecosystem, **not browser extensions**. Do not auto-install libraries
 or make them core requirements. No compatibility run or source copying was
 performed for these notes.

@@ -25,7 +25,7 @@ JupyterLite port, notebook execution handoffs, RLM, multi-kernel work and
 automatic successor prompts. The deferred app note is background only.
 
 Also complete the tools-page/example-notebook coverage described below for
-**all existing tools and all new tools**, not only this feature's additions.
+**all existing tools and all new tools**, including this feature's additions.
 
 Follow `internal_docs/browser_media_tool_spec.md`. Do not add operations from
 the research candidate list or silently weaken the API to fit today's bridge.
@@ -128,14 +128,13 @@ refactor unrelated code. Plan concrete file ownership before editing.
 1. **Foundation first.** Astra and worker 1 fix the protocol/schema, source
    registration and ownership contracts before dependent runtime work. Choose
    the spec's remaining concrete lease/retention/upload decisions. Worker 1
-   proves one real browser/server/kernel path with a deterministic image fixture:
-   immediate Python receipt, later PIL result, model-visible bounded descriptor,
+   proves one real browser/server/kernel path with a deterministic image fixture. Verify immediate Python receipt, later PIL result, model-visible bounded descriptor,
    optional authenticated save and cleanup. A collection of untested interfaces
    is not a completed foundation. Obtain independent Sol review of this boundary.
 2. **Then parallel families.** Once the foundation is usable at a recorded
    reviewed commit, workers 2, 3 and 4 can proceed concurrently. Worker 2 starts
    with camera/microphone and the common recorder; worker 3 starts with
-   `list_outputs`/`export_output`. These are required for the spec's Phase A.
+   `list_outputs`/`export_output`. The foundation contracts are required for the spec's Phase A.
    Worker 4 can use deterministic media fixtures without waiting for capture.
 3. **Canvas and transformations.** Worker 3 adds canvas video after the shared
    source/recorder interface is available. Worker 5 starts after the bounded
@@ -146,7 +145,7 @@ refactor unrelated code. Plan concrete file ownership before editing.
    integration after the producing families are available. Keep Phase C's
    provider and payload work a separately reviewed delivery slice.
 5. **Combined verification.** Assign a Sol integration/verification task to test
-   real cross-family flows: capture or export → preview → derivative → optional
+   real cross-family flows, including capture or export → preview → derivative → optional
    save → explicit image attachment, plus recording → frame extraction. Include
    cancellation, stale identities and limits across those boundaries. This
    supplements each owner's tests; it does not transfer testing out of families.
@@ -159,10 +158,7 @@ an unimplemented required API must be reported as unfinished.
 
 ## Tools page and notebook demonstrations: existing and new tools
 
-This is a required deliverable, including the previously shipped tools. The
-current tools page already has short example questions, but lacks a systematic
-per-tool link to a notebook demonstration. Preserve useful examples and fill
-gaps; a general link to the examples directory is insufficient.
+The tools page already has short example questions, but it lacks a link from each tool to a notebook demonstration. That coverage is a required deliverable for previously shipped tools and new tools. Preserve useful examples; a general link to the examples directory is insufficient.
 
 Assign a **Sol-6 documentation/catalog task** alongside the six implementation
 workstreams. It owns the shared `docs/tools.md`, `docs/examples.md`,
@@ -175,7 +171,7 @@ hands its tool entries and coverage mapping to the catalog owner.
 
 For every existing and new public model tool, including public aliases:
 
-- Keep an accurate entry on `docs/tools.md`: signature, purpose, usable example
+- Keep an accurate entry on `docs/tools.md` with signature, purpose, usable example
   question or code appropriate to its actual calling convention, and a visible
   **Notebook example** link to a concrete `.ipynb` under `examples/`.
 - The linked notebook must actually demonstrate that specific tool. Several
@@ -235,7 +231,9 @@ providers by default. Keep test code with the implementation it verifies.
 
 Astra grants **exclusive use of port 8897** for browser integration runs. Check
 that it is free; an occupied port may belong to another task. Do not stop or
-reuse that server. Coordinate or wait, and stop only processes this task owns.
+reuse that server.
+
+Coordinate or wait, and stop only processes this task owns.
 Serialize browser build/relink/test sessions; do not build package assets while
 any task-owned browser test is using them. Independent unit tests can run in
 parallel in isolated environments. Never use the user's server on port 8888.
@@ -250,7 +248,7 @@ separate from a second human GitHub account's approval.
 
 ## Implementation phases and boundaries
 
-Implement **Phase A** of the spec first: capabilities, bounded operation IDs,
+Implement **Phase A** of the spec first. It includes capabilities, bounded operation IDs,
 results and lifecycle; `list_outputs` discovery plus `export_output` so the
 first phase can obtain required output references; camera photos/video and
 microphone recording; bounded in-memory results; and authenticated local
@@ -261,11 +259,14 @@ for a browser response, and this spec does not promise an awaitable kernel API.
 Raster stills may become PIL images in Python after receipt completion; short
 recordings become encoded `MediaClip` bytes with actual MIME type, never PIL
 video. Return only bounded status/reference metadata to model tools, never
-media bytes in tool text. File success occurs only after server confirmation.
+media bytes in tool text.
+
+File success occurs only after server confirmation.
 Keep target binding to the originating notebook, model, session, kernel and
 stable cell/output/artifact identities, including unsaved and offscreen cells.
-Do not redirect an operation when focus changes. Use one `save_to` argument:
-`None` means a bounded ephemeral memory result, `"auto"` a generated local
+Do not redirect an operation when focus changes.
+
+Use one `save_to` argument. `None` means a bounded ephemeral memory result, `"auto"` a generated local
 file, and a nonempty server-relative string an explicit local path. Still
 capture defaults to `None`; recordings default to `"auto"`, with memory allowed
 only for bounded short clips. Default file paths are unique under `media/`
@@ -287,13 +288,16 @@ frame/image derivatives, and explicit file and clipboard UI. Add passive
 `list_canvases` discovery in supported existing output renderers, returning
 `CanvasRef` identities bound to their output and rendered-view revision.
 Rerender, canvas replacement or output invalidation stops a bound canvas source
-and finalizes its recorder as `source_ended`; never follow the replacement. No
-app registry or widget integration is required. Add `capture_canvas` for an
+and finalizes its recorder as `source_ended`; never follow the replacement.
+
+No app registry or widget integration is required. Add `capture_canvas` for an
 origin-clean canvas still; `export_canvas` remains its convenient save form.
 A canvas `toBlob` still can be decoded to PIL; `captureStream()` feeds the bounded recorder for motion.
-Canvas pixels do not recover vector primitives. Preserve existing SVG output
-through `export_output(..., mime="image/svg+xml", save_to=None)`. App-native
+Canvas pixels do not recover vector primitives.
+
+Preserve existing SVG output through `export_output(..., mime="image/svg+xml", save_to=None)`. App-native
 SVG/scene exporters are deferred with apps. SVG returned to Python is text.
+
 Neither canvas recording nor still capture adds microphone audio automatically.
 Preserve the spec's `setup_share`, `start_share`, `capture_screen`,
 `capture_tool` alias and `stop_share` names; screen recording uses
@@ -317,7 +321,9 @@ still image or extracted frame through the spec's `MediaRef` (owned `media_id`
 or saved path plus SHA-256); memory media need not be saved first. Bind the
 identified AI question, visible confirmation, backend capability checks,
 genuine media transport,
-payload size/pixel limits, preview and budget accounting. Recheck file bytes
+payload size/pixel limits, preview and budget accounting.
+
+Recheck file bytes
 and backend support when the question runs; opening or previewing never
 attaches. Initial audio and full-video model input return
 `provider_unsupported`. The current 64,000-character host-envelope estimate
@@ -344,7 +350,9 @@ transfer. Verify with a real
 isolated JupyterLab and kernel plus deterministic provider, including two
 notebook tabs and focus changes. The support matrix includes current desktop
 Chrome, Edge, Firefox and Safari; Android Chrome and Firefox; and iOS/iPadOS
-Safari. Test other mobile browser brands as available, without inferring
+Safari.
+
+Test other mobile browser brands as available, without inferring
 behavior from their name or a desktop engine. Test real camera/microphone and
 screen behavior on these platforms; report hardware, permission and screen API
 gaps explicitly. Mobile camera/microphone access normally needs an HTTPS
@@ -364,11 +372,13 @@ approved pre-work specs or research use a separate main-based documentation PR.
 
 At each coherent checkpoint, assign a different Sol-6 agent to independently
 review the exact base/head and record findings/dispositions. The author fixes
-findings; the reviewer rechecks those fixes. Astra aggregates the evidence. Commit and push verified
+findings; the reviewer rechecks those fixes. Astra aggregates the evidence.
+
+Commit and push verified
 topics, open PRs to their selected base, require both actual CI gates, and
 respect the user's merge decision unless a particular merge is already
 authorized. Preserve the persistent experimental branch and keep Git-source
 installation working. No version bump, tag, PyPI upload, website deployment
 or promotion to another integration branch follows from this prompt. Completion requires the full new-tool inventory and the existing/new-tool
-example coverage above, not just passing tests for a subset. Retire only clean,
+example coverage above and passing tests for the full set. Retire only clean,
 verified integrated worktrees owned by this task.

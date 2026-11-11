@@ -10,7 +10,9 @@ An AI question and answer remain ordinary Markdown cells. `isPromptCell` marks q
 
 ## Snapshot and request contract
 
-`src/context.ts` traverses the complete cell model. New requests use `snapshot_version: 1`, ordered `notebook_cells`, `prompt_cell_id`, `context_mode` and per-cell `context_include` and `tools_include` booleans when saved. A cell contains ID, type, source, metadata and optional execution count. **0.1.18** adds bounded displayed textual code outputs in the live snapshot, with stdout, stderr, result/display text and traceback channels. Rich displays use plain text first, then Markdown, HTML text or JSON. Image/binary payloads and attachments are not part of this ordinary context snapshot. This supersedes the original 0.1.8 source-only contract. Relative position is derived by the backend from this order. The current question is a separate required message.
+`src/context.ts` traverses the complete cell model. New requests use `snapshot_version: 1`, ordered `notebook_cells`, `prompt_cell_id`, `context_mode` and per-cell `context_include` and `tools_include` booleans when saved. A cell contains ID, type, source, metadata and optional execution count. **0.1.18** adds bounded displayed textual code outputs in the live snapshot, with stdout, stderr, result/display text and traceback channels.
+
+Rich displays use plain text first, then Markdown, HTML text or JSON. Image/binary payloads and attachments are not part of this ordinary context snapshot. This supersedes the original 0.1.8 source-only contract. Relative position is derived by the backend from this order. The current question is a separate required message.
 
 Versioned snapshots accept at most 10,000 unique bounded cell IDs and 4,000,000 serialized characters; exceeding transport bounds fails explicitly instead of losing early tool declarations. Legacy requests with `preceding_cells` retain Default/above-only interpretation. Unknown versions request a frontend refresh.
 
@@ -30,7 +32,9 @@ Each queued AI run re-finds its own question and reads its current policy, setti
 
 Exclude the current question and **all** its linked answers by ID before counting the physical windows. Raw, empty and otherwise ineligible cells still take physical positions. A window never pulls an outside partner in to complete an AI pair.
 
-Ordinary Markdown contributes source. Selected code contributes source and its displayed text outputs as one budgeted unit, including output-only code cells. These outputs may be stale relative to edited source; a snapshot never executes code or reconstructs kernel state. Running, error, cancelled and orphaned AI answers are ineligible. Default uses legacy pair-only history. In explicit modes, a question or completed answer selected independently is labeled AI notebook source. Complete pairs below or straddling the target are likewise source, never prior chat. Labels identify role, ID/link and above/below position.
+Ordinary Markdown contributes source. Selected code contributes source and its displayed text outputs as one budgeted unit, including output-only code cells. These outputs may be stale relative to edited source; a snapshot never executes code or reconstructs kernel state.
+
+Running, error, cancelled and orphaned AI answers are ineligible. Default uses legacy pair-only history. In explicit modes, a question or completed answer selected independently is labeled AI notebook source. Complete pairs below or straddling the target are likewise source, never prior chat. Labels identify role, ID/link and above/below position.
 
 Both cells must be selected and earlier, with the answer after its question, to form an atomic user/assistant history pair. The latest selected completed answer wins for duplicate links; additional selected answers can remain labeled source. Every answer linked to the current question stays excluded even if moved above it or duplicated.
 
@@ -44,7 +48,9 @@ The preview target is transient per panel. Selecting an AI question or linked an
 
 ## Tools remain independent
 
-The user refined the brief during implementation: each declaring ordinary Markdown/AI question cell gets a separate Tools checkbox, saved as `nbinlineai.toolsInclude`, absent=true. Scan enabled earlier declaration cells plus the enabled current question for `&` references **before** prose selection. Custom text exclusion, preset windows, Current question only and budget omission do not revoke declarations. Code/raw/output/AI answers and below-question cells do not register tools. Wider modes do not change that rule. Users withdraw declarations by unchecking Tools on that cell, removing them or moving them below. Another enabled applicable cell can still declare the same tool. Per-cell tool choices persist across modes; newly added cells default true. A below-target Tools preference can be edited for later questions but remains inactive for the current target. Disabling a current question's Tools does not disable its `$` lookups or required text.
+The user refined the brief during implementation. Each declaring ordinary Markdown/AI question cell gets a separate Tools checkbox, saved as `nbinlineai.toolsInclude`, absent=true. Scan enabled earlier declaration cells plus the enabled current question for `&` references **before** prose selection. Custom text exclusion, preset windows, Current question only and budget omission do not revoke declarations. Code/raw/output/AI answers and below-question cells do not register tools.
+
+Wider modes do not change that rule. Users withdraw declarations by unchecking Tools on that cell, removing them or moving them below. Another enabled applicable cell can still declare the same tool. Per-cell tool choices persist across modes; newly added cells default true. A below-target Tools preference can be edited for later questions but remains inactive for the current target. Disabling a current question's Tools does not disable its `$` lookups or required text.
 
 Only current-question `$` references resolve live values. The combined distinct reference cap remains 20; each run inspects names afresh. Missing functions produce useful errors rather than being silently withdrawn. Previously executed code may have affected the kernel regardless of selection. Explicitly offered read tools may retrieve other text during the run.
 

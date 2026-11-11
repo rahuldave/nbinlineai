@@ -32,7 +32,7 @@ Capturing/saving media must be useful without sending it to a model.
   Firefox; and iOS/iPadOS Safari. Exercise other installed mobile browsers where
   available; branding does not prove identical API/device behavior.
 - A phone accessing Jupyter on the user's computer sends bytes to that computer.
-  This is still the selected local-server destination, not phone-only retention.
+  The user's computer is still the selected local-server destination, not phone-only retention.
   A phone normally needs an HTTPS Jupyter origin for camera/microphone APIs;
   the computer's HTTP LAN address is not the phone's localhost secure-context
   exception. Document supported secure access; do not ask users to disable
@@ -56,7 +56,9 @@ Direct Python calls return a mutable `BrowserReceipt` immediately, following
 `insert_tools()`. It has `operation_id`, `status`, `result`, `media` and `error`.
 For a raster still, the completed Python `result` is a PIL image; in-memory
 audio/video returns a `MediaClip` with encoded `data: bytes`, `mime_type` and
-duration when known. SVG returns its markup string, not a PIL object; other
+duration when known.
+
+SVG returns its markup string, not a PIL object; other
 native export formats return typed data/bytes appropriate to their MIME type.
 `media` is the bounded descriptor/reference used by browser and model tools.
 Inspect it in a later cell or use the visible UI; no `.wait()`, blocking polling loop,
@@ -117,7 +119,7 @@ export, import and editing:
 
 Stills, native vector exports and image derivatives default to `None`; audio/
 video recording defaults to `"auto"`, with `None` available for short clips.
-An explicit save does not remove the image result: Python still gets a PIL image
+An explicit save does not remove the image result. Python still gets a PIL image
 for a raster still plus saved-file metadata. File-backed recordings need not
 also materialize a second full `MediaClip` in Python. A file can be saved later
 with `save_media(media, save_to="auto")`; PIL users can also use normal Pillow
@@ -128,6 +130,7 @@ The notebook directory used for `"auto"` is frozen when the request starts;
 return the actual path/MIME extension. Empty strings are invalid. For operations
 producing several frames/files, an explicit destination is a directory and
 generated child names are returned; single-result operations treat it as a file.
+
 Do not overwrite existing files; explicit file replacement is not in this API.
 Reject traversal and destinations escaping the configured root, including
 symlink escapes for a filesystem backend. Finalize saves before claiming a
@@ -140,12 +143,14 @@ notebook with a 10-minute idle expiry, reported in the descriptor. Reject a new
 result that exceeds the cap rather than evicting an actively used result or
 silently writing it to disk. Explicit `release_media` and owner teardown free
 managed buffers; existing Python copies remain ordinary Python objects. Enforce
-expiry on the server. Successful media consumption (preview/edit/export/attach)
+expiry on the server.
+
+Successful media consumption (preview/edit/export/attach)
 refreshes the idle expiry; active playback renews its bounded owner lease.
 Status polling alone does not refresh it. Return updated `expires_at` with
 successful access and status responses; saved files outlive reference expiry.
 Enforce separate decoded-pixel/working-memory bounds, including batch frame extraction.
-This means no application-requested persistent file, not a guarantee about OS
+The no-save policy means no application-requested persistent file, not a guarantee about OS
 swap or browser-internal storage. Binary delivery to Python uses a validated
 binary channel/result fetch, never base64 stuffed into the text action reply;
 the implementation must test binding and receipt delivery while the kernel is busy.
@@ -155,7 +160,9 @@ For initial implementation: stills at most 4096 pixels on either side and
 recordings allow at most 300 seconds and 50 MiB per operation; in-memory
 recordings (`save_to=None`) allow at most 60 seconds and 16 MiB. Reject a requested
 duration beyond its destination's limit before opening the device; never switch
-a memory request to a file implicitly. At most one recording per notebook;
+a memory request to a file implicitly.
+
+At most one recording per notebook;
 permission requests expire after 120 seconds. Pause does not extend the selected
 destination's wall-clock lifetime. Stop safely at limits and report
 `stop_reason` (`user`, `duration`, `size`, `source_ended`) with the media result;
@@ -219,6 +226,7 @@ nonblocking receipt rather than claiming an immediate/awaitable drop-in API.
 PIL availability in Python, optional persistence and model image disclosure are
 three separate choices. Neither ordinary capture nor its alias automatically
 attaches pixels; the explicitly authorized model attachment contract is below.
+
 Avoid upstream's missing-reply case and forward timeout correctly. Screen video
 uses `start_recording` (including `save_to=None` for short clips) with the
 screen source; it does not need another recorder API. Mobile browsers without
@@ -244,13 +252,14 @@ tested. The UI must explain missing screen support before asking to record.
 Notebook-source access already has tools; do not duplicate `list_cells` or
 `read_cell`. Region capture needs its own supported-renderer matrix; an existing
 MIME export is the first useful portable path. All output reads are snapshots;
-“execute then capture the new result” remains an experimental composition.
+"execute then capture the new result" remains an experimental composition.
 
 ### Canvas, vector export and notebook views
 
 Here canvas means the browser's HTML `<canvas>`, not a generic editor/document.
 Its exported surface is a bitmap. `toBlob` obtains a still; `captureStream`
 provides video frames to the same recorder used for camera/screen sources.
+
 Canvas capture itself needs no camera permission or screen chooser, adds no
 microphone, and captures only that drawing surface. A supported output renderer
 exposes the canvas through the passive capture adapter; no app registry is
@@ -269,7 +278,7 @@ tracing is outside this scope.
 [still export](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/toBlob),
 [canvas video](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/captureStream).)
 
-Notebook view tools answer “what is selected/visible?”; existing `read_cell`
+Notebook view tools answer "what is selected/visible?"; existing `read_cell`
 reads code/source, while output tools read what a cell already produced. They
 inspect the originating live notebook, including unsaved state, and do not run
 cells or browse other notebooks. Capture/export consumes those existing results.
@@ -303,7 +312,9 @@ conversion is a possible server follow-up, not an undeclared hard dependency.
 `attach_media(media, question_cell_id, detail="auto")` proposes attaching an
 exact raster image (or extracted frame) from memory or a file to an identified
 AI question. A visible confirmation records the accepted hash and question
-without starting execution. The question must not be running. Recheck bytes
+without starting execution. The question must not be running.
+
+Recheck bytes
 and backend support at execution; changed files or expired memory fail rather
 than silently substituting content. A pending in-memory attachment is volatile
 and expires with its result; storing its opaque reference in metadata does not
@@ -314,7 +325,9 @@ attaches. SVG is not silently rasterized for this initial image-input contract.
 The initial supported attachment type is a still image. Audio/full video return
 `provider_unsupported` until a reviewed backend capability adds them; local
 recording remains useful independently. Add actual multimodal support for each
-offered model transport, including preview and budget accounting. Never place
+offered model transport, including preview and budget accounting.
+
+Never place
 base64 into ordinary text or silently flatten an image to its filename. Expose
 unsupported models clearly. The existing 64,000-character host-envelope limit
 still applies, with separate media byte/pixel limits and the backend's actual
@@ -334,7 +347,9 @@ an indefinite permission/recording wait.
 Deduplicate operation creation by authenticated client/notebook/request ID and
 payload. Duplicate start/stop/save delivery must not duplicate captures or files;
 a changed payload under the same ID is an error. Validate ownership at every
-status/control/upload request. On tab closure/disconnect, lease expiry, kernel
+status/control/upload request.
+
+On tab closure/disconnect, lease expiry, kernel
 change or server restart, stop/expire live operations, clean partial files and
 report loss; do not replay captures after reconnect. Expire managed in-memory
 results on owner loss and never save them as an implicit cleanup fallback. Retain final status briefly
@@ -356,7 +371,7 @@ All following feature topics target **main**; use reviewed incremental PRs.
 Documentation is always authored on main. No version bump or PyPI release is
 implied by this spec merge.
 
-1. **Foundation and portable capture:** capability/results/receipts, bounded
+1. **Foundation and portable capture.** Build capability/results/receipts, bounded
    memory/PIL and encoded clip results, shared `save_to` and explicit server save,
    operation lifecycle, `list_outputs` discovery plus `export_output`, camera
    photos/video and microphone recording. Output references must be obtainable
@@ -368,7 +383,7 @@ implied by this spec merge.
    support. Full audio/video input remains outside the initial attachment API.
 4. **Deferred, separate workstreams:** an apps specification and its
    implementation are considered after the media work. Neither widget adapters
-   nor inline JavaScript apps are prerequisites for phases 1–3. Composing media
+   nor inline JavaScript apps are prerequisites for phases 1 to 3. Composing media
    results or eventual app events with native cell handoffs and successor
    prompts needs its own experimental plan.
 
@@ -413,7 +428,7 @@ Acceptance requires:
 Set registry lease/retention constants; choose a supported rendered-region
 capture adapter; map tested codecs and backend image transports; decide whether
 bounded recordings fit ordinary Contents saves or need a bounded upload route.
-These are planning decisions under this contract, not reasons to add browser
+The lease, capture, codec and upload choices are planning decisions under this contract, not reasons to add browser
 extensions or return to browser-only durable storage. A genuinely unsupported
 platform feature stays explicitly unsupported; do not invent a successful stub.
 

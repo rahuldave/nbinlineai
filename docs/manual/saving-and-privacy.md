@@ -4,7 +4,9 @@ title: Saved notebooks and privacy
 
 # Saved notebooks and privacy
 
-[Manual](../user-guide.md) · [Previous: Live values and tools](variables-and-tools.md) · [Next: Troubleshooting and limits](troubleshooting.md)
+- [Manual](../user-guide.md)
+- [Previous: Live values and tools](variables-and-tools.md)
+- [Next: Troubleshooting and limits](troubleshooting.md)
 
 ## How cells are stored
 
@@ -15,7 +17,7 @@ Both kinds of AI cell are **standard Markdown cells inside the `.ipynb` file**:
 | Prompt | Your editable question in the cell's `source` | `isPromptCell`, optional Keep answer override, and any provider/model/style/effort overrides |
 | Answer | The generated Markdown in the cell's `source` | `isOutputCell`, `promptCellId`, and run status |
 
-The fields live under `metadata.nbinlineai`. The answer's `promptCellId` links it to the prompt's notebook cell ID. This lets a rerun find and update its existing answer. If you delete the answer cell, the next run creates one again.
+The fields live under `metadata.nbinlineai`. The answer's `promptCellId` links it to the prompt's notebook cell ID. The link lets a rerun find and update its existing answer. If you delete the answer cell, the next run creates one again.
 
 Notebook-level choices, including Keep AI answers, live under the notebook's `metadata.nbinlineai.defaults`, separately from cell metadata. An absent cell Keep answer choice inherits the notebook default. The preferred connection for notebooks without saved choices and common and custom style instructions live in JupyterLab user settings. API keys live in a private server-side credential file; ChatGPT sign-in is managed by its runtime. None of those credentials or instructions is stored in the notebook.
 
@@ -25,7 +27,7 @@ Someone opening the saved notebook without nbinlineai can still read the Markdow
 
 Browser-media captures are separate from notebook Markdown. A completed Python receipt may hold a Pillow image or media clip in the live kernel; managed bytes on the Jupyter server expire or can be released. `save_media` writes a new file only when you request it. A saved notebook can retain a rendered code-cell display, but that display does not keep a managed media reference alive. Use the media notebook's cleanup steps for temporary sources and files. [Browser media operations](../browser-media-foundation.md) explains the receipt and save paths.
 
-Selected code cells send their displayed text outputs with their source, including stdout, stderr, expression results and error tracebacks. Treat printed sensitive data as context too: exclude that cell in Custom context or clear its output before asking. The snapshot uses the live notebook, so unsaved output can be included. [Context selection](context-selection.md) explains selection and budget limits.
+Selected code cells send their displayed text outputs with their source, including stdout, stderr, expression results and error tracebacks. Treat printed sensitive data as context too. Exclude that cell in Custom context or clear its output before asking. The snapshot uses the live notebook, so unsaved output can be included. [Context selection](context-selection.md) explains selection and budget limits.
 
 An image is not sent to the model merely because you opened, captured, previewed, or saved it. `attach_media` asks you to confirm one image for one AI question. Confirmation changes that question's pending attachment; it does not run the question. Review the image and run the question when ready. Removing the attachment or deleting the question changes later submissions, not an answer that already ran. See [Attach an image](../browser-media-attachment.md).
 
@@ -57,10 +59,14 @@ nbinlineai extension inside Jupyter Server
     +-- streamed text/events --> paired Markdown answer in JupyterLab
 ```
 
-The TypeScript frontend creates the controls, reads the notebook model, and updates the answer cell. The Python server extension builds the model context and manages requests and notebook-tool rounds. FastLLM adapts API requests; the ChatGPT runtime uses its account connection. The host chooses the notebook text and declared tools in each submitted request, then validates and executes returned tool groups. The runtime may make internal inference or recovery requests within one host round; those are outside the 64,000-character submitted-request estimate. Live variable inspection and ordinary function execution happen in the notebook's existing Python kernel, which is a separate process. Built-in live notebook tools use an authenticated request/reply interface between the server and the original notebook panel; they do not block the Python kernel while waiting for the browser.
+The TypeScript frontend creates the controls, reads the notebook model, and updates the answer cell. The Python server extension builds the model context and manages requests and notebook-tool rounds. FastLLM adapts API requests; the ChatGPT runtime uses its account connection. The host chooses the notebook text and declared tools in each submitted request, then validates and executes returned tool groups.
 
-The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. API model requests go through FastLLM; ChatGPT model requests use a private native runtime supplied by the installed Python dependency, with no separate student installation. Neither mode nests a notebook event loop. There is no new notebook cell type or cell magic: AI behavior is attached to Markdown cells through their metadata.
+The runtime may make internal inference or recovery requests within one host round; those are outside the 64,000-character submitted-request estimate. Live variable inspection and ordinary function execution happen in the notebook's existing Python kernel, which is a separate process. Built-in live notebook tools use an authenticated request/reply interface between the server and the original notebook panel; they do not block the Python kernel while waiting for the browser.
+
+The AI networking runs asynchronously in Jupyter Server and streams results back over HTTP. API model requests go through FastLLM; ChatGPT model requests use a private native runtime supplied by the installed Python dependency, with no separate student installation. Neither mode nests a notebook event loop. There is no new notebook cell type or cell magic. AI behavior is attached to Markdown cells through their metadata.
 
 For the request lifecycle, tool schemas, module map, and event-loop details, see [Architecture](../architecture.md).
 
-[Manual](../user-guide.md) · [Previous: Live values and tools](variables-and-tools.md) · [Next: Troubleshooting and limits](troubleshooting.md)
+- [Manual](../user-guide.md)
+- [Previous: Live values and tools](variables-and-tools.md)
+- [Next: Troubleshooting and limits](troubleshooting.md)

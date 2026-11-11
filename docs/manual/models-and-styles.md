@@ -4,7 +4,9 @@ title: Models, styles, and effort
 
 # Models, styles, and effort
 
-[Manual](../user-guide.md) · [Previous: Write and run AI questions](prompts.md) · [Next: Edit, rerun, and run notebooks](editing-and-running.md)
+- [Manual](../user-guide.md)
+- [Previous: Write and run AI questions](prompts.md)
+- [Next: Edit, rerun, and run notebooks](editing-and-running.md)
 
 ## Provider and model choices
 
@@ -75,11 +77,11 @@ Choose effort beside the model in the notebook defaults. **Model default** omits
 | Claude Opus 5.5 | Low, Medium, High, Extra high, Max | Medium |
 | Claude Haiku 4.5 / unknown custom model IDs | Model default only | Provider-selected |
 
-Effort controls how much work the model puts into the answer. Higher settings can use more tokens and take longer. **Style controls how the answer is presented**: you can use Compact with high effort, or Learning with low effort. nbinlineai displays the answer rather than internal thinking content.
+Effort controls how much work the model puts into the answer. Higher settings can use more tokens and take longer. **Style controls how the answer is presented**. You can use Compact with high effort, or Learning with low effort. nbinlineai displays the answer rather than internal thinking content.
 
 The mappings use OpenAI's `reasoning.effort` and Anthropic's `output_config.effort` with adaptive thinking where supported. Claude Haiku's older manual thinking budget is a different control and is not exposed here. See [OpenAI reasoning](https://developers.openai.com/api/docs/guides/reasoning) and [Claude effort](https://platform.claude.com/docs/en/build-with-claude/effort).
 
-These are instructions to the language model, not output filters. Learning mode guides tutoring behavior; it is not a technical guarantee that the model can never reveal a solution.
+The style settings are instructions to the language model, not output filters. Learning mode guides tutoring behavior; it is not a technical guarantee that the model can never reveal a solution.
 
 ## A Learning conversation
 
@@ -99,8 +101,10 @@ You:   I think the next item moves into the current index.
 Tutor: What index does the loop visit next, and which item might that miss?
 ```
 
-Each “You” line is a new AI Prompt cell, and each tutor reply is its paired answer. Turn off Keep answer, edit, and rerun an old prompt when you want to replace that exchange; create a new prompt when you want to continue the conversation.
+Each "You" line is a new AI Prompt cell, and each tutor reply is its paired answer. Turn off Keep answer, edit, and rerun an old prompt when you want to replace that exchange; create a new prompt when you want to continue the conversation.
 
 ![An illustrative Learning conversation continued through successive AI cells](../images/learning-dialog.png)
 
-[Manual](../user-guide.md) · [Previous: Write and run AI questions](prompts.md) · [Next: Edit, rerun, and run notebooks](editing-and-running.md)
+- [Manual](../user-guide.md)
+- [Previous: Write and run AI questions](prompts.md)
+- [Next: Edit, rerun, and run notebooks](editing-and-running.md)

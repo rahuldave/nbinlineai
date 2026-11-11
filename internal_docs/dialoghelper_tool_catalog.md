@@ -8,7 +8,7 @@
 
 ### What actually shipped (updated 2026-09-23)
 
-The table below preserves the original survey baseline. Versions 0.1.6–0.1.9 supplied ten independently implemented tools; **0.1.10 added `insert_code`**, for eleven at that point. Version 0.1.11 expanded this to 55 tools and added `tool_catalog` plus groups; the [current implementation matrix](fastcore_tool_candidates.md#0112-implementation-matrix) records the 0.1.12 reduction to 51.
+The table below preserves the original survey baseline. Versions 0.1.6 to 0.1.9 supplied ten independently implemented tools; **0.1.10 added `insert_code`**, for eleven at that point. Version 0.1.11 expanded this to 55 tools and added `tool_catalog` plus groups; the [current implementation matrix](fastcore_tool_candidates.md#0112-implementation-matrix) records the 0.1.12 reduction to 51.
 
 | Research capability | Shipped nbinlineai equivalent | Execution and scope |
 | --- | --- | --- |
@@ -22,9 +22,9 @@ The table below preserves the original survey baseline. Versions 0.1.6–0.1.9 s
 | Tool-list generation (`mk_toollist`) | `tools_markdown` | User helper returning declaration Markdown; explicit aliases/custom functions supported. |
 | Direct declaration-note insertion | `insert_tools` | User helper added in 0.1.7, execution-bound kernel/browser comm; no model/provider request. |
 
-0.1.7 scans declarations in all earlier ordinary Markdown/AI questions before context trimming, so a declaration note is reusable by later questions. The formatter and insertion helper are not model tools. The later sections' “draft” and “next drop” wording records the earlier decision process, not current release status. [Current contract](bundled_tools.md), [current developer handoff](developer_handoff.md).
+0.1.7 scans declarations in all earlier ordinary Markdown/AI questions before context trimming, so a declaration note is reusable by later questions. The formatter and insertion helper are not model tools. The later sections' "draft" and "next drop" wording records the earlier decision process, not current release status. [Current contract](bundled_tools.md), [current developer handoff](developer_handoff.md).
 
-Implemented in the 0.1.11 source after this survey: existing ordinary-cell editing/deleting, bounded subprocesses, AST search/rewrites, tracing, document outlines, source/API inspection, and project search. Still deferred are autonomous service-kernel cell execution control, images/screenshots, enforced pause/resume, new agent lifecycle, arbitrary Solveit DOM/events, bulk project context collectors, durable replay, and live operations in other notebooks. The original context-selection proposal shipped in 0.1.8; the following portability ratings remain historical engineering assessments.
+Implemented in the 0.1.11 source after this survey. Existing ordinary-cell editing/deleting, bounded subprocesses, AST search/rewrites, tracing, document outlines, source/API inspection, and project search. Still deferred are autonomous service-kernel cell execution control, images/screenshots, enforced pause/resume, new agent lifecycle, arbitrary Solveit DOM/events, bulk project context collectors, durable replay, and live operations in other notebooks. The original context-selection proposal shipped in 0.1.8; the following portability ratings remain historical engineering assessments.
 
 The portability ratings below are our engineering assessment of the inspected code, rather than claims made by upstream. Grouped rows cover related public functions; low-level transport helpers are listed separately from functions a student would give an AI.
 
@@ -106,13 +106,13 @@ Sources: [core](https://github.com/AnswerDotAI/dialoghelper/blob/118fff2cfba0243
 
 Many upstream notebook functions are `async def`; our current tool bridge supports synchronous functions and rejects awaitables. For pure file/network work a synchronous bounded implementation can fit the current kernel dispatcher. A future live-notebook bridge should add an explicit asynchronous dispatch design instead of calling `asyncio.run()` inside an already running Jupyter event loop.
 
-The harder execution case is reentrancy: a tool is executing in the same Python kernel to which a nested “run another cell and wait” request would be sent. Ordinary serialized kernel execution can leave the nested request waiting for the current tool to finish while the current tool waits for the nested request. Resolve that at the server/frontend queue boundary, not by casually introducing another event loop. Likewise, do not make a running tool synchronously await the destruction of its own kernel.
+The harder execution case is reentrancy. A tool is executing in the same Python kernel to which a nested "run another cell and wait" request would be sent. Ordinary serialized kernel execution can leave the nested request waiting for the current tool to finish while the current tool waits for the nested request. Resolve that at the server/frontend queue boundary, not by casually introducing another event loop. Likewise, do not make a running tool synchronously await the destruction of its own kernel.
 
 ## 6. Recommended choices for the next drop
 
 **My recommendation: a learning bundle with six tools plus the formatter.**
 
-1. The four locally drafted functions: `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, `read_notebook_cell`.
+1. The four locally drafted functions are `search_kernel_names`, `list_notebooks`, `find_notebook_cells`, and `read_notebook_cell`.
 2. A Python inspection tool for a named object's docstring/signature/source, inspired by the imported symbol-inspection tools.
 3. A bounded web documentation reader, adapting the reading part of `url2note`.
 4. `tools_markdown()` as a non-tool helper; also support explicitly chosen custom functions/names so the same workflow works with student-written tools.
@@ -121,10 +121,10 @@ The six tools let the model discover live names, consult other notebook material
 
 **Good optional additions:** a saved notebook outline, ordinary text-file reading/search, structural code search, and function tracing. Tracing is especially valuable for teaching but needs a Python-version/dependency decision. File-writing/shell tools are technically possible; include them only if that autonomous development workflow is wanted.
 
-**A separate later feature:** live cell reading/editing/insertion, code execution requests, and context toggles. These should share a deliberate frontend/server cell interface, based on our [cell/kernel model notes](cell_kernel_model_and_context_selection.md). None is implemented by this proposal.
+**A separate later feature.** Live cell reading/editing/insertion, code execution requests, and context toggles. The later cell tools should share a deliberate frontend/server cell interface, based on our [cell/kernel model notes](cell_kernel_model_and_context_selection.md). None is implemented by this proposal.
 
 ## 7. Current local draft and limits of verification
 
 The four initial tools, reference formatter, three new teaching notebooks, fixture, docs, and package inclusion rules are drafted. Fifteen focused Python tool/example/reference checks and one isolated real JupyterLab browser check passed; 26 existing frontend unit checks and a production frontend build also passed. The broad release gate and publication have not run for this draft. No API charges were incurred by these checks; the provider was simulated while functions ran in real Python kernels. The user's port 8888 server was not used.
 
-That was the draft state at the time of this comparison. The later approved implementation adds Python inspection and web reading, plus the frontend interface for live cell reads and note insertion. See [bundled tools and interface](bundled_tools.md) for the current design rather than treating the earlier scope recommendation as a release inventory.
+The catalog was in draft state at the time of this comparison. The later approved implementation adds Python inspection and web reading, plus the frontend interface for live cell reads and note insertion. See [bundled tools and interface](bundled_tools.md) for the current design rather than treating the earlier scope recommendation as a release inventory.

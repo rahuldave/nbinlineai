@@ -1,96 +1,59 @@
 # Developer handoff
 
-**0.1.18 published (2026-11-10):** PR #51 merged as `bbedb3430a03c8b688147195bfd716dd261f6b86`, matching independently reviewed `68bca85`. The pushed `v0.1.18` tag points to that source. A selected code cell now includes its displayed text outputs: direct results, stdout/print, stderr and errors, with text/data representations for rich displays. Source and output share selection and budget; live output updates preview revisions, and output-only code is eligible. Per-cell output is capped at 12,000 characters with explicit Unicode-safe truncation. Displayed output can be stale relative to edited source; image bytes retain the explicit attachment path. `insert_tool_catalog(group="starter")` inserts a group's editable Markdown declarations below the calling code cell through the existing bound comm. CI passed 718 Python, 102 frontend, 109 browser and all 14 platform/musl checks; both optional offline ChatGPT scenarios passed separately. Public downloads match the audited files, clean installed-wheel UI passed, and all 94 site resources were verified. The [release record](release_0_1_18_review.md) records exact hashes, review dispositions and public-index installation verification. Notebook-agent experiments are excluded.
+**0.1.18 published (2026-11-10).** PR #51 merged as `bbedb3430a03c8b688147195bfd716dd261f6b86`, matching independently reviewed `68bca85`. The pushed `v0.1.18` tag points to that source. A selected code cell now includes its displayed text outputs. Those outputs include direct results, stdout/print, stderr and errors, with text/data representations for rich displays. Source and output share selection and budget; live output updates preview revisions, and output-only code is eligible.
 
-**0.1.17 published (2026-10-28):** PR #48 merged as `dfdf86cfc5d2f94ccefddf76f24659c25674a2e1`, matching independently reviewed `bd4b9d6`. The pushed `v0.1.17` tag points to that source. Common response instructions in Configure AI → Defaults precede Compact, Full and Learning, defaulting to dollar-delimited math. Save custom text, save an empty field to disable it, or Reset to the current server default. Both transports and context previews use the same budgeted composition and confirmed setting. Existing style overrides and saved answers remain intact. Final PR CI passed 685 Python, 100 frontend and 107 browser tests; both opt-in deterministic ChatGPT scenarios passed separately, and all 14 platform/musl checks passed. Public PyPI downloads match the audited files; the [release record](release_0_1_17_review.md) contains hashes, review dispositions and installation/site verification. This main-based release excludes notebook-agent experiments.
+Per-cell output is capped at 12,000 characters with explicit Unicode-safe truncation. Displayed output can be stale relative to edited source; image bytes retain the explicit attachment path. `insert_tool_catalog(group="starter")` inserts a group's editable Markdown declarations below the calling code cell through the existing bound comm. CI passed 718 Python, 102 frontend, 109 browser and all 14 platform/musl checks; both optional offline ChatGPT scenarios passed separately.
 
-**2026-10-21 worked examples (released in 0.1.17):** All 187 gallery AI questions now have saved completed answers, including all five application tutorials. The 29 new responses were collected through the real ChatGPT connection in an isolated headless session; earlier answers remain unchanged. New media runs use disclosed synthetic canvas/silent-audio fixtures, not physical devices. The presenter’s alternate paste-ID route remains interactive. See the [run record](worked_examples_background_run.md) for provenance, limits, runner repairs and verification. This refresh and the Litera Reading documentation theme subsequently shipped in 0.1.17.
+Public downloads match the audited files, clean installed-wheel UI passed, and all 94 site resources were verified. The [release record](release_0_1_18_review.md) records exact hashes, review dispositions and public-index installation verification. Notebook-agent experiments are excluded.
 
-**0.1.16 published and verified (2026-10-13):** PR #44 merged as `62d227c5c6142cf87c8b12b39062412fdc280fe3`, with a tree identical to independently reviewed `73fddaaf`. The pushed annotated `v0.1.16` tag points to that merge. Both PyPI downloads match the audited hashes, and a fresh public-index Python 3.14 installation plus the published-wheel quickstart UI passed. All required PR checks passed: 662 Python, 99 frontend and 104 browser tests, with two opt-in subscription skips, and 14 platform/musl checks. The four P2s and a Linux `.weba` MIME issue are fixed. smalldocs 0.1.5 now builds documentation in CI; deployment `38431612159` passed, and the live site serves 54 pages including all 30 notebooks. The [release and review record](release_0_1_16_review.md) contains exact provenance, hashes and verification boundaries. The experimental branch is outside this release. Dated source-only entries below describe earlier checkpoints; new physical-device or paid-provider acceptance is not claimed.
+**0.1.17 published (2026-10-28).** PR #48 merged as `dfdf86cfc5d2f94ccefddf76f24659c25674a2e1`, matching independently reviewed `bd4b9d6`. The pushed `v0.1.17` tag points to that source. Common response instructions in Configure AI → Defaults precede Compact, Full and Learning, defaulting to dollar-delimited math. Save custom text, save an empty field to disable it, or Reset to the current server default.
 
-**2026-10-12 application examples (main source, PR #43 merged at `4828a79`):** Five new
-application notebooks join receipts, capture, recordings, ordinary Python and
-staged AI conversations into usable results. All 25 original notebooks were
-reviewed cell by cell and preserved. See the [application handoff](application_examples_handoff.md),
-[public audit](../docs/example-audit.md), and [application guide](../docs/tool-applications.md).
-New tutorials have no saved device/model runs. The presentation is HTML with
-separate assets and authored notes; bundled tools do not transcribe or mix video.
-PR #43 changed examples/docs only. These tutorials subsequently shipped in 0.1.16; six older media notebooks received the path repairs recorded above.
+Both transports and context previews use the same budgeted composition and confirmed setting. Existing style overrides and saved answers remain intact. Final PR CI passed 685 Python, 100 frontend and 107 browser tests; both opt-in deterministic ChatGPT scenarios passed separately, and all 14 platform/musl checks passed. Public PyPI downloads match the audited files; the [release record](release_0_1_17_review.md) contains hashes, review dispositions and installation/site verification.
 
-**2026-09-29 worked notebooks and guides (draft source):** The
-[acceptance record](worked_notebooks_acceptance.md) follows draft PR #35 from
-`main` `22b0a83`: ten canonical nonmedia notebooks currently contain genuine
-saved direct-call and AI-answer evidence. Seven other nonmedia notebooks,
-seven media notebooks, ordinary JupyterLab UI comparisons, native Run All
-readiness, and the final unfiltered
-saved-evidence gate remain open. The Quarto gallery renders saved notebooks
-without executing them. Read B's execution log when committed for exact live
-runs; do not treat a structural notebook mapping or a receipt request as a
-completed tool effect. This is documentation/source work in progress, not a
-package release.
+This main-based release excludes notebook-agent experiments.
 
-**2026-09-28 browser/media source status:** The approved
-[API spec](browser_media_tool_spec.md) is pinned to main
-`61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected
-[implementation prompt](browser_media_tool_task_prompt.md) at
-`e3fcf33b20ec10cd511129cd1672b98d307e4a5c` merged in PR #26.
-Quarto notebook-gallery source merged in PR #30 (`8ce8e2e`), the five-tool
-foundation in PR #29 (`90c5aee`), and capture plus live-output source in
-PR #31 (`11eae2b`). Playback and transformations merged in PR #32
-(`b38d684`), and image attachment merged in PR #33 (`d862d46`). All 45
-approved new public APIs are implemented on `main` as source; the combined
-review and CI gates passed.
-Read the implementation-specific [foundation](browser_media_foundation_handoff.md),
-[capture](browser_media_capture_handoff.md),
-[outputs](browser_media_outputs_handoff.md),
-[playback](browser_media_playback_handoff.md),
-[transformations](browser_media_transforms_handoff.md), and
-[attachment](browser_media_attachment_handoff.md) handoffs with their code
-commits. The [acceptance record](browser_media_acceptance.md) tracks the 96
-public tools, concrete notebook examples, final source verification and
-platform limits; PR/Gest evidence controls acceptance. This is source-only
-work. PyPI remains 0.1.15 with no package release. The normal `main` Quarto
-workflow published the updated documentation at `d862d46` (run `36512112089`);
-both render/check and publication jobs passed.
+**2026-10-21 worked examples (released in 0.1.17).** All 187 gallery AI questions now have saved completed answers, including all five application tutorials. The 29 new responses were collected through the real ChatGPT connection in an isolated headless session; earlier answers remain unchanged. New media runs use disclosed synthetic canvas/silent-audio fixtures, not physical devices. The presenter's alternate paste-ID route remains interactive.
 
-**2026-09-28 example notebook pages (mainline source, PR #30 merged):**
-`scripts/render_example_notebooks.py` renders each top-level public example
-notebook directly to HTML after the main Quarto site. The Quarto ipynb filter
-in `scripts/quarto_notebook_filter.py` derives page metadata and marks AI
-prompt/answer cells from their saved `metadata.nbinlineai` in memory.
-`docs/examples.md` keeps its walkthrough and notebook descriptions, with links
-to HTML pages. Each page links back to its source `.ipynb` for download. The
-site build checks page coverage, AI styling, local links, and anchors. Rendering
-explicitly disables cell execution. No intermediate `.ipynb`, package change,
-or PyPI release is part of this documentation change.
+See the [run record](worked_examples_background_run.md) for provenance, limits, runner repairs and verification. This refresh and the Litera Reading documentation theme subsequently shipped in 0.1.17.
 
-**2026-09-28 Quarto documentation site (mainline source):** The site source in
-`docs/` is a Quarto 1.8.26 website. `.github/workflows/docs-site.yml` renders and
-checks every PR, then deploys the output on `main` pushes through GitHub Pages
-Actions. `docs/.nojekyll` is copied into the output. The rendered tools index
-initially contained 51 HTML table rows; `scripts/check_docs_site.py` now derives
-exact public tool identities from the maintained coverage map and checks pages,
-local links, anchors, and the table regression. `docs/development.md` records
-the local commands. This is documentation infrastructure only; PyPI remains
-0.1.15. The earlier Jekyll branch-source setup was removed because it exposed
-the tool tables as literal Markdown on the live site.
+**0.1.16 published and verified (2026-10-13).** PR #44 merged as `62d227c5c6142cf87c8b12b39062412fdc280fe3`, with a tree identical to independently reviewed `73fddaaf`. The pushed annotated `v0.1.16` tag points to that merge. Both PyPI downloads match the audited hashes, and a fresh public-index Python 3.14 installation plus the published-wheel quickstart UI passed. All required PR checks passed. The checks included 662 Python, 99 frontend and 104 browser tests, with two opt-in subscription skips, and 14 platform/musl checks.
 
-**2026-09-25 JupyterLite exploration (preserved 2026-09-28):** See the
+The four P2s and a Linux `.weba` MIME issue are fixed. smalldocs 0.1.5 now builds documentation in CI; deployment `38431612159` passed, and the live site serves 54 pages including all 30 notebooks. The [release and review record](release_0_1_16_review.md) contains exact provenance, hashes and verification boundaries. The experimental branch is outside this release.
+
+Dated source-only entries below describe earlier checkpoints; new physical-device or paid-provider acceptance is not claimed.
+
+**2026-10-12 application examples (main source, PR #43 merged at `4828a79`).** Five new application notebooks join receipts, capture, recordings, ordinary Python and staged AI conversations into usable results. All 25 original notebooks were reviewed cell by cell and preserved. See the [application handoff](application_examples_handoff.md), [public audit](../docs/example-audit.md), and [application guide](../docs/tool-applications.md). New tutorials have no saved device/model runs.
+
+The presentation is HTML with separate assets and authored notes; bundled tools do not transcribe or mix video. PR #43 changed examples/docs only. These tutorials subsequently shipped in 0.1.16; six older media notebooks received the path repairs recorded above.
+
+**2026-09-29 worked notebooks and guides (draft source).** The [acceptance record](worked_notebooks_acceptance.md) follows draft PR #35 from `main` `22b0a83`. Ten canonical nonmedia notebooks currently contain genuine saved direct-call and AI-answer evidence. Seven other nonmedia notebooks, seven media notebooks, ordinary JupyterLab UI comparisons, native Run All readiness, and the final unfiltered saved-evidence gate remain open. The Quarto gallery renders saved notebooks without executing them.
+
+Read B's execution log when committed for exact live runs; do not treat a structural notebook mapping or a receipt request as a completed tool effect. At this checkpoint, documentation/source work remained in progress; no package release occurred.
+
+**2026-09-28 browser/media source status.** The approved [API spec](browser_media_tool_spec.md) is pinned to main `61fa3fe517999d8f88ff328a99fc86a34dfb470b`; the selected [implementation prompt](browser_media_tool_task_prompt.md) at `e3fcf33b20ec10cd511129cd1672b98d307e4a5c` merged in PR #26. Quarto notebook-gallery source merged in PR #30 (`8ce8e2e`), the five-tool foundation in PR #29 (`90c5aee`), and capture plus live-output source in PR #31 (`11eae2b`). Playback and transformations merged in PR #32 (`b38d684`), and image attachment merged in PR #33 (`d862d46`). All 45 approved new public APIs are implemented on `main` as source; the combined review and CI gates passed.
+
+Read the implementation-specific [foundation](browser_media_foundation_handoff.md), [capture](browser_media_capture_handoff.md), [outputs](browser_media_outputs_handoff.md), [playback](browser_media_playback_handoff.md), [transformations](browser_media_transforms_handoff.md), and [attachment](browser_media_attachment_handoff.md) handoffs with their code commits. The [acceptance record](browser_media_acceptance.md) tracks the 96 public tools, concrete notebook examples, final source verification and platform limits; PR/Gest evidence controls acceptance. The work at this checkpoint covered source only. PyPI remains 0.1.15 with no package release.
+
+The normal `main` Quarto workflow published the updated documentation at `d862d46` (run `36512112089`); both render/check and publication jobs passed.
+
+**2026-09-28 example notebook pages (mainline source, PR #30 merged).** `scripts/render_example_notebooks.py` renders each top-level public example notebook directly to HTML after the main Quarto site. The Quarto ipynb filter in `scripts/quarto_notebook_filter.py` derives page metadata and marks AI prompt/answer cells from their saved `metadata.nbinlineai` in memory. `docs/examples.md` keeps its walkthrough and notebook descriptions, with links to HTML pages. Each page links back to its source `.ipynb` for download.
+
+The site build checks page coverage, AI styling, local links, and anchors. Rendering explicitly disables cell execution. No intermediate `.ipynb`, package change, or PyPI release is part of this documentation change.
+
+**2026-09-28 Quarto documentation site (mainline source).** The site source in `docs/` is a Quarto 1.8.26 website. `.github/workflows/docs-site.yml` renders and checks every PR, then deploys the output on `main` pushes through GitHub Pages Actions. `docs/.nojekyll` is copied into the output. The rendered tools index initially contained 51 HTML table rows; `scripts/check_docs_site.py` now derives exact public tool identities from the maintained coverage map and checks pages, local links, anchors, and the table regression.
+
+`docs/development.md` records the local commands. The work at this checkpoint covered documentation infrastructure; PyPI remained 0.1.15. The earlier Jekyll branch-source setup was removed because it exposed the tool tables as literal Markdown on the live site.
+
+**2026-09-25 JupyterLite exploration (preserved 2026-09-28).** See the
 [JupyterLite feasibility study](jupyterlite_feasibility.md). The published 0.1.15
 frontend loaded in JupyterLite 0.8.4 Notebook and Lab; a same-origin embedded
 Notebook executed Python 3.14.2 through Pyodide. AI remains unavailable because
-the static site has no nbinlineai server routes. This is research on `main`,
-not a runtime port or release. The study recommends a Notebook-first browser
+the static site has no nbinlineai server routes. The `main` study records research, not a runtime port or release. The study recommends a Notebook-first browser
 adapter experiment and separates browser execution from model hosting.
 
-**2026-09-28 documentation policy:** Approved pre-work research, specs and task
-prompts are maintained on `main`. Implementation-specific internal handoffs
-follow their code branch; the experiment's handoff is not a statement of
-mainline or PyPI behavior. Release records accompany their release PR to
-`main`. See [the workflow](workflow.md#documentation-by-branch) for revision
-pinning, draft handling and unavailable or behind primary checkouts. Public
-docs and examples follow their implementation branch. Record each document's
-branch, commit and delivery status.
+**2026-09-28 documentation policy.** Approved pre-work research, specs and task prompts are maintained on `main`. Implementation-specific internal handoffs follow their code branch; the experiment's handoff is not a statement of mainline or PyPI behavior. Release records accompany their release PR to `main`. See [the workflow](workflow.md#documentation-by-branch) for revision pinning, draft handling and unavailable or behind primary checkouts.
+
+Public docs and examples follow their implementation branch. Record each document's branch, commit and delivery status.
 
 The [execution research](notebook_execution_handoffs.md) and
 [one-kernel RLM/Python 3.14 research](one_kernel_rlm_python314.md) were preserved
@@ -102,43 +65,19 @@ experimental branch until that code is promoted. This policy adds no notebook
 behavior on `main`; inspect the chosen implementation checkout for actual
 features. Version/PyPI remain 0.1.15.
 
-**0.1.15 published (2026-09-25):** The two-tab Configure AI source merged by
-PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate
-release used `/Users/rahul/Projects/nbinlineai-release-0.1.15` on
-`codex/release-0-1-15-record` for the publication record. That temporary
-worktree was retired after PR #14 merged; the primary checkout remains on
-`main`. Python, npm, and the uv lockfile say 0.1.15. README and the live
-site describe the tabs; GitHub Pages deployment `36193258731` passed. The
-published annotated `v0.1.15` tag peels to `9a435c54`. Both PyPI downloads
-match the checked local hashes, and a fresh public Python 3.14 install passed
-dependency consistency and both extension discoveries. PR #13's rerun passed
-all 74 default browser checks and 272 Python tests; the independent reviewer
-found no blocking issues. Full evidence is in [the release record](releasing.md).
+**0.1.15 published (2026-09-25).** The two-tab Configure AI source merged by PR #12 (`a5066dfd`), and release PR #13 merged as `9a435c54`. The separate release used `/Users/rahul/Projects/nbinlineai-release-0.1.15` on `codex/release-0-1-15-record` for the publication record. That temporary worktree was retired after PR #14 merged; the primary checkout remains on `main`. Python, npm, and the uv lockfile say 0.1.15.
 
-**2026-09-25 Configure AI tabs (released in 0.1.15):** The Configure
-AI dialog now opens on **Connections & models**, with the connection picker,
-ChatGPT setup, and OpenAI/Anthropic key controls together. **Defaults** holds
-the new-notebook connection preference, response style, and style-instruction
-editors. Switching tabs or picking a connection only changes what setup is
-shown; existing notebook choices still use its **AI defaults** row or ChatGPT's
-**Use for this notebook**. The tab strip supports mouse and arrow/Home/End keys,
-and its temporary keyboard listener is removed when the dialog closes. The
-topic worktree was `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch
-`codex/oyrmsltk-configure-tabs`, based on main `fc229d323` after rebase (the
-original starting base was `2018551c`); the primary checkout was fast-forwarded
-to the reviewed merge afterward, and the temporary worktree was retired after
-the release. The new browser tab test failed on the old dialog
-and passed after implementation. The focused isolated browser suite passed
-18/18; after an independent review suggestion, the panel-focus change passed
-its isolated browser rerun. The Python suite passed 266/266, frontend unit
-tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The
-simulated screenshots now show both tabs. At the feature-PR stage, README and
-configuration-related public pages distinguished this Git-source layout from
-PyPI 0.1.14; release PR #13 updated them for 0.1.15. Independent review found
-no blockers and PR #12's source and runtime compatibility CI passed; it merged
-into main as `a5066dfd`. The user then requested the 0.1.15 release.
+README and the live site describe the tabs; GitHub Pages deployment `36193258731` passed. The published annotated `v0.1.15` tag peels to `9a435c54`. Both PyPI downloads match the checked local hashes, and a fresh public Python 3.14 install passed dependency consistency and both extension discoveries. PR #13's rerun passed all 74 default browser checks and 272 Python tests; the independent reviewer found no blocking issues.
 
-**2026-09-25 mainline workflow adoption:** The user selected `main` for the
+Full evidence is in [the release record](releasing.md).
+
+**2026-09-25 Configure AI tabs (released in 0.1.15).** The Configure AI dialog now opens on **Connections & models**, with the connection picker, ChatGPT setup, and OpenAI/Anthropic key controls together. **Defaults** holds the new-notebook connection preference, response style, and style-instruction editors. Switching tabs or picking a connection only changes what setup is shown; existing notebook choices still use its **AI defaults** row or ChatGPT's **Use for this notebook**. The tab strip supports mouse and arrow/Home/End keys, and its temporary keyboard listener is removed when the dialog closes. The topic worktree was `/Users/rahul/Projects/nbinlineai-configure-tabs`, branch `codex/oyrmsltk-configure-tabs`, based on main `fc229d323` after rebase (the original starting base was `2018551c`); the primary checkout was fast-forwarded to the reviewed merge afterward, and the temporary worktree was retired after the release.
+
+The new browser tab test failed on the old dialog and passed after implementation. The focused isolated browser suite passed 18/18; after an independent review suggestion, the panel-focus change passed its isolated browser rerun. The Python suite passed 266/266, frontend unit tests 58/58, TypeScript and Ruff passed, and `uv lock --check` was clean. The simulated screenshots now show both tabs.
+
+At the feature-PR stage, README and configuration-related public pages distinguished this Git-source layout from PyPI 0.1.14; release PR #13 updated them for 0.1.15. Independent review found no blockers and PR #12's source and runtime compatibility CI passed; it merged into main as `a5066dfd`. The user then requested the 0.1.15 release.
+
+**2026-09-25 mainline workflow adoption.** The user selected `main` for the
 primary checkout, with stable and experimental changes developed in topic
 worktrees based on their respective integration branches. This focused adoption
 brings the reviewed workflow and CI from experimental PR #3 to mainline without
@@ -148,186 +87,75 @@ for review, skill provenance, branch protection rollout and cleanup rules.
 Version 0.1.14 and PyPI remain unchanged; the next stable release is a separate
 task.
 
-Browser specs import `tests/support/e2e-fixtures.ts`. It removes only sessions
-created by that test after browser teardown, on the owned single-worker server.
-Wait for the browser's Idle status before executing code; REST idle alone is
-insufficient. Native `language_info` must settle before saving a no-dirty
-baseline, and saved-content assertions should await the matching Contents PUT.
-**2026-09-25 preview race fix (source, unreleased):** Post-merge source run
-`36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
-The failed question inherits a tool declaration even though its text is
-excluded, so preview performs silent kernel inspection. The dispatcher's IOPub
-client can receive idle before the server manager receives the same status.
-A proposed one-turn yield was rejected in independent review because it does
-not establish delivery ordering.
+Browser specs import `tests/support/e2e-fixtures.ts`. It removes only sessions created by that test after browser teardown, on the owned single-worker server. Wait for the browser's Idle status before executing code; REST idle alone is insufficient. Native `language_info` must settle before saving a no-dirty baseline, and saved-content assertions should await the matching Contents PUT. **2026-09-25 preview race fix (source, unreleased).** Post-merge source run `36152817127` failed one context-preview scenario (72 passed, two opt-in skips).
 
-Preview inspection now observes manager activity before sending its request,
-waits at most 0.5 seconds for the manager's busy-to-idle transition, and rejects
-observed foreign execution, including queued activity before returning. The
-handler retains its final kernel-identity and idle checks. Timeout fails closed;
-observer and receive-task cleanup cover success, errors and cancellation.
-This handles delayed inspection status; it does not provide an atomic snapshot
-against another client's execution after the final check or still-undelivered
-activity. Tests cover delayed manager idle, foreign activity, timeout,
-cancellation and the real inherited-tool context path. All 266 Python tests,
-Ruff and the focused real-browser scenario passed locally. Full Linux checks
-are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888
-was untouched. Version 0.1.14 and PyPI are unchanged.
+The failed question inherits a tool declaration even though its text is excluded, so preview performs silent kernel inspection. The dispatcher's IOPub client can receive idle before the server manager receives the same status. A proposed one-turn yield was rejected in independent review because it does not establish delivery ordering.
 
-**0.1.14 published (2026-09-24):** Configure AI now exposes the saved
-`defaultBackend` preference as **Default connection for new notebooks**. The
-connection picker in the dialog remains setup/status; the notebook's **AI
-defaults** row or ChatGPT's **Use for this notebook** sets an existing notebook's
-default. An individual question's provider selector now offers **Notebook
-default** and displays that provider. Choosing only a cell model no longer
-copies the effective provider into the cell's metadata. Existing explicit
-provider overrides remain pinned by design; **Use notebook defaults** or the
-cell provider's **Notebook default** option clears them. This is necessary for
-notebooks whose earlier model selection accidentally persisted Anthropic.
-Empty AI answer cells now hide JupyterLab's rendered Markdown instruction until
-the first response text arrives. The answer source remains empty while waiting;
-editing an answer still uses the native Markdown editor.
+Preview inspection now observes manager activity before sending its request, waits at most 0.5 seconds for the manager's busy-to-idle transition, and rejects observed foreign execution, including queued activity before returning. The handler retains its final kernel-identity and idle checks. Timeout fails closed; observer and receive-task cleanup cover success, errors and cancellation. This handles delayed inspection status; it does not provide an atomic snapshot against another client's execution after the final check or still-undelivered activity.
 
-**Documentation audit (2026-09-24):** All README/public documentation pages were
-reviewed against the current frontend controls. Setup, prompts, models/styles,
-saving/privacy, troubleshooting, FAQ, site home, architecture, and README now
-distinguish the user preference in Configure AI from an existing notebook's
-**AI defaults** row (immediately below its toolbar) and explicit cell overrides.
-The public guide and README describe version 0.1.14. The simulated ChatGPT Configure AI screenshot was refreshed with
-the new default selector; the cell-override screenshot was refreshed and a new
-inherited-provider example was added. The isolated screenshot helper captured
-thirteen core images, and the subscription screenshot browser test passed 1/1;
-both owned servers stopped. README still uses two images. Local references in
-all **38** README/public/internal Markdown files resolve, including the new
-image. Historical internal design/research remains labeled as such; the handoff
-continues to describe source behavior.
+Tests cover delayed manager idle, foreign activity, timeout, cancellation and the real inherited-tool context path. All 266 Python tests, Ruff and the focused real-browser scenario passed locally. Full Linux checks are recorded on PRs #5 and #6. The isolated server on 8897 stopped; port 8888 was untouched.
 
-Verification: all **260 Python** and **58 frontend unit tests** passed, as did
-Ruff, TypeScript compilation, `uv lock --check`, and `git diff --check`. The
-production extension was rebuilt and relinked. The full isolated JupyterLab
-browser run passed **72** default tests, with one old inherited-provider
-expectation and two opt-in skips. The corrected expectation passed its focused
-rerun: **all 73 default scenarios passed across the two runs**. The new checks
-cover a saved default for new notebooks, a model-only cell choice, a ChatGPT
-notebook choice with an explicit Anthropic cell override, and the empty answer
-waiting for its first text. The screenshot capture and opt-in simulated ChatGPT
-setup capture each passed. Browser servers stopped; no paid provider was called.
+Version 0.1.14 and PyPI are unchanged.
 
-The version is 0.1.14 in Python, npm and the lockfile. Both built archives pass
-strict Twine and archive checks: 183 source files and 92 wheel entries. All 182
-checkout-backed source files and 36 wheel public docs match local bytes; the
-bounded credential scan found no high-confidence patterns. A new Python 3.14
-environment installed 113 compatible packages; the checked wheel passed both
-extension discovery checks and the isolated packaged quickstart UI. Both files
-were uploaded to PyPI and public downloads matched the local hashes; a separate
-no-cache install from the public index passed package/dependency and extension
-discovery checks. Compatibility CI passed 14/14 jobs. The source Pages deployment
-succeeded; all 15 public pages returned HTTP 200 and all 18 public images matched
-local SHA-256 hashes. The user JupyterLab on port 8888 was not touched.
+**0.1.14 published (2026-09-24).** Configure AI now exposes the saved `defaultBackend` preference as **Default connection for new notebooks**. The connection picker in the dialog remains setup/status; the notebook's **AI defaults** row or ChatGPT's **Use for this notebook** sets an existing notebook's default. An individual question's provider selector now offers **Notebook default** and displays that provider. Choosing only a cell model no longer copies the effective provider into the cell's metadata.
 
-**2026-09-24 subscription release:** The user revised the
-strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md):
-Codex internal inference/recovery requests are permitted after each bounded
-host submission. The **64,000-character estimate applies to each host-assembled
-payload**, including exact serialized protocol/schema cost and completed
-notebook-tool groups before optional context. `maxToolSteps` counts only validated
-notebook-tool plan groups that nbinlineai executes. Effects are never replayed.
-The pinned sanitized model catalog and private runtime environment suppress
-native tools/ambient instructions in deterministic probes. An unexpected native
-call may still trigger internal recovery; this is allowed under the revised
-budget contract, but native tool execution remains disabled and its output is
-never treated as a notebook-tool plan.
+Existing explicit provider overrides remain pinned by design; **Use notebook defaults** or the cell provider's **Notebook default** option clears them. Clearing the override matters for notebooks whose earlier model selection accidentally persisted Anthropic. Empty AI answer cells now hide JupyterLab's rendered Markdown instruction until the first response text arrives. The answer source remains empty while waiting; editing an answer still uses the native Markdown editor.
 
-The checkout now has an explicit backend registry, a ChatGPT subscription route
-using account allowance with no API fallback, authenticated single-user account/login/cancel/
-disconnect/usage/file-access routes, public account/model discovery, an owned
-App Server manager with isolated ephemeral round children, exact serialized
-round-content accounting plus a bounded transport reserve and actual-envelope
-preflight, and host-validated notebook-tool plans.
-Jupyter Server's awaited extension shutdown hook closes only owned children.
-On Windows, Jupyter Server selects a Tornado-compatible Selector loop, so the
-subscription manager owns a private Proactor worker thread for pipe-backed
-App Server children; it leaves Jupyter's loop policy untouched and drains
-pending worker tasks/default-executor work before thread shutdown. The
-credential-free platform probe applies Jupyter's policy, and synthetic
-Selector-to-worker cancellation/close tests cover the cleanup boundary.
-The server resolves notebook path from the authenticated session and freezes
-its local project root; path/focus/kernel changes are checked during runs.
-The notebook folder is **inert, budgeted planning context**. Runtime cwd and
-`CODEX_HOME` are private because a project cwd could load `.codex/config.toml`,
-hooks or MCP. Native direct file operations are disabled. The UI reports
-**“ChatGPT file access: Notebook tools only”**; stored notebook/project scope
-preference has no active permission effect. Python kernel tools retain their
-actual cwd and OS-user permissions. Existing API modes have no subscription
-fallback. Version **0.1.13** is published on PyPI: both public distribution
-downloads match the checked local artifacts. A fresh install from the public
-index and a separate checked-wheel installation passed. Packaged source
-checkpoint `9be3b05` and the unpackaged clean-wheel helper fix `e389376`
-have been pushed to `main`. The annotated `v0.1.13` tag was pushed and verified to peel to checked
-source commit `e3893761988e5f023e279338bcee3a05202d21c9`. GitHub Pages
-deployment `36033920623` succeeded at that commit; seven public documentation
-pages and the Configure AI image hash were verified.
+**Documentation audit (2026-09-24).** All README/public documentation pages were reviewed against the current frontend controls. Setup, prompts, models/styles, saving/privacy, troubleshooting, FAQ, site home, architecture, and README now distinguish the user preference in Configure AI from an existing notebook's **AI defaults** row (immediately below its toolbar) and explicit cell overrides. The public guide and README describe version 0.1.14. The simulated ChatGPT Configure AI screenshot was refreshed with the new default selector; the cell-override screenshot was refreshed and a new inherited-provider example was added.
 
-**Published documentation follow-up (2026-09-24):** The public guide is now organized
-as eight chapters under [docs/manual](../docs/manual/), with
-[user-guide.md](../docs/user-guide.md) as a short index and redirects for old
-fragments. The homepage links to every chapter; the navigation highlights the
-Manual. The split preserves the guide's 164 content blocks and 13 screenshots.
-PyPI **0.1.13** and application behavior are unchanged; its immutable archives
-still contain the earlier single-page guide. Pages deployment `36037365193`
-succeeded at `208f31a`. The live crawl checked 15 pages, 232 links and 16 images
-without failures. Browser review confirmed the short index and context chapter,
-including old fragment redirects on initial load and in an already-open tab.
-The archive checker accepts historical single-page archives and requires all
-eight chapters with their images when the split manual is packaged.
+The isolated screenshot helper captured thirteen core images, and the subscription screenshot browser test passed 1/1; both owned servers stopped. README still uses two images. Local references in all **38** README/public/internal Markdown files resolve, including the new image. Historical internal design/research remains labeled as such; the handoff continues to describe source behavior.
 
-The latest full Python suite passed **260 tests** in 56.74 seconds, with Ruff
-clean. The frontend passed **57 unit tests** and TypeScript type checking; its
-production bundle was built and relinked. Final main/tag code CI run `36033921756` passed
-**14/14 jobs** at checked source commit `e389376`, including Windows worker lifecycle
-coverage. The isolated default browser run passed 66 scenarios, had three
-obsolete dialog-expectation failures, and skipped two opt-in scenarios. The
-corrected focused default rerun passed 4/4, and the opt-in real-server,
-real-kernel workflow with a deterministic subscription runtime passed 2/2:
-**71 distinct scenarios passed across runs**, not in one uninterrupted run.
-The later static file-access DOM correction passed its source unit check,
-final build/relink, focused setup browser check **1/1**, and screenshot capture
-**1/1**; the image was visually reviewed. The separate
-live ChatGPT acceptance harness **passed** after device-code sign-in in Safari:
-three bounded subscription prompt requests checked one live model-planned
-kernel-tool group and exactly one effect, an unsaved live-cell read, Keep without
-replay, and cancellation. Paid API transport was disabled, environment API keys
-were stripped, and no API fallback occurred. Authentication lived only in the
-harness's temporary private store; this does not connect a user's ordinary
-JupyterLab installation. Earlier 245/55/11 and 137-focused counts are superseded
-by these broader checks, not additional release evidence. Strict Twine and
-release-artifact checks passed. The isolated clean wheel on Python 3.14 passed
-both extension discovery entries and packaged quickstart UI checks. A fresh
-Python 3.14 public-index install passed dependency consistency and the same
-no-auth extension/runtime checks without global Node or Codex.
+Verification: all **260 Python** and **58 frontend unit tests** passed, as did Ruff, TypeScript compilation, `uv lock --check`, and `git diff --check`. The production extension was rebuilt and relinked. The full isolated JupyterLab browser run passed **72** default tests, with one old inherited-provider expectation and two opt-in skips. The corrected expectation passed its focused rerun. **All 73 default scenarios passed across the two runs**.
 
-Prior release reviewed **2026-09-23**: **0.1.12**, source commit `68ef13a364565c82ae7d324ecd952478d372f23a`, tag `v0.1.12`; source and tag are pushed. That release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages. Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
+The new checks cover a saved default for new notebooks, a model-only cell choice, a ChatGPT notebook choice with an explicit Anthropic cell override, and the empty answer waiting for its first text. The screenshot capture and opt-in simulated ChatGPT setup capture each passed. Browser servers stopped; no paid provider was called.
 
-The user's course environment and JupyterLab on 8888 must remain untouched. The 0.1.11 investigation reproduced Python 3.14 native builds for rgapi/exhash; the new dependency graph avoids those builds. The actual 0.1.10-to-0.1.12 Extension Manager upgrade passed in 3.803 seconds, but browser-open shutdown probes later exposed a surviving idle AnyIO worker while the main thread waited in threading._shutdown. Its originating component is not yet established; do not claim a JupyterLab deadlock was fixed. A short readonly-manager check passed, but a matched 45-second browser-open test reproduced the same thread wait in readonly mode; do not recommend it as a shutdown fix. A core-only control exited normally, while disabling only MCP in the fuller setup still reproduced the wait; the remaining extension/dependency interaction is unidentified. Weekly wheel monitoring is already active as the thread heartbeat `check-python-3-14-native-wheels` (Mondays 09:00 America/New_York); do not duplicate it.
+The version is 0.1.14 in Python, npm and the lockfile. Both built archives pass strict Twine and archive checks. They contain 183 source files and 92 wheel entries. All 182 checkout-backed source files and 36 wheel public docs match local bytes; the bounded credential scan found no high-confidence patterns. A new Python 3.14 environment installed 113 compatible packages; the checked wheel passed both extension discovery checks and the isolated packaged quickstart UI.
+
+Both files were uploaded to PyPI and public downloads matched the local hashes; a separate no-cache install from the public index passed package/dependency and extension discovery checks. Compatibility CI passed 14/14 jobs. The source Pages deployment succeeded; all 15 public pages returned HTTP 200 and all 18 public images matched local SHA-256 hashes. The user JupyterLab on port 8888 was not touched.
+
+**2026-09-24 subscription release.** The user revised the strict gate recorded in [the runtime investigation](chatgpt_subscription_gate.md). Codex internal inference/recovery requests are permitted after each bounded host submission. The **64,000-character estimate applies to each host-assembled payload**, including exact serialized protocol/schema cost and completed notebook-tool groups before optional context. `maxToolSteps` counts only validated notebook-tool plan groups that nbinlineai executes. Effects are never replayed.
+
+The pinned sanitized model catalog and private runtime environment suppress native tools/ambient instructions in deterministic probes. An unexpected native call may still trigger internal recovery; this is allowed under the revised budget contract, but native tool execution remains disabled and its output is never treated as a notebook-tool plan.
+
+The checkout now has an explicit backend registry and a ChatGPT subscription route using account allowance with no API fallback. It has authenticated single-user account/login/cancel/disconnect/usage/file-access routes and public account/model discovery. An owned App Server manager runs isolated ephemeral round children. The host validates notebook-tool plans, accounts for exact serialized round content with a bounded transport reserve, and preflights the actual envelope.
+
+Jupyter Server's awaited extension shutdown hook closes only owned children. On Windows, Jupyter Server selects a Tornado-compatible Selector loop, so the subscription manager owns a private Proactor worker thread for pipe-backed App Server children; it leaves Jupyter's loop policy untouched and drains pending worker tasks/default-executor work before thread shutdown. The credential-free platform probe applies Jupyter's policy, and synthetic Selector-to-worker cancellation/close tests cover the cleanup boundary.
+
+The server resolves notebook path from the authenticated session and freezes its local project root; path/focus/kernel changes are checked during runs. The notebook folder is **inert, budgeted planning context**. Runtime cwd and `CODEX_HOME` are private because a project cwd could load `.codex/config.toml`, hooks or MCP. Native direct file operations are disabled.
+
+The UI reports **"ChatGPT file access: Notebook tools only"**; stored notebook/project scope preference has no active permission effect. Python kernel tools retain their actual cwd and OS-user permissions. Existing API modes have no subscription fallback. Version **0.1.13** is published on PyPI. Both public distribution downloads match the checked local artifacts.
+
+A fresh install from the public index and a separate checked-wheel installation passed. Packaged source checkpoint `9be3b05` and the unpackaged clean-wheel helper fix `e389376` have been pushed to `main`. The annotated `v0.1.13` tag was pushed and verified to peel to checked source commit `e3893761988e5f023e279338bcee3a05202d21c9`. GitHub Pages deployment `36033920623` succeeded at that commit; seven public documentation pages and the Configure AI image hash were verified.
+
+**Published documentation follow-up (2026-09-24).** The public guide is now organized as eight chapters under [docs/manual](../docs/manual/), with [user-guide.md](../docs/user-guide.md) as a short index and redirects for old fragments. The homepage links to every chapter; the navigation highlights the Manual. The split preserves the guide's 164 content blocks and 13 screenshots. PyPI **0.1.13** and application behavior are unchanged; its immutable archives still contain the earlier single-page guide.
+
+Pages deployment `36037365193` succeeded at `208f31a`. The live crawl checked 15 pages, 232 links and 16 images without failures. Browser review confirmed the short index and context chapter, including old fragment redirects on initial load and in an already-open tab. The archive checker accepts historical single-page archives and requires all eight chapters with their images when the split manual is packaged.
+
+The latest full Python suite passed **260 tests** in 56.74 seconds, with Ruff clean. The frontend passed **57 unit tests** and TypeScript type checking; its production bundle was built and relinked. Final main/tag code CI run `36033921756` passed **14/14 jobs** at checked source commit `e389376`, including Windows worker lifecycle coverage. The isolated default browser run passed 66 scenarios, had three obsolete dialog-expectation failures, and skipped two opt-in scenarios.
+
+The corrected focused default rerun passed 4/4, and the opt-in real-server, real-kernel workflow with a deterministic subscription runtime passed 2/2. **71 distinct scenarios passed across runs**, not in one uninterrupted run. The later static file-access DOM correction passed its source unit check, final build/relink, focused setup browser check **1/1**, and screenshot capture **1/1**; the image was visually reviewed. The separate live ChatGPT acceptance harness **passed** after device-code sign-in in Safari. Three bounded subscription prompt requests checked one live model-planned kernel-tool group and exactly one effect, an unsaved live-cell read, Keep without replay, and cancellation. Paid API transport was disabled, environment API keys were stripped, and no API fallback occurred.
+
+Authentication lived only in the harness's temporary private store; this does not connect a user's ordinary JupyterLab installation. Earlier 245/55/11 and 137-focused counts are superseded by these broader checks, not additional release evidence. Strict Twine and release-artifact checks passed. The isolated clean wheel on Python 3.14 passed both extension discovery entries and packaged quickstart UI checks.
+
+A fresh Python 3.14 public-index install passed dependency consistency and the same no-auth extension/runtime checks without global Node or Codex.
+
+The prior release reviewed on **2026-09-23** was **0.1.12**, with source commit `68ef13a364565c82ae7d324ecd952478d372f23a` and tag `v0.1.12`; source and tag are pushed. That release retains **51 opt-in tools in eight groups**, removing `ast_search`, `ast_rewrite`, `file_ast_replace`, and `python_symbols`. `search_files` and `search_notebooks` now use a deadline-bounded separate Python process and `pathspec`; `document_outline` and `read_document_section` use `markdown-it-py` and standard-library AST for Markdown/Python with SHA-256-bound section tokens. Mandatory `rgapi`, `exhash`, and `remold` dependencies are removed, including their now-unused transitive AST packages.
+
+Fastcore documentation, checked text edits, fifteen browser tools, live notebook behavior, and execution tools remain. Minimum Python remains **3.12**. Final artifacts, public PyPI downloads, installation from PyPI and live GitHub Pages are verified. See [releasing](releasing.md) for tests, hashes and the Extension Manager upgrade check, and [the tool inventory](fastcore_tool_candidates.md).
+
+The user's course environment and JupyterLab on 8888 must remain untouched. The 0.1.11 investigation reproduced Python 3.14 native builds for rgapi/exhash; the new dependency graph avoids those builds. The actual 0.1.10-to-0.1.12 Extension Manager upgrade passed in 3.803 seconds, but browser-open shutdown probes later exposed a surviving idle AnyIO worker while the main thread waited in threading._shutdown. Its originating component is not yet established; do not claim a JupyterLab deadlock was fixed.
+
+A short readonly-manager check passed, but a matched 45-second browser-open test reproduced the same thread wait in readonly mode; do not recommend it as a shutdown fix. A core-only control exited normally, while disabling only MCP in the fuller setup still reproduced the wait; the remaining extension/dependency interaction is unidentified. Weekly wheel monitoring is already active as the thread heartbeat `check-python-3-14-native-wheels` (Mondays 09:00 America/New_York); do not duplicate it.
 
 ## Product and environment
 
-The active **0.1.13 subscription contract** is in
-[ChatGPT subscription integration](chatgpt_subscription_integration.md) and the
-[implementation prompt](chatgpt_subscription_task_prompt.md). The user wants
-course/project files available through declared notebook tools, with per-project
-uv environments recommended. Each notebook is a separate logical harness with
-shared user authentication; **no ACP** is used. The official pinned
-`openai-codex==0.156.1` package supplies the matching runtime, so students need
-no separate Codex install. The host resolves the notebook parent for location
-context but never changes the private runtime cwd or kernel cwd. The current UI
-must state “ChatGPT file access: Notebook tools only”; no whole-kernel or native
-folder sandbox is claimed. The [repository design preview](design/chatgpt-configure-ai.html)
-is historical visual input, and its old active scope selector is superseded by
-the revised contract. API behavior is preserved. Tests, checked artifacts, PyPI publication, and public-index installation
-passed. The pushed `v0.1.13` tag and public website have also been verified.
+The active **0.1.13 subscription contract** is in [ChatGPT subscription integration](chatgpt_subscription_integration.md) and the [implementation prompt](chatgpt_subscription_task_prompt.md). The user wants course/project files available through declared notebook tools, with per-project uv environments recommended. Each notebook is a separate logical harness with shared user authentication; **no ACP** is used. The official pinned `openai-codex==0.156.1` package supplies the matching runtime, so students need no separate Codex install.
 
-Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). This is a documentation-only follow-up to the prior 0.1.12 release; version 0.1.13 is now published.
+The host resolves the notebook parent for location context but never changes the private runtime cwd or kernel cwd. The current UI must state "ChatGPT file access: Notebook tools only"; no whole-kernel or native folder sandbox is claimed. The [repository design preview](design/chatgpt-configure-ai.html) is historical visual input, and its old active scope selector is superseded by the revised contract. API behavior is preserved.
+
+Tests, checked artifacts, PyPI publication, and public-index installation passed. The pushed `v0.1.13` tag and public website have also been verified.
+
+Post-release documentation now includes an example AI question for every registered tool in the [public reference](../docs/tools.md#function-index), a complete [import/declaration/question walkthrough](../docs/examples.md#ask-after-declaring-a-tool), and an explicit [dialoghelper provenance and reimplementation section](../docs/tools.md#relationship-to-dialoghelper). The documentation follow-up to the prior 0.1.12 release did not change runtime behavior; version 0.1.13 is now published.
 
 - Public repo: https://github.com/rahuldave/nbinlineai; website: https://rahuldave.com/nbinlineai/; PyPI package: `nbinlineai`.
 - GPL-3.0-only, matching ai-jup. Runtime Python >=3.12; development uses Python 3.12, uv, JupyterLab >=4.2,<5, Node 22.12+ or 20.19+.
@@ -344,7 +172,9 @@ Keep is on by default, inherits from notebook defaults, and skips completed prot
 
 0.1.7 discovers `&` tool declarations in the current question plus **all earlier ordinary Markdown and AI questions**, independently of prose trimming. Tools are resolved from the live kernel per run; code/raw/answers/outputs and later cells do not declare tools. Only `$` in the current question resolves variables. The combined distinct reference cap is 20.
 
-The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each host submission without repeating tools. Subscription mode uses the runtime's exact double-serialized content cost plus a 4,096-character transport reserve in preview and execution; before `turn/start` it rejects actual combined submission envelopes beyond that estimate or 64,000 characters. Codex internal inference/recovery requests after a bounded host submission are outside this estimate. See [the exact algorithm](cell_kernel_model_and_context_selection.md). Version 0.1.8 also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
+The shared budget is 64,000 serialized Unicode characters, including tool schemas, fixed instructions, expanded question and tool messages. It takes nearest earlier eligible source/pairs first, may retain a boundary source suffix, never splits a history pair, and re-budgets before each host submission without repeating tools. Subscription mode uses the runtime's exact double-serialized content cost plus a 4,096-character transport reserve in preview and execution; before `turn/start` it rejects actual combined submission envelopes beyond that estimate or 64,000 characters. Codex internal inference/recovery requests after a bounded host submission are outside this estimate.
+
+See [the exact algorithm](cell_kernel_model_and_context_selection.md). Version 0.1.8 also supports explicit modes and labeled below/independent AI source; reports include selected/included/omitted/partial IDs and reasons. The authoritative preview uses the same selector before the first provider round.
 
 ## Source map
 
@@ -374,25 +204,13 @@ The shared budget is 64,000 serialized Unicode characters, including tool schema
 | Subscription backend registry, account/model/runtime, exact round cost | `nbinlineai/backend_registry.py`, `nbinlineai/subscription_runtime.py`, `nbinlineai/context_budget.py` |
 | Authenticated notebook folder and dormant file-access preference | `nbinlineai/notebook_scope.py`, `nbinlineai/subscription_settings.py` |
 
-Paths in the table are repository-relative. No separate background application server is needed for API mode: Jupyter Server awaits provider calls, Python kernel executes live functions, and JupyterLab owns live documents. Normal kernel dispatch is already asynchronous; do not introduce `asyncio.run`, blocking comm waits, or same-kernel reentrant execution.
+Paths in the table are repository-relative. No separate background application server is needed for API mode. Jupyter Server awaits provider calls, Python kernel executes live functions, and JupyterLab owns live documents. Normal kernel dispatch is already asynchronous; do not introduce `asyncio.run`, blocking comm waits, or same-kernel reentrant execution.
 
-The 0.1.13 subscription routes are all Jupyter-authenticated, require
-kernel execute authorization and a single-user server, and use the Jupyter
-base URL. `GET nbinlineai/status` retains API provider fields and reports
-`subscription_capable` plus the discovered ChatGPT model/effort list. A true
-capability means the manager is wired; `configured` is true only for a ChatGPT
-account with a compatible discovered model. `GET nbinlineai/subscription/status`
-returns typed state, safe account/model/usage presentation fields and, when
-given `session_id`, the server-resolved notebook/project folders. It also
-reports `native_files_capable: false`. `POST .../login` accepts browser/device
-method and returns the owned sign-in URL or device code; `POST .../login/cancel`
-accepts its login ID. `GET .../usage` returns a direct safe usage object;
-`POST .../disconnect` stops owned children without global account logout.
-`GET/POST .../file-access` reads/stores a named dormant preference after
-authenticated session validation, not a file grant. Context preview is
-read-only and uses the pure wire serializer even when signed out. Execution
-rechecks exact account, model and effort before an isolated round, with
-per-run cancellation and no paid API fallback.
+The 0.1.13 subscription routes are all Jupyter-authenticated, require kernel execute authorization and a single-user server, and use the Jupyter base URL. `GET nbinlineai/status` retains API provider fields and reports `subscription_capable` plus the discovered ChatGPT model/effort list. A true capability means the manager is wired; `configured` is true only for a ChatGPT account with a compatible discovered model. `GET nbinlineai/subscription/status` returns typed state, safe account/model/usage presentation fields and, when given `session_id`, the server-resolved notebook/project folders.
+
+It also reports `native_files_capable: false`. `POST .../login` accepts browser/device method and returns the owned sign-in URL or device code; `POST .../login/cancel` accepts its login ID. `GET .../usage` returns a direct safe usage object; `POST .../disconnect` stops owned children without global account logout. `GET/POST .../file-access` reads/stores a named dormant preference after authenticated session validation, not a file grant.
+
+Context preview is read-only and uses the pure wire serializer even when signed out. Execution rechecks exact account, model and effort before an isolated round, with per-run cancellation and no paid API fallback.
 
 The credit-admission topic branch distinguishes an exhausted included window
 (`ordinaryUsageAllowed: false` and the generic `rate_limit_reached` marker)
@@ -402,9 +220,7 @@ when the pinned snapshot also confirms existing positive or unlimited credits
 and no reached spend control or individual spend limit. Unknown or inconsistent
 fields remain limited; a non-null individual limit needs a separately validated
 amount format before it can admit paid-credit use.
-This is a preflight correction, not a purchase, reset, alternate billing route,
-or proof of a live paid-credit turn; the latter needs separately authorized
-acceptance.
+The preflight correction does not purchase credits, reset limits, or add another billing route. A live paid-credit turn still needs separately authorized acceptance.
 
 ## Protocol quick reference
 
@@ -413,7 +229,7 @@ Read [bundled_tools.md](bundled_tools.md) before changing either transport:
 1. **Model tools:** authenticated POST `nbinlineai/prompt` opens SSE. An ephemeral server run ID binds session/prompt/kernel; `frontend_action` has a per-action request ID and allowlisted arguments. The originating browser performs a live-model operation and POSTs `nbinlineai/action-reply`. The server awaits an authenticated, bound acknowledgement before continuing the provider loop. 45-second action timeout, one pending action/run, at most 64 runs, 8,000-character insert, 4,000-character reply, 500-character error. Request handlers use Jupyter base URL and authentication/XSRF/execute authorization.
 2. **Direct Python `insert_tools`:** one-shot `nbinlineai.insert_tools.v1` comm carries generated Markdown, code-cell ID and actual execute-request ID. Browser tracking binds the request to the original panel/model/kernel and parent message ID. A mutable `InsertToolsReceipt` reports requested/inserted/error asynchronously; timeout is 30 seconds. The native execution scheduling hook handles a kernel starting on the first run. Multiple calls preserve insertion order; saved output is never replayed as an action.
 
-Neither transport saves files. Browser focus is never a target identifier. Duplicate delivery is suppressed within a run/request; this is not durable idempotency across retries. A mutation can happen before its acknowledgement is lost: inspect the notebook before repeating a failed insertion. Cancel does not undo existing notes or Python effects.
+Neither transport saves files. Browser focus is never a target identifier. Duplicate delivery is suppressed within a run/request; this is not durable idempotency across retries. A mutation can happen before its acknowledgement is lost. Inspect the notebook before repeating a failed insertion. Cancel does not undo existing notes or Python effects.
 
 ## Local development and test workflow
 
@@ -430,19 +246,9 @@ uv run --no-sync jlpm test:e2e
 
 Focused browser example: `uv run --no-sync jlpm playwright test tests/e2e/inherited-tools.spec.ts`. Install Chromium using `uv run --no-sync jlpm playwright install chromium` if missing. The default suite makes no paid API requests; `NBINLINEAI_E2E_LIVE=1` explicitly opts into live checks. The fake provider lives only in `tests/support/e2e_server.py`, not runtime code.
 
-For a separate **interactive, allowance-consuming ChatGPT acceptance** after
-build/relink, run `uv run --no-sync python scripts/subscription_live_smoke.py`.
-It refuses an occupied port 8897, starts only its own isolated temporary Lab,
-fresh managed account store, real kernel and synthetic notebook, and opens a
-visible browser with a device-code link for sign-in in the user's preferred
-browser, allowing up to 30 minutes. It disables repository `.env` loading
-and paid API transport, caps browser prompt requests to three, checks one
-kernel-tool group, an unsaved live-cell read, Keep/no replay, cancellation and
-owned server shutdown. It never uses port 8888, never prints account/token/login
-URL data, and never reads personal notebooks. One live run passed the bounded
-synthetic checks above; it does not prove full account/model compatibility or
-connect any ordinary installation. A model may decline a requested tool on a
-later run, in which case the harness fails safely.
+For a separate **interactive, allowance-consuming ChatGPT acceptance** after build/relink, run `uv run --no-sync python scripts/subscription_live_smoke.py`. It refuses an occupied port 8897 and starts only its own isolated temporary Lab, fresh managed account store, real kernel and synthetic notebook. It opens a visible browser with a device-code link for sign-in in the user's preferred browser, allowing up to 30 minutes. It disables repository `.env` loading and paid API transport, caps browser prompt requests to three, checks one kernel-tool group, an unsaved live-cell read, Keep/no replay, cancellation and owned server shutdown.
+
+It never uses port 8888, never prints account/token/login URL data, and never reads personal notebooks. One live run passed the bounded synthetic checks above; it does not prove full account/model compatibility or connect any ordinary installation. A model may decline a requested tool on a later run, in which case the harness fails safely.
 
 Version 0.1.8 evidence: **140 Python tests, 44 frontend unit tests, an uninterrupted 57/57 browser run**, plus production build, lint, examples in real kernels, archive checks and clean installation. Later patch checks are recorded below and in the release record; do not imply unchanged backend tests were rerun for a frontend-only patch.
 
@@ -495,7 +301,7 @@ All owned test/capture servers were stopped. Port 8888 was untouched, and no pai
 
 This patch changes presentation and check feedback, preserving selection and execution semantics. The collapsed row contains only Context mode and Details. Details contains the transient target caption, optional Check context action, help and report. The target comes from clicking an AI question or linked answer; it is not a separate toolbar choice. Before any target exists, cell Context controls remain disabled but no longer repeat an instruction beside every cell. The single instruction inside Details reads from live cell metadata so it distinguishes an existing question from a notebook with none.
 
-Per-cell controls now render above their owning cell's source or rendered content, aligned with the editor/text, including an AI answer's Context control. Answers do not have a Tools switch. An AI question's Run/Cancel/Keep/Override row follows its Context line, both above its question text. The targeted question displays **Current question · always included** as plain text instead of an empty Context checkbox. This fixes the visual ownership ambiguity from 0.1.8's bottom-placed controls. When testing widget reuse or virtualization, assert a control stays with its model ID rather than the nearest visible source below it.
+Per-cell controls now render above their owning cell's source or rendered content, aligned with the editor/text, including an AI answer's Context control. Answers do not have a Tools switch. An AI question's Run/Cancel/Keep/Override row follows its Context line, both above its question text. The targeted question displays **"Current question · always included"** as plain text instead of an empty Context checkbox. This fixes the visual ownership ambiguity from 0.1.8's bottom-placed controls. When testing widget reuse or virtualization, assert a control stays with its model ID rather than the nearest visible source below it.
 
 Check context displays Checking while pending, then current-generation included-cell/tool counts and a transient last-checked time. Same-count checks still visibly complete. Busy, failed, invalidated and stale replies cannot show a successful check or leave an old success timestamp. The live status is polite and atomic; it does not write notebook metadata. Running an AI question continues to inspect fresh state without requiring a manual check. Do not auto-check on every kernel busy/idle transition.
 
@@ -506,7 +312,7 @@ The summary has one custom triangle, with both native standard and WebKit marker
 This section describes the current source; consult the release record for its publication status.
 
 - **Appearance:** AI questions have a blue outer tint/border and answers a green one, using theme variables in Light and Dark. Editors and fenced-code backgrounds retain native Jupyter styling. The controls stay above their own cell's text. A later rule preserves the tint when Jupyter marks the cell active/selected.
-- **Editable starters:** four buttons appear only when the question source is empty/whitespace: Explain cell above, Explain code above, Explain section above, Write code. Clicking inserts ordinary editable source, activates that exact question by stable ID, and focuses the cursor at its end. Displaying the buttons does not dirty the notebook or submit a request; buttons hide when text exists. Preserve the mousedown guard for first-click behavior after editing earlier Markdown.
+- **Editable starters:** four buttons appear only when the question source is empty/whitespace. Explain cell above, Explain code above, Explain section above, Write code. Clicking inserts ordinary editable source, activates that exact question by stable ID, and focuses the cursor at its end. Displaying the buttons does not dirty the notebook or submit a request; buttons hide when text exists. Preserve the mousedown guard for first-click behavior after editing earlier Markdown.
 - **Intent:** shared instructions distinguish the latest question's target from wider background. `prompt_focus.py` maps the immediate predecessor, nearest code/ordinary Markdown, and nearest preceding ATX heading cell from the ordered snapshot. Section is heading-cell through question predecessor, not a new context mode. Setext headings are not recognized. Landmarks contain IDs/types/positions and selected FULL/PART/OMIT/EXCL status, never excluded source or heading text. Fixed-width serialization keeps their budget cost constant through later tool rounds; history-pair landmarks identify the selected exchange and role without changing raw history. Preview and execution share the same builder. These instructions guide a model; they do not guarantee interpretation or override user context exclusions.
 - **Code insertion:** `insert_code` is the eleventh bundled tool and fifth browser-handled stub. It uses the existing SSE action/reply protocol, optional stable anchor and shared mixed Markdown/code insertion tail. It inserts ordinary code with empty outputs/null execution count and no AI metadata. The browser rejects an `execute` argument. Code inserted during a native Run All is outside that batch; a later Run All can execute it. Direct Python calls raise the same explanatory stub error as `insert_markdown`. Aliases are recognized by callable identity. Learning guidance applies its snippet limit to inserted content too.
 - **Coexistence/examples:** read the pinned [Jupyter AI investigation](jupyter_ai_compatibility.md) and [actual Codex ACP run](codex_acp_example_run.md). Default Jupyter AI Run Cell executes explicit code directly and is a no-op for Markdown AI questions; its Run All uses the native path. The new pollinator and Codex revenue notebooks demonstrate agent chat plus inline tutoring. They are unrun templates; the Codex draft intentionally fails its diagnostic until repaired. All ten example notebook files (including the data fixture) are covered by headless checks, with only the established UI helper cell skipped.
@@ -517,9 +323,9 @@ Browser tests now include `question-starters.spec.ts` (empty display, first clic
 
 Source work on **2026-09-23**, after 0.1.10; **PyPI is unchanged**.
 
-- `nbinlineai/fastcore_tools.py` adds eight synchronous kernel tools: `show_doc`, `path_info`, `list_files`, `view_file`, `create_file`, `file_str_replace`, `file_insert_line`, and `file_replace_lines`. `tools.py` re-exports them and includes them in the nineteen-tool source registry. The default declaration helper now lists nineteen; the existing twenty-distinct-tool/variable cap still applies, so docs recommend selecting needed tools. No browser protocol changed.
+- `nbinlineai/fastcore_tools.py` adds eight synchronous kernel tools. They are `show_doc`, `path_info`, `list_files`, `view_file`, `create_file`, `file_str_replace`, `file_insert_line`, and `file_replace_lines`. `tools.py` re-exports them and includes them in the nineteen-tool source registry. The default declaration helper now lists nineteen; the existing twenty-distinct-tool/variable cap still applies, so docs recommend selecting needed tools. No browser protocol changed.
 - `show_doc(name, module="")` uses fastcore's `MarkdownRenderer` for comments/NumPy-style parameter documentation. Its returned string is bounded Markdown and supports the same rich Markdown for direct notebook display. Existing live names need no new import; an explicit installed-module name imports in the kernel, with empty `name` showing module docs. Imports execute initialization; the documented function is not called. A no-import source-file documentation tool remains proposed.
-- Generic files use kernel cwd/absolute paths, bounded UTF-8 reads, a capped directory walk, no-clobber creation and explicit edits. Mutations reject supplied/resolved `.ipynb` paths. Match/range validation precedes writes; edits preserve permissions and use a staged file plus `os.replace`, with a stat-change check before staging. This is not a lock or atomic compare-and-swap against another writer. Existing live notebook cells still belong to JupyterLab.
+- Generic files use kernel cwd/absolute paths, bounded UTF-8 reads, a capped directory walk, no-clobber creation and explicit edits. Mutations reject supplied/resolved `.ipynb` paths. Match/range validation precedes writes; edits preserve permissions and use a staged file plus `os.replace`, with a stat-change check before staging. The staged write does not lock the file or compare and swap atomically against another writer. Existing live notebook cells still belong to JupyterLab.
 - Shared `_bounded`, `_text`, `_limit` and static live-name resolution moved unchanged to `_tool_helpers.py`, avoiding a registry/module import cycle. Fastcore is now a direct `>=2.2.30,<3` dependency; the lock retains installed 2.2.30. No dialoghelper, remold, rgapi, exhash, or nbdev dependency was added.
 - Public docs now separate [Tools reference](../docs/tools.md) from [Examples](../docs/examples.md), with updated page navigation and crosslinks. The reference contains the available-tool contracts plus a clearly proposed candidate table. [Pinned research](fastcore_tool_candidates.md) resurfaces AST search/rewrite, project search, source/API outlines, richer inspection, tracing and live-cell integration. `examples/fastcore-tools.ipynb` demonstrates both documentation styles and a disposable text-file workspace, without stored outputs or keys.
 
@@ -527,48 +333,39 @@ Verification:
 
 - **171 Python tests passed**, including fourteen new focused tool tests, actual isolated-kernel schemas/calls, and all eleven example notebook files. Ruff, TypeScript checking, `uv lock --check`, and `git diff --check` passed.
 - **45 frontend unit tests passed**. There are no frontend runtime source changes, so no asset rebuild/relink was needed for this work.
-- **Seven inherited-tool browser regressions passed** on the isolated 8897 harness. The new fastcore test passed separately after correcting two test-harness mistakes: waiting for notebook/kernel readiness before setup, and exercising Keep with native Shift+Enter instead of clicking its correctly disabled Run button. It verifies actual kernel file effects, inherited schemas, rich rendered docs both directly and through the deterministic provider, and no repeat request/effects under Keep. This is eight passing focused tests across runs, not an uninterrupted full-suite browser run.
+- **Seven inherited-tool browser regressions passed** on the isolated 8897 harness. The new fastcore test passed separately after correcting two test-harness mistakes. It now waits for notebook/kernel readiness before setup and exercises Keep with native Shift+Enter instead of clicking its correctly disabled Run button. It verifies actual kernel file effects, inherited schemas, rich rendered docs both directly and through the deterministic provider, and no repeat request/effects under Keep. The eight focused tests passed across separate runs, not in one uninterrupted full-suite browser run.
 - Public local documentation links/anchors were checked. The existing inherited-tools screenshot regenerated during regression testing was restored; no new illustration was claimed. Owned browser servers shut down, port 8888 was untouched, and no paid provider call occurred.
 
 Release work remains: choose/bump the next version, rebuild/check wheel and source archive, clean-install verification, PyPI publication, pushed source/tag, and verification of public artifacts/site. No commit, source push, package upload, or site deployment was performed in this implementation task.
 
-Follow-up inventory: the fastcore candidate research now distinguishes every direct provider in dialoghelper's pinned `stdtools.py`, additional dialoghelper modules, and the wider discoverable skill ecosystem. Newly surfaced candidates include pyskills API listing/documentation search and skill discovery, ipykernel-helper selector-based page extraction, batch replacement, and aidialog move/split/merge operations. These remain proposals. The repository environment imports nbinlineai through an editable source install; its installed distribution metadata still reports 0.1.0, so metadata alone is not a reliable indication of the source being imported here. The new Python module is importable without reinstalling in this environment. Already-running kernels may cache old imports, and separately installed notebook kernels need their own update. No user kernel or server was restarted or reinstalled during this check.
+Follow-up inventory: the fastcore candidate research now distinguishes every direct provider in dialoghelper's pinned `stdtools.py`, additional dialoghelper modules, and the wider discoverable skill ecosystem. Newly surfaced candidates include pyskills API listing/documentation search and skill discovery, ipykernel-helper selector-based page extraction, batch replacement, and aidialog move/split/merge operations. These remain proposals. The repository environment imports nbinlineai through an editable source install; its installed distribution metadata still reports 0.1.0, so metadata alone is not a reliable indication of the source being imported here.
+
+The new Python module is importable without reinstalling in this environment. Already-running kernels may cache old imports, and separately installed notebook kernels need their own update. No user kernel or server was restarted or reinstalled during this check.
 
 ## Version 0.1.11 tool collection
 
 The user subsequently requested implementation and a full release, superseding the implementation-only stopping point above. The current registry contains **55 tools**, including **15 browser-dispatched functions**. Public tools reference and examples are separate pages. Version metadata is 0.1.11; publication evidence belongs in the release record.
 
-- Tool groups: `starter` (the previous nineteen source tools), `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`. `tool_catalog()` is a declaration-free setup reference. `tools_markdown(group=...)` and `insert_tools(group=...)` select one group; explicit `names` remain supported. Helpers reject more than twenty selected names rather than generating an unusable declaration. This is our own combined tool/variable-reference guard, not a provider-imposed limit. The separate 64,000-character estimate remains.
-- Source tools use bounded rgapi search, remold/ast-grep Python syntax search and rewrite, static AST/token documentation without imports, saved-notebook outlines, exhash document sections, validated batch replacements and whole-file SHA-256 checked edits. Filesystem searches default to the kernel cwd and descendants; explicit paths may point elsewhere. This is not a sandbox or a promise that cwd equals the notebook folder.
+- Tool groups: `starter` (the previous nineteen source tools), `files`, `code`, `inspect`, `notebook`, `saved_notebooks`, `web`, and `execution`. `tool_catalog()` is a declaration-free setup reference. `tools_markdown(group=...)` and `insert_tools(group=...)` select one group; explicit `names` remain supported. Helpers reject more than twenty selected names rather than generating an unusable declaration. The combined tool/variable-reference guard is ours; the provider does not impose this limit. The separate 64,000-character estimate remains.
+- Source tools use bounded rgapi search, remold/ast-grep Python syntax search and rewrite, static AST/token documentation without imports, saved-notebook outlines, exhash document sections, validated batch replacements and whole-file SHA-256 checked edits. Filesystem searches default to the kernel cwd and descendants; explicit paths may point elsewhere. The path rule does not sandbox file access or guarantee that cwd equals the notebook folder.
 - Live tools search, replace, insert/range-edit, delete, move, copy, split and merge ordinary cells through the existing authenticated action bridge. AI question/answer cells are protected. Structural edits retain stable IDs when appropriate, preserve metadata/Markdown attachments and reject incompatible merge fields before mutation. Edited code clears stale execution counts/outputs. Copies and split-off cells get new IDs and no results. No operation executes or saves a cell.
 - Inspection adds static public API listings, bounded documentation search and common-container slices/search, source-file discovery, and static installed pyskill discovery/instructions. Explicit `module=` imports execute module initialization; source docs and skill descriptions do not import their targets. Tracing uses scoped standard-library tracing on supported Python 3.12+, calls the selected function once, bounds recorded events and restores the previous trace hook. It is execution, not a static read or a hard timeout.
-- `run_python` and `run_shell` execute separate processes with explicit working directories, a 1–20 second timeout and 64 KB output capture limit; the final model response remains 4,000 characters. Python uses the kernel interpreter but does not share its live namespace. These run with the kernel user's permissions and are not a sandbox. Local tmux inventory/read tools require tmux and do not address JupyterLab's terminal service.
+- `run_python` and `run_shell` execute separate processes with explicit working directories, a 1 to 20 second timeout and 64 KB output capture limit; the final model response remains 4,000 characters. Python uses the kernel interpreter but does not share its live namespace. These run with the kernel user's permissions and are not a sandbox. Local tmux inventory/read tools require tmux and do not address JupyterLab's terminal service.
 - `read_url_section` adds CSS-selector or fragment extraction within the existing bounded public-URL fetch. Ordinary `read_url` and URL notes retain their whole-page behavior.
 - New direct dependencies are fastcore, rgapi, remold, exhash, pyskills and Beautiful Soup. No dialoghelper/Solveit runtime is imported. Existing notebooks still discover declarations before context trimming; current `&` references and the shared-model/kernel distinction are unchanged.
 
-The full 0.1.11 release changes both Python and frontend assets: installed users need an upgrade in the server and selected kernel environments as appropriate, then a whole JupyterLab server restart/page refresh and fresh kernel imports. The earlier Python-only editable-install observation does not replace that release-upgrade instruction. Port 8888 must remain untouched by automation.
+The full 0.1.11 release changes both Python and frontend assets. Installed users need an upgrade in the server and selected kernel environments as appropriate, then a whole JupyterLab server restart/page refresh and fresh kernel imports. The earlier Python-only editable-install observation does not replace that release-upgrade instruction. Port 8888 must remain untouched by automation.
 
-Release verification: **207 Python tests**, **49 frontend unit tests**, and **67 distinct Chromium scenarios** passed across the full browser run and focused reruns. The final live-edit rerun passed 3/3 after fixing the move acknowledgement and test rendering assumptions. Strict artifact checks, a fresh Python 3.12 wheel install, both extension discoveries, an isolated installed-package quickstart UI check, and reinstalling 0.1.11 from public PyPI passed. The two public downloads match local SHA-256 hashes. GitHub Pages run `35917740174` succeeded and live Tools/Examples pages contain the new release. Owned servers are stopped; port 8888 was untouched. Installed users must upgrade and restart their whole JupyterLab server and selected kernels as described above.
+Release verification: **207 Python tests**, **49 frontend unit tests**, and **67 distinct Chromium scenarios** passed across the full browser run and focused reruns. The final live-edit rerun passed 3/3 after fixing the move acknowledgement and test rendering assumptions. Strict artifact checks, a fresh Python 3.12 wheel install, both extension discoveries, an isolated installed-package quickstart UI check, and reinstalling 0.1.11 from public PyPI passed. The two public downloads match local SHA-256 hashes.
+
+GitHub Pages run `35917740174` succeeded and live Tools/Examples pages contain the new release. Owned servers are stopped; port 8888 was untouched. Installed users must upgrade and restart their whole JupyterLab server and selected kernels as described above.
 
 ## Follow-up: reported Extension Manager update hang
 
-A 2026-09-23 report described the PyPI manager's animated blue bar and a stalled
-Discover catalogue during the 0.1.10→0.1.11 update. Actual isolated upgrade and
-post-restart coexistence with Jupyter AI 3.2.0 passed, as did initial SIGINT checks
-with/without Jupyter AI and while catalogue requests were pending. The actual
-course environment was subsequently identified as Python **3.14.0**, launched
-with `uv run jupyter lab .`. A disposable clone of its 183 published package
-versions exposed the new **rgapi/exhash Rust source builds**: neither dependency
-had a macOS ARM CPython 3.14 wheel. Pip installation succeeded in **106.9 seconds**;
-the installed tool smoke and dependency compatibility checks passed. A second
-matched environment's real UI upgrade succeeded in **3.891 seconds** after those
-wheels were cached. This establishes a hidden first-install delay introduced by
-0.1.11. A controlled 14-second installer wait reproduced delayed process exit
-after two accepted terminal Ctrl-C presses; the HTTP server remained responsive
-before shutdown. This demonstrates an executor shutdown delay, not proof of the
-reported native-build freeze. The exact user Ctrl-C failure remains unconfirmed. Read
-[the detailed evidence and limitations](jupyter_ai_compatibility.md#0111-extension-manager-update-investigation).
-The user authorized read-only inspection of home/Jupyter configuration and
-explicitly prohibited removing anything. Preserve that constraint; no personal
-configuration, package environment or notebook was changed. Do not remove the
-nbdev save hooks or clear caches speculatively. User port 8888 remains off limits.
+A 2026-09-23 report described the PyPI manager's animated blue bar and a stalled Discover catalogue during the 0.1.10→0.1.11 update. Actual isolated upgrade and post-restart coexistence with Jupyter AI 3.2.0 passed, as did initial SIGINT checks with/without Jupyter AI and while catalogue requests were pending. The actual course environment was subsequently identified as Python **3.14.0**, launched with `uv run jupyter lab .`. A disposable clone of its 183 published package versions exposed the new **rgapi/exhash Rust source builds**. Neither dependency had a macOS ARM CPython 3.14 wheel.
+
+Pip installation succeeded in **106.9 seconds**; the installed tool smoke and dependency compatibility checks passed. A second matched environment's real UI upgrade succeeded in **3.891 seconds** after those wheels were cached. This establishes a hidden first-install delay introduced by 0.1.11. A controlled 14-second installer wait reproduced delayed process exit after two accepted terminal Ctrl-C presses; the HTTP server remained responsive before shutdown.
+
+This demonstrates an executor shutdown delay, not proof of the reported native-build freeze. The exact user Ctrl-C failure remains unconfirmed. Read [the detailed evidence and limitations](jupyter_ai_compatibility.md#0111-extension-manager-update-investigation). The user authorized read-only inspection of home/Jupyter configuration and explicitly prohibited removing anything.
+
+Preserve that constraint; no personal configuration, package environment or notebook was changed. Do not remove the nbdev save hooks or clear caches speculatively. User port 8888 remains off limits.

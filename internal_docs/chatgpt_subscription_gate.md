@@ -2,15 +2,17 @@
 
 Checked 2026-09-24 against packaged `openai-codex==0.156.1` and
 `openai-codex-cli-bin==0.156.1`. The [integration specification](chatgpt_subscription_integration.md)
-was revised during implementation: Codex may make internal inference/recovery
+was revised during implementation. Codex may make internal inference/recovery
 requests inside a turn. The 64,000-character estimate applies to each
 **host-assembled submitted notebook round**, and `maxToolSteps` counts only
-notebook tool-plan groups. The notebook host still owns context selection,
+notebook tool-plan groups.
+
+The notebook host still owns context selection,
 declared tool execution, results, cancellation, and per-notebook binding.
 Native Codex tools and ambient project instructions remain forbidden.
 Version 0.1.13 archives were accepted by PyPI. Public project metadata and
-both downloaded SHA-256 hashes match the locally audited artifacts; The packaged source and an unpackaged helper fix are pushed to main;
-the annotated release tag and live documentation site were verified.
+both downloaded SHA-256 hashes match the locally audited artifacts. The packaged source and an unpackaged helper fix are pushed to main.
+The annotated release tag and live documentation site were verified.
 
 ## Supported isolation and actual wire evidence
 
@@ -19,7 +21,9 @@ documents `model_catalog_json`. The pinned
 [config loader](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/core/src/config/mod.rs)
 and [models manager](https://github.com/openai/codex/blob/rust-v0.156.1/codex-rs/models-manager/src/manager.rs)
 load that catalog as the authoritative descriptors. A one-model override was
-returned by `model/list`. The pinned schema/source define descriptor fields
+returned by `model/list`.
+
+The pinned schema/source define descriptor fields
 `apply_patch_tool_type`, `experimental_supported_tools`, `tool_mode`,
 `multi_agent_version`, and `supports_search_tool`; the runtime pins them to
 `null`, `[]`, `direct`, `null`, and `false`, respectively. Known feature/config
@@ -52,7 +56,8 @@ tested without a harmful prompt or live subscription request.
 An adversarial mock returned an undeclared `apply_patch` custom tool call
 despite `tools=[]`. The runtime did **not** edit its synthetic file; it
 recorded an unknown-tool error and made a second internal Responses request.
-This was a blocker under the original one-request-per-round requirement.
+The undeclared tool call was a blocker under the original one-request-per-round requirement.
+
 Under the user's revised contract the extra internal request is accepted;
 the production adapter still fails closed if a raw native-call event arrives.
 The pinned request builder advertises `tool_choice:"auto"`; App Server has no
@@ -72,7 +77,9 @@ client for the packaged executable. It never reads or copies an existing
 custom-endpoint, plugin, or desktop-host environment variables, and rejects
 managed `config.toml`/`requirements.toml`. It selects official
 `modelProvider="openai"` and requires public `account/read` mode `chatgpt`
-before model turns. There is no API-key or ACP fallback. Browser/device sign-in
+before model turns. There is no API-key or ACP fallback.
+
+Browser/device sign-in
 uses App Server's account methods and only returns public URL/code fields.
 Disconnect detaches this Jupyter server in memory and closes **its own**
 children without global logout; explicit successful sign-in reconnects.
@@ -83,7 +90,7 @@ An `unauthorized` turn event changes this server's state to actionable
 not silently restore execution.
 
 The child process and ephemeral thread use the private managed directory as
-their real cwd. This is deliberate: a notebook/project cwd would allow a
+their real cwd. The private cwd is deliberate because a notebook/project cwd would allow a
 project `.codex/config.toml` to override the official provider or load hooks,
 MCP, or instructions before a turn. The authenticated notebook parent and
 selected file-access root are supplied only as budgeted, inert context to the
@@ -99,10 +106,12 @@ are validated against the host-declared tool names, argument objects, unique
 call IDs, count, and size. The host executes notebook tools and builds any
 later round with results; the runtime never executes those tools. Server
 approval requests are rejected. Raw native-call events fail closed.
+
 Per-run cancellation closes only that round's child; concurrent cancellation,
 disconnect, and final cleanup are serialized. Owned child processes have
 bounded wait, terminate, and kill cleanup. The Jupyter extension's awaited
 shutdown hook calls `close()`; it does not sign out other clients.
+
 On Windows, Jupyter Server changes Tornado's loop to Selector, which cannot
 spawn asyncio subprocesses. A private Proactor worker loop owns only this
 subscription manager's child processes and RPC queues; Jupyter's global loop
@@ -117,22 +126,19 @@ the two App Server JSON-RPC envelopes, runtime thread ID, model, effort, and
 control metadata that the context builder cannot know at preview time. Before
 `turn/start`, the adapter measures the actual combined `thread/start` and
 `turn/start` envelopes and rejects a round above either the reserved estimate
-or 64,000 characters. This is a character estimate of **host-submitted**
+or 64,000 characters. The limit is a character estimate of **host-submitted**
 material, not a tokenizer bound or a limit on Codex-internal continuation
 requests. The server-provided notebook folder is included in the budgeted
 host system message; completed tool groups are reserialized, not re-executed.
 
 ## Verification and remaining acceptance
 
-Deterministic runtime tests cover structured answer/refusal/tool plans and
-invalid calls, poisoned inherited environment and project configuration,
-strict private state, no-auth account/model/usage responses, official provider
-and ephemeral no-environment thread request, sibling run cancellation,
-simultaneous close, Disconnect persistence, login completion/cancel, usage
-limit, and safe expired-auth notification mapping. These tests use a fake
-stdio child and no credentials. Local focused result: **9/9 passed** across
+Deterministic runtime tests cover structured answer, refusal, and tool plans; invalid calls; poisoned inherited environment and project configuration; and strict private state. They also cover no-auth account, model, and usage responses; the official provider and ephemeral no-environment thread request; sibling run cancellation; simultaneous close; Disconnect persistence; login completion and cancellation; usage limits; and safe expired-auth notification mapping. These tests use a fake
+stdio child and no credentials. The local focused result was **9/9 passed** across
 runtime and Windows worker lifecycle tests; Ruff passed. The parent integration
-run passed **260 Python tests**. A production no-auth smoke on fresh private
+run passed **260 Python tests**.
+
+A production no-auth smoke on fresh private
 state started packaged 0.156.1, returned `signed_out` with no models, and
 confirmed owned child shutdown. [`subscription_platform_check.py`](../scripts/subscription_platform_check.py)
 repeats that smoke in a Tornado loop. The
@@ -141,14 +147,18 @@ adds credential-free packaged startup, fake-protocol tests, and actual
 empty-inventory synthetic round on macOS/Linux/Windows x64/arm64 and Alpine
 musl x64/arm64. The final main/tag code
 [CI run 36033921756](https://github.com/rahuldave/nbinlineai/actions/runs/36033921756)
-passed all 14 jobs at checked source commit `e389376`: six hosted OS/arch
+passed all 14 jobs at checked source commit `e389376`. The run covered six hosted OS/arch
 combinations on both Python 3.12 and 3.14, plus two Alpine musl architectures
-on Python 3.12. This exercised packaged startup/shutdown under Tornado,
+on Python 3.12.
+
+This exercised packaged startup/shutdown under Tornado,
 deterministic RPC and Windows worker lifecycle tests, and actual empty
 native-tool inventory. It did not launch a full Windows Jupyter Server with
 a kernel; the Windows probe reproduces its Selector policy. The local
 assistant-role refusal guard passed the 9 focused
-tests but was not in this CI run. Python 3.12 and 3.14 wheel-only
+tests but was not in this CI run.
+
+Python 3.12 and 3.14 wheel-only
 dependency resolution passed all eight target environments independently.
 The first CI run found the lock's `argon2-cffi-bindings==26.1.0` lacked a
 macOS Intel wheel. A macOS Intel-only `<26.1.0` bound now selects 25.1.0
@@ -164,7 +174,9 @@ reported as `chatgpt`, before the sanitized-catalog production path. One
 timed out in an event collector; the other demonstrated a native `fileChange`
 under ordinary runtime settings and timed out waiting for completion. The
 file was synthetic and temporary; owned processes were stopped and temporary
-folders removed. Those attempts may have used subscription allowance. The
+folders removed.
+
+Those attempts may have used subscription allowance. The
 effective provider/billing route was not captured, so they are **not** a
 verified subscription billing trace. No intentional paid API test occurred.
 The corrected no-turn probe confirmed public account mode, official provider,
@@ -179,8 +191,9 @@ notebook with a real isolated JupyterLab/kernel. Public status confirmed a
 configured ChatGPT account with at least one discovered model. The browser
 submitted exactly three subscription prompt requests, with a hard cap of one
 notebook-tool group per question. The model used a declared `add_one` kernel
-tool once; the kernel counter confirmed the effect occurred exactly once. A
-`read_cell` result contained an unsaved live source line while the saved file
+tool once; the kernel counter confirmed the effect occurred exactly once.
+
+A `read_cell` result contained an unsaved live source line while the saved file
 still held a different marker. Native Shift+Enter Keep did not replay the
 completed question or change its kernel effect. A running third question was
 cancelled and showed Cancelled. The harness rejected any API-backend browser

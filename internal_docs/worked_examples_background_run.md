@@ -1,6 +1,6 @@
 # Background worked-example refresh
 
-Status: merged to `main` by PR #47 as `0226d33d5a9e9c2a52b7c734958a1224c7ce8ee9`. Documentation deployment `39627458417` succeeded. This was a source/documentation update with no version bump, tag or PyPI publication; the saved examples are included in the subsequent 0.1.17 release candidate.
+Status: merged to `main` by PR #47 as `0226d33d5a9e9c2a52b7c734958a1224c7ce8ee9`. Documentation deployment `39627458417` succeeded. The source/documentation update had no version bump, tag or PyPI publication; the saved examples are included in the subsequent 0.1.17 release candidate.
 
 ## Source and execution boundaries
 
@@ -30,13 +30,13 @@ All **187 AI prompts** in the **29 gallery notebooks** now have one nonempty `do
 
 The media fixture supplies a 1000×600 canvas labelled as synthetic and silent generated audio, never operating-system media. The three application introductions disclose this. The latest capture continuation is separately labelled; its result does not expand the older physical-device acceptance claims. Generated presentation/report files were exercised in temporary directories; the published notebooks retain outputs and answers, and readers rerun exporters to create their own local deliverables.
 
-The [collection plan](worked_examples_background_plan.json) records the selected cells and AI questions, starting with the screen report. Saved answers are subsequently protected by Keep answer; replay requires a disposable unanswered source copy or deliberately disabling that protection. This plan is not a native Run All guarantee. Historical operation IDs cannot be reused in a new session: the integration continuation explicitly reads its current direct operation ID, and the camera cleanup uses a newly started source.
+The [collection plan](worked_examples_background_plan.json) records the selected cells and AI questions, starting with the screen report. Saved answers are subsequently protected by Keep answer; replay requires a disposable unanswered source copy or deliberately disabling that protection. This plan is not a native Run All guarantee. Historical operation IDs cannot be reused in a new session. The integration continuation explicitly reads its current direct operation ID, and the camera cleanup uses a newly started source.
 
 ## Runner repairs and verification
 
 The opt-in `--headless` mode fails before visible sign-in when no existing connection is ready; refuses installed Chrome and desktop clipboard/sound/visual-operator actions; grants no device permissions; and verifies fixture installation before executing notebook steps. Native media/clipboard overrides fail closed. Synthetic tracks clean up timers and AudioContexts when explicitly stopped.
 
-The genuine runs exposed three existing harness assumptions: long CodeMirror cells virtualize their visible lines; tool insertion changes question indices; and saving a clean document may emit no PUT. The runner now reads the complete editor document, resolves the question again by stable ID after the response, and still fetches and checks the saved model/session when a save is a no-op. Local-path redaction now preserves closing Markdown backticks. Public copies retain image hashes but remove expired image grants and references to generated files removed during cleanup; readers attach a fresh image for a rerun. Public answer text may contain redacted temporary paths/source IDs; no credentials or personal media were saved.
+The genuine runs exposed three existing harness assumptions. Long CodeMirror cells virtualize their visible lines; tool insertion changes question indices; and saving a clean document may emit no PUT. The runner now reads the complete editor document, resolves the question again by stable ID after the response, and still fetches and checks the saved model/session when a save is a no-op. Local-path redaction now preserves closing Markdown backticks. Public copies retain image hashes but remove expired image grants and references to generated files removed during cleanup; readers attach a fresh image for a rerun. Public answer text may contain redacted temporary paths/source IDs; no credentials or personal media were saved.
 
 Verification before review:
 

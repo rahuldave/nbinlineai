@@ -4,7 +4,8 @@ title: Troubleshooting and limits
 
 # Troubleshooting and limits
 
-[Manual](../user-guide.md) · [Previous: Saved notebooks and privacy](saving-and-privacy.md)
+- [Manual](../user-guide.md)
+- [Previous: Saved notebooks and privacy](saving-and-privacy.md)
 
 | Symptom | What to do |
 | --- | --- |
@@ -46,4 +47,5 @@ Current size limits are deliberately bounded:
 
 Selected code cells include displayed text outputs with their source, subject to the per-cell output limit and shared context budget. Plot text/data representations are included; image pixels and interactive media need an output tool or an explicitly confirmed image attachment. Generated code remains unexecuted until you choose to run it.
 
-[Manual](../user-guide.md) · [Previous: Saved notebooks and privacy](saving-and-privacy.md)
+- [Manual](../user-guide.md)
+- [Previous: Saved notebooks and privacy](saving-and-privacy.md)
