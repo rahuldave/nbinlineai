@@ -16,7 +16,7 @@ Examples and importable package tools are deferred to the next drop. Tool candid
 - Keep ordinary AI cell controls small. Expose provider/model/style/effort choices through **Override**, with an action to return to notebook defaults.
 - Save explicit overrides with the prompt's nbinlineai metadata so they survive reopening and sharing. Preserve legacy saved provider/model choices until the user opts into inheritance.
 - A rerun resolves notebook defaults and cell overrides at that moment. Changing settings does not alter a request already in progress.
-- Avoid repeating “responses” beside every cell. The effective model and effort must stay compatible when either notebook or cell settings change.
+- Avoid repeating "responses" beside every cell. The effective model and effort must stay compatible when either notebook or cell settings change.
 
 This supports a lesson that mainly uses Learning but includes a Full worked example or a Compact factual question.
 

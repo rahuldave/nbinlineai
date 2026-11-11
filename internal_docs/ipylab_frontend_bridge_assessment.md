@@ -1,6 +1,6 @@
 # ipylab and the frontend bridge nbinlineai needs
 
-Research date: 2026-09-22. Inspected [ipylab](https://github.com/jtpio/ipylab) at commit [`083ca7c66c0696754bf3e789613cd13e7a3926b5`](https://github.com/jtpio/ipylab/tree/083ca7c66c0696754bf3e789613cd13e7a3926b5), cloned into a temporary directory. This is a source/API assessment, not an installed compatibility test. No ipylab dependency or runtime feature was added.
+Research date: 2026-09-22. Inspected [ipylab](https://github.com/jtpio/ipylab) at commit [`083ca7c66c0696754bf3e789613cd13e7a3926b5`](https://github.com/jtpio/ipylab/tree/083ca7c66c0696754bf3e789613cd13e7a3926b5), cloned into a temporary directory. The report is a source/API assessment, not an installed compatibility test. No ipylab dependency or runtime feature was added.
 
 ## Conclusion
 
@@ -14,15 +14,15 @@ The recommendation is based on our product needs and the inspected code. It is n
 
 ## Maintenance and compatibility facts
 
-- Latest published release found: **1.1.0, June 24, 2025**. [PyPI](https://pypi.org/project/ipylab/1.1.0/)
-- Latest `main` commit found: **June 26, 2025**, changing the minimum build JupyterLab requirement. [Commit](https://github.com/jtpio/ipylab/commit/083ca7c66c0696754bf3e789613cd13e7a3926b5)
+- The latest published release found in this survey was **1.1.0, June 24, 2025** ([PyPI](https://pypi.org/project/ipylab/1.1.0/)).
+- The latest `main` commit found was **June 26, 2025**; it changed the minimum build JupyterLab requirement ([Commit](https://github.com/jtpio/ipylab/commit/083ca7c66c0696754bf3e789613cd13e7a3926b5)).
 - GitHub reported the repository was not archived. A repository's `updated_at` date is not evidence of a new code release.
 - Version 1.0 added JupyterLab 4 support; version 1.1 added menu/toolbar customization. [Changelog](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/CHANGELOG.md)
-- The inspected frontend manifest targets JupyterLab 4.x packages and depends on the Jupyter Widgets stack. This is a declared compatibility range, not proof that every operation works on our exact JupyterLab version. [Manifest](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/package.json)
+- The inspected frontend manifest targets JupyterLab 4.x packages and depends on the Jupyter Widgets stack. The package range is a declared compatibility range, not proof that every operation works on our exact JupyterLab version. [Manifest](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/package.json)
 
 ## What is exposed
 
-The [Python `JupyterFrontEnd` widget](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/ipylab/jupyterfrontend.py) exposes `shell`, `commands`, `sessions`, `menu`, and `toolbar`. It has `ready()` for frontend initialization. These are explicit wrappers, not an unrestricted Python proxy for every JavaScript object in JupyterLab.
+The [Python `JupyterFrontEnd` widget](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/ipylab/jupyterfrontend.py) exposes `shell`, `commands`, `sessions`, `menu`, and `toolbar`. It has `ready()` for frontend initialization. The ipylab methods are explicit wrappers, not an unrestricted Python proxy for every JavaScript object in JupyterLab.
 
 | Need | ipylab support | Consequence for nbinlineai |
 | --- | --- | --- |
@@ -41,13 +41,13 @@ Sources: [Python menu API](https://github.com/jtpio/ipylab/blob/083ca7c66c069675
 
 In [Python `CommandRegistry.execute`](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/ipylab/commands.py#L59), the method sends a widget message and has no return/future for the frontend command's result. In [the frontend `_execute`](https://github.com/jtpio/ipylab/blob/083ca7c66c0696754bf3e789613cd13e7a3926b5/src/widgets/commands.ts#L107), the promise returned by the JupyterLab command registry is discarded with `void`.
 
-Thus an AI tool cannot use this method alone to truthfully return “cell inserted, ID X,” distinguish a completed run from a merely requested run, or read back arbitrary command results. `await app.ready()` only establishes initial readiness; it does not change this execute contract. `SessionManager.refresh_running()` separately supports awaiting its session refresh, so it would be inaccurate to say ipylab has no asynchronous operations at all.
+Thus an AI tool cannot use this method alone to truthfully return "cell inserted, ID X," distinguish a completed run from a merely requested run, or read back arbitrary command results. `await app.ready()` only establishes initial readiness; it does not change this execute contract. `SessionManager.refresh_running()` separately supports awaiting its session refresh, so it would be inaccurate to say ipylab has no asynchronous operations at all.
 
 The open [awaitables request #11](https://github.com/jtpio/ipylab/issues/11) asks for result-returning command execution. [Issue #140](https://github.com/jtpio/ipylab/issues/140) reports a timing problem chaining cell insertion and text replacement. That report illustrates the concern; it is not a compatibility test of every current snippet helper, and fixed sleeps are not a completion protocol.
 
 ## Why active selection is insufficient for AI tools
 
-A person can switch notebooks or click a different cell while a provider response is in flight. A command that edits “whatever is active now” can then act on a different target from the original prompt. An operation must carry the originating document/session identity and cell ID through the entire request, and reject an unavailable target rather than silently using current selection.
+A person can switch notebooks or click a different cell while a provider response is in flight. A command that edits "whatever is active now" can then act on a different target from the original prompt. An operation must carry the originating document/session identity and cell ID through the entire request, and reject an unavailable target rather than silently using current selection.
 
 This distinction already exists in our implementation:
 

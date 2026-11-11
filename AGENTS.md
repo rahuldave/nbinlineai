@@ -34,9 +34,7 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
   interpret the experiment policy as permission for direct development pushes.
   A later experiment-to-main promotion needs its own scope and authorization;
   preserve the experimental branch after that PR.
-- Keep the primary checkout on `main`. Do development in owned topic worktrees:
-  base stable fixes and release preparation on `main`, and notebook-agent
-  experiments on `codex/agentic-notebook-experiments`. Record the worktree path,
+- Keep the primary checkout on `main`. Do development in owned topic worktrees. Base stable fixes and release preparation on `main`. Base notebook-agent experiments on `codex/agentic-notebook-experiments`. Record the worktree path,
   branch, ownership and selected PR base. Retire completed worktrees only after
   checking their changes, integration and dependents; preserve unrelated tasks.
 - Pre-work specs, research and task prompts use owned main-based topics and
@@ -87,13 +85,13 @@ The [Codex ACP worked-example run](internal_docs/codex_acp_example_run.md) recor
 - Enabled tool declarations in the current question and all earlier ordinary Markdown/AI questions are discovered **before** context trimming. Per-cell `toolsInclude` defaults true and is independent of text selection; Current question only retains these tool choices. AI answers/code/raw/output do not declare tools. Only current-question `$` references look up live values.
 - Fixed instructions/current prompt/tool schemas/executed notebook-tool groups are budgeted before optional notebook context. The 64,000 limit is a **character estimate for each host-assembled submission** to either model transport, not a model-token guarantee. ChatGPT's owned runtime may make internal inference/recovery requests after submission; those do not increment `maxToolSteps`, which counts validated notebook-tool plan groups. Use the runtime's exact content serializer plus bounded transport-metadata reserve for ChatGPT previews, and reject any actual submission envelope beyond that estimate or 64,000 characters. Never replay notebook-tool effects during re-budgeting.
 - Browser operations must remain bound to the originating document/model/session/kernel and stable cell IDs; changing focus cannot redirect them. An insertion acknowledgement means changed live document, not saved file.
-- There are two distinct transports: authenticated server SSE/action-reply for model tools, and execution-bound Jupyter comms for `insert_tools()`. Do not block or nest the kernel event loop waiting on itself.
+- Two distinct transports carry these requests. Authenticated server SSE/action-reply serves model tools, and execution-bound Jupyter comms serves `insert_tools()`. Do not block or nest the kernel event loop waiting on itself.
 - Use shared-model metadata updates that preserve unrelated fields. Merely opening, selecting, previewing, or rendering a notebook should not dirty it.
 
 ## Verification and release
 
 For a requested release or new drop, completion includes a version bump, checked distribution artifacts, PyPI publication, a pushed Git tag/source, and publication verification. A source commit alone is not a release. If a task intentionally stops at implementation, state clearly that PyPI is unchanged and record the remaining release work in the handoff.
 
-Use meaningful tests at the changed boundaries: Python, frontend unit tests, then a real isolated JupyterLab with a real kernel and deterministic provider. After frontend changes, rebuild and relink before browser tests. Never build package assets concurrently with browser tests.
+Use meaningful tests at the changed boundaries. Run Python and frontend unit tests, then test in a real isolated JupyterLab with a real kernel and deterministic provider. After frontend changes, rebuild and relink before browser tests. Never build package assets concurrently with browser tests.
 
 See the main [handoff](internal_docs/developer_handoff.md) for released behavior and test pitfalls; consult an experimental branch's handoff for its implementation. See [the release checklist](internal_docs/releasing.md) for packaging, clean-install checks, versions, artifacts, and publication records. Verify commands against the implementation checkout. Do not hand-edit generated `lib/` or prebuilt labextension files. Update public docs, examples and implementation handoffs with their code.

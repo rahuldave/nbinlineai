@@ -92,7 +92,7 @@ Read `AGENTS.md` in the implementation checkout for branch constraints and the
 primary's current policy for where to find approved pre-work material. Update
 the experimental branch's own guidance with its implementation handoff so new
 worktrees discover both sources.
-Older worktrees do not change when another branch's PR merges: task prompts
+Older worktrees do not change when another branch's PR merges. Task prompts
 must carry this reading rule explicitly. Verify implemented behavior, available
 commands and source paths against the implementation checkout, since main's
 documentation may describe a newer release. Follow pre-work internal-doc links
@@ -113,14 +113,14 @@ are automatic. Serialize Gest operations. GitHub issues preserve durable intent:
 - [Experimental workflow adoption](https://github.com/rahuldave/nbinlineai/issues/1)
   was completed by PR #3.
 - [Mainline workflow and CI follow-up](https://github.com/rahuldave/nbinlineai/issues/4)
-  completed through PRs #5 and #6: mainline adoption, refreshed experimental
-  skills and the context-preview verification fix.
+  completed through PRs #5 and #6. Those PRs covered mainline adoption, refreshed
+  experimental skills and the context-preview verification fix.
 - [Internal documentation CI](https://github.com/rahuldave/nbinlineai/issues/9)
   tracks lightweight document validation with the existing required gates on
   both integration branches.
 - [Notebook-agent initiative](https://github.com/rahuldave/nbinlineai/issues/2)
   remains open for handoff primitives, then one-kernel RLM/Python 3.14 work, then
-  possible multiple-kernel research. These are proposals, not shipped features.
+  possible multiple-kernel research. The initiative lists proposals, not shipped features.
 
 PRs into the non-default experiment use `Refs #N` and explicit issue links.
 GitHub does not interpret their PR closing keywords as it does for default-base
@@ -143,29 +143,14 @@ and pushes to `main` and the persistent experiment. Both branches require
 Both checks report even when the change qualifies for documentation validation;
 there are no top-level path filters that leave a required check missing.
 
-Only a confidently classified change wholly within static documentation paths
-qualifies for the lightweight path: Markdown under `internal_docs/`, root
-`README.md` and `AGENTS.md`, and site sources/assets under `docs/` (including
-Markdown, smalldocs configuration, styles and images). It checks internal Markdown
-links without building the extension, running the browser suite or starting
-the platform matrix. The **Documentation site / Render and check Quarto site**
-PR check keeps its legacy ruleset name but runs smalldocs, with no Quarto binary.
-It renders the site and checks its pages, notebook gallery, tool tables
-and local links; require it as the documentation-quality gate for docs-only PRs.
-Executable example notebooks, JavaScript (including `docs/` assets), code,
-scripts, dependencies, packaging, workflows and lockfiles take the full source
-and runtime path, as do mixed changes containing any of them. Manual runs and
-uncertain/empty comparisons do not qualify for a documentation skip. Renames
-and deletions must not hide a changed non-documentation path. A failed
-classification or document check
-cannot become a successful required gate, and an unexpectedly skipped
-validation job is not passing evidence.
+Only a confidently classified change wholly within static documentation paths qualifies for the lightweight path. Markdown under `internal_docs/`, root `README.md` and `AGENTS.md`, and site sources/assets under `docs/` (including Markdown, smalldocs configuration, styles and images). It checks internal Markdown links without building the extension, running the browser suite or starting the platform matrix. The **Documentation site / Render and check Quarto site** PR check keeps its legacy ruleset name but runs smalldocs, with no Quarto binary. It renders the site and checks its pages, notebook gallery, tool tables and local links; require it as the documentation-quality gate for docs-only PRs.
+
+Executable example notebooks, JavaScript (including `docs/` assets), code, scripts, dependencies, packaging, workflows and lockfiles take the full source and runtime path, as do mixed changes containing any of them. Manual runs and uncertain/empty comparisons do not qualify for a documentation skip. Renames and deletions must not hide a changed non-documentation path. A failed classification or document check cannot become a successful required gate, and an unexpectedly skipped validation job is not passing evidence.
 
 `scripts/docs_ci.py check-docs` checks local filesystem targets of inline and
 reference Markdown links throughout `internal_docs/`, ignoring fenced/inline
 code examples. It does not fetch external URLs or validate heading fragments.
-This is a bounded document check, not a complete Markdown renderer or website
-crawler.
+The command performs a bounded document check, not a complete Markdown render or website crawl.
 
 The full source path runs lock/static checks, Python and frontend tests, type
 checking, build/relink, distribution validation, clean wheel installation and
@@ -210,21 +195,11 @@ After a confirmed merge, synchronize the actual base and remove only verified
 merged temporary topics with no remaining worktree or stack dependents. Preserve
 the experiment even if it was the head of a promotion PR.
 
-Retire only worktrees owned by the completed task. Finish their workers and stop
-their owned processes, inspect tracked and untracked changes plus any valuable
-ignored files, and verify that the commits were integrated into the intended
-target. For cherry-picked or squashed work, verify patch equivalence explicitly.
-Preserve active, dirty, user-retained, primary and unrelated worktrees. Remove
-eligible worktrees normally with `git worktree remove` from a surviving checkout;
-do not routinely force removal or delete their directories by hand. Delete a
-temporary topic branch only after its worktrees and stack dependents are clear.
-Check integration independently against the intended target: `git branch -d`
-may consult a topic upstream and is not proof of integration. Prefer a clean
-checkout on the actual target for deletion; retain the branch if no suitable
-checkout exists or normal deletion is refused. Fetch the actual target without
-switching the primary checkout to it, and fast-forward a checked-out target only
-in its known clean checkout. Verify the primary checkout remains on `main`;
-report any worktree retained and why.
+Retire only worktrees owned by the completed task. Finish their workers and stop their owned processes, inspect tracked and untracked changes plus any valuable ignored files, and verify that the commits were integrated into the intended target. For cherry-picked or squashed work, verify patch equivalence explicitly. Preserve active, dirty, user-retained, primary and unrelated worktrees.
+
+Remove eligible worktrees normally with `git worktree remove` from a surviving checkout; do not routinely force removal or delete their directories by hand. Delete a temporary topic branch only after its worktrees and stack dependents are clear. Check integration independently against the intended target. `git branch -d` may consult a topic upstream and is not proof of integration. Prefer a clean checkout on the actual target for deletion; retain the branch if no suitable checkout exists or normal deletion is refused.
+
+Fetch the actual target without switching the primary checkout to it, and fast-forward a checked-out target only in its known clean checkout. Verify the primary checkout remains on `main`; report any worktree retained and why.
 
 Before handoff, verify owned test processes exited, remove owned scratch files,
 and report PR/review/check state and publication state separately.
@@ -241,7 +216,7 @@ explicit workflow requirements.
 
 - Notebook mainline ruleset: `24000314`; source gate and runtime aggregate.
 - Notebook experiment ruleset: `24000315`; source gate and runtime aggregate.
-- Shared skill repository mainline ruleset: `24000310`; `verify-skill-package`.
+- The shared skill repository mainline ruleset is `24000310`; it uses `verify-skill-package`.
 
 The mainline ruleset was updated to the two stable gates after PR #6 merged;
 the experiment uses the same pair. Inspect live rules before integration if

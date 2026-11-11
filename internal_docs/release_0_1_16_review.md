@@ -15,14 +15,14 @@ The published baseline is tag `v0.1.15`, source
 `9a435c5437f9f52308ea0c5328be26c5853a2ad8`. The release topic starts from clean,
 synchronized main `4828a791337e0c2fa795b8a8b64b42fcbbab503b`, the merge of
 application-example PR #43. The example additions are already on main; the
-release PR prepares 0.1.16, fixes the first review’s P2 findings, and replaces the
+release PR prepares 0.1.16, fixes the first review's P2 findings, and replaces the
 documentation renderer after proving smalldocs against the actual notebooks. Independent
 review examines the **full source delta from published 0.1.15**, including the
 browser/media runtime, rather than only the version-bump diff.
 
 The candidate includes 96 public tools and three setup helpers, all 30 notebook
 files (29 gallery notebooks and one support fixture), and the five application
-tutorials. The application PR preserved all 25 originals. Following the user’s
+tutorials. The application PR preserved all 25 originals. Following the user's
 October 13 request, this candidate repairs setup/path cells in six original media
 notebooks while preserving their cell IDs, metadata, execution counts and saved
 outputs. The experimental integration branch is excluded.
@@ -57,7 +57,7 @@ MP4 audio alongside the existing WebM test. The defect remains unchanged for
 the user's decision; passing current tests does not resolve it.
 
 Root reproduced the registry round trip in a temporary directory with a
-synthetic MP4 container header: operation completed, original MIME `audio/mp4`,
+synthetic MP4 container header. Operation completed, original MIME `audio/mp4`,
 saved suffix `.m4a`, resolved MIME `audio/mp4a-latm`, identical bytes and hash.
 This verifies the failing MIME boundary without recording a device or calling a
 provider. Anchors: `browser_media.py:852–866,1217–1218`,
@@ -120,21 +120,11 @@ documentation deployment and platform compatibility passed in runs
 `38313214203` and `38313214196`. Candidate-specific results, archive hashes,
 reviewed head and PR checks are recorded in the PR body and Gest notes.
 
-Candidate local checks: **614 Python tests and 99 frontend unit tests passed**.
-Ruff, offline lock validation, TypeScript, production build/relink and internal
-Markdown links passed. Source comparison confirmed all 25 original notebook
-files are byte-identical to the pre-application main baseline `85f91d9`.
-The initial 0.1.16 wheel installed in a fresh Python 3.14 environment with 113
-compatible packages; both extensions, the version endpoint, and an owned
-port-8897 quickstart UI check passed without a provider/device call. Final
-artifacts are rebuilt after the candidate wording is frozen and independently
-compared against source before reporting their hashes. Full candidate browser
-and platform validation remains a required PR gate; baseline passing runs do
-not replace that check. The exact reviewed candidate head and final PR check
-results are recorded in the PR body and Gest review notes to avoid embedding a
-self-referential commit hash in this file.
+Candidate local checks: **614 Python tests and 99 frontend unit tests passed**. Ruff, offline lock validation, TypeScript, production build/relink and internal Markdown links passed. Source comparison confirmed all 25 original notebook files are byte-identical to the pre-application main baseline `85f91d9`. The initial 0.1.16 wheel installed in a fresh Python 3.14 environment with 113 compatible packages; both extensions, the version endpoint, and an owned port-8897 quickstart UI check passed without a provider/device call.
 
-The Quarto render/check passed: 53 pages, 29 gallery notebooks, 96 tool rows,
+Final artifacts are rebuilt after the candidate wording is frozen and independently compared against source before reporting their hashes. Full candidate browser and platform validation remains a required PR gate; baseline passing runs do not replace that check. The exact reviewed candidate head and final PR check results are recorded in the PR body and Gest review notes to avoid embedding a self-referential commit hash in this file.
+
+The Quarto render/check passed for 53 pages, 29 gallery notebooks, 96 tool rows,
 AI panels, local links and anchors. No notebook execution was enabled. Rendering
 revealed the cache-packaging finding above; a clean Git status alone would not
 have detected ignored cache files in the archives.
@@ -166,15 +156,9 @@ helper stopped only its own port-8897 server; the user's server was untouched.
 
 ## October 13 repairs and smalldocs proof
 
-The user authorized fixing the P2 findings and requested smalldocs, with an actual
-notebook feasibility check before committing to migration. The proof ran in an
-owned temporary environment using **PyPI smalldocs 0.1.5**, before repository or
-CI migration edits. It rendered all 30 notebooks without execution in about
-1.5 seconds: 54 pages, 323 code cells, 199 saved outputs, 187 AI prompt panels,
-158 AI response panels, and 1,066 cell IDs. Existing 29 gallery URLs remain;
-the supporting fixture gains `notebooks/data/ecosystem-lesson.html`. Source
-hashes matched before and after. Root visually inspected AI panels, saved
-images and the tool catalog in an owned static preview; local resources loaded.
+The user authorized fixing the P2 findings and requested smalldocs, with an actual notebook feasibility check before committing to migration. The proof ran in an owned temporary environment using **PyPI smalldocs 0.1.5**, before repository or CI migration edits. It rendered all 30 notebooks without execution in about 1.5 seconds. The render produced 54 pages, 323 code cells, 199 saved outputs, 187 AI prompt panels, 158 AI response panels, and 1,066 cell IDs.
+
+Existing 29 gallery URLs remain; the supporting fixture gains `notebooks/data/ecosystem-lesson.html`. Source hashes matched before and after. Root visually inspected AI panels, saved images and the tool catalog in an owned static preview; local resources loaded.
 
 The native renderer required a presentation-only adapter to restore cell IDs,
 AI classes and source links. Table union-type pipes are escaped for Markdown;
@@ -210,23 +194,14 @@ First-review dispositions:
   `site_libs` and notebook render assets. The checker rejects those paths. Real
   Hatch dirty-tree builds and omitted-resource archive tests cover both formats.
 
-Three independent read-only cross-scope reviewers inspected the combined
-changes, excluding work they authored. The second review caught the required
-status-name mismatch and omitted source-archive builder scripts; both are now
-fixed. A documentation table-signature check was adapted to compare visible
-Python signatures after Markdown pipe escaping. Headless/browser test harnesses
-supply their known isolated server root to disposable notebook executions.
-Local verification passed 661 Python tests and 99 frontend unit tests, plus the
-new required-status regression checked separately. Ruff, types, lock validation,
-internal links and the complete smalldocs site gate passed. Root verified all
-six repaired notebooks preserve IDs, metadata, stored outputs and counts. The
-independent packaging reviewer rebuilt the 54-page site from an extracted sdist
-and confirmed unchanged notebook hashes and required resources. Final exact-head
-review, browser/CI results and replacement artifact hashes are recorded in the
-PR and Gest notes before handoff; the first-candidate hashes above are historical.
+Three independent read-only cross-scope reviewers inspected the combined changes, excluding work they authored. The second review caught the required status-name mismatch and omitted source-archive builder scripts; both are now fixed. A documentation table-signature check was adapted to compare visible Python signatures after Markdown pipe escaping. Headless/browser test harnesses supply their known isolated server root to disposable notebook executions.
+
+Local verification passed 661 Python tests and 99 frontend unit tests, plus the new required-status regression checked separately. Ruff, types, lock validation, internal links and the complete smalldocs site gate passed. Root verified all six repaired notebooks preserve IDs, metadata, stored outputs and counts. The independent packaging reviewer rebuilt the 54-page site from an extracted sdist and confirmed unchanged notebook hashes and required resources.
+
+Final exact-head review, browser/CI results and replacement artifact hashes are recorded in the PR and Gest notes before handoff; the first-candidate hashes above are historical.
 
 The first repaired candidate's Linux source CI passed 661 Python tests and
-exposed one additional saved-audio issue: its MIME database does not recognize
+exposed one additional saved-audio issue. Its MIME database does not recognize
 the recorder's `.weba` suffix. Saved `.weba` now resolves canonically to
 `audio/webm`. The device-free round-trip regression explicitly simulates that
 missing mapping on every platform and verifies both resolution and re-saving
@@ -237,8 +212,7 @@ after memory release. Exact-head checks and review are repeated for this fix.
 All four original P2s are repaired. Cross-author independent review of the
 combined candidate `97fff7c`, followed by focused review of the Linux `.weba`
 fix and final archives at `73fddaaf`, found no remaining actionable P1/P2.
-All required PR checks passed for base `4828a79` and head `73fddaaf`:
-[source validation `38406499579`](https://github.com/rahuldave/nbinlineai/actions/runs/38406499579)
+All required PR checks passed for base `4828a79` and head `73fddaaf`. [Source validation `38406499579`](https://github.com/rahuldave/nbinlineai/actions/runs/38406499579)
 passed 662 Python, 99 frontend and 104 browser tests, with two opt-in
 fake-subscription skips; [documentation `38406499133`](https://github.com/rahuldave/nbinlineai/actions/runs/38406499133)
 and [14 platform/musl checks `38406498988`](https://github.com/rahuldave/nbinlineai/actions/runs/38406498988)
@@ -254,10 +228,7 @@ and direct public downloads match both local SHA-256 digests; neither is yanked:
 | `nbinlineai-0.1.16.tar.gz` | 2,517,827 | `80d8a7a0436f979f8706c131f8c4ec862e0fe4f863608b8ab3705043c26933e9` |
 | `nbinlineai-0.1.16-py3-none-any.whl` | 2,070,368 | `85f036327a82e8cc74e75e883ff71853c0192240114740c01b3093a62563d206` |
 
-The independent archive audit verified all source-backed bytes against the
-exact candidate, all 30 notebooks and the exact WebM companion in both formats,
-333 source entries and all 136 wheel RECORD entries, version/Python/GPL metadata,
-and no caches, checkpoints, internal docs or credential paths. smalldocs is a
+The independent archive audit checked all source-backed bytes against the exact candidate. It verified all 30 notebooks, the exact WebM companion in both formats, 333 source entries, all 136 wheel RECORD entries, and version/Python/GPL metadata. It found no caches, checkpoints, internal docs or credential paths. smalldocs is a
 development dependency, not a runtime dependency.
 
 A fresh, no-cache, wheels-only installation of `nbinlineai==0.1.16` from the

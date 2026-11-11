@@ -8,9 +8,11 @@ Start with a [complete application](#complete-applications) to see how tools fit
 
 The [application guide](tool-applications.md) explains receipts, real Python values, and staged LLM conversations. The [notebook audit](example-audit.md) reviews all 25 original notebooks, including the support fixture, and distinguishes completed demonstrations from exercises and remaining steps. Every original notebook is retained.
 
-This catalog accounts for **all 30 notebooks**: five complete applications, twelve introductory walkthroughs, twelve tool-catalog notebooks, and one supporting data notebook. The 29 walkthrough, application, and tool pages form the gallery; the supporting fixture has its own readable page below. Each page links to its editable `.ipynb` source for download.
+The catalog accounts for **all 30 notebooks**. It includes five complete applications, twelve introductory walkthroughs, twelve tool-catalog notebooks, and one supporting data notebook. The 29 walkthrough, application, and tool pages form the gallery; the supporting fixture has its own readable page below. Each page links to its editable `.ipynb` source for download.
 
-The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; saved completed answers are protected by **Keep answer**; turn it off on a question to request a fresh response. The supporting data fixture has no AI questions. Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
+The rendered notebook pages show outputs and AI answers saved in their source files; opening a page does not run the notebook. A direct Python call displays what the kernel returned. An AI question asks your selected ChatGPT connection or configured API provider to call an offered tool. In tool examples, an observed-tool table beside a saved answer records the actual call; saved completed answers are protected by **Keep answer**; turn it off on a question to request a fresh response. The supporting data fixture has no AI questions.
+
+Ordinary nbinlineai answers do not automatically save a separate tool transcript, and an answer merely suggesting a call does not establish that it ran. Python-only setup needs no provider. Live editor tools have no direct Python-call equivalent; their comparison is an ordinary JupyterLab action on a second disposable copy.
 
 ## Work through a notebook
 
@@ -19,7 +21,9 @@ The rendered notebook pages show outputs and AI answers saved in their source fi
 3. Run one AI question at a time. Inspect the answer and any observed-tool table before using an ID or result in the next question. Keep answers on when you want to preserve a completed tool action.
 4. Run cleanup cells after you finish. They remove disposable files, active media sources, or managed bytes as the notebook specifies.
 
-A browser-media Python call returns a **mutable receipt immediately**. Its first printed value can say `running` or `waiting_for_user`; that is an acknowledgement, not an image, recording, or saved file. Let the browser finish, then run the later inspection cell to read the same receipt's current `status`, `result`, and `media`. One media-producing operation can return several typed media items. An AI tool response is an **initial snapshot**; use `operation_status` in a later question to learn the terminal result. Status lookup itself returns one snapshot and does not wait. [Browser-media foundation](browser-media-foundation.md) explains the receipt and ownership rules.
+A browser-media Python call returns a **mutable receipt immediately**. Its first printed value can say `running` or `waiting_for_user`; that is an acknowledgement, not an image, recording, or saved file. Let the browser finish, then run the later inspection cell to read the same receipt's current `status`, `result`, and `media`. One media-producing operation can return several typed media items.
+
+An AI tool response is an **initial snapshot**; use `operation_status` in a later question to learn the terminal result. Status lookup itself returns one snapshot and does not wait. [Browser-media foundation](browser-media-foundation.md) explains the receipt and ownership rules.
 
 Run All follows the notebook's ordinary execution order, but a browser receipt does not hold the kernel until permission, recording, or transfer finishes. Run interactive media calls and their dependent inspection cells separately. A generated `insert_code` cell remains editable and unexecuted; review it before choosing to run it yourself. The Codex ACP exercise intentionally begins with a failing diagnostic, which the exercise asks you to repair.
 
@@ -32,7 +36,7 @@ from nbinlineai.tools import show_doc, tools_markdown
 print(tools_markdown(["show_doc"]))
 ```
 
-Paste the printed reference into an ordinary Markdown cell with **Tools** enabled. A later question can ask: “Use `show_doc` to explain the `encoding` parameter of `Path.read_text` and give one short example.” The declaration offers the callable; the question tells the model when to use it. An imported name alone is not offered. Keep the question's total offered tool and variable names within 20. [Variables and tools](manual/variables-and-tools.md) covers inheritance and live values.
+Paste the printed reference into an ordinary Markdown cell with **Tools** enabled. A later question can ask, "Use `show_doc` to explain the `encoding` parameter of `Path.read_text` and give one short example." The declaration offers the callable; the question tells the model when to use it. An imported name alone is not offered. Keep the question's total offered tool and variable names within 20. [Variables and tools](manual/variables-and-tools.md) covers inheritance and live values.
 
 `insert_tools(["show_doc"])` can insert an editable declaration below its Python call. It returns an asynchronous receipt and does not call a model; inspect the receipt later and save the notebook to keep the new note. The [live variables notebook](https://rahuldave.com/nbinlineai/notebooks/live-variables-and-tools.html) demonstrates this optional helper.
 
@@ -101,7 +105,7 @@ The foundation, playback, attachment, transforms, integration, and outputs noteb
 | [Media transformations](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html) | `extract_frames`, `crop_image`, `annotate_image`, `operation_status`, `release_media`. | The sample extracts frames and makes cropped and annotated derivatives. Adapt it to compare two moments of a pendulum trial, mark a feature in a microscopy image for a report, or redact a name on a field photo while keeping the original untouched. |
 | [Attach an image](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) | `attach_media`, `operation_status`. | The sample confirms one generated still for one identified AI question. Prepare your own chart, diagram, specimen photo, or extracted video frame first; after explicit **Attach image** confirmation, ask about a trend or visible feature and use the answer in a reviewed report or lesson. |
 
-The media guides describe formats, limits, and cleanup: [capture](browser-media-capture.md), [outputs](browser-media-outputs.md), [playback](browser-media-playback.md), [transforms](browser-media-transforms.md), and [attachment](browser-media-attachment.md). `attach_media` confirmation alone does not run a question or call the provider; run the question when you are ready. Real device steps use the media you explicitly choose to share.
+The media guides describe formats, limits, and cleanup for [capture](browser-media-capture.md), [outputs](browser-media-outputs.md), [playback](browser-media-playback.md), [transforms](browser-media-transforms.md), and [attachment](browser-media-attachment.md). `attach_media` confirmation alone does not run a question or call the provider; run the question when you are ready. Real device steps use the media you explicitly choose to share.
 
 ## Supporting data notebook
 
@@ -109,4 +113,4 @@ The media guides describe formats, limits, and cleanup: [capture](browser-media-
 | --- | --- | --- |
 | [Supporting ecosystem fixture](https://rahuldave.com/nbinlineai/notebooks/data/ecosystem-lesson.html) ([editable source](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb)) | Bundled tools and other saved-notebook search exercises | Four source-only cells with fabricated lichen observations. Keep `data/` beside the examples that read it. This is a search fixture with its own readable page, not an executed ecological analysis or a walkthrough. |
 
-[User guide](user-guide.md) · [Tool catalog](tools.md) · [FAQ](faq.md)
+[User guide](user-guide.md) | [Tool catalog](tools.md) | [FAQ](faq.md)

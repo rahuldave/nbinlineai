@@ -14,19 +14,17 @@ does not currently work there without a port.**
 
 An isolated build with JupyterLite 0.8.4 and nbinlineai 0.1.15 loaded the
 **AI Prompt**, **Configure AI**, notebook defaults, and context controls in both
-Notebook and Lab. The frontend requested `/nbinlineai/status`, which returned
-HTTP 404: a static JupyterLite site has no nbinlineai Python server handler.
-This is a demonstrated frontend-loading result, not a successful AI session.
+Notebook and Lab. The frontend requested `/nbinlineai/status`, which returned HTTP 404. A static JupyterLite site has no nbinlineai Python server handler.
+The HTTP 404 is a demonstrated frontend-loading result, not a successful AI session.
 
-The proposed product is feasible enough to justify a focused prototype:
-**embed the Notebook 7 interface, execute notebook Python in a browser WASM
+The proposed product is feasible enough to justify a focused prototype. **Embed the Notebook 7 interface, execute notebook Python in a browser WASM
 kernel, and give nbinlineai a browser-compatible model and tool orchestration
 path.** Most of the notebook UI need not be reinvented. The server dependency
 is substantial enough that this is more than changing packaging.
 
 WASM applies to the Python interpreter and compatible compiled packages. The
 frontend remains JavaScript. Moving notebook execution into the browser does
-not move OpenAI/Anthropic model inference there: it would still use a network
+not move OpenAI/Anthropic model inference there. It would still use a network
 service unless we separately implement a browser model backend.
 
 ## What JupyterLite supports
@@ -34,8 +32,7 @@ service unless we separately implement a browser model backend.
 JupyterLite uses JupyterLab's prebuilt/federated extension format. A site author
 installs the extensions into a build environment and runs `jupyter lite build`;
 the builder includes their JavaScript, styles, and schemas in the static site.
-Installing a Python package inside a running notebook is a separate operation:
-it does not add that package's frontend extension to the already-built site.
+Installing a Python package inside a running notebook is a separate operation. It does not add that package's frontend extension to the already-built site.
 See [Adding extensions](https://jupyterlite.readthedocs.io/en/stable/howto/configure/simple_extensions.html).
 
 There is no running Python Jupyter Server in an ordinary Lite deployment.
@@ -43,7 +40,7 @@ JupyterLite replaces core server facilities with browser-side services; it does
 not run arbitrary Python server-extension handlers. Upstream's
 [frontend extension guide](https://jupyterlite.readthedocs.io/en/stable/howto/extensions/frontend.html)
 explicitly distinguishes these mechanisms. Older documentation describing
-JupyterLite “server extensions” refers to Lite's own JavaScript architecture,
+JupyterLite "server extensions" refers to Lite's own JavaScript architecture,
 not compatibility with Tornado/Jupyter Server extensions.
 
 The builder itself can run Python and install packages on a workstation or CI
@@ -63,11 +60,11 @@ and the [kernel package](https://pypi.org/project/jupyterlite-pyodide-kernel/0.8
 
 The preferred starting interface is **Notebook 7**. It keeps a document-focused
 notebook experience while using the modern extension components nbinlineai
-already consumes. This is not the old Notebook 6/NbClassic extension system.
+already consumes. The shared frontend extension format is not the old Notebook 6/NbClassic extension system.
 [Notebook frontend extensions](https://jupyter-notebook.readthedocs.io/en/stable/extending/frontend_extensions.html)
 describes this shared extension format.
 
-JupyterLite includes both interfaces: `/lab/` is the Lab application and
+JupyterLite includes both interfaces. `/lab/` is the Lab application and
 `/tree/` is the Notebook file browser. A notebook itself can be opened directly;
 the local probe verified
 `/notebooks/index.html?path=lite-probe.ipynb`. There is no need to show the file
@@ -102,7 +99,7 @@ documents Lab's single-document mode. The
 shows a smaller code-console embed; its minimal appearance should not be
 mistaken for a drop-in host for our current notebook extension.
 
-“Any webpage” means a page that permits an iframe and the required browser
+"Any webpage" means a page that permits an iframe and the required browser
 capabilities. It does not mean a self-contained script that works regardless
 of the host's restrictions. Production validation must cover:
 
@@ -122,7 +119,7 @@ and [browser storage](https://jupyterlite.readthedocs.io/en/stable/howto/configu
 
 For host-page buttons or passing lesson data into the iframe, upstream documents
 [jupyter-iframe-commands](https://jupyterlite.readthedocs.io/en/stable/howto/configure/advanced/iframe.html).
-That is an optional integration layer, not necessary for a basic embed. Any
+The JupyterLite service bridge is an optional integration layer, not necessary for a basic embed. Any
 bridge we expose should validate origins and narrowly define allowed actions;
 our stable notebook/model/cell binding rules still apply.
 
@@ -157,15 +154,14 @@ socket, CORS, and concurrency constraints. See
 [Python compatibility](https://pyodide.org/en/stable/usage/wasm-constraints.html),
 and [browser HTTP APIs](https://pyodide.org/en/stable/usage/api/python-api/http.html).
 
-In particular, putting our existing server behind a URL is insufficient:
-its `KernelDispatcher` expects a kernel managed by that server. A remote
+In particular, putting our existing server behind a URL is insufficient. Its `KernelDispatcher` expects a kernel managed by that server. A remote
 service cannot introspect a browser's Python namespace merely from its session
 ID. Any hybrid port needs an explicit browser-to-kernel dispatch and tool-result
 protocol.
 
 ## Architecture choices
 
-These are design recommendations inferred from the audit, not implemented
+The following items are design recommendations inferred from the audit, not implemented
 capabilities.
 
 | Choice | Where notebook Python runs | Model connection | Trade-off |
@@ -204,7 +200,7 @@ not a consequence of JupyterLite compatibility.
 
 ## Proposed next experiment
 
-Keep the first implementation intentionally small: **one embedded Notebook 7,
+Keep the first implementation intentionally small. It should contain **one embedded Notebook 7,
 one Pyodide kernel, one AI question, and one model adapter**. Start with a
 deterministic browser model stub, then validate one chosen real transport as a
 separate, explicitly authorized live test.
@@ -230,7 +226,7 @@ and a round-trip `.ipynb` export with AI metadata. Preview must not mutate the
 notebook. The 64,000-character host-submission bound and tool-step semantics
 must remain explicit; moving the code cannot silently weaken them.
 
-This is a proposed experiment, not a promise of feature parity or a delivery
+The embed is a proposed experiment, not a promise of feature parity or a delivery
 estimate. It should produce evidence before committing to all 51 bundled tools,
 subscription login, shell commands, arbitrary project files, or a custom minimal
 notebook application. No implementation task or release is authorized by this

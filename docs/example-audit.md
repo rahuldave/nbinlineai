@@ -4,7 +4,7 @@ title: Example notebook audit
 
 # Example notebook audit
 
-The original audit read every cell, saved output, and AI question in **25 existing notebooks**: 24 gallery notebooks and `data/ecosystem-lesson.ipynb`. The source reviewed is main commit `85f91d9b6a51c000adc8360e77e584f122911244`. None was executed for that original audit. The dated update below records the later execution and saved-answer refresh. Saved evidence describes earlier runs; it does not establish that a fresh run will succeed with your devices, browser, network, or model connection.
+The original audit read every cell, saved output, and AI question in **25 existing notebooks**, comprising 24 gallery notebooks and `data/ecosystem-lesson.ipynb`. The source reviewed is main commit `85f91d9b6a51c000adc8360e77e584f122911244`. None was executed for that original audit. The dated update below records the later execution and saved-answer refresh. Saved evidence describes earlier runs; it does not establish that a fresh run will succeed with your devices, browser, network, or model connection.
 
 The examples are sensible as individual tool lessons. They are less effective as application tutorials because a reader must join the steps, handle pending receipts, and decide what to produce. The five new [application notebooks](examples.md#complete-applications) fill that gap. They now include saved worked answers and Python results, as described in the update below.
 
@@ -13,7 +13,7 @@ The examples are sensible as individual tool lessons. They are less effective as
 
 The collection now has **187 completed saved answers for 187 AI prompts**, across all 29 gallery notebooks. All 158 earlier answers are retained; 29 answers were collected from the live ChatGPT connection in an isolated background JupyterLab. The supporting ecosystem notebook has no AI prompts. The static site displays these saved answers without making new model requests.
 
-The three media applications use a labelled synthetic canvas and generated silent audio. Their capture, recording, annotation, attachment and export results are real tool executions on those fixtures, not physical-device acceptance or evidence of a real bug. The presenter’s alternate paste-ID capture route remains interactive; its direct and model-authored decks were checked. The attachment/integration examples use their generated blue/red PNGs. The camera notebook’s new cleanup continuation uses a fresh synthetic source; its earlier real-device observations remain historical records.
+The three media applications use a labelled synthetic canvas and generated silent audio. Their capture, recording, annotation, attachment and export results are real tool executions on those fixtures, not physical-device acceptance or evidence of a real bug. The presenter's alternate paste-ID capture route remains interactive; its direct and model-authored decks were checked. The attachment/integration examples use their generated blue/red PNGs. The camera notebook's new cleanup continuation uses a fresh synthetic source; its earlier real-device observations remain historical records.
 
 The updated rows below reflect the completed saved questions. Keep answer protects a saved response from rerunning; turn it off when collecting a new answer, and recreate kernel state and fresh media references instead of replaying historical operation IDs.
 
@@ -65,4 +65,4 @@ The updated rows below reflect the completed saved questions. Keep answer protec
 4. **Do not infer senses from descriptors.** The model cannot hear a recording or see a screenshot merely because a tool reports its MIME type and hash. Only a still explicitly attached to the question becomes image input. Transcription, video understanding, and media mixing require additional processing.
 5. **Finish with something useful.** The new presenter, bug-report, data-investigation, and project-handoff notebooks preserve local artifacts rather than stopping at a tool receipt. They separate interactive stages and keep cleanup from deleting those deliverables.
 
-[Notebook examples](examples.md) · [Build an application](tool-applications.md) · [Tool catalog](tools.md)
+[Notebook examples](examples.md) | [Build an application](tool-applications.md) | [Tool catalog](tools.md)

@@ -42,12 +42,14 @@ The [Tool catalog](https://rahuldave.com/nbinlineai/tools.html) lists each funct
 
 Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell to insert an editable Markdown declaration below it. Choose a group, delete unwanted references, inspect the receipt in a later cell, and save the notebook. With no argument, the helper uses the starter group.
 
-Browser-media tools can inspect selected outputs, capture from a source you approve, play or transform media, and attach an image to one question with explicit confirmation. A direct Python call returns a **mutable receipt promptly**; run its later inspection cell after permission, recording, or transfer finishes. An AI tool reply is an initial snapshot, so ask `operation_status` later before using a result ID. A capture or preview does not silently send its pixels to the model. [Browser media operations](https://rahuldave.com/nbinlineai/browser-media-foundation.html) explains receipts and cleanup.
+Browser-media tools can inspect selected outputs, capture from a source you approve, play or transform media, and attach an image to one question with explicit confirmation. A direct Python call promptly returns a **mutable receipt** whose status and result can change after the call returns. Read the same receipt in a later Python cell after permission, recording, or transfer finishes.
+
+An AI tool reply is an initial snapshot, so ask `operation_status` later before using a result ID. A capture or preview does not silently send its pixels to the model. [Browser media operations](https://rahuldave.com/nbinlineai/browser-media-foundation.html) explains receipts and cleanup.
 
 ## Where your work lives
 
 Questions, answers, and notebook defaults are saved in the `.ipynb` file. API keys are saved outside notebooks in the Jupyter server user's configuration; ChatGPT sign-in is managed by its account runtime. Tool calls can read or change files and kernel state with that user's permissions, so offer only the functions your question needs. A confirmed image attachment belongs to one question, and confirmation alone does not run it. [Saved notebooks and privacy](https://rahuldave.com/nbinlineai/manual/saving-and-privacy.html) has the details.
 
-[Documentation](https://rahuldave.com/nbinlineai/) · [FAQ](https://rahuldave.com/nbinlineai/faq.html) · [Development](https://rahuldave.com/nbinlineai/development.html) · [Report an issue](https://github.com/rahuldave/nbinlineai/issues)
+[Documentation](https://rahuldave.com/nbinlineai/) | [FAQ](https://rahuldave.com/nbinlineai/faq.html) | [Development](https://rahuldave.com/nbinlineai/development.html) | [Report an issue](https://github.com/rahuldave/nbinlineai/issues)
 
 Licensed under GPL-3.0-only.

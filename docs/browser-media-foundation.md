@@ -4,7 +4,7 @@ title: Browser media receipts
 
 # Browser media receipts
 
-Browser work can take longer than a notebook cell: you may need to allow a device, choose a window, finish a recording, or wait for a file save. A direct Python call therefore returns a **`BrowserReceipt` promptly**. It is a live Python object whose fields can change after the cell ends. Printing it in the calling cell captures only that moment; it does not wait for a photo, clip, or saved file.
+Browser work can take longer than a notebook cell. You may need to allow a device, choose a window, finish a recording, or wait for a file save. A direct Python call therefore returns a **`BrowserReceipt` promptly**. It is a live Python object whose fields can change after the cell ends. Printing it in the calling cell captures only that moment; it does not wait for a photo, clip, or saved file.
 
 This receipt model applies to direct browser/media calls, not every notebook tool. Python, file, saved-notebook, and web tools usually return ordinary values. Once a browser receipt completes, its `.result` can also be an ordinary image, encoded clip, or control value that you use in Python. Start with [receipts to real values](https://rahuldave.com/nbinlineai/notebooks/application-receipts-to-values.html), then follow the [application guide](tool-applications.md) to combine capture and recording into a presentation or report.
 
@@ -14,7 +14,7 @@ The sequence is:
 2. Complete any visible permission or chooser step. The notebook's **Media** row shows progress and offers **Stop** while work is active.
 3. When the row finishes, run a **later cell** that reads the *same* receipt's `status`, `result`, `media`, and `error`. If it is still active, inspect it again later. Use a result only after `completed`.
 
-Run All cannot supply this pause between dependent media cells: it moves to the next cell after the Python call or AI answer, even if the browser operation continues. Run those cells individually. The [foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates direct Python calls and AI tool calls, with a later inspection or status question for each.
+Run All cannot supply this pause between dependent media cells. It moves to the next cell after the Python call or AI answer, even if the browser operation continues. Run those cells individually. The [foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) demonstrates direct Python calls and AI tool calls, with a later inspection or status question for each.
 
 ## A save you can try
 
@@ -62,11 +62,13 @@ The displayed red image and matching hash come from the file that was saved. The
 
 A completed `start_camera`, `start_microphone`, `start_share`, or `start_canvas` operation gives a `source_id`. **Completed means the source opened**, not that its camera, microphone, screen share, or canvas stream has stopped. Stop the source explicitly when finished. A recording has its own operation and can remain `running` or `paused` while that source stays live.
 
-The receipt can update while Python is idle. If the kernel is busy, its browser messages may arrive only when the kernel can handle them again. Do not spin or block in the calling cell waiting for its receipt: that can prevent the update from being processed.
+The receipt can update while Python is idle. If the kernel is busy, its browser messages may arrive only when the kernel can handle them again. Do not spin or block in the calling cell waiting for its receipt. Blocking can prevent the update from being processed.
 
 ## AI answers and status checks
 
-An AI browser-tool result is an **initial snapshot**, not a mutable Python receipt. The saved answer will not change when a permission is granted or a recording finishes. It may contain an operation ID and `waiting_for_user` or `running` even though the Media row later says **completed**. Complete the visible action, then ask a later AI question to call `operation_status` on that exact ID. If the status check still shows active work, check again later. The [save AI call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-question) and [follow-up status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-ready) show both steps. AI questions use the notebook's selected AI connection.
+An AI browser-tool result is an **initial snapshot**, not a mutable Python receipt. The saved answer will not change when a permission is granted or a recording finishes. It may contain an operation ID and `waiting_for_user` or `running` even though the Media row later says **completed**. Complete the visible action, then ask a later AI question to call `operation_status` on that exact ID.
+
+If the status check still shows active work, check again later. The [save AI call](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-question) and [follow-up status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html#media-save-ai-ready) show both steps. AI questions use the notebook's selected AI connection.
 
 Python can also request a status snapshot:
 

@@ -3,7 +3,9 @@
 **Research and recommendations, 2026-09-28. No feature implementation or release.**
 The [proposed API spec](browser_media_tool_spec.md) and
 [post-merge implementation prompt](browser_media_tool_task_prompt.md) turn this
-survey into a concrete contract. The spec takes precedence over alternatives
+survey into a concrete contract.
+
+The spec takes precedence over alternatives
 discussed in this research. **Apps are now deferred** into a
 [separate direction note](notebook_app_direction.md); the implementation prompt
 covers media and notebook views first, without an app framework.
@@ -30,7 +32,9 @@ The existing nbinlineai JupyterLab extension supplies the browser UI.
 Start with **output export, camera photos/video and microphone recording**.
 Still captures may complete as PIL images in Python without first saving a
 file. Short encoded recordings may remain briefly in memory; longer recordings
-default to the local Jupyter folder. Keep **sending media to the model** as a
+default to the local Jupyter folder.
+
+Keep **sending media to the model** as a
 separate operation. Use portable browser APIs and test desktop and mobile browsers;
 do not silently reduce the user's requirement to Chromium or desktop-only.
 Screen sharing and system-audio capture have a different compatibility envelope;
@@ -56,7 +60,7 @@ Upstream source was pinned during this survey:
 | [solvecdp](https://github.com/AnswerDotAI/solvecdp/tree/4d8d2f3fd4a3454b6c10aa1069f9b57b18f94eb7) | `4d8d2f3fd4a3454b6c10aa1069f9b57b18f94eb7` | Connects a CDP client through a dialoghelper channel |
 | [fastcdp-chrome](https://github.com/AnswerDotAI/fastcdp-chrome/tree/ac469b36ba14f205f3de2d41af708bb0441ae5f1) | `ac469b36ba14f205f3de2d41af708bb0441ae5f1` | Separate Chrome extension providing tab/debugger access and directory picking |
 
-This was source/documentation inspection. No user's screen, browser session,
+The audit used source and documentation inspection. No user's screen, browser session,
 camera, microphone or local files were captured. No live browser compatibility
 test was performed. Browser support and permissions need capability detection
 and later tests on the supported browsers. Dialoghelper declares
@@ -71,10 +75,12 @@ licenses and nbinlineai's GPL-3.0-only policy.
 `add_html(_a)`, `add_scr`, `iife` and `add_mod` inject page content or scripts.
 `fire_event(_a)` emits an event; `event_get(_a)` correlates one response by ID.
 `js_run(_a)` provides a `done(data)` callback; `js_eval(_a)` runs an async
-JavaScript body with an explicit `return` for its JSON result. `trigger_now`/`event_once(_a)` use transient output
+JavaScript body with an explicit `return` for its JSON result.
+
+`trigger_now`/`event_once(_a)` use transient output
 scripts. `Channel.connect` supports ongoing JSON requests over a WebSocket relay.
 `display_response` separates visible rendering from the tool return, and
-`mermaid` is a diagram display helper. These are useful patterns for typed
+`mermaid` is a diagram display helper. The dialoghelper patterns are useful for typed
 JupyterLab actions and app messaging, not portable Jupyter APIs.
 ([Browser bridge](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/core.py#L159-L343),
 [Mermaid](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/core.py#L790-L808).)
@@ -91,14 +97,15 @@ identifies the Solveit host, not necessarily the user's browser computer.
 `setup_share` installs a script; `start_share` requests sharing;
 `capture_screen` returns a PIL image; `capture_tool` exposes it as a tool.
 The public wrapper currently fails to forward its custom `timeout` argument to
-the inner capture call. This is a reason to adapt the contract carefully rather
-than copy the wrapper unchanged.
+the inner capture call. Adapt the capture contract instead of copying that wrapper unchanged.
 ([Capture module](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/capture.py#L21-L46).)
 
 The JavaScript uses `getDisplayMedia`, retains a video track, grabs one frame
 with `ImageCapture`, scales it onto a canvas and returns a data URL. With no
 track it returns without replying. The Python code receives the pixels through
-Solveit's reply path: this is not browser-only retention. These files implement
+Solveit's reply path.
+
+The pixels are not retained only in the browser. These files implement
 neither `MediaRecorder` nor webcam/microphone capture, and do not establish how
 an outer model runtime serializes the returned image. HTML media display could
 be built with the generic page bridge, but no named video playback/recording or
@@ -110,8 +117,7 @@ iframe-app helper was found in the inspected modules and notebook sources.
 `solvecdp.JsCDP.connect` passes a dialoghelper channel to a CDP client. The
 Chrome extension supplies tab creation/selection/attachment/closure and forwards
 CDP commands and events. Its examples cover navigation, accessibility inspection,
-JavaScript, screenshots, typing and clicks. This is a distinct route from screen
-sharing, with a separate extension and debugger permission. Ordinary JupyterLab
+JavaScript, screenshots, typing and clicks. The CDP route is distinct from screen sharing, with a separate extension and debugger permission. Ordinary JupyterLab
 page JavaScript cannot inspect arbitrary signed-in tabs simply because a user
 has shared their pixels.
 ([Client](https://github.com/AnswerDotAI/solvecdp/blob/4d8d2f3fd4a3454b6c10aa1069f9b57b18f94eb7/solvecdp/core.py#L16-L25),
@@ -119,11 +125,11 @@ has shared their pixels.
 [examples](https://github.com/AnswerDotAI/fastcdp-chrome/blob/ac469b36ba14f205f3de2d41af708bb0441ae5f1/README.md),
 [Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger).)
 
-The extension also has a user-picked directory flow: a browser file handle is
+The extension also has a user-picked directory flow. A browser file handle is
 kept in IndexedDB and a read operation returns text through Solveit's page reply
 path (`pushData`/`event_get_a`), separate from the CDP WebSocket relay. The handle
 can be browser-local while the file contents subsequently leave the browser.
-This is not a general binary upload API.
+The directory flow is not a general binary upload API.
 ([Directory/file bridge](https://github.com/AnswerDotAI/fastcdp-chrome/blob/ac469b36ba14f205f3de2d41af708bb0441ae5f1/content.js#L27-L68).)
 
 The user excludes extensions from our design. Consequently arbitrary external
@@ -162,7 +168,9 @@ Nbinlineai does **not** currently ship an app registry or general browser-app
 framework. The proposed app group would add owned interactive HTML/JavaScript
 components and a typed message bridge inside JupyterLab; it does not discover
 arbitrary installed apps, control other browser tabs, or automatically wrap
-ipywidgets. A future ipywidgets/anywidget adapter could expose declared state and actions;
+ipywidgets.
+
+A future ipywidgets/anywidget adapter could expose declared state and actions;
 specialist libraries would supply optional semantic adapters. This app design
 and implementation are deferred. See the [direction note](notebook_app_direction.md).
 Likewise, an event-triggered AI-only call needs explicit prompt scheduling and
@@ -172,8 +180,7 @@ do not claim the current three primitives already implement arbitrary events.
 
 ### Concrete camera, microphone and video tools
 
-The browser platform permits more than dialoghelper currently wraps. These are
-proposed tools we could build, independently of notebook execution handoffs:
+The browser platform permits more than dialoghelper currently wraps. The following tools are proposals we could build, independently of notebook execution handoffs:
 
 | Operation | Result and example use |
 | --- | --- |
@@ -199,35 +206,36 @@ engine would need its own model/runtime and performance evaluation.
 [signal analysis](https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode).)
 
 The portable camera/microphone operations are main candidates. A
-workflow such as “watch the camera, run this analysis cell after each capture,
-then ask the AI what to do next” is a separate experimental composition with
+workflow such as "watch the camera, run this analysis cell after each capture,
+then ask the AI what to do next" is a separate experimental composition with
 sampling limits, queue ownership, cancellation and explicit media disclosure.
 
 ### Camera video: the simple path
 
 `getUserMedia` obtains the camera stream and, when requested, a microphone
 track. `MediaRecorder` records it. The user sees a preview plus start/stop
-controls; a bounded-duration tool can also stop automatically. The default
+controls; a bounded-duration tool can also stop automatically.
+
+The default
 recording destination is the local Jupyter folder, returning a file path,
 actual MIME type and completion status. A caller can request a bounded short
 memory recording instead, yielding encoded `MediaClip` bytes and MIME type in
 Python after its nonblocking receipt completes. Video is not a PIL object.
 Neither destination requires a browser filesystem API or installed extension.
 
-Both APIs are widely available in current browsers. Recording containers/codecs
-are not identical: select a supported format using `isTypeSupported` or the
+Both APIs are widely available in current browsers. Recording containers/codecs are not identical. Select a supported format using `isTypeSupported` or the
 browser's default, and preserve the actual MIME type and correct extension.
 Do not promise an identical MP4 encoding in every browser. Later conversion to
 a common format could run on the local server if needed; it is not a prerequisite
-for capture and save. Recording failures still need reporting even after a
-positive format-support check.
+for capture and save.
+
+Recording failures still need reporting even after a positive format-support check.
 ([Camera/microphone](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia),
 [MediaRecorder](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder),
 [format detection](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/isTypeSupported_static).)
 
-“All browsers” is a portability requirement, not a claim that every historical
-version, embedded webview or platform exposes every API. The user includes mobile:
-verify current desktop Chrome/Edge/Firefox/Safari, Android Chrome/Firefox and
+"All browsers" is a portability requirement, not a claim that every historical
+version, embedded webview or platform exposes every API. The user includes mobile. Verify current desktop Chrome/Edge/Firefox/Safari, Android Chrome/Firefox and
 iOS/iPadOS Safari, plus other mobile browsers where available. Missing hardware
 or declined permission is a normal user-visible outcome. Screen capture is not
 currently a Baseline API, and system/tab audio varies further; report these
@@ -282,14 +290,18 @@ accepted gaps explicitly.
 The selected deployment assumes Jupyter runs on the user's computer, with files
 saved under its configured user folder. A phone/tablet browser can connect to
 that server; saving then means the computer's folder, not phone-only storage.
-Mobile camera/microphone access requires a secure origin: an HTTP LAN address
+Mobile camera/microphone access requires a secure origin. An HTTP LAN address
 does not inherit the server computer's localhost exception. For file output,
 the flow is **browser capture → authenticated Jupyter/server save → path and
-preview**. Jupyter's Contents API already defines file creation/update with a
+preview**.
+
+Jupyter's Contents API already defines file creation/update with a
 path and content representation. Use it for suitably bounded files; whether
 larger recordings need bounded chunk uploads is an implementation decision.
 `save_to` selects memory (`None`), a generated local file (`"auto"`) or an
-explicit server-relative path. Stills default to memory; recordings default
+explicit server-relative path.
+
+Stills default to memory; recordings default
 to `"auto"`. A short memory recording uses a separate bounded binary transfer
 to Python after the initiating cell returns, never base64 in model tool text.
 Do not hold a notebook cell open to await capture or save while the server can
@@ -300,7 +312,9 @@ Temporary browser buffers and an operation ID are sufficient for active
 recording; no separate durable browser storage system is required. A completed
 file save returns a relative path, MIME type, byte count and relevant duration
 or dimensions. Acknowledge file success only after save; define collision,
-cancel/failure and incomplete-upload behavior. Memory stills become PIL images
+cancel/failure and incomplete-upload behavior.
+
+Memory stills become PIL images
 in Python; short recordings remain encoded `MediaClip` bytes with MIME type.
 Both need bounded ephemeral retention plus explicit `save_media` and
 `release_media`. A `MediaRef` identifies an owned `media_id` or saved path plus
@@ -321,7 +335,7 @@ Main has an authenticated model-tool browser round trip, bound to the originatin
 document/model/session/kernel/prompt/answer. Actions and replies are sequential;
 there is one pending action, a 45-second wait and a 4,000-character result bound.
 Its context snapshot contains source/metadata/execution count, not rich output.
-These are sound starting points for bounded named text actions, not binary media
+The existing file wrappers are sound starting points for bounded named text actions, not binary media
 or an indefinite wait for a user chooser.
 ([Frontend actions](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/src/frontendActions.ts#L46-L95),
 [server bridge](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/frontend_bridge.py#L70-L275),
@@ -330,7 +344,7 @@ or an indefinite wait for a user chooser.
 Add explicit operation IDs for user interaction and
 recording. A tool can request an operation, return pending status and let the
 user complete it later; cancellation, expiry, tab closure and duplicate replies
-need defined behavior. These IDs supplement notebook cell IDs: a canvas, media
+need defined behavior. These IDs supplement notebook cell IDs. A canvas, media
 track, iframe or recording has its own identity and lifetime. Bind results to
 the exact capture/render revision. An existing output snapshot is not proof
 that a particular newly requested execution produced it.
@@ -339,7 +353,9 @@ The current model paths assemble text, including string tool results. The
 subscription runtime also disables native image viewing. Image-aware prompts
 need a deliberate media schema, transport support for each backend, size/pixel
 limits, authorization and preview/budget accounting; base64 inside text is not
-equivalent. The existing 64,000-character envelope estimate is not an image-token
+equivalent.
+
+The existing 64,000-character envelope estimate is not an image-token
 budget. This work is independent of queued cell execution.
 Python's in-memory PIL stills and encoded `MediaClip` results need a separate
 bounded binary delivery path after the nonblocking receipt completes. They are
@@ -348,11 +364,12 @@ not proof that the model transport can consume the same media.
 [tool results](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/prompt.py#L395-L444),
 [subscription configuration](https://github.com/rahuldave/nbinlineai/blob/481ba0d50d6582e7d69e4180415e337042c98029/nbinlineai/subscription_runtime.py#L80-L131).)
 
-Direct Python helpers are another entry point. Today's `insert_tools` returns a
+Direct Python helpers can use the existing `insert_tools` pattern. It returns a
 receipt and receives a later execution-bound comm acknowledgement. It is not a
-general blocking browser RPC. Extend the nonblocking pattern if Python should
-request a capture; never hold a Python cell waiting for successor execution on
-the same shell. No sidecar is needed merely to run JavaScript or record media
+general blocking browser RPC. If Python requests capture, extend that nonblocking
+pattern. Never hold a Python cell waiting for successor execution on the same shell.
+
+No sidecar is needed merely to run JavaScript or record media
 in the browser. A long recording can outlive a prompt through an explicit
 browser operation owner; automatically resuming an agent afterward is a separate
 continuation feature. ([Existing transports](bundled_tools.md).)

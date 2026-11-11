@@ -1,5 +1,9 @@
 # Internal documentation index
 
+The [November 11 prose review](prose_cleanup_2026_11_11.md) records the nossaifd
+and Declaude pass, preserved examples, checker exceptions and separate content
+questions.
+
 The [published 0.1.18 release](release_0_1_18_review.md) includes displayed code outputs in selected context and a discoverable catalog-group insertion helper. Its record contains independent reviews, complete CI, audited public hashes, clean installation and live-site verification.
 
 [Project workflow](workflow.md) describes stable and experimental PR targets,
@@ -43,9 +47,9 @@ source inventory, verified checks and remaining platform limits; it is not a
 release record. Read each handoff at the commit containing its code, since
 earlier pending-PR statements may describe historical topic checkpoints.
 
-Quarto notebook-gallery source merged by PR #30 as `8ce8e2e`; the browser/media
-foundation merged by PR #29 as `90c5aee`, and capture plus live outputs source
-merged by PR #31 as `11eae2b`; playback and transformations merged by PR #32
+Quarto notebook-gallery source merged by PR #30 as `8ce8e2e`. The browser/media
+foundation merged by PR #29 as `90c5aee`. Capture plus live outputs source
+merged by PR #31 as `11eae2b`. Playback and transformations merged by PR #32
 as `b38d684`, and image attachment merged by PR #33 as `d862d46`. All 45
 approved new public APIs are now on `main` as source, yielding 96 public tools
 plus three setup helpers. These additions and the five application notebooks
@@ -55,16 +59,16 @@ are included in published 0.1.16; see the [release verification](releasing.md#ve
 
 1. [AGENTS.md](../AGENTS.md): constraints, invariants, tools, and verification workflow.
 2. [Developer handoff](developer_handoff.md): current state, source map, testing details, and known limitations.
-3. [Cell/kernel model and context selection](cell_kernel_model_and_context_selection.md): current snapshot, selection, tool discovery, budget, preview and execution boundaries.
-4. [Bundled tools and frontend interface](bundled_tools.md): shipped tools, server/browser request-reply, Python/browser comm, limits and lifecycle.
+3. [Cell/kernel model and context selection](cell_kernel_model_and_context_selection.md) covers the current snapshot, selection, tool discovery, budget, preview and execution boundaries.
+4. [Bundled tools and frontend interface](bundled_tools.md) describes shipped tools, server/browser request-reply, Python/browser comm, limits and lifecycle.
 5. [Release records](releasing.md): tested and published versions, hashes, and deployment results.
 
 ## Approved experimental design
 
-- [Notebook execution handoff spec](notebook_execution_handoff_spec.md): approved
+- [Notebook execution handoff spec](notebook_execution_handoff_spec.md) gives the approved
   same-notebook contract for `add_code_cell_and_execute`, `prompt_and_run` and
   `run_and_prompt`; queued terminal handoffs, stable IDs and actual run results.
-- [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md):
+- [Copyable implementation task prompt](notebook_execution_handoff_task_prompt.md) gives
   experimental topic worktree and PR instructions; primary checkout stays on `main`.
 
 These pre-work documents are maintained on `main`; record their approved

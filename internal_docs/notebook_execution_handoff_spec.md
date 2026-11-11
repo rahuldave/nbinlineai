@@ -1,22 +1,15 @@
 # Spec: notebook execution handoffs
 
-Status: **approved direction, awaiting implementation**, 2026-09-25. This is a
-design contract, not shipped behavior. **Documentation policy updated
-2026-09-28:** maintain this spec on `main`; implementation worktrees read it
-through the primary main checkout or a recorded committed main snapshot. The
-experimental copy originally distributed in PR #8 is historical. All runtime
-work belongs on topics based on `codex/agentic-notebook-experiments`, in owned
-worktrees. The primary checkout stays on `main`. Follow the
-[documentation workflow](workflow.md#canonical-internal-documentation) to
-record the consumed revision and submit internal-doc updates separately.
+Status: **approved direction, awaiting implementation**, 2026-09-25. The spec records a design contract, not shipped behavior. **Documentation policy updated 2026-09-28.** Maintain this spec on `main`; implementation worktrees read it through the primary main checkout or a recorded committed main snapshot. The experimental copy originally distributed in PR #8 is historical. All runtime work belongs on topics based on `codex/agentic-notebook-experiments`, in owned worktrees.
+
+The primary checkout stays on `main`. Follow the [documentation workflow](workflow.md#canonical-internal-documentation) to record the consumed revision and submit internal-doc updates separately.
 
 ## Problem statement
 
 A notebook agent can already inspect and edit live cells. It needs to hand off
 to ordinary code execution and resume with a separate AI question, while keeping
 the notebook's cells, Python namespace, outputs and execution order authoritative.
-The two directions are independently useful: asking the AI to prepare code and
-then running it, or running known code and then asking the AI about its result.
+The two directions are independently useful. One asks the AI to prepare code and then runs it. The other runs known code and then asks the AI about its result.
 
 The existing per-notebook queue is serial. A job cannot await a successor placed
 behind itself in that queue. A Python cell likewise cannot keep its main-shell
@@ -74,14 +67,12 @@ alive while awaiting another message. Their
 [implementation](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/dialoghelper/core.py#L838-L855)
 selects a persistent sidecar subshell. The
 [source notebook](https://github.com/AnswerDotAI/dialoghelper/blob/99d2efa595239eaac76f727a7e574b6b9ea4b816/nbs/00_core.ipynb)
-explains that a nested main-queue request would deadlock. That is a different
-contract from scheduling and returning. A subshell is not an isolated Python
+explains that a nested main-queue request would deadlock. The persistent sidecar differs from scheduling and returning. A subshell is not an isolated Python
 subinterpreter.
 
 For this slice, use terminal handoffs on the ordinary notebook queue. No new
 sidecar is required by the chosen semantics. nbinlineai already runs its model
-orchestration in Jupyter Server, outside the kernel; “same notebook execution
-thread” refers to serialized notebook work and ordinary main-shell code
+orchestration in Jupyter Server, outside the kernel; "same notebook execution thread" refers to serialized notebook work and ordinary main-shell code
 execution, not moving provider networking into the kernel. See
 [Architecture: processes and event loops](../docs/architecture.md#processes-event-loops-and-cancellation).
 If implementation uncovers a concrete need for a still-active caller to await
@@ -103,7 +94,7 @@ nested execution, explain that incompatibility before expanding the design.
 
 The host must recognize a terminal handoff in both API and ChatGPT subscription
 tool loops. Do not implement it as a magic response string which relies on the
-model deciding to stop. Validate handoff groups before effects: reject ambiguous
+model deciding to stop. Validate handoff groups before effects. Reject ambiguous
 multiple terminal requests, and never execute tool calls after a terminal
 handoff. Specify and test the policy for mixed tool groups during implementation.
 A later cancellation/failure of the predecessor must prevent queued successors.
@@ -115,15 +106,9 @@ Use the existing execution-bound Python comm pattern as a starting point for
 direct helpers. A timeout or lost acknowledgement is uncertain, never a reason
 to replay a possibly executed action automatically.
 
-Native Run All may already have later work queued. Define continuations as part
-of their predecessor's ordered work: run a valid successor before unrelated
-later work in that batch, without awaiting a tail job from inside itself. If the
-same cell is also an upcoming explicit target in that batch, coalesce only the
-matching target/source/step obligation; stop visibly on conflicting obligations.
-Do not deduplicate intentional runs in later user batches. Cover these cases in
-tests rather than assuming appending to the current queue supplies the order.
-An implementation may reject a genuinely ambiguous overlap explicitly; it must
-not silently reorder dependencies or execute a cell twice.
+Native Run All may already have later work queued. Define continuations as part of their predecessor's ordered work. Run a valid successor before unrelated later work in that batch, without awaiting a tail job from inside itself. If the same cell is also an upcoming explicit target in that batch, coalesce only the matching target/source/step obligation; stop visibly on conflicting obligations.
+
+Do not deduplicate intentional runs in later user batches. Cover these cases in tests rather than assuming appending to the current queue supplies the order. An implementation may reject a genuinely ambiguous overlap explicitly; it must not silently reorder dependencies or execute a cell twice.
 
 ### Identity and source preconditions
 
@@ -153,16 +138,9 @@ Execute code through the normal JupyterLab executor and bound kernel. Preserve
 native output rendering, execution counts, error handling and the live Python
 namespace. Insertion plus raw `exec(source)` in a hidden tool is not equivalent.
 
-Record that run's status and a bounded representation of stdout/stderr, text
-results and truncation/omission information. Only successful code execution
-permits a successor prompt and transfers this result to it. On code error,
-retain the error details in the failed step's visible result and stop the chain;
-do not create a model request to interpret the error in this version. Support native
-output updates/clears consistently or document a tested bounded textual
-representation. Rich outputs remain visible in the code cell; this slice does
-not promise image interpretation. Label result material as execution data, not
-instructions. Ordinary snapshots and `read_cell` currently omit code outputs,
-so explicit result transfer is new work.
+Record that run's status and a bounded representation of stdout/stderr, text results and truncation/omission information. Only successful code execution permits a successor prompt and transfers this result to it. On code error, retain the error details in the failed step's visible result and stop the chain; do not create a model request to interpret the error in this version. Support native output updates/clears consistently or document a tested bounded textual representation.
+
+Rich outputs remain visible in the code cell; this slice does not promise image interpretation. Label result material as execution data, not instructions. Ordinary snapshots and `read_cell` currently omit code outputs, so explicit result transfer is new work.
 
 Each successor is a normal AI question with a stable ID, paired answer, current
 live snapshot, ordinary provider/default resolution, tool selection, context
@@ -211,7 +189,7 @@ a live acknowledged run; no crash-durable exactly-once guarantee is claimed.
 - New sidecars/subshells, background or parallel kernel execution, blocking
   nested-await helpers, cross-notebook/kernel routing, and durable recovery.
 - RLM, Python 3.14 free-threading/subinterpreters and changing minimum Python.
-  Those are the next investigation after these primitives, before multi-kernel.
+  The next investigation follows these primitives, before multi-kernel.
 - New MCP/ACP adapters or combining external agent histories/authentication.
   Preserve a callable contract a later adapter can reuse. Jupyter AI's existing
   individual `run_cell` path is not equivalent to our native executor; see the
@@ -224,7 +202,7 @@ a live acknowledged run; no crash-durable exactly-once guarantee is claimed.
    ends, that code runs once in the same namespace, and no next prompt is implied.
 2. `prompt_and_run` creates a real question, explicitly selects one newly created
    or existing code cell, ends the question, and executes that exact source once.
-3. `run_and_prompt` covers both supplied source and existing ID: code completes,
+3. `run_and_prompt` covers both supplied source and existing ID. Code completes,
    then a separate question uses that run's bounded actual result.
 4. Direct Python callers return receipts and finish before successor work;
    no nested event loop or busy-main-shell wait occurs. The same three public

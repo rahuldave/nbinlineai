@@ -38,7 +38,7 @@ For a first worked tool call, open [Live Python inspection](https://rahuldave.co
 
 ## Understand browser receipts before using media tools
 
-Camera capture, recording, importing, playback, and other browser operations can continue after their Python call returns. The return value is a **`BrowserReceipt`**: a live record of the operation, rather than its finished image or clip.
+Camera capture, recording, importing, playback, and other browser operations can continue after their Python call returns. The return value is a **`BrowserReceipt`**, a live record of the operation rather than its finished image or clip.
 
 Work through three steps:
 
@@ -50,7 +50,7 @@ For interactive operations, use the browser's permission dialog, chooser, or Med
 
 An AI tool call receives a snapshot, not that changing Python object. If it starts an operation and returns an operation ID, finish the visible action and use a later AI question to call `operation_status` for that ID. An initial acknowledgement does not establish that a photo exists or a file was saved.
 
-Read the status **inside** the `operation_status` result: the lookup itself can complete while the operation it describes is still running. Use a source ID or captured media only after the target operation reports `completed`. If it reports `expired` or `stale_target`, start a new operation in the current notebook session.
+Read the status **inside** the `operation_status` result. The lookup itself can complete while the operation it describes is still running. Use a source ID or captured media only after the target operation reports `completed`. If it reports `expired` or `stale_target`, start a new operation in the current notebook session.
 
 The [Browser media receipts guide](browser-media-foundation.md) shows a complete save-and-inspect example, explains the fields and status lookups, and covers cancellation and cleanup. Start there, then choose [camera and recording](browser-media-capture.md), [notebook outputs](browser-media-outputs.md), [import and playback](browser-media-playback.md), [transformations](browser-media-transforms.md), or [image attachments](browser-media-attachment.md).
 
@@ -66,14 +66,14 @@ Save the notebook to retain questions, answers, and outputs. Save media separate
 
 <span id="contents"></span>
 
-1. [Install and connect](manual/setup.md) — install the extension, connect ChatGPT or an API key, and understand account limits.
-2. [Write and run AI questions](manual/prompts.md) — create prompts, continue conversations, copy code, and request a new code cell.
-3. [Models, styles, and effort](manual/models-and-styles.md) — choose providers and models, customize response styles, and set thinking effort.
-4. [Edit, rerun, and run notebooks](manual/editing-and-running.md) — correct answers, use Keep answer, and run a whole notebook safely.
-5. [Choose notebook context](manual/context-selection.md) — select cells and tools, preview what fits, and compare OpenAI API, Claude API, and ChatGPT context budgets.
-6. [Live values and tools](manual/variables-and-tools.md) — reference kernel values and offer Python functions and bundled notebook tools.
-7. [Saved notebooks and privacy](manual/saving-and-privacy.md) — understand saved AI cells, key storage, account state, and the request path.
-8. [Troubleshooting and limits](manual/troubleshooting.md) — resolve common problems and check size and tool-round limits.
+1. [Install and connect](manual/setup.md) covers installing the extension, connecting ChatGPT or an API key, and understanding account limits.
+2. [Write and run AI questions](manual/prompts.md) covers creating prompts, continuing conversations, copying code, and requesting a new code cell.
+3. [Models, styles, and effort](manual/models-and-styles.md) covers choosing providers and models, customizing response styles, and setting thinking effort.
+4. [Edit, rerun, and run notebooks](manual/editing-and-running.md) covers correcting answers, using Keep answer, and running a whole notebook safely.
+5. [Choose notebook context](manual/context-selection.md) covers selecting cells and tools, previewing what fits, and comparing OpenAI API, Claude API, and ChatGPT context budgets.
+6. [Live values and tools](manual/variables-and-tools.md) covers referencing kernel values and offering Python functions and bundled notebook tools.
+7. [Saved notebooks and privacy](manual/saving-and-privacy.md) covers saved AI cells, key storage, account state, and the request path.
+8. [Troubleshooting and limits](manual/troubleshooting.md) covers resolving common problems and checking size and tool-round limits.
 
 The [FAQ](faq.md) covers common questions about receipts, Run All, context, connections, and saved work.
 

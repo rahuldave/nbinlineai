@@ -4,11 +4,13 @@ title: Build an application with notebook tools
 
 # Build an application with notebook tools
 
-Start with the result you want to keep: a presentation, a bug report, an analysis note, or a project handoff. The [application notebooks](examples.md#complete-applications) join the tools into those tasks. They include Python steps, staged AI questions, and a final artifact. They include real saved AI responses and worked Python outputs. The saved media runs use a labelled synthetic canvas and generated silent audio in an isolated background browser; they do not claim physical-device capture or a real product defect. The presenter’s alternate paste-ID handoffs remain interactive exercises. Turn off **Keep answer** on a completed question when you want a fresh response.
+Start with the result you want to keep, such as a presentation, bug report, analysis note, or project handoff. The [application notebooks](examples.md#complete-applications) join the tools into those tasks. They include Python steps, staged AI questions, and a final artifact. They include real saved AI responses and worked Python outputs.
+
+The saved media runs use a labelled synthetic canvas and generated silent audio in an isolated background browser; they do not claim physical-device capture or a real product defect. The presenter's alternate paste-ID handoffs remain interactive exercises. Turn off **Keep answer** on a completed question when you want a fresh response.
 
 ## Which tools return receipts?
 
-**All tools do not return browser receipts.** A receipt is how a direct Python browser/media call lets a notebook cell finish while the browser is still working. You can still use real values in ordinary Python.
+**Not all tools return browser receipts.** A direct Python browser/media call uses one so the notebook cell can finish while the browser keeps working. Other tools can return ordinary values you can use in Python.
 
 | Kind of call | What you receive | How to use it |
 | --- | --- | --- |
@@ -21,7 +23,7 @@ Start with the result you want to keep: a presentation, a bug report, an analysi
 
 The [receipt-to-values notebook](https://rahuldave.com/nbinlineai/notebooks/application-receipts-to-values.html) demonstrates the distinction. A direct browser capture can deliver a Pillow image into `.result`; you can crop it, measure it, display it, or save it with normal Python. An in-memory recording can deliver a `MediaClip`, whose `.data` holds encoded bytes and whose `.mime_type` identifies the format. A recording saved by the browser may instead supply its saved-file descriptor without duplicating the full clip in Python.
 
-The `.media` field is a descriptor, or a list of descriptors: IDs, format, hash, dimensions, duration, and a path after saving. It is useful for passing a captured item to another tool. It is not the image pixels or the audio samples. An operation ID identifies work; a source ID identifies an open camera, microphone, display, or canvas; a media ID identifies captured bytes. Use the right ID for each next call.
+The `.media` field is a descriptor, or a list of descriptors, with IDs, format, hash, dimensions, duration, and a path after saving. It is useful for passing a captured item to another tool. It is not the image pixels or the audio samples. An operation ID identifies work; a source ID identifies an open camera, microphone, display, or canvas; a media ID identifies captured bytes. Use the right ID for each next call.
 
 ## From a receipt to an ordinary value
 
@@ -95,8 +97,8 @@ AI calls do not assign Python variables for you. To continue from an AI recordin
 
 The model sees browser tool status and descriptors, not the captured pixels, speech, or full video. To ask about a still, use `attach_media` for one identified question, confirm **Attach image**, then run that question with an image-capable connection. Attachment alone does not run it. Audio transcription, video summarization, slide-file export, and video mixing need additional tools or Python libraries; these bundled tools do not provide them. The presenter notebook uses written notes as the slide text and embeds recordings for human playback.
 
-The presenter notebook also offers a small custom Python tool, `create_presenter_deck_from_text`, after capture. The model drafts seven captions and speaker notes from your written topic and notes, then calls that tool to write a second presentation using the real media already in the kernel. A later Python cell verifies the file. This is how the conversation produces an artifact: the model writes text from supplied evidence, and a concrete callable assembles and saves it.
+The presenter notebook also offers a small custom Python tool, `create_presenter_deck_from_text`, after capture. The model drafts seven captions and speaker notes from your written topic and notes, then calls that tool to write a second presentation using the real media already in the kernel. A later Python cell verifies the file. The conversation produces an artifact when the model writes text from supplied evidence and a concrete callable assembles and saves it.
 
 Save your presentation or report before releasing temporary media. Stop sources you opened, and use `release_media` when their managed bytes are no longer needed. Python copies and exported local files survive that release. The [example audit](example-audit.md) records what each existing notebook actually demonstrates and where a reader should be careful.
 
-[Notebook examples](examples.md) · [Browser media receipts](browser-media-foundation.md) · [Variables and tools](manual/variables-and-tools.md)
+[Notebook examples](examples.md) | [Browser media receipts](browser-media-foundation.md) | [Variables and tools](manual/variables-and-tools.md)

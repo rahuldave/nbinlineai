@@ -46,7 +46,7 @@ already use Python's `hashlib.sha256`; replacing exhash does not require replaci
 those editors. Fastcore's documentation and ordinary file editing helpers remain
 useful independently.
 
-Replacement must preserve the relevant boundaries, not just the happy-path text:
+Replacement must preserve the relevant boundaries, including cases outside the happy-path text:
 
 - Search currently has a 1.5-second deadline, 1 MB file bound, depth/result limits,
   partial-result notices, hidden/ignore filtering and saved notebook cell IDs.
@@ -68,7 +68,7 @@ Replacement must preserve the relevant boundaries, not just the happy-path text:
 
 PyPI metadata checked on this date confirms universal `py3-none-any` wheels for
 pathspec **1.1.1**, markdown-it-py **4.2.0**, and its only base dependency mdurl
-**0.1.2**. Use the base packages: pathspec's optional re2/hyperscan accelerators
+**0.1.2**. Use the base packages. Pathspec's optional re2/hyperscan accelerators
 and markdown-it-py's optional comparison extras are unnecessary. These candidate
 packages were not installed in the user's course environment or added to the
 0.1.11 project lockfile. The 0.1.12 source adopts these base dependencies.
@@ -82,7 +82,7 @@ Manager shutdown report is resolved.
 
 ## Upstream sources inspected
 
-These are source snapshots, not promises that every dependency is installed in a notebook kernel:
+The dependency versions are source snapshots, not promises that every dependency is installed in a notebook kernel:
 
 | Repository | Pinned revision | Relevant modules |
 | --- | --- | --- |
@@ -103,7 +103,7 @@ The repository environment already had fastcore **2.2.30**, through the FastLLM 
 
 The pinned [`stdtools.py`](https://github.com/AnswerDotAI/dialoghelper/blob/6b4f4c16532c3f4fbc36281aa0c1d0f3b63c4210/dialoghelper/stdtools.py) imports `dialoghelper`, `dialoghelper.solveitskill`, `ipykernel_helper`, `fastcore.tools`, `toolslm.inspecttools`, `pyskills`, `rgapi`, and `exhash.skill` with star imports. It also imports `safecmd.bash`, `safepyrun.RunPython`, and `aidialog.dlgskill` as `dsk`. That last module is namespaced, not a star export. Utilities such as `ast_grep`, tracing, and tmux live in additional dialoghelper modules; they are not all imported by `stdtools` itself.
 
-This is a capability-family inventory. Exported classes, low-level helpers and asynchronous variants are not each sensible model tools.
+The table inventories capability families. Exported classes, low-level helpers and asynchronous variants are not each sensible model tools.
 
 | Provider | Surface beyond our bundled tools | Fit / remaining gap |
 | --- | --- | --- |
@@ -122,9 +122,9 @@ This is a capability-family inventory. Exported classes, low-level helpers and a
 
 ### Installed versus accessible
 
-The 0.1.11 repository environment has fastcore 2.2.30, rgapi 0.1.30, remold 0.1.1, exhash 0.4.16, and pyskills 0.0.33 as direct dependencies. Dialoghelper, toolslm, tracefunc, ipykernel-helper, safecmd, and safepyrun are not required. This says nothing about a separately selected notebook kernel. Current upstream source can also expose APIs absent from the installed dependency version.
+The 0.1.11 repository environment has fastcore 2.2.30, rgapi 0.1.30, remold 0.1.1, exhash 0.4.16, and pyskills 0.0.33 as direct dependencies. Dialoghelper, toolslm, tracefunc, ipykernel-helper, safecmd, and safepyrun are not required. The server-package inventory says nothing about a separately selected notebook kernel. Current upstream source can also expose APIs absent from the installed dependency version.
 
-The current 51 bundled tools are a convenience registry, not a restriction to those callables. A compatible synchronous function imported into the bound kernel can already be offered by `&`. A missing dependency needs installation in that kernel; incompatible signatures/results need wrappers; Solveit service calls need a Jupyter implementation. These are three different gaps.
+The current 51 bundled tools are a convenience registry, not a restriction to those callables. A compatible synchronous function imported into the bound kernel can already be offered by `&`. A missing dependency needs installation in that kernel; incompatible signatures/results need wrappers; Solveit service calls need a Jupyter implementation. Those three cases respectively require installation in the selected kernel, a wrapper, or a Jupyter implementation.
 
 ## Selected first implementation (historical eight-tool phase)
 
@@ -151,11 +151,11 @@ There is no public `show_doc` function in installed fastcore 2.2.30. The familia
 - `show_doc("read_csv", module="pandas")`: import an installed module, then inspect its named symbol.
 - `show_doc("", module="json")`: import and document the module itself.
 
-Explicit imports execute module initialization. The tool does not install packages, bind new names into the notebook namespace, or call the documented function. A filesystem path is not a Python module name. Static source-file documentation is a distinct candidate below: it can work without import but cannot reproduce every runtime decorator/delegated signature.
+Explicit imports execute module initialization. The tool does not install packages, bind new names into the notebook namespace, or call the documented function. A filesystem path is not a Python module name. Static source-file documentation is a distinct candidate below. It can work without import but cannot reproduce every runtime decorator/delegated signature.
 
 ## Other candidates, assessed against our architecture
 
-The following were **proposed at the eight-tool phase**. Many shipped in 0.1.11; the current 0.1.12 matrix above records the syntax-tool deferral and replacement search/document implementations. “Kernel wrapper” means the existing synchronous callable route is sufficient; it does not mean an upstream function can be exposed unchanged.
+The following were **proposed at the eight-tool phase**. Many shipped in 0.1.11; the current 0.1.12 matrix above records the syntax-tool deferral and replacement search/document implementations. "Kernel wrapper" means the existing synchronous callable route is sufficient; it does not mean an upstream function can be exposed unchanged.
 
 | Candidate and upstream basis | Buildability now | Concrete adaptation |
 | --- | --- | --- |
@@ -184,6 +184,6 @@ The 0.1.11 source implemented project search, broader code outlines, AST file re
 
 ## Integration boundaries
 
-Ordinary tool signatures must have keyword-capable named parameters. The bridge rejects positional-only parameters, `*args`, `**kwargs`, and awaitables; it supports simple JSON schemas and shallow array items. Each serialized call argument object is capped at 16,000 characters, each result at 4,000, and tool calls have a 30-second dispatcher wait. The wrapper bounds must operate before expensive reads, traversal, mutation, or huge result construction, not only after repr truncation.
+Ordinary tool signatures must have keyword-capable named parameters. The bridge rejects positional-only parameters, `*args`, `**kwargs`, and awaitables; it supports simple JSON schemas and shallow array items. Each serialized call argument object is capped at 16,000 characters, each result at 4,000, and tool calls have a 30-second dispatcher wait. The wrapper bounds must operate before expensive reads, traversal, mutation, or huge result construction, as well as after repr truncation.
 
 All ordinary file tools run on the **bound kernel's machine and cwd**, which can differ from the Jupyter server and notebook path. Existing notebooks continue to use the live frontend model for edits. Adding a registry entry advertises a tool to the helper; actual model availability still requires an imported callable and an enabled Markdown declaration. Keep skips completed tool runs; cancellation does not roll back completed filesystem changes.

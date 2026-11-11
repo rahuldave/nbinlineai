@@ -4,15 +4,17 @@ title: Write and run AI questions
 
 # Write and run AI questions
 
-[Manual](../user-guide.md) · [Previous: Install and connect](setup.md) · [Next: Models, styles, and effort](models-and-styles.md)
+- [Manual](../user-guide.md)
+- [Previous: Install and connect](setup.md)
+- [Next: Models, styles, and effort](models-and-styles.md)
 
 1. Select the cell after which you want to ask a question.
 2. Click **+ AI Prompt** in the notebook toolbar.
-3. Write your prompt, for example: `Explain the code above and suggest a simpler approach.`
+3. For example, write `Explain the code above and suggest a simpler approach.`
 4. Check the **AI defaults** row below the notebook toolbar. The cell inherits these settings unless you use its **Override** control.
 5. Press **Shift+Enter** or click **Run AI**.
 
-The answer streams into a separate Markdown cell, normally created immediately below the prompt. **Keep answer** starts on: the first run is allowed, and a completed answer is then protected from accidental repeat requests. Ordinary code cells keep their usual execution behavior.
+The answer streams into a separate Markdown cell, normally created immediately below the prompt. **Keep answer** starts on. The first run is allowed, and a completed answer is then protected from accidental repeat requests. Ordinary code cells keep their usual execution behavior.
 
 ![A notebook with its AI defaults above a prompt and answer](../images/overview.png)
 
@@ -28,7 +30,7 @@ AI questions have a subtle blue background and answers have a green background, 
 
 ## Start a question
 
-An empty AI question shows four small suggestions: **Explain cell above**, **Explain code above**, **Explain section above**, and **Write code…**. Click one, or reach it with Tab and activate it with Enter, to insert ordinary text into the question editor. Then edit the text to suit your task and run the question when ready.
+An empty AI question shows four small suggestions. They are **Explain cell above**, **Explain code above**, **Explain section above**, and **Write code…**. Each inserts ordinary text into the question editor. Click one, or reach it with Tab and activate it with Enter. Then edit the text to suit your task and run the question when ready.
 
 The suggestions disappear once the question contains text, and return if you clear it. You can ignore them and type your own question. Displaying a suggestion does not save prompt text or send an AI request; choosing one inserts text but does not run it. **Write code…** inserts `Write code to ` so you can complete the request.
 
@@ -38,7 +40,7 @@ The suggestions disappear once the question contains text, and return if you cle
 
 Code blocks in rendered AI answers have a **Copy code** button. Click it, select or create an ordinary code cell, then paste with your usual keyboard shortcut. The button copies the code text without the surrounding Markdown fences. Review and run the pasted code yourself; clicking Copy never executes it.
 
-The same button is available for short snippets in Learning mode. It is interface decoration: it is not stored in the notebook's Markdown or sent as AI context. If clipboard access fails, the interface tells you; select the code and copy it manually instead.
+The same button is available for short snippets in Learning mode. The button is interface decoration. It is not stored in the notebook's Markdown or sent as AI context. If clipboard access fails, the interface tells you; select the code and copy it manually instead.
 
 ![The Copy button on a fenced code block in an AI answer](../images/copy-code.png)
 
@@ -58,4 +60,6 @@ The default order is **question → answer → code**. The new code is editable 
 
 ![Illustrative question, retained answer, and a separate unexecuted code cell](../images/insert-code.png)
 
-[Manual](../user-guide.md) · [Previous: Install and connect](setup.md) · [Next: Models, styles, and effort](models-and-styles.md)
+- [Manual](../user-guide.md)
+- [Previous: Install and connect](setup.md)
+- [Next: Models, styles, and effort](models-and-styles.md)

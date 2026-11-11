@@ -1,6 +1,6 @@
 # Implementation task prompt: ChatGPT subscription integration
 
-This is the historical task contract used for **0.1.13**. The 0.1.13 archives
+The prompt is the historical task contract used for **0.1.13**. The 0.1.13 archives
 were accepted by PyPI on 2026-09-24; consult the [release record](releasing.md)
 for completed tag and public-site verification. The instructions below are
 preserved for provenance, not as a statement that implementation is unfinished.
@@ -20,13 +20,13 @@ Inspect the interactive design at `internal_docs/design/chatgpt-configure-ai.htm
 and its editable source `internal_docs/design/chatgpt-configure-ai.fragment.html`.
 They are repository files, not references to another task's private storage.
 Use **ChatGPT**, not **Codex**, in the student-facing dialog. For this release,
-show read-only **“ChatGPT file access: Notebook tools only”** and explain that
+show read-only **"ChatGPT file access: Notebook tools only"** and explain that
 direct ChatGPT file operations are disabled while declared Python notebook
 tools keep normal kernel permissions. Do not activate a notebook/project file
 scope selector without an enforced native direct-file feature. Keep technical
 SDK/runtime names in internal docs.
 
-The user-facing goal is: install nbinlineai, choose **ChatGPT subscription** in
+The user-facing goal is to install nbinlineai, choose **ChatGPT subscription** in
 Configure AI, sign in with ChatGPT in a browser, return to JupyterLab, and run
 ordinary inline AI questions using the account's Codex entitlement. Students
 must not separately install Codex, its desktop app, Node or an API key. Existing
@@ -37,6 +37,7 @@ subscription to paid API billing. Keep the provider model extensible.
 conversation/context, explicit tool selection, kernel execution, live-document
 bindings, answer metadata, Keep, cancellation and native execution queues.
 Do not replace that workflow with an autonomous Codex project agent.
+
 Each notebook is its own logical harness instance; authentication is shared.
 Keep per-notebook history, tool/context state, kernel/document bindings, queues
 and cancellation separate. A shared manager/process may serve them, but must
@@ -53,14 +54,15 @@ copy `auth.json`, depend on a global Codex executable, or inherit the SDK's
 accepting approval fallback unintentionally.
 
 Preserve each host-assembled submission's 64,000-character estimate with the
-runtime's `round_wire_cost(messages, tools)` serializer: exact serialized
-content plus a bounded transport-metadata reserve, checked against the actual
+runtime's `round_wire_cost(messages, tools)` serializer. Count exact serialized content plus a bounded transport-metadata reserve, checked against the actual
 combined App Server submission envelopes before `turn/start`. Count fixed
 instructions, schema/framing, current prompt, discovered tool definitions and
 completed notebook-tool groups before optional context; preview and execution
 must use the same callback. Codex internal inference/recovery calls after a
 bounded submission are permitted by the user's revised contract and do not
-increment `maxToolSteps`. Count only validated notebook-tool plan groups
+increment `maxToolSteps`.
+
+Count only validated notebook-tool plan groups
 returned to and executed by the host, at most ten calls per group. Disable
 native tools/instructions/history; use fresh ephemeral structured rounds.
 Prove answer, refusal, tool results, cancellation and no replay of effects with
@@ -101,8 +103,8 @@ partial effects, server shutdown, notebook persistence, Keep and Run All. Update
 public docs/examples when behavior changes and keep the internal handoff current.
 
 Target **0.1.13**. After implementation and required checks pass, complete the
-repository's full release checklist: aligned version bump/lockfiles, rebuilt
-assets, checked wheel/source artifacts, clean-install verification, PyPI
-publication, pushed source/tag and publication verification. Do not call a source
+repository's full release checklist. Complete an aligned version bump and lockfile
+update. Rebuild assets, check wheel and source artifacts, verify a clean installation,
+publish to PyPI, push the source and tag, and verify publication. Do not call a source
 commit a release. If a real compatibility blocker prevents completion, clearly
 record what remains and that PyPI is unchanged.

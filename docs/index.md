@@ -20,7 +20,9 @@ The [setup chapter](manual/setup.md) walks through installation and connections.
 
 The [notebook gallery](examples.md) has walkthroughs and complete tool-catalog notebooks. Each tool in the [Tool catalog](tools.md) links to a concrete normal Python or JupyterLab action and an AI question. The examples use disposable inputs; copy a notebook before editing it.
 
-A tool declaration gives the model access to a selected function, but it does not make the function run by itself. Browser-media calls add one more step: a direct Python call returns a mutable receipt before browser work finishes, while an AI call returns an initial snapshot. Inspect the receipt later, or ask `operation_status` in a later AI turn, before using a source ID, media result, or saved path. [Browser media operations](browser-media-foundation.md) shows the pattern.
+A tool declaration gives the model access to a selected function, but it does not make the function run by itself. A direct browser-media call from Python returns a mutable receipt before browser work finishes. Its status and result can change after the call returns.
+
+An AI call returns an initial snapshot. Inspect the receipt later, or ask `operation_status` in a later AI turn, before using a source ID, media result, or saved path. [Browser media operations](browser-media-foundation.md) shows the pattern.
 
 ## Find a topic
 

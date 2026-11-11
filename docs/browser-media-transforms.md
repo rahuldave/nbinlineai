@@ -10,7 +10,7 @@ Each call returns a `BrowserReceipt` immediately. A receipt in `running` is an a
 
 ## Make a crop
 
-`crop_image` takes pixel coordinates in the decoded image: `x`, `y`, `width`, and `height`. The [crop call](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-call) uses the setup cell's exact `image_ref`, selects a 16 × 16 region from its 64 × 64 PNG, and saves the derivative to a new path.
+`crop_image` takes pixel coordinates in the decoded image. Pass `x`, `y`, `width`, and `height`. The [crop call](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-crop-call) uses the setup cell's exact `image_ref`, selects a 16 × 16 region from its 64 × 64 PNG, and saves the derivative to a new path.
 
 ```python
 from nbinlineai.tools import crop_image
@@ -51,7 +51,7 @@ from nbinlineai.tools import extract_frames
 frames = extract_frames(video_ref, [1.5, 5.0])
 ```
 
-The [later frame inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-inspect) displays two different notebook scenes and reads `actual_seconds` from each descriptor. These are the frames the browser presented; they may differ from the requested times. The [AI frame question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-question) makes the tool call, and the [later AI status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-ready) reports those observed times and managed media IDs.
+The [later frame inspection](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-inspect) displays two different notebook scenes and reads `actual_seconds` from each descriptor. The captured frames are the ones the browser presented; they may differ from the requested times. The [AI frame question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-question) makes the tool call, and the [later AI status question](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-frames-ai-ready) reports those observed times and managed media IDs.
 
 Completed `frames.result` is a list of Pillow images, paired in order with `frames.media`. You can make a smaller **local Pillow preview** from one returned frame:
 
@@ -71,8 +71,12 @@ The notebook uses Pillow `resize` for its displayed frame and crop previews. `th
 
 Pass an owned `{"media_id": "..."}` from a completed receipt or an exact saved `{"path": "...", "sha256": "..."}` reference. The worked notebook computes the hash of the PNG it created and verifies the recording's size and hash before use. Do not substitute a filename without its actual hash. Browser decoding and byte checks can report an expired or stale reference, unsupported codec, or changed file. SVG is not silently rasterized for these pixel tools.
 
-With `save_to=None`, a derivative stays in bounded owned media memory; no file or sidecar is written. For a crop or annotation, set `save_to` to an unused server-root-relative **filename**. For a frame batch, set it to an unused server-root-relative **directory**, or use `"auto"` for a generated directory. The frame files are named `part-01.png` and onward. Existing destinations are not overwritten. Every saved derivative has an adjacent `.json` sidecar with its source hash, transformation, parameters, and output hash; saved frames also record requested and actual seconds. `save_media` can later save an in-memory derivative and create its sidecar. Inspect a completed receipt's `media` for the resulting paths. A failed save does not count as a completed transform.
+With `save_to=None`, a derivative stays in bounded owned media memory; no file or sidecar is written. For a crop or annotation, set `save_to` to an unused server-root-relative **filename**. For a frame batch, set it to an unused server-root-relative **directory**, or use `"auto"` for a generated directory. The frame files are named `part-01.png` and onward.
 
-Crops and annotations have pixel bounds. Annotations accept 1–50 `text`, `arrow`, `rectangle`, or `redaction` shapes; text is at most 200 characters per shape and drawing colors are opaque six-digit hex values. Frame extraction accepts 1–12 finite timestamps from 0 to 300 seconds and rejects positions beyond the decoded clip. It checks a 32-million-pixel decoded batch and 50 MiB encoded batch limit. The shared decoder limits sources to 50 MiB, each image or frame to 4096 pixels per side and 16 million pixels, and video to 300 seconds. Several active previews or surfaces can also exhaust the notebook's pixel budget. If the browser cannot establish a finite video duration or report a presented frame time, extraction reports an error. A `.webm` or `.mp4` suffix alone does not establish that its codec is playable in this browser.
+Existing destinations are not overwritten. Every saved derivative has an adjacent `.json` sidecar with its source hash, transformation, parameters, and output hash; saved frames also record requested and actual seconds. `save_media` can later save an in-memory derivative and create its sidecar. Inspect a completed receipt's `media` for the resulting paths. A failed save does not count as a completed transform.
+
+Crops and annotations have pixel bounds. Annotations accept 1 to 50 `text`, `arrow`, `rectangle`, or `redaction` shapes; text is at most 200 characters per shape and drawing colors are opaque six-digit hex values. Frame extraction accepts 1 to 12 finite timestamps from 0 to 300 seconds and rejects positions beyond the decoded clip. It checks a 32-million-pixel decoded batch and 50 MiB encoded batch limit.
+
+The shared decoder limits sources to 50 MiB, each image or frame to 4096 pixels per side and 16 million pixels, and video to 300 seconds. Several active previews or surfaces can also exhaust the notebook's pixel budget. If the browser cannot establish a finite video duration or report a presented frame time, extraction reports an error. A `.webm` or `.mp4` suffix alone does not establish that its codec is playable in this browser.
 
 When finished, use `release_media` for managed in-memory derivatives and remove only your disposable files. The [notebook cleanup cell](https://rahuldave.com/nbinlineai/notebooks/browser-media-transforms.html#transform-cleanup) shows that sequence. Releasing a media ID does not remove an already saved file or a Pillow image already returned to Python.

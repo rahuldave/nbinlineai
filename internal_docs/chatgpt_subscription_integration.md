@@ -6,7 +6,7 @@ and must not be reused. The
 [implementation task prompt](chatgpt_subscription_task_prompt.md) records the
 active contract and acceptance work. The earlier strict one-model-request gate
 and its evidence remain in the [runtime gate record](chatgpt_subscription_gate.md),
-but the user explicitly revised that contract: Codex internal inference and
+but the user explicitly revised that contract. Codex internal inference and
 recovery calls are allowed after each bounded host submission.
 This document supersedes the subscription proposal in
 [the earlier FastLLM note](fastllm_and_chatgpt_subscription.md), while retaining
@@ -20,10 +20,13 @@ The user signs in with ChatGPT; nbinlineai never treats that login as an API key
 Use the official Python **`openai-codex` SDK**, whose published builds include
 a pinned native runtime dependency. An owned App Server protocol client controls
 the local runtime where the high-level SDK lacks the needed methods;
-students do not separately install the Codex CLI or desktop app. This replaces
+students do not separately install the Codex CLI or desktop app.
+
+This replaces
 the earlier idea of building our own runtime downloader. See
 [the current Python SDK documentation](https://learn.chatgpt.com/docs/codex-sdk#python-library).
 The same notebook question/answer interface should work with each connection.
+
 **nbinlineai/the notebook remains the harness. No ACP is used.** The SDK/App
 Server supplies subscription-backed execution, not a replacement conversation
 owner or an independent autonomous project agent. ACP appears in the research
@@ -32,7 +35,7 @@ Preserve existing API selections and credentials. Never silently fall back from
 subscription access to a paid API request, including when only an API backend
 is currently available.
 
-This is access through Codex with ChatGPT entitlement, not a general API to the
+Subscription mode gives access through Codex with ChatGPT entitlement, not a general API to the
 ChatGPT website, its conversation history, or every model in its picker.
 OpenAI documents subscription sign-in separately from API billing in
 [Authentication](https://learn.chatgpt.com/docs/auth). Its current
@@ -58,7 +61,7 @@ live acceptance does not establish every account, model or quota state.
 ## Working directory and accessible project are separate
 
 The user explicitly prefers project-level JupyterLab environments managed with
-uv. A course-level server is equally valid: opening `course/` exposes its
+uv. A course-level server is equally valid. Opening `course/` exposes its
 notebooks, assignments, and data to ordinary declared notebook tools under the
 kernel user's permissions. Opening `course/assignment-3/` selects a narrower
 JupyterLab content root, but does not sandbox Python. The later discussion
@@ -95,12 +98,14 @@ cwd determines the server's local project root.
 ### Folder scope and sandboxing
 
 The 0.1.13 runtime child and ephemeral thread use a **private runtime cwd** and
-private `CODEX_HOME`, never the notebook/project folder: a project cwd can load
+private `CODEX_HOME`, never the notebook/project folder. A project cwd can load
 and trust `.codex/config.toml`, hooks and MCP settings before tool isolation.
 The authenticated notebook parent is included only in the host-budgeted prompt
 as location context. Native Codex file, shell, browser, plugin and other direct
 tools are disabled; no direct-file scope is currently enforced or offered as an
-active choice. The account status reports `native_files_capable: false`. The
+active choice.
+
+The account status reports `native_files_capable: false`. The
 stored notebook/project preference is dormant groundwork. Any future direct
 file access must prove read/write/symlink containment separately; a cwd alone
 is never a sandbox. Prior named-profile command probes in
@@ -119,12 +124,14 @@ uv isolates dependencies, and Jupyter's root organizes content; neither confines
 arbitrary Python. Current custom kernel functions, filesystem tools and
 `run_shell` can operate with the kernel user's permissions. Full enforcement
 across those paths requires sandboxing the kernel/server or a separate restricted
-execution service. Path validation can constrain specific bundled tools but
+execution service.
+
+Path validation can constrain specific bundled tools but
 cannot confine arbitrary Python callables. Do not label the whole notebook
-environment “sandboxed to this folder” without that work. The user understands
+environment "sandboxed to this folder" without that work. The user understands
 and accepts ordinary local Python permissions; a new whole-kernel sandbox is
-not a prerequisite for this feature. Label the read-only line “ChatGPT file
-access: Notebook tools only” and explain the normal Python permissions briefly.
+not a prerequisite for this feature. Label the read-only line "ChatGPT file
+access: Notebook tools only" and explain the normal Python permissions briefly.
 
 The earlier [Jupyter AI trial](codex_acp_example_run.md) demonstrated a Codex
 ChatGPT login, project file reads and live notebook operations. It did not prove
@@ -143,7 +150,7 @@ using this checkout can inspect the design without this conversation's storage.
 **Student-facing terminology:** use **ChatGPT**, not **Codex**, throughout the
 dialog, including setup/status/help/error messages. Keep technical Codex
 SDK/runtime names in implementation documentation. The current read-only line
-is **“ChatGPT file access: Notebook tools only”**. Explain that direct ChatGPT
+is **"ChatGPT file access: Notebook tools only"**. Explain that direct ChatGPT
 file operations are disabled; declared notebook tools and Python keep their
 normal kernel permissions. Do not show an active notebook/project scope selector
 until a direct-file feature is actually implemented and enforced.
@@ -167,7 +174,7 @@ For subscription setup:
    connection can safely be reused, show it. Otherwise **Sign in with ChatGPT**
    opens the Codex-managed browser flow. Include cancellation and retry. App
    Server owns a local OAuth callback listener and supplies the full auth URL,
-   including its callback port. This is a browser redirect, not a webhook to our
+   including its callback port. The sign-in callback is a browser redirect, not a webhook to our
    Jupyter route. Do not guess/sniff/rewrite the callback port. The UI learns the
    result through the authenticated nbinlineai backend and login notifications.
 3. Provide device-code sign-in when the callback cannot reach the server, notably
@@ -181,9 +188,9 @@ For subscription setup:
    Merely opening the panel, checking status or signing in does not dirty it.
    Cell overrides still inherit or select an explicit backend.
 
-Suggested copy: “Uses your ChatGPT subscription allowance.” Display the
-logical “Notebook folder: …/course/week2” as context and a read-only
-**“ChatGPT file access: Notebook tools only”** line. A saved notebook/project
+Suggested copy: "Uses your ChatGPT subscription allowance." Display the
+logical "Notebook folder: …/course/week2" as context and a read-only
+**"ChatGPT file access: Notebook tools only"** line. A saved notebook/project
 preference may remain in private configuration for future direct-file support,
 but it has no effect on this release's tool permissions. Do not present it as
 an active control or accept arbitrary path grants from notebook metadata.
@@ -211,7 +218,7 @@ authentication is shared. An OS process is not the unit of notebook isolation.
 
 Use a shared per-server account manager with a lazy control child and a separate
 owned App Server child/ephemeral thread per host round. Bind notebook identity to the originating
-document model and authenticated session/kernel, not just filename, active tab,
+document model and authenticated session/kernel, rather than relying only on filename, active tab,
 or cell IDs that another notebook might also contain. A fresh provider round
 may use its own ephemeral Codex thread without changing notebook-level ownership.
 Never resume another notebook's engine history, leak its tool declarations, or
@@ -264,7 +271,7 @@ starting a run and invalidate the connection if it changes. Use a supported
 forced-ChatGPT setting only with understood auth-store effects; do not overwrite
 the user's existing Codex login/configuration merely to check availability.
 
-Proposed default for a managed installation: a dedicated nbinlineai Codex state
+The proposed default for a managed installation is a dedicated nbinlineai Codex state
 directory in per-user application storage, reusable by that user's project
 servers, outside projects. Existing Codex sign-in reuse is an optional path only
 after proving we can apply the intended configuration without inheriting
@@ -281,15 +288,17 @@ Use the SDK's pinned runtime distribution with a narrow owned async App Server
 protocol client; its high-level wrapper does not expose all needed fields.
 Verify public account/model RPCs, structured output, cancellation and native
 tool suppression in the selected SDK/runtime version.
-Lock and test the SDK/runtime together. Cross-platform installation/size/support
+Lock and test the SDK/runtime together.
+
+Cross-platform installation/size/support
 were checked in the release gates. Do not depend on the user's global PATH or desktop bundle.
 The native engine is still Codex internally; a library wrapper does not turn
 ChatGPT subscription access into the ordinary billed OpenAI API. The user sees
-“ChatGPT subscription” and ChatGPT sign-in, not a separate Codex product setup.
+"ChatGPT subscription" and ChatGPT sign-in, not a separate Codex product setup.
 
 ## Adapter design and the revised host boundary
 
-Keep persisted backend IDs explicit: `openai_api`, `anthropic_api`, and proposed
+Keep the persisted backend IDs explicit. They are `openai_api`, `anthropic_api`, and proposed
 `openai_codex_subscription`. The existing `backend` field already means a
 connection route. Move availability and model capabilities into a registry so
 future providers do not require more key-presence special cases. Keep API key
@@ -301,19 +310,20 @@ Its host-supplied dynamic-tool interface is experimental. Generate and test
 schemas from the executable version we ship rather than assuming a sample in
 current web documentation matches a locally installed release.
 
-Our source owns each host submission: build bounded context, submit a
+Our source owns each host submission. Build bounded context, submit a
 completion, validate tool calls, execute serially, record completed tool groups,
 and rebuild context before the next completion. `maxToolSteps` counts model
 rounds containing tools, not individual calls; each completion has an additional
 ten-call bound. Keep, cancellation and error-stop behavior surround the whole run.
 
-**The user revised the earlier strict gate:** the 64,000-character estimate
-applies to **each host-assembled submission** to the runtime, including fixed
+**The user revised the earlier strict gate.** The 64,000-character estimate applies to **each host-assembled submission** to the runtime, including fixed
 instructions, exact serialized message input, output schema/framing, current
 prompt, discovered tool schemas and completed notebook-tool groups before any
 optional notebook context. The same `round_wire_cost(messages, tools)` serializer
-drives preview and execution: it counts the exact double-serialized content and
-adds a 4,096-character transport-metadata reserve. Before `turn/start`, the
+drives preview and execution. It counts the exact double-serialized content and
+adds a 4,096-character transport-metadata reserve.
+
+Before `turn/start`, the
 adapter measures actual `thread/start` plus `turn/start` envelope lengths and
 rejects any excess over the reserved estimate or 64,000 characters. Codex may make internal inference or recovery
 requests after that bounded submission; those calls are not notebook-tool steps.
@@ -346,8 +356,7 @@ The explicit backend registry keeps `openai_codex_subscription` separate from
 `subscription_capable` and discovered model/effort capabilities; a present
 manager means the setup UI can open, while a ChatGPT account and compatible
 discovered model are still required for `configured: true`. Account routes are
-Jupyter-authenticated, execute-authorized and single-user guarded:
-`GET subscription/status`, `POST subscription/login` (browser/device),
+Jupyter-authenticated, execute-authorized and single-user guarded. The routes are `GET subscription/status`, `POST subscription/login` (browser/device),
 `POST subscription/login/cancel`, `POST subscription/disconnect`,
 `GET subscription/usage` and `GET/POST subscription/file-access` under the
 Jupyter base URL. Status and usage expose bounded typed presentation fields,
@@ -362,7 +371,9 @@ subscription App Server children; Jupyter's process-wide loop policy stays
 unchanged. Shutdown cancels and drains worker tasks, including preflight calls
 that have not entered the per-run registry, then joins the worker and executor.
 An authenticated session ID resolves and refreshes the notebook folder under a
-frozen local content root. Prompt execution verifies the ChatGPT auth mode,
+frozen local content root.
+
+Prompt execution verifies the ChatGPT auth mode,
 exact selected model and effort, then rechecks session path and bound kernel
 before submissions and tool dispatch. Preview invokes the pure round serializer
 without account/model RPC or a model call, even if signed out. Subscription
@@ -398,11 +409,12 @@ Runtime 0.156.1 metadata lists wheels for macOS arm64/x86_64, manylinux and
 musllinux aarch64/x86_64, and Windows arm64/amd64. The 0.1.13 lock resolves
 the pinned dependency wheels for all eight supported platform combinations.
 The final [credential-free CI run](https://github.com/rahuldave/nbinlineai/actions/runs/36033921756)
-passed 14/14 jobs: packaged startup/shutdown in a Tornado loop, deterministic
+passed 14/14 jobs. They covered packaged startup/shutdown in a Tornado loop, deterministic
 RPC/lifecycle tests, and an actual empty native-tool inventory with a local
 mock model on macOS, Linux and Windows x64/arm64 under Python 3.12 and 3.14,
 plus Alpine musl x64/arm64 under Python 3.12. On Windows the probe applies
 Jupyter Server's Selector-loop policy and uses the private Proactor worker.
+
 This tests runtime execution without credentials; it is not a full Jupyter
 Server/kernel or subscribed-account acceptance run. A macOS Intel-only
 `argon2-cffi-bindings<26.1.0` bound selects the available 25.1.0 wheel;
@@ -420,8 +432,7 @@ Source inspection of the installed SDK found:
   but access through private members is not a stable production contract.
 - High-level approval modes are `auto_review` and `deny_all`; the constructor
   does not expose a human-approval callback. The lower-level transport's default
-  handler accepts command/file-change approval requests that reach it. This does
-  not mean every action bypasses review, but we must not inherit that fallback
+  handler accepts command/file-change approval requests that reach it. The default handler does not mean every action bypasses review, but we must not inherit that fallback
   unknowingly when promising restricted access.
 
 **Implementation decision:** use the official packages for runtime distribution.
@@ -457,7 +468,7 @@ Sources: [official SDK](https://learn.chatgpt.com/docs/codex-sdk#python-library)
   the child exited cleanly. No login/logout, model turn, API request, or Jupyter
   server was started by this check. This establishes local account reuse on this
   installation, not full inline-subscription functionality.
-- Generated its experimental JSON schemas. This binary's dynamic function tool
+- The desktop-bundled executable generated its experimental JSON schemas. Its dynamic function tool
   requires `type: "function"` alongside name/description/inputSchema. Its legacy
   `SandboxPolicy` schema does **not** include the restricted-read fields shown in
   current web docs. Named permission profiles passed the command probes; their
@@ -487,15 +498,13 @@ as project file confinement. Use deterministic protocol fixtures for regressions
 the completed live subscription trial used synthetic content and may have
 consumed subscription allowance.
 
-Required coverage includes existing API behavior; old notebook metadata;
-no automatic billing fallback; per-project roots with nested notebooks;
-cross-project isolation; absent/broken/incompatible runtime; auth cancellation
-and reconnect; model availability; usage unavailable/limited; default/override
-inheritance; source selection and below-cell exclusions; inherited declarations;
-tool argument validation and budget limits; focus changes; stale kernels;
-duplicate/late replies; partial effects and cancellation; server shutdown;
-Keep, Shift+Enter and native Run All. A future direct-file feature needs real
-folder enforcement tests on each supported OS before activating its selector.
+Required coverage includes:
+
+- Existing API behavior, old notebook metadata, no automatic billing fallback, per-project roots with nested notebooks, cross-project isolation, and absent, broken, or incompatible runtimes.
+- Auth cancellation and reconnect, model availability, unavailable or limited usage, default and override inheritance, source selection and below-cell exclusions, inherited declarations, tool argument validation, and budget limits.
+- Focus changes, stale kernels, duplicate or late replies, partial effects and cancellation, server shutdown, Keep, Shift+Enter, and native Run All.
+
+A future direct-file feature needs real folder enforcement tests on each supported OS before activating its selector.
 
 After frontend changes, rebuild/relink before the isolated browser suite on
 8897. Do not touch the user's 8888 server. Update public instructions/examples
