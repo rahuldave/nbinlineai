@@ -6,7 +6,7 @@ title: Attach an image to an AI question
 
 Use `attach_media(media, question_cell_id, detail="auto")` to propose one exact image for one AI question. You see the image and the target question ID before you click **Attach image**. Confirmation adds a reference to that question; it does not run the question or send pixels to a model. You decide when to run it.
 
-The [worked attachment notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) offers two ways to make the request, a direct Python call and an AI question that calls the tool. It generates a disposable blue PNG locally, computes the file's actual SHA-256, and names its target AI question `attachment-question`. Its saved AI trace shows a completed confirmation and hash; the target image question is left for you to run. Use a disposable notebook with a live kernel and a configured image-capable connection.
+The [worked attachment notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html) offers two ways to make the request, a direct Python call and an AI question that calls the tool. It generates a disposable blue PNG locally, computes the file's actual SHA-256, and names its target AI question `attachment-question`. Its saved AI trace shows a completed confirmation and hash. A later saved run attaches the image and records the target question's answer identifying the square as blue. Use a disposable notebook with a live kernel and a configured image-capable connection for a fresh run.
 
 ## Call it from Python
 
@@ -28,7 +28,9 @@ Successful `attached.result` includes `confirmed`, `question_cell_id`, `image_sh
 
 ## Ask the AI to call it
 
-The notebook's [AI tool question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-question) declares `` &`attach_media` `` and passes the live Python value as `` $`source_ref` `` to target `attachment-question`. The first answer reports the operation ID and `waiting_for_user`; it cannot claim that you confirmed the image. Click **Attach image**, then use the [follow-up AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-ready), which calls `operation_status` on that ID. The saved trace shows `completed` with the actual question ID and SHA-256. These AI questions demonstrate the tool and receipt; they do not run the target image question. If you also run the direct Python call, it asks for a separate confirmation of that same image and replaces the earlier attachment.
+The notebook's [AI tool question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-question) declares `` &`attach_media` `` and passes the live Python value as `` $`source_ref` `` to target `attachment-question`. The first answer reports the operation ID and `waiting_for_user`; it cannot claim that you confirmed the image. Click **Attach image**, then use the [follow-up AI question](https://rahuldave.com/nbinlineai/notebooks/browser-media-attachment.html#attachment-tool-ai-ready), which calls `operation_status` on that ID. The saved trace shows `completed` with the actual question ID and SHA-256.
+
+Those two AI questions demonstrate the tool and receipt. A later worked run also executes the target image question and saves its answer. If you run the direct Python call too, it asks for a separate confirmation of the same image and replaces the earlier attachment.
 
 ## Run, remove, or keep the image
 

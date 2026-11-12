@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { observedTrace, normalizePublicCopy, addTraceAppendix, assertSafeNotebook,
   sensitiveHardwareValues, toolResultState, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
-  prepareDisposableExecutedCells, verifiedInsertionCell } from '../scripts/worked_notebooks_support.mjs';
+  prepareDisposableExecutedCells, verifiedInsertionCell,
+  validatedUnsavedMarkdown } from '../scripts/worked_notebooks_support.mjs';
 
 test('insert_tools requires its own inserted receipt, exact cell and visible declaration', () => {
   const cells = [
@@ -93,9 +94,34 @@ test('current live cell IDs select the changed model order, not source ordinals'
   ];
   assert.equal(liveCellIndex(cells, 'setup', 'code'), 3);
   assert.equal(liveCellIndex(cells, 'question', 'question'), 2);
+  assert.equal(liveCellIndex(cells, 'intro', 'ordinaryMarkdown'), 0);
   assert.throws(() => liveCellIndex([...cells, cells[3]], 'setup', 'code'), /duplicated/);
   assert.throws(() => liveCellIndex(cells, 'intro', 'question'), /wrong type/);
+  assert.throws(() => liveCellIndex(cells, 'question', 'ordinaryMarkdown'), /wrong type/);
+  assert.throws(() => liveCellIndex(cells, 'setup', 'ordinaryMarkdown'), /wrong type/);
   assert.throws(() => liveCellIndex(cells, '"bad-selector', 'code'), /invalid/);
+});
+
+test('unsaved Markdown edit accepts only a unique ordinary cell with exact saved source', () => {
+  const note = { id: 'field-note', cell_type: 'markdown', metadata: {},
+    source: ['### Field note\n', '\n', 'Original observation.\n'] };
+  const question = { id: 'question', cell_type: 'markdown',
+    metadata: { nbinlineai: { isPromptCell: true } }, source: 'Use the note.' };
+  const answer = { id: 'answer', cell_type: 'markdown',
+    metadata: { nbinlineai: { isOutputCell: true } }, source: 'Done.' };
+  const cells = [question, note, answer];
+  const edit = { cellId: 'field-note', expectedSource: '### Field note\n\nOriginal observation.\n',
+    source: 'UNSAVED_SHADE_NOTE: A cloud passed.' };
+  assert.equal(validatedUnsavedMarkdown(cells, edit), 1);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, cellId: 'missing' }), /missing or duplicated/);
+  assert.throws(() => validatedUnsavedMarkdown([...cells, note], edit), /missing or duplicated/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, cellId: 'question' }), /wrong type/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, cellId: 'answer' }), /wrong type/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, expectedSource: 'Old text' }), /stale/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, source: edit.expectedSource }), /invalid/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, cellId: 'bad id' }), /invalid/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, source: 'x'.repeat(4001) }), /invalid/);
+  assert.throws(() => validatedUnsavedMarkdown(cells, { ...edit, expectedSource: 'x'.repeat(4001) }), /invalid/);
 });
 
 test('save and session identity fail closed on stale same-type order or duplicate path', () => {

@@ -1,5 +1,7 @@
 # Internal documentation index
 
+The [starter tools tutorial handoff](starter_tools_tutorial_handoff.md) records the main-based lesson and factual repairs to current example instructions. It follows the November 11 prose review and keeps earlier execution records intact.
+
 The [November 11 prose review](prose_cleanup_2026_11_11.md) records the nossaifd
 and Declaude pass, preserved examples, checker exceptions and separate content
 questions.
@@ -19,13 +21,13 @@ stale primary checkouts. Public docs and examples also follow their code.
 
 Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the documentation site.
 
-The [current handoff](developer_handoff.md) and [0.1.17 release record](release_0_1_17_review.md) describe the published common-instructions release, independent reviews, public artifact hashes, clean installation and site verification. The [0.1.16 release record](release_0_1_16_review.md) preserves the earlier full-delta review and media-tool release evidence. Verify applicability to your code branch.
+The [current handoff](developer_handoff.md) describes released behavior through 0.1.18 and later source changes. The [0.1.17 release record](release_0_1_17_review.md) describes the common-instructions release, independent reviews, public artifact hashes, clean installation and site verification. The [0.1.16 release record](release_0_1_16_review.md) preserves the earlier full-delta review and media-tool release evidence. Verify applicability to your code branch.
 
 The [worked notebook acceptance record](worked_notebooks_acceptance.md)
-tracks draft PR #35's real saved examples, paired tool evidence, documentation
-checks, and remaining live-interaction gates. It is an in-progress source
-record, separate from the browser/media implementation acceptance and release
-history.
+preserves PR #35's source checkpoint, real saved examples, paired tool evidence,
+documentation checks and the live-interaction gates that remained at that time.
+The later background refresh below records 29 additional saved gallery answers.
+The dated checkpoint is separate from the release history.
 
 The [2026-10-21 background worked-example refresh](worked_examples_background_run.md) records 29 new real AI answers, preservation of all 158 earlier answers, synthetic-media boundaries and source-only delivery.
 
@@ -112,8 +114,8 @@ The brief and task prompt preserve the original design contract. Context selecti
 
 Public documentation: the [manual index](../docs/user-guide.md) links eight chapters, including [Context selection](../docs/manual/context-selection.md); the [FAQ](../docs/faq.md), [tools reference](../docs/tools.md), [examples](../docs/examples.md), [architecture](../docs/architecture.md), and [development guide](../docs/development.md) remain separate. The split manual and refreshed screenshots are included in 0.1.14 and verified on the website. Update public instructions whenever a shipped feature changes; keep future proposals clearly labeled here.
 
-The [application examples handoff](application_examples_handoff.md) records the
-pending source addition of five complete application tutorials and a read-only
-audit of all 25 original notebooks. It distinguishes actual Python values from
-browser receipts and AI snapshots. It is not a package release or new live-device
-acceptance record.
+The [application examples handoff](application_examples_handoff.md) records five
+application tutorials merged by PR #43 and shipped in 0.1.16, plus the original
+read-only audit of 25 notebooks. It distinguishes actual Python values from
+browser receipts and AI snapshots. The later background refresh adds saved model
+answers; neither record establishes new physical-device acceptance.

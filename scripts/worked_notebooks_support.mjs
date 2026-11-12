@@ -127,10 +127,28 @@ export function liveCellIndex(cells, id, kind) {
   if (matches.length !== 1) throw new Error(`Current cell ${id} is missing or duplicated`);
   const cell = cells[matches[0]];
   if (kind === 'code' ? cell.cell_type !== 'code' :
-      kind === 'question' ? cell.cell_type !== 'markdown' || cell.metadata?.nbinlineai?.isPromptCell !== true : true) {
+      kind === 'question' ? cell.cell_type !== 'markdown' || cell.metadata?.nbinlineai?.isPromptCell !== true :
+      kind === 'ordinaryMarkdown' ? cell.cell_type !== 'markdown' ||
+        cell.metadata?.nbinlineai?.isPromptCell === true ||
+        cell.metadata?.nbinlineai?.isOutputCell === true : true) {
     throw new Error(`Current cell ${id} has the wrong type`);
   }
   return matches[0];
+}
+export function validatedUnsavedMarkdown(cells, edit) {
+  const bounded = value => typeof value === 'string' && value.length > 0 &&
+    value.length <= 4000 && !value.includes('\0');
+  if (!edit || typeof edit !== 'object' || Array.isArray(edit) ||
+      Object.keys(edit).some(key => !['cellId', 'expectedSource', 'source'].includes(key)) ||
+      typeof edit.cellId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(edit.cellId) ||
+      !bounded(edit.expectedSource) || !bounded(edit.source) ||
+      edit.expectedSource === edit.source) {
+    throw new Error('Unsaved Markdown edit is invalid');
+  }
+  const index = liveCellIndex(cells, edit.cellId, 'ordinaryMarkdown');
+  const source = Array.isArray(cells[index].source) ? cells[index].source.join('') : cells[index].source;
+  if (source !== edit.expectedSource) throw new Error('Unsaved Markdown expected source is stale');
+  return index;
 }
 export function redact(value) {
   let text = typeof value === 'string' ? value : JSON.stringify(value);

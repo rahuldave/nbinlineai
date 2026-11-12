@@ -8,7 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { frames, observedTrace, sensitiveHardwareValues, normalizePublicCopy,
   addTraceAppendix, assertSafeNotebook, liveCellIndex, boundKernelSession,
   verifiedCodeWidgetSource, requiresSubscription, rejectLimitedSubscription,
-  prepareDisposableExecutedCells, verifiedInsertionCell } from './worked_notebooks_support.mjs';
+  prepareDisposableExecutedCells, verifiedInsertionCell,
+  validatedUnsavedMarkdown } from './worked_notebooks_support.mjs';
 import { readLiveReceipt, waitForReceiptStates } from './worked_receipt_ready.mjs';
 import { assertOwnedPromptRequest, noToolPlan, acceptedNativeImage } from './worked_native_attestation.mjs';
 
@@ -338,6 +339,9 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   const codeIds = source.cells.filter(cell => cell.cell_type === 'code').map(cell => cell.id);
   const questionIds = source.cells.filter(cell => cell.cell_type === 'markdown' &&
     cell.metadata?.nbinlineai?.isPromptCell === true).map(cell => cell.id);
+  const ordinaryMarkdownIds = source.cells.filter(cell => cell.cell_type === 'markdown' &&
+    cell.metadata?.nbinlineai?.isPromptCell !== true &&
+    cell.metadata?.nbinlineai?.isOutputCell !== true).map(cell => cell.id);
   const xsrf = (await context.cookies(baseURL)).find(cookie => cookie.name === '_xsrf')?.value;
   if (!xsrf) throw new Error(`${name} has no isolated Jupyter XSRF cookie`);
   const uploaded = await request.put(`/api/contents/${encodeURIComponent(name)}`, {
@@ -385,9 +389,49 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
   const noToolByQuestion = new Map();
   const nativeImageByQuestion = new Map();
   const privateHardwareValues = new Set();
+  const renderedCell = async (index, id, kind, cells) => {
+    // JupyterLab only materializes a window of large notebooks. Its rendered
+    // cells carry their actual model index; a DOM ordinal is not a model index.
+    const target = panel.locator(`.jp-Notebook .jp-Cell[data-windowed-list-index="${index}"]`);
+    const outer = panel.locator('.jp-WindowedPanel-outer');
+    for (let attempt = 0; attempt < cells.length && !(await target.count()); attempt++) {
+      const shown = await panel.locator('.jp-Notebook .jp-Cell[data-windowed-list-index]')
+        .evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-windowed-list-index')))
+          .filter(Number.isInteger));
+      if (!shown.length) throw new Error(`${name} has no indexed rendered cells`);
+      const direction = index < Math.min(...shown) ? -1 : 1;
+      await outer.evaluate((node, sign) => { node.scrollTop += sign * Math.max(300, node.clientHeight * 0.8); }, direction);
+      await pause(80);
+    }
+    if (await target.count() !== 1) throw new Error(`${name} model cell ${id} is not materialized at index ${index}`);
+    const className = kind === 'code' ? 'jp-CodeCell' :
+      kind === 'question' ? 'nbinlineai-prompt-cell' : 'jp-MarkdownCell';
+    if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
+      throw new Error(`${name} current cell ${id} has wrong widget type`);
+    }
+    if (kind === 'ordinaryMarkdown' && await target.evaluate(node =>
+      node.classList.contains('nbinlineai-prompt-cell') ||
+      node.classList.contains('nbinlineai-response-cell'))) {
+      throw new Error(`${name} ordinary Markdown ${id} has an AI widget type`);
+    }
+    if (kind === 'code') {
+      await target.scrollIntoViewIfNeeded();
+      const editorText = await target.locator('.cm-content').evaluate(node => {
+        // CodeMirror virtualizes lines inside a long code cell. Read its complete
+        // editor document, then retain the strict comparison with the saved model.
+        const view = node.cmTile?.root?.view ?? node.cmView?.rootView?.view;
+        return view?.state?.doc?.toString() ??
+          Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n');
+      });
+      verifiedCodeWidgetSource(cells[index], editorText);
+    }
+    return target;
+  };
   const liveCell = async (id, kind) => {
     if (!/^[A-Za-z0-9_-]{1,100}$/.test(id) ||
-        !(kind === 'code' ? codeIds : questionIds).includes(id)) {
+        !(kind === 'code' ? codeIds :
+          kind === 'question' ? questionIds :
+          kind === 'ordinaryMarkdown' ? ordinaryMarkdownIds : []).includes(id)) {
       throw new Error(`${name} has no safe ${kind} cell ${id}`);
     }
     // JupyterLab does not expose stable cell IDs as DOM attributes. Save the
@@ -411,36 +455,7 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
       throw new Error(`${name} no longer has its original kernel session`);
     }
     const index = liveCellIndex(cells, id, kind);
-    // JupyterLab only materializes a window of large notebooks. Its rendered
-    // cells carry their actual model index; a DOM ordinal is not a model index.
-    const target = panel.locator(`.jp-Notebook .jp-Cell[data-windowed-list-index="${index}"]`);
-    const outer = panel.locator('.jp-WindowedPanel-outer');
-    for (let attempt = 0; attempt < cells.length && !(await target.count()); attempt++) {
-      const shown = await panel.locator('.jp-Notebook .jp-Cell[data-windowed-list-index]')
-        .evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('data-windowed-list-index')))
-          .filter(Number.isInteger));
-      if (!shown.length) throw new Error(`${name} has no indexed rendered cells`);
-      const direction = index < Math.min(...shown) ? -1 : 1;
-      await outer.evaluate((node, sign) => { node.scrollTop += sign * Math.max(300, node.clientHeight * 0.8); }, direction);
-      await pause(80);
-    }
-    if (await target.count() !== 1) throw new Error(`${name} model cell ${id} is not materialized at index ${index}`);
-    const className = kind === 'code' ? 'jp-CodeCell' : 'nbinlineai-prompt-cell';
-    if (!(await target.evaluate((node, expected) => node.classList.contains(expected), className))) {
-      throw new Error(`${name} current cell ${id} has wrong widget type`);
-    }
-    if (kind === 'code') {
-      await target.scrollIntoViewIfNeeded();
-      const editorText = await target.locator('.cm-content').evaluate(node => {
-        // CodeMirror virtualizes lines inside a long code cell. Read its complete
-        // editor document, then retain the strict comparison with the saved model.
-        const view = node.cmTile?.root?.view ?? node.cmView?.rootView?.view;
-        return view?.state?.doc?.toString() ??
-          Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n');
-      });
-      verifiedCodeWidgetSource(cells[index], editorText);
-    }
-    return target;
+    return renderedCell(index, id, kind, cells);
   };
   for (const step of entry.steps ?? []) {
     const timeout = Math.min(Math.max(Number(step.timeoutMs) || 30_000, 1000), 300_000);
@@ -528,7 +543,43 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
           step.selectedText !== 'selected blue square' || step.tool !== 'read_selection' || pilot)) {
         throw new Error('Visual handoff is limited to the owned nonempty selection example');
       }
-      const target = await liveCell(step.cellId, 'question');
+      let target = await liveCell(step.cellId, 'question');
+      let unsavedQuestionIndex = null;
+      if (step.unsavedMarkdown !== undefined) {
+        if (visual) throw new Error('Unsaved Markdown edit is unavailable for visual handoff');
+        const edit = step.unsavedMarkdown;
+        validatedUnsavedMarkdown(source.cells, edit);
+        // Resolve the question first: liveCell saves to map stable IDs to the
+        // current model order. Resolve the note before changing its live source.
+        const note = await liveCell(edit.cellId, 'ordinaryMarkdown');
+        const before = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+        if (!before.ok()) throw new Error(`${name} could not read the saved note before editing`);
+        const savedCells = (await before.json()).content.cells;
+        validatedUnsavedMarkdown(savedCells, edit);
+        unsavedQuestionIndex = liveCellIndex(savedCells, step.cellId, 'question');
+        await note.dblclick();
+        await note.locator('.cm-content').fill(edit.source);
+        const editorSource = await note.locator('.cm-content').evaluate(node => {
+          const view = node.cmTile?.root?.view ?? node.cmView?.rootView?.view;
+          return view?.state?.doc?.toString() ??
+            Array.from(node.querySelectorAll(':scope > .cm-line'), line => line.textContent ?? '').join('\n');
+        });
+        if (editorSource !== edit.source) throw new Error(`${name} unsaved Markdown editor disagrees with plan`);
+        const after = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+        if (!after.ok()) throw new Error(`${name} could not check saved source before AI run`);
+        const stillSaved = (await after.json()).content.cells;
+        validatedUnsavedMarkdown(stillSaved, edit);
+        if (liveCellIndex(stillSaved, step.cellId, 'question') !== unsavedQuestionIndex) {
+          throw new Error(`${name} question moved during the unsaved edit`);
+        }
+        const sessions = await request.get('/api/sessions');
+        if (!sessions.ok() || boundKernelSession(createdSession, await sessions.json(), name) !== kernelId) {
+          throw new Error(`${name} changed its owned kernel session before AI run`);
+        }
+        // This only scrolls to the existing index. Calling liveCell now would
+        // save the unsaved note before the question can use it.
+        target = await renderedCell(unsavedQuestionIndex, step.cellId, 'question', stillSaved);
+      }
       const observerBefore = step.nativeImageSha256 ? await nativeObserverRows() : null;
       const runButton = target.locator('[data-nbinlineai-run]');
       if (!(await runButton.isEnabled())) {
@@ -622,7 +673,16 @@ async function runNotebook(page, request, context, entry, choice, pilot, pilotGu
       }
       // Notebook tools may insert cells before this question, changing its index.
       // Resolve the same stable cell ID again after the real response completes.
-      const completedTarget = await liveCell(step.cellId, 'question');
+      let completedTarget;
+      if (unsavedQuestionIndex === null) {
+        completedTarget = await liveCell(step.cellId, 'question');
+      } else {
+        const current = await request.get(`/api/contents/${encodeURIComponent(name)}?content=1`);
+        if (!current.ok()) throw new Error(`${name} could not locate the completed unsaved question`);
+        const currentCells = (await current.json()).content.cells;
+        completedTarget = await renderedCell(liveCellIndex(currentCells, step.cellId, 'question'),
+          step.cellId, 'question', currentCells);
+      }
       await until(async () => /Done|Answer kept/.test(await completedTarget.locator('.nbinlineai-status').textContent() ?? ''),
         timeout, `${name} ${step.cellId} answer`);
     } else if (step.action === 'click') {
