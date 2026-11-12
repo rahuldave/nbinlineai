@@ -79,3 +79,11 @@ Independent reviewer `adversarial_review` checked the full change from the
 recorded base. All findings were resolved. The PR and Gest records hold the
 exact reviewed head, final Python results and required CI status. No notebook
 source or saved evidence changes in this follow-up.
+
+Main's post-merge validation also exposed a save/read race in the inherited-tool
+browser tests. The test read saved Contents while a save request was in flight.
+Jupyter's partial-file recovery then collided with the write and lost the file.
+The live declarations and AI answer had already completed correctly. These
+tests now await a successful save response before reading saved declarations.
+The original capture timeout passed five local repetitions and the main rerun;
+its exact receipt-delivery cause remains unproven.

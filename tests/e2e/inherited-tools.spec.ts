@@ -114,6 +114,16 @@ async function runAllFromMenu(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: 'Run All Cells', exact: true }).click();
 }
 
+async function saveNotebook(page: Page, name: string): Promise<void> {
+  // A Contents read during a save can collide with Jupyter's partial-file recovery.
+  const saved = page.waitForResponse(response =>
+    new URL(response.url()).pathname === `/api/contents/${name}` &&
+    response.request().method() === 'PUT');
+  await page.keyboard.press('ControlOrMeta+s');
+  const response = await saved;
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
 test.beforeEach(async ({ request }) => { await configureFakeKey(request); });
 
 test('shipped notebook declares a stateful tool once for a natural lower question', async ({ page, request }) => {
@@ -248,7 +258,7 @@ test('insert_tools binds the executing code cell despite focus movement and pers
   expect(await runQuestion(page, 0)).toContain('Result: 4');
   expect(promptPosts).toBe(1);
 
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;
@@ -278,7 +288,7 @@ test('native Run All waits for two helper insertions in order before the next AI
   await expect(notebook.locator('.nbinlineai-prompt-cell').first().locator('.nbinlineai-status')).toContainText(/Done|Answer kept/);
   await expect(notebook.locator('.nbinlineai-response-cell').first()).toContainText('Result: 4');
   expect(promptPosts).toBe(1);
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;
@@ -315,7 +325,7 @@ test('catalog group helper inserts editable references after its caller and ackn
   await page.keyboard.press('Shift+Enter');
   await expect(inspection.locator('.jp-OutputArea')).toContainText('inserted');
   expect(modelRequests).toBe(0);
-  await page.keyboard.press('ControlOrMeta+s');
+  await saveNotebook(page, name);
   await expect.poll(async () => {
     const response = await request.get(`/api/contents/${name}?content=1`);
     if (!response.ok()) return false;
