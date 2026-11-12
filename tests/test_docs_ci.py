@@ -19,8 +19,9 @@ def test_smalldocs_build_keeps_the_mainline_required_status() -> None:
     # name leaves a required status pending forever, despite a successful build.
     assert build["name"] == "Render and check Quarto site"
     commands = [step.get("run", "") for step in build["steps"]]
-    assert any("smalldocs==0.1.5" in command and "scripts/build_docs_site.py" in command
-               for command in commands)
+    assert "uv sync --frozen --group dev --no-install-project --no-build --python 3.12" in commands
+    assert "uv run --no-sync smalldocs api check --dir docs" in commands
+    assert "uv run --no-sync python scripts/build_docs_site.py" in commands
     assert not any("quarto render" in command for command in commands)
     assert not any(step.get("uses", "").startswith("quarto-dev/") for step in build["steps"])
 

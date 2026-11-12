@@ -6,9 +6,11 @@ import io
 import json
 import re
 import tokenize
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
 
+from ._documents import Document
 from ._tool_helpers import _bounded, _text
 from .fastcore_tools import (
     _editable_path,
@@ -21,26 +23,36 @@ from .fastcore_tools import (
 MAX_SEARCH_RESULTS = 50
 
 
-def _positive(value: int, name: str, maximum: int) -> int:
+def _positive(
+    value: int,  # Candidate integer; booleans are rejected.
+    name: str,  # Parameter name for validation errors.
+    maximum: int,  # Highest accepted value, inclusive.
+) -> int:  # Validated integer from 1 through maximum.
+    """Require a positive integer within an inclusive upper bound."""
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= maximum:
         raise ValueError(f"{name} must be an integer from 1 to {maximum}")
     return value
 
 
-def _nonnegative(value: int, name: str, maximum: int) -> int:
+def _nonnegative(
+    value: int,  # Candidate integer; booleans are rejected.
+    name: str,  # Parameter name for validation errors.
+    maximum: int,  # Highest accepted value, inclusive.
+) -> int:  # Validated integer from 0 through maximum.
+    """Require a nonnegative integer within an inclusive upper bound."""
     if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= maximum:
         raise ValueError(f"{name} must be an integer from 0 to {maximum}")
     return value
 
 
 def search_files(
-    query: str,  # Text or regular expression to find.
-    path: str = ".",  # Saved file or directory on the kernel machine.
-    pattern: str = "*",  # File name glob.
+    query: str,  # Literal text or regular expression, at most 500 characters.
+    path: str = ".",  # Saved file or directory, relative to kernel cwd or absolute.
+    pattern: str = "*",  # File name glob, at most 200 characters.
     regex: bool = False,  # Interpret query as a regular expression.
-    limit: int = 20,  # Maximum matches.
-) -> str:
-    """Search saved project text with bounded results and file filters."""
+    limit: int = 20,  # Maximum matches, from 1 through 50.
+) -> str:  # Bounded matches from saved files, with a partial-results notice when needed.
+    """Search saved file text with bounded results and file filters."""
     from ._search import search
 
     query = _text(query, 'query', 500)
@@ -56,11 +68,11 @@ def search_files(
 
 
 def search_notebooks(
-    query: str,  # Literal cell-source text.
-    path: str = ".",  # Saved notebook or directory.
-    limit: int = 20,  # Maximum matching cells.
-) -> str:
-    """Search saved notebook cell source; include stable saved cell IDs."""
+    query: str,  # Literal cell-source text, at most 500 characters.
+    path: str = ".",  # Saved notebook or directory, relative to kernel cwd or absolute.
+    limit: int = 20,  # Maximum matching cells, from 1 through 50.
+) -> str:  # Bounded saved-cell matches with IDs and a partial-results notice when needed.
+    """Search saved notebook cell source and show saved cell IDs when present."""
     from ._search import search
 
     query = _text(query, 'query', 500)
@@ -72,7 +84,10 @@ def search_notebooks(
     return _bounded(f'Saved notebook matches under {root}:\n' + ('\n'.join(rows) or '[none]') + tail)
 
 
-def _declaration_header(source: str, node: ast.AST) -> str:
+def _declaration_header(
+    source: str,  # Python source containing the declaration.
+    node: ast.AST,  # Parsed definition with a source line number.
+) -> str:  # Header through its colon when found, capped at 1500 characters.
     """Copy the actual header, including annotations, defaults and comments."""
     lines = source.splitlines(keepends=True)
     start = node.lineno - 1
@@ -94,7 +109,10 @@ def _declaration_header(source: str, node: ast.AST) -> str:
     return lines[start].strip()[:1_500]
 
 
-def _public_declarations(node: ast.AST) -> list[str]:
+def _public_declarations(
+    node: ast.AST,  # Parsed module or class whose body is inspected.
+) -> list[str]:  # Public names with source line numbers; stops after a statement reaches 100.
+    """List public definitions and assignments directly in a module or class."""
     result: list[str] = []
     for child in getattr(node, 'body', []):
         if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not child.name.startswith('_'):
@@ -110,9 +128,9 @@ def _public_declarations(node: ast.AST) -> list[str]:
 
 
 def source_doc(
-    path: str,  # Saved Python source file.
-    symbol: str = '',  # Dotted definition name, or empty for module.
-) -> str:
+    path: str,  # Saved .py file, relative to kernel cwd or absolute.
+    symbol: str = '',  # Dotted definition name of at most 200 characters, or empty for module.
+) -> str:  # Bounded source documentation, declaration header, and public names.
     """Read Python source documentation statically, without importing the file."""
     target = _path(path)
     if target.suffix.lower() != '.py':
@@ -141,11 +159,11 @@ def source_doc(
 
 
 def notebook_outline(
-    path: str,  # Saved notebook file.
-    start: int = 0,  # First zero-based cell index.
-    limit: int = 20,  # Maximum cells to list.
-) -> str:
-    """Summarize a saved notebook's cells and stable IDs by index."""
+    path: str,  # Saved .ipynb file, relative to kernel cwd or absolute.
+    start: int = 0,  # First zero-based cell index, from 0 through 100000.
+    limit: int = 20,  # Maximum cells to list, from 1 through 50.
+) -> str:  # Bounded indexed cells, IDs, and source previews from the saved file.
+    """Summarize a saved notebook's cells by index, with saved IDs when present."""
     target = _path(path)
     if target.suffix.lower() != '.ipynb':
         raise ValueError('path must be a saved .ipynb file')
@@ -175,7 +193,10 @@ def notebook_outline(
     return _bounded(f'{target}: {len(cells)} cells\n' + ('\n'.join(rows) or '[none]') + tail)
 
 
-def _document(path: str):
+def _document(
+    path: str,  # Saved Markdown or Python file, relative to kernel cwd or absolute.
+) -> tuple[Path, "Document"]:  # Resolved path and its parsed, source-bound outline.
+    """Read a saved text file and build an outline without executing its source."""
     from ._documents import build_document
 
     target = _path(path)
@@ -186,10 +207,10 @@ def _document(path: str):
 
 
 def document_outline(
-    path: str,  # Saved Markdown or Python document.
-    start: int = 0,  # First outline row.
-    limit: int = 20,  # Maximum rows to list.
-) -> str:
+    path: str,  # Saved Markdown or Python file, relative to kernel cwd or absolute.
+    start: int = 0,  # First zero-based outline row, from 0 through 100000.
+    limit: int = 20,  # Maximum rows to list, from 1 through 50.
+) -> str:  # Bounded outline rows with source-bound section addresses.
     """List a saved document's heading or code sections with addresses."""
     start = _nonnegative(start, 'start', 100_000)
     limit = _positive(limit, 'limit', 50)
@@ -201,10 +222,14 @@ def document_outline(
 
 
 def read_document_section(
-    path: str,  # Saved document path.
-    section: str = '',  # Verified outline address, or empty for all.
-) -> str:
-    """Read a saved document section by an address from document_outline."""
+    path: str,  # Saved Markdown or Python file, relative to kernel cwd or absolute.
+    section: str = '',  # Outline address of at most 200 characters, or empty for all.
+) -> str:  # Bounded saved source from the verified section address.
+    """Read a saved document section by an address from document_outline.
+
+    An address becomes stale when the source file changes. Refresh the outline
+    to get a new address.
+    """
     if not isinstance(section, str) or len(section) > 200:
         raise ValueError('section must be a short outline address')
     target, document = _document(path)
@@ -217,11 +242,15 @@ def read_document_section(
 
 
 def file_strs_replace(
-    path: str,  # Saved text file.
-    old_strings: list[str],  # Distinct literals, each occurring once.
-    new_strings: list[str],  # Same-length list of replacement literals.
-) -> str:
-    """Replace several exact literals atomically when each old string occurs once."""
+    path: str,  # Existing saved text file, relative to kernel cwd or absolute.
+    old_strings: list[str],  # One through 20 distinct, nonempty literals occurring once each.
+    new_strings: list[str],  # One replacement per old literal; each at most 8000 characters.
+) -> str:  # Bounded change report and diff for an atomic saved-file edit.
+    """Replace several exact literals atomically when each old string occurs once.
+
+    Each old and new string can contain at most 8000 characters. Old strings must not
+    overlap in the saved text.
+    """
     target = _editable_path(path)
     if not isinstance(old_strings, list) or not isinstance(new_strings, list) or not 1 <= len(old_strings) <= 20 or len(old_strings) != len(new_strings):
         raise ValueError('Provide equal nonempty old_strings and new_strings lists of at most 20')
@@ -249,10 +278,10 @@ def file_strs_replace(
 
 
 def view_file_hashes(
-    path: str,  # Saved text file.
-    start_line: int = 1,  # First one-based line.
-    end_line: int = 40,  # Last one-based line, inclusive.
-) -> str:
+    path: str,  # Saved text file, relative to kernel cwd or absolute.
+    start_line: int = 1,  # First one-based line, from 1 through 1000000.
+    end_line: int = 40,  # Inclusive last line; at most 80 lines per request.
+) -> str:  # Bounded numbered saved lines and the whole-file SHA-256 digest.
     """Show numbered lines and the SHA-256 digest for a saved text file."""
     target = _path(path)
     start_line = _positive(start_line, 'start_line', 1_000_000)
@@ -267,11 +296,11 @@ def view_file_hashes(
 
 
 def file_replace_checked(
-    path: str,  # Saved text file.
-    old_str: str,  # Literal to replace exactly once.
-    new_str: str,  # Replacement text.
-    expected_sha256: str,  # Whole-file digest from view_file_hashes.
-) -> str:
+    path: str,  # Existing saved text file, relative to kernel cwd or absolute.
+    old_str: str,  # Nonempty literal to replace exactly once; at most 8000 characters.
+    new_str: str,  # Replacement text, at most 8000 characters.
+    expected_sha256: str,  # Whole-file 64-digit hex digest from view_file_hashes.
+) -> str:  # Bounded change report and diff after hash and match checks.
     """Replace one literal only when the whole file has the expected SHA-256."""
     target = _editable_path(path)
     old_str = _new_content(old_str, 'old_str')

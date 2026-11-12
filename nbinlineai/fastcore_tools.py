@@ -1,4 +1,8 @@
-"""Bounded, opt-in filesystem and Python documentation tools for a live kernel."""
+"""Bounded filesystem and Python documentation tools for the live kernel.
+
+Paths refer to the kernel filesystem and its working directory. Reading a saved
+notebook file does not reveal unsaved cells in JupyterLab's live document model.
+"""
 
 import importlib
 import inspect
@@ -37,20 +41,34 @@ MODULE_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$")
 class _DocText(str):
     """Plain tool result with a richer display for direct notebook calls."""
 
-    def __new__(cls, value: str, markdown: str) -> Self:
+    def __new__(
+        cls,
+        value: str,  # Plain text returned to the tool caller.
+        markdown: str,  # Rich Markdown shown in a notebook.
+    ) -> Self:  # Plain string carrying Markdown for notebook display.
+        """Build a plain string that also carries rich Markdown for direct notebook calls."""
         result = super().__new__(cls, value)
         result.markdown = markdown
         return result
 
-    def _repr_markdown_(self) -> str:
+    def _repr_markdown_(
+        self,
+    ) -> str:  # Markdown for rich notebook display.
+        """Show the stored Markdown when a notebook renders this string."""
         return self.markdown
 
 
-def _path(path: str) -> Path:
+def _path(
+    path: str,  # Path relative to the kernel working directory or an absolute path.
+) -> Path:  # Expanded, resolved path.
+    """Resolve a path against the kernel filesystem, expanding the home directory."""
     return Path(_text(path, "path")).expanduser().resolve()
 
 
-def _editable_path(path: str) -> Path:
+def _editable_path(
+    path: str,  # Text file path; notebook files are refused.
+) -> Path:  # Resolved path outside notebook files.
+    """Resolve an edit path and reject notebook files, including symlink targets."""
     requested = Path(_text(path, "path")).expanduser()
     target = requested.resolve()
     if requested.suffix.lower() == ".ipynb" or target.suffix.lower() == ".ipynb":
@@ -58,7 +76,10 @@ def _editable_path(path: str) -> Path:
     return target
 
 
-def _read_file(path: Path) -> tuple[str, os.stat_result]:
+def _read_file(
+    path: Path,  # Resolved path of a regular UTF-8 file no larger than 1 MB.
+) -> tuple[str, os.stat_result]:  # Decoded text and its pre-read file status.
+    """Read a regular UTF-8 text file after checking its type, size, and NUL bytes."""
     try:
         before = path.stat()
         if not stat.S_ISREG(before.st_mode):
@@ -76,7 +97,15 @@ def _read_file(path: Path) -> tuple[str, os.stat_result]:
         raise ValueError("File is not UTF-8 text") from exc
 
 
-def _write_changed(path: Path, original: str, before: os.stat_result, changed: str) -> str:
+def _write_changed(
+    path: Path,  # Resolved file path to replace.
+    original: str,  # Text read before the edit.
+    before: os.stat_result,  # File identity, size, time, and mode before the edit.
+    changed: str,  # Complete replacement text.
+) -> str:  # Bounded edit result and short diff, or a no-change result.
+    """Replace a file atomically after checking that it has not changed since the read.
+
+The replacement keeps the original mode. A no-change edit does not write."""
     encoded = changed.encode("utf-8")
     if len(encoded) > MAX_FILE_BYTES:
         raise ValueError("Result exceeds the 1 MB text limit")
@@ -101,7 +130,11 @@ def _write_changed(path: Path, original: str, before: os.stat_result, changed: s
     return _bounded(f"Updated: {path}\n{diff}", "\n[diff truncated; view the file]")
 
 
-def _new_content(value: str, label: str) -> str:
+def _new_content(
+    value: str,  # Candidate text for an edit.
+    label: str,  # Parameter name used in validation errors.
+) -> str:  # Validated text.
+    """Validate bounded UTF-8 edit text and reject NUL bytes."""
     if not isinstance(value, str) or len(value) > MAX_NEW_CHARS:
         raise ValueError(f"{label} must be text of at most {MAX_NEW_CHARS} characters")
     if "\x00" in value:
@@ -113,7 +146,9 @@ def _new_content(value: str, label: str) -> str:
     return value
 
 
-def path_info(path: str = ".") -> str:
+def path_info(
+    path: str = ".",  # Path to inspect from the kernel working directory.
+) -> str:  # Bounded working-directory and path report.
     """Show the kernel working directory and a path's resolved type and size."""
     target = _path(path)
     cwd = Path.cwd().resolve()
@@ -127,8 +162,18 @@ def path_info(path: str = ".") -> str:
     return _bounded(f"Kernel cwd: {cwd}\nResolved path: {target}\nType: {kind}\nSize: {size}")
 
 
-def list_files(path: str = ".", pattern: str = "*", recursive: bool = False, limit: int = 30) -> str:
-    """List visible file and directory paths, optionally matching a name pattern."""
+def list_files(
+    path: str = ".",  # Directory to list from the kernel working directory.
+    pattern: str = "*",  # Glob pattern matched against each entry name.
+    recursive: bool = False,  # Whether to descend into visible subdirectories.
+    limit: int = 30,  # Maximum matching paths to show, at most 100.
+) -> str:  # Bounded visible-path listing, with a partial notice when needed.
+    """List visible paths under a directory, optionally matching entry names.
+
+    The scan skips hidden entries, common generated folders, and symlinks. A
+    recursive scan descends at most six levels and visits at most 2,000 entries.
+    The result says when a limit leaves paths unlisted.
+    """
     root = _path(path)
     pattern = _text(pattern, "pattern", 200)
     limit = _limit(limit, 100)
@@ -185,7 +230,11 @@ def list_files(path: str = ".", pattern: str = "*", recursive: bool = False, lim
     return _bounded(f"Files under {root}:\n{body}")
 
 
-def view_file(path: str, start_line: int = 1, end_line: int = 40) -> str:
+def view_file(
+    path: str,  # UTF-8 text file to read, at most 1 MB.
+    start_line: int = 1,  # First one-based line to show.
+    end_line: int = 40,  # Last inclusive line to show, at most 80 lines total.
+) -> str:  # Bounded text excerpt with one-based line numbers.
     """Read a bounded range of one UTF-8 text file with one-based line numbers."""
     target = _path(path)
     content, _ = _read_file(target)
@@ -206,8 +255,16 @@ def view_file(path: str, start_line: int = 1, end_line: int = 40) -> str:
     return _bounded(f"File: {target}\n" + "\n".join(excerpt), "\n[truncated; request fewer lines]")
 
 
-def create_file(path: str, contents: str) -> str:
-    """Create a new UTF-8 text file without replacing an existing path."""
+def create_file(
+    path: str,  # New text file path; existing paths and notebook files are refused.
+    contents: str,  # UTF-8 text of at most 8,000 characters.
+) -> str:  # Bounded new-file receipt.
+    """Create a new UTF-8 text file without replacing an existing path.
+
+    The tool creates parent directories when needed. The path may be anywhere
+    the kernel can write, except a notebook file. Exclusive creation prevents
+    the tool from replacing an existing file.
+    """
     requested = Path(_text(path, "path")).expanduser()
     target = _editable_path(path)
     if os.path.lexists(requested):
@@ -223,8 +280,17 @@ def create_file(path: str, contents: str) -> str:
     return _bounded(f"Created: {target} ({len(contents.encode('utf-8'))} bytes)")
 
 
-def file_str_replace(path: str, old_str: str, new_str: str, expected_matches: int = 1) -> str:
-    """Replace an exact literal only when its occurrence count matches expectation."""
+def file_str_replace(
+    path: str,  # Existing text file path, excluding notebook files.
+    old_str: str,  # Nonempty literal text to replace.
+    new_str: str,  # Replacement text, at most 8,000 characters.
+    expected_matches: int = 1,  # Required occurrence count, at most 100.
+) -> str:  # Bounded edit result and diff.
+    """Replace a literal only when its occurrence count matches expectation.
+
+    The edit checks a regular UTF-8 file of at most 1 MB. It checks the file
+    again before an atomic replacement and returns a bounded diff.
+    """
     target = _editable_path(path)
     old_str = _new_content(old_str, "old_str")
     new_str = _new_content(new_str, "new_str")
@@ -238,8 +304,17 @@ def file_str_replace(path: str, old_str: str, new_str: str, expected_matches: in
     return _write_changed(target, original, before, str_replace(original, old_str, new_str))
 
 
-def file_insert_line(path: str, line: int, new_str: str) -> str:
-    """Insert text after a one-based line; line 0 inserts before the first line."""
+def file_insert_line(
+    path: str,  # Existing text file path, excluding notebook files.
+    line: int,  # One-based line after which to insert, or zero for the start.
+    new_str: str,  # Nonempty text to insert, at most 8,000 characters.
+) -> str:  # Bounded edit result and diff.
+    """Insert text after a one-based line. Zero inserts before the first line.
+
+    Supplied text is inserted verbatim. Added boundary separators use the
+    file's line ending style. Size, change-detection and atomic replacement
+    checks match the other file edits.
+    """
     target = _editable_path(path)
     new_str = _new_content(new_str, "new_str")
     if not new_str:
@@ -260,8 +335,17 @@ def file_insert_line(path: str, line: int, new_str: str) -> str:
     return _write_changed(target, original, before, changed)
 
 
-def file_replace_lines(path: str, start_line: int, end_line: int, new_content: str) -> str:
-    """Replace an explicit inclusive, one-based line range with UTF-8 text."""
+def file_replace_lines(
+    path: str,  # Existing text file path, excluding notebook files.
+    start_line: int,  # First one-based line to replace.
+    end_line: int,  # Last inclusive line to replace.
+    new_content: str,  # Replacement UTF-8 text, at most 8,000 characters.
+) -> str:  # Bounded edit result and diff.
+    """Replace an inclusive, one-based line range with UTF-8 text.
+
+    The edit keeps the file's line ending style and uses the same size,
+    change-detection, and atomic replacement checks as other file edits.
+    """
     target = _editable_path(path)
     new_content = _new_content(new_content, "new_content")
     original, before = _read_file(target)
@@ -287,7 +371,11 @@ def file_replace_lines(path: str, start_line: int, end_line: int, new_content: s
     return _write_changed(target, original, before, changed)
 
 
-def _module_symbol(module: ModuleType, name: str) -> Any:
+def _module_symbol(
+    module: ModuleType,  # Imported Python module to inspect.
+    name: str,  # Public attribute name or dotted path within the module.
+) -> Any:  # Statically resolved module or public attribute.
+    """Find a public attribute of an imported module without invoking descriptors."""
     if not name or name == module.__name__:
         return module
     parts = name.split(".")
@@ -306,7 +394,9 @@ def _module_symbol(module: ModuleType, name: str) -> Any:
     return value
 
 
-def _bounded_markdown(value: str) -> str:
+def _bounded_markdown(
+    value: str,  # Markdown to fit within tool result and repr limits.
+) -> str:  # Markdown with any truncated code fence closed.
     """Fit a Markdown result while closing a fence cut by truncation."""
     if len(value) <= MAX_RESULT_CHARS and len(repr(value)) <= MAX_REPR_CHARS:
         return value
@@ -325,11 +415,15 @@ def _bounded_markdown(value: str) -> str:
     return prefix + footer
 
 
-def show_doc(name: str, module: str = "") -> str:
+def show_doc(
+    name: str,  # Live public name, or public name within module; empty selects the module.
+    module: str = "",  # Installed module to import explicitly; import runs its initialization.
+) -> str:  # Bounded Markdown text with rich notebook display.
     """Show docs for a live name, or import `module` and inspect its public name.
 
     An explicit module import runs that module's initialization. Use name="" with
-    module to show the module's own docs; this never calls the named symbol.
+    module to show the module's own docs. Static attribute lookup does not call
+    the named symbol. Without a module, name resolves from the live kernel.
     """
     if not isinstance(name, str) or len(name) > 200:
         raise ValueError("name must be a public Python identifier or dotted path")

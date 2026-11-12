@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path, PurePosixPath
@@ -30,7 +31,8 @@ def source_hashes(sources: list[Path]) -> dict[Path, str]:
 
 def build(root: Path = ROOT) -> tuple[int, int]:
     """Build in a scratch project, then replace only the ignored output site."""
-    from smalldocs.site import build as build_smalldocs
+    from smalldocs.config import load
+    from smalldocs.site import Site
 
     docs = root / "docs"
     examples = root / "examples"
@@ -54,7 +56,14 @@ def build(root: Path = ROOT) -> tuple[int, int]:
             target.parent.mkdir(parents=True, exist_ok=True)
             notebook = json.loads(source.read_text(encoding="utf-8"))
             target.write_text(json.dumps(decorate(notebook, relative), ensure_ascii=False), encoding="utf-8")
-        rendered = build_smalldocs(staged, quiet=True)
+        project = load(staged)
+        if project.config.get("api"):
+            # API imports and source links belong to the selected checkout.
+            # Keep generated pages and symbol metadata in the scratch project.
+            api_root = (docs / project.config["api"].get("root", "..")).resolve()
+            project.config["api"]["root"] = os.path.relpath(api_root, project.root)
+        rendered = Site(project, quiet=True)
+        rendered.build()
         if rendered.warnings:
             raise ValueError("smalldocs warnings: " + "; ".join(rendered.warnings))
         result = staged / "_site"

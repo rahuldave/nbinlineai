@@ -130,11 +130,24 @@ Use an output directory containing exactly one version's wheel and source archiv
 
 ## Maintain the documentation
 
-The site source is the repository's `docs/` folder. [smalldocs](https://pypi.org/project/smalldocs/0.1.5/) **0.1.5** renders Markdown and saved notebook outputs into `docs/_site/` using [`docs/_smalldocs.yml`](_smalldocs.yml). The Python builder stages temporary copies of all `examples/**/*.ipynb`, including the supporting `data/ecosystem-lesson.ipynb`. The 30 gallery notebooks use `notebooks/name.html` URLs; the fixture has its own `notebooks/data/ecosystem-lesson.html` page. To check a change locally without installing the extension or frontend:
+The site source is the repository's `docs/` folder. [smalldocs](https://pypi.org/project/smalldocs/0.1.5/) **0.1.5** renders Markdown, source API pages, and saved notebook outputs into `docs/_site/` using [`docs/_smalldocs.yml`](_smalldocs.yml). The Python builder stages temporary copies of all `examples/**/*.ipynb`, including the supporting `data/ecosystem-lesson.ipynb`. The 30 gallery notebooks use `notebooks/name.html` URLs; the fixture has its own `notebooks/data/ecosystem-lesson.html` page. Set up the locked development environment, check the source API, then build and check the site:
 
 ```bash
-uv run --no-project --with smalldocs==0.1.5 python scripts/build_docs_site.py
-python3 scripts/check_docs_site.py docs/_site
+uv sync --frozen --group dev --no-install-project --no-build --python 3.12
+uv run --no-sync smalldocs api check --dir docs
+uv run --no-sync python scripts/build_docs_site.py
+uv run --no-sync python scripts/check_docs_site.py docs/_site
+```
+
+The API check and build import the repository package to inspect its signatures and source comments. They do not call tool functions or run notebooks. Generated API pages and staged notebook copies are scratch files; keep them untracked. In source functions, put each typed parameter on its own signature line with a `#` description. Add a return annotation with a comment after the definition colon and a short function docstring. The parameter descriptions also feed model tool schemas when fastcore can read the source; introspection falls back to parameter names when it cannot.
+
+```python
+def scale_reading(
+    value: float,  # Observed reading to scale.
+    factor: float = 1.0,  # Multiplier applied to the reading.
+) -> float:  # Scaled reading.
+    """Scale one reading by the chosen factor."""
+    return value * factor
 ```
 
 The site uses [Litera Reading](https://github.com/rahuldave/smalldocs-litera-reading), with its default serif prose and locally bundled IBM Plex Mono code font. The unmodified stylesheet, fonts and licenses in `docs/assets/themes/litera-reading/` are pinned to upstream commit `51e3540ca972138f45d29f611a38781f7df2033b`. The configuration loads the Reading stylesheet over the bundled Litera base, followed by our notebook-specific styles; this works with smalldocs 0.1.5 without extension installation. Keep the theme assets and font licenses together when updating them.

@@ -4,6 +4,7 @@ project:
   render:
     - '*.md'
     - 'manual/*.md'
+    - 'api/*.qmd'
     - 'notebooks/**/*.ipynb'
   resources:
     - .nojekyll
@@ -23,6 +24,8 @@ website:
         href: user-guide.md
       - text: Tool catalog
         href: tools.md
+      - text: Tool API
+        href: tool-api.md
       - text: Notebook examples
         href: examples.md
       - text: FAQ
@@ -40,3 +43,22 @@ css:
   - assets/css/site.css
 toc: true
 code-copy: true
+
+api:
+  packages:
+    - nbinlineai.tools
+    - nbinlineai.fastcore_tools
+    - nbinlineai.notebook_tools
+    - nbinlineai.source_tools
+    - nbinlineai.inspection_tools
+    - nbinlineai.execution_tools
+    - nbinlineai.web_tools
+    - nbinlineai.browser_media_tools
+    - nbinlineai.browser_output_tools
+    - nbinlineai.browser_capture_tools
+    - nbinlineai.browser_playback_tools
+    - nbinlineai.browser_transform_tools
+    - nbinlineai.browser_attachment_tools
+  root: ..
+  out: api
+  source: https://github.com/rahuldave/nbinlineai/blob/main

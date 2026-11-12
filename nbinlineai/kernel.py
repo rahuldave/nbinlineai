@@ -36,13 +36,27 @@ try:
                     _nb_out[_nb_name] = {{'error': 'Name is not callable'}}
                     continue
                 _nb_sig = _nb_inspect.signature(_nb_obj)
+                _nb_docs = {{}}
+                try:
+                    # Optional in a user's kernel. Keep ordinary introspection
+                    # when source or the documentation parser is unavailable.
+                    from fastcore.docments import docments as _nb_docments
+                    if len(_nb_inspect.getsource(_nb_obj)) <= 64000:
+                        _nb_parsed_docs = _nb_docments(_nb_obj, eval_str=False, returns=False)
+                        if isinstance(_nb_parsed_docs, dict):
+                            _nb_docs = _nb_parsed_docs
+                except Exception:
+                    pass
                 _nb_params = {{}}
                 for _nb_p in _nb_sig.parameters.values():
                     if _nb_p.kind not in (_nb_p.POSITIONAL_OR_KEYWORD, _nb_p.KEYWORD_ONLY):
                         raise TypeError('Unsupported function signature')
                     _nb_ann = _nb_p.annotation
                     _nb_type = 'str' if _nb_ann is _nb_p.empty else (str(_nb_ann) if getattr(_nb_ann, '__args__', None) else getattr(_nb_ann, '__name__', str(_nb_ann)))
-                    _nb_item = {{'type': _nb_type, 'description': _nb_p.name}}
+                    _nb_description = _nb_docs.get(_nb_p.name)
+                    if not isinstance(_nb_description, str) or not _nb_description.strip():
+                        _nb_description = _nb_p.name
+                    _nb_item = {{'type': _nb_type, 'description': _nb_description[:1000]}}
                     if _nb_p.default is not _nb_p.empty:
                         _nb_item['default'] = repr(_nb_p.default)[:100]
                     _nb_params[_nb_p.name] = _nb_item

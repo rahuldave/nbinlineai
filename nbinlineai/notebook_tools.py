@@ -4,7 +4,10 @@ from collections.abc import Callable, Mapping
 from types import MappingProxyType
 
 
-def _browser_only(name: str) -> str:
+def _browser_only(
+    name: str,  # Browser tool called directly from Python.
+) -> str:  # Never returns during a direct Python call.
+    """Explain that live notebook tools require an AI question in JupyterLab."""
     raise RuntimeError(
         f"{name} requires an AI question in an open JupyterLab notebook; "
         "it cannot be called directly from Python"

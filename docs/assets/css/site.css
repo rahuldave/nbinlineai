@@ -1,5 +1,5 @@
 /* Markdown pages already have their visible H1 headings. */
-#title-block-header {
+#quarto-document-content:has(> .level1) #title-block-header {
   display: none;
 }
 
@@ -13,6 +13,17 @@
 #quarto-content table th:first-child,
 #quarto-content table td:first-child {
   min-width: 22rem;
+}
+
+/* API tables reserve room for descriptions after name, type and default. */
+#quarto-content table:has(th:nth-child(4)) th:first-child,
+#quarto-content table:has(th:nth-child(4)) td:first-child {
+  min-width: 8rem;
+}
+
+#quarto-content table:has(th:nth-child(4)) th:last-child,
+#quarto-content table:has(th:nth-child(4)) td:last-child {
+  min-width: 16rem;
 }
 
 #quarto-content img {

@@ -1,4 +1,8 @@
-"""Bounded public HTTP(S) page retrieval for opt-in notebook tools."""
+"""Read bounded public HTTP or HTTPS pages for opt-in notebook tools.
+
+This helper fetches public text pages. It does not use a browser session,
+notebook context, provider keys, cookies, or an HTTP proxy.
+"""
 
 import http.client
 import ipaddress
@@ -24,10 +28,14 @@ VOID_EXCLUDED_TAGS = {"img", "source", "embed"}
 
 
 def _public_addresses(
-    host: str,  # Hostname from a validated HTTP(S) URL.
-    port: int,  # URL port to resolve.
-) -> list[str]:  # Public literal addresses safe to connect to.
-    """Resolve a host and reject every non-public address before connecting."""
+    host: str,  # Hostname from a validated HTTP or HTTPS URL.
+    port: int,  # Port used for DNS resolution.
+) -> list[str]:  # Distinct public literal IP addresses.
+    """Resolve a host and reject every non-public address before connecting.
+
+Literal addresses and every DNS result must be globally routable. Each
+    redirect is resolved and checked separately by the caller.
+    """
     if not host or len(host) > 253 or any(char.isspace() for char in host) or "%" in host:
         raise ValueError("URL host is invalid")
     if host.lower() == "localhost" or host.lower().endswith((".localhost", ".local", ".internal")):
@@ -55,15 +63,17 @@ class _PinnedHTTPConnection(http.client.HTTPConnection):
 
     def __init__(
         self,
-        host: str,  # Original URL hostname.
+        host: str,  # Original URL hostname for the Host header.
         port: int,  # URL port.
-        address: str,  # Previously validated public IP.
-    ) -> None:
+        address: str,  # Validated public IP address.
+    ) -> None:  # None; stores the validated connection address.
         """Bind one request to its validated DNS result."""
         super().__init__(host, port, timeout=WEB_TIMEOUT_SECONDS)
         self._pinned_address = address
 
-    def connect(self) -> None:
+    def connect(
+        self,
+    ) -> None:  # None; opens the pinned socket.
         """Avoid a second DNS lookup that could rebound to a private host."""
         self.sock = socket.create_connection((self._pinned_address, self.port), self.timeout)
 
@@ -73,15 +83,17 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
     def __init__(
         self,
-        host: str,  # Original URL hostname and TLS identity.
+        host: str,  # Original URL hostname for TLS verification.
         port: int,  # URL port.
-        address: str,  # Previously validated public IP.
-    ) -> None:
+        address: str,  # Validated public IP address.
+    ) -> None:  # None; stores the validated connection address.
         """Keep the requested hostname for certificate checks and SNI."""
         super().__init__(host, port, timeout=WEB_TIMEOUT_SECONDS, context=ssl.create_default_context())
         self._pinned_address = address
 
-    def connect(self) -> None:
+    def connect(
+        self,
+    ) -> None:  # None; opens the pinned TLS socket.
         """Validate TLS against the URL host after connecting to the pinned IP."""
         raw = socket.create_connection((self._pinned_address, self.port), self.timeout)
         try:
@@ -92,10 +104,16 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 
 def _download_once(
-    url: str,  # One HTTP(S) URL, with redirects handled by the caller.
-    deadline: float,  # Monotonic deadline shared across redirects and body reads.
-) -> tuple[int, Message, bytes]:  # HTTP status, headers, and bounded body.
-    """Fetch one validated public URL without a proxy or ambient credentials."""
+    url: str,  # One public HTTP or HTTPS URL; the caller handles redirects.
+    deadline: float,  # Monotonic deadline shared by redirects and body reads.
+) -> tuple[int, Message, bytes]:  # HTTP status, response headers, and bounded body bytes.
+    """Fetch one validated public URL without a proxy or ambient credentials.
+
+    Connect to a pinned public address and check TLS against the URL hostname.
+    Response bodies are limited to 1 MB. Nonredirect responses also have their
+    declared length checked. Blocking DNS and HTTP calls can exceed the shared
+    elapsed deadline between checks.
+    """
     parsed = urlsplit(url)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
         raise ValueError("URL must use public HTTP or HTTPS")
@@ -154,7 +172,9 @@ def _download_once(
 class _PageMarkdown(HTMLParser):
     """Extract readable page text without scripts, media, or navigation."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+    ) -> None:  # None; initializes the parser state.
         """Start a bounded Markdown text accumulator."""
         super().__init__(convert_charrefs=True)
         self.parts: list[str] = []
@@ -162,13 +182,20 @@ class _PageMarkdown(HTMLParser):
         self.preformatted = 0
         self.length = 0
 
-    def _append(self, value: str) -> None:  # value: safe text or Markdown spacing
+    def _append(
+        self,
+        value: str,  # Readable text or Markdown spacing to add.
+    ) -> None:  # None; updates the bounded text accumulator.
         """Stop accumulating after enough text for the final bounded result."""
         if self.length < MAX_WEB_CHARS * 2:
             self.parts.append(value)
             self.length += len(value)
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # attrs: ignored
+    def handle_starttag(
+        self,
+        tag: str,  # HTML start tag name.
+        attrs: list[tuple[str, str | None]],  # Tag attributes, which this converter ignores.
+    ) -> None:  # None; updates parser state and Markdown parts.
         """Keep headings, paragraphs, lists, and code while excluding active content."""
         if tag in EXCLUDED_TAGS:
             if tag not in VOID_EXCLUDED_TAGS:
@@ -190,7 +217,10 @@ class _PageMarkdown(HTMLParser):
         elif tag == "code" and not self.preformatted:
             self._append("`")
 
-    def handle_endtag(self, tag: str) -> None:
+    def handle_endtag(
+        self,
+        tag: str,  # HTML end tag name.
+    ) -> None:  # None; closes parsed blocks.
         """Close Markdown blocks, including skipped active-content regions."""
         if tag in EXCLUDED_TAGS:
             if tag not in VOID_EXCLUDED_TAGS:
@@ -206,13 +236,18 @@ class _PageMarkdown(HTMLParser):
         elif tag in ("p", "div", "section", "article", "blockquote") or tag.startswith("h"):
             self._append("\n\n")
 
-    def handle_data(self, data: str) -> None:
+    def handle_data(
+        self,
+        data: str,  # Text inside the current HTML element.
+    ) -> None:  # None; adds readable text.
         """Add readable text and collapse layout whitespace outside code blocks."""
         if not self.excluded_depth:
             readable = data if self.preformatted else re.sub(r"\s+", " ", data)
             self._append(escape(readable, quote=False))
 
-    def markdown(self) -> str:
+    def markdown(
+        self,
+    ) -> str:  # Normalized Markdown text.
         """Normalize the extracted Markdown without emitting active HTML."""
         text = "".join(self.parts).replace("\x00", "")
         text = re.sub(r"[ \t]+\n", "\n", text)
@@ -221,7 +256,7 @@ class _PageMarkdown(HTMLParser):
 
 def _sanitize_plain(
     text: str,  # Remote plain text or Markdown.
-) -> str:  # Content without active HTML or image embeds.
+) -> str:  # Text without active HTML or image embeds.
     """Remove active content from remotely supplied text before note insertion."""
     text = re.sub(r"<\s*(script|style|iframe|svg|video|audio|object|embed)\b[^>]*>.*?<\s*/\s*\1\s*>",
                   "", text, flags=re.IGNORECASE | re.DOTALL)
@@ -237,11 +272,17 @@ def _sanitize_plain(
 
 
 def fetch_url_markdown(
-    url: str,  # Public HTTP(S) page to read.
-    selector: str = "",  # Optional CSS selector for one HTML section.
-    extract_section: bool = False,  # Use the URL fragment when selector is omitted.
-) -> str:  # Source-attributed page Markdown, bounded to 8,000 characters.
-    """Fetch a public page as short sanitized Markdown for a tool or note."""
+    url: str,  # Public HTTP or HTTPS page, without URL credentials.
+    selector: str = "",  # Optional CSS selector for one HTML element or heading section.
+    extract_section: bool = False,  # Use the original URL fragment when selector is empty.
+) -> str:  # Bounded source-attributed Markdown excerpt.
+    """Fetch a public page as short, source-attributed Markdown.
+
+    Accept HTML, plain text, and Markdown. Recheck the destination after each
+    of at most three redirects, and reject HTTPS to HTTP downgrades. A CSS
+    selector applies to HTML only. The original URL fragment selects a section
+    when requested. The output contains at most 8,000 characters.
+    """
     if (not isinstance(url, str) or not url.strip() or len(url) > 2_000
             or any(ord(char) < 32 or ord(char) == 127 for char in url)):
         raise ValueError("url must be a public HTTP(S) URL of at most 2000 characters")
@@ -294,10 +335,10 @@ def fetch_url_markdown(
 
 
 def _selected_html(
-    html: str,  # Previously downloaded size-bounded HTML.
-    selector: str,  # Explicit CSS selector, or empty for a fragment ID.
-    fragment: str,  # Decoded original URL fragment.
-) -> str:  # The first selected element, or heading and its section siblings.
+    html: str,  # Downloaded HTML bounded to 1 MB.
+    selector: str,  # CSS selector, or empty to use the fragment ID.
+    fragment: str,  # Decoded fragment from the original URL.
+) -> str:  # First selected element, or heading and its section siblings.
     """Extract a page section before the existing sanitized Markdown conversion."""
     from bs4 import BeautifulSoup, Tag
     from soupsieve import SelectorSyntaxError
@@ -322,10 +363,14 @@ def _selected_html(
 
 
 def read_url_section(
-    url: str,  # Public page URL, optionally including a section fragment.
-    selector: str = "",  # Optional CSS selector for one HTML element or heading section.
+    url: str,  # Public page URL, optionally with a section fragment.
+    selector: str = "",  # CSS selector for one HTML element or heading section.
 ) -> str:  # Bounded source-attributed section text.
-    """Read one public web-page section using a CSS selector or URL fragment."""
+    """Read one public page section using a CSS selector or URL fragment.
+
+    A selected heading includes following siblings through the next heading
+    at the same or a higher level. The result includes the source URL.
+    """
     from ._tool_helpers import _bounded
 
     return _bounded(fetch_url_markdown(url, selector, extract_section=True))

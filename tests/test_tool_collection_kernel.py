@@ -5,6 +5,7 @@ import asyncio
 import json
 from pathlib import Path
 
+from fastcore.docments import docments
 from jupyter_client import AsyncKernelManager
 
 from nbinlineai.kernel import KernelDispatcher
@@ -75,6 +76,9 @@ def test_every_advertised_tool_inspects_and_representative_calls_work(tmp_path: 
                 schema = fastllm_tool(name, info)
                 assert schema["type"] == "function" and schema["name"] == name
                 assert schema["parameters"]["type"] == "object"
+                documented = docments(TOOL_FUNCTIONS[name], returns=False, eval_str=False)
+                for parameter, details in info["parameters"].items():
+                    assert details["description"] == documented[parameter][:1000], (name, parameter)
                 assert info.get("frontend_special") == (
                     name if name in SPECIAL_TOOL_FUNCTIONS else None
                 )
@@ -127,13 +131,19 @@ def test_every_advertised_tool_inspects_and_representative_calls_work(tmp_path: 
 
             await _setup(kernel, (
                 "browser_read_alias = read_cell\n"
-                "def read_cell(cell_id: str) -> str:\n"
+                "def read_cell(\n"
+                "    cell_id: str,  # Notebook-defined identifier to echo.\n"
+                ") -> str:  # The unchanged identifier.\n"
+                "    \"\"\"Echo an identifier from a notebook-defined tool.\"\"\"\n"
                 "    return cell_id"
             ))
             aliases = await dispatcher.inspect(kernel_id, bound_kernel, [],
                                                ["browser_read_alias", "read_cell"])
             assert aliases["browser_read_alias"]["frontend_special"] == "read_cell"
             assert "frontend_special" not in aliases["read_cell"]
+            assert aliases["read_cell"]["parameters"]["cell_id"]["description"] == (
+                "Notebook-defined identifier to echo."
+            )
         finally:
             await kernel.shutdown_kernel(now=True)
 
