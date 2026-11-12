@@ -1,5 +1,7 @@
 # Developer handoff
 
+**0.1.19 release preparation.** The [release record](release_0_1_19_review.md) tracks the main-based patch for tool descriptions, complete tool source documentation and the worked starter tutorial. Package metadata targets 0.1.19; PyPI remains 0.1.18 until publication is verified. The release excludes notebook-agent experiments.
+
 **Tool Docments follow-up (topic implementation).** The
 [tool Docments handoff](tool_docments_handoff.md) records complete native
 documentation coverage, the generated tool API and shared model parameter

@@ -14,7 +14,7 @@ The application notebooks include saved AI answers and Python outputs from an is
 - [Data investigation](https://rahuldave.com/nbinlineai/notebooks/application-data-investigation.html): investigate fabricated data with live values, checks, and a written report.
 - [Project handoff](https://rahuldave.com/nbinlineai/notebooks/application-project-handoff.html): compare source with a method note, make a checked repair, verify it, and create a project handoff.
 
-The [application guide](https://rahuldave.com/nbinlineai/tool-applications.html) explains how the pieces fit together. The [dated audit](https://rahuldave.com/nbinlineai/example-audit.html) records earlier example runs and their limits. The browser-media examples work with the published nbinlineai 0.1.18 package. For development, use the [main source setup](https://rahuldave.com/nbinlineai/development.html#set-up-from-source).
+The [application guide](https://rahuldave.com/nbinlineai/tool-applications.html) explains how the pieces fit together. The [dated audit](https://rahuldave.com/nbinlineai/example-audit.html) records earlier example runs and their limits. These examples target nbinlineai 0.1.19. For development, use the [main source setup](https://rahuldave.com/nbinlineai/development.html#set-up-from-source).
 
 The [complete catalog](https://rahuldave.com/nbinlineai/examples.html) lists all 30 gallery notebooks and the [supporting ecosystem fixture](https://github.com/rahuldave/nbinlineai/blob/main/examples/data/ecosystem-lesson.ipynb). Each gallery page links its editable notebook source.
 

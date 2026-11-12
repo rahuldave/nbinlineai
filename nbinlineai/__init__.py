@@ -4,7 +4,7 @@ from jupyter_server.extension.application import ExtensionApp
 
 from .handlers import setup_handlers
 
-__version__ = "0.1.18"
+__version__ = "0.1.19"
 
 
 def _jupyter_labextension_paths():
