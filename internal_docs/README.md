@@ -1,6 +1,6 @@
 # Internal documentation index
 
-The [0.1.19 release record](release_0_1_19_review.md) tracks the tool documentation and starter tutorial patch. It distinguishes the prepared source from verified publication.
+The [published 0.1.19 release](release_0_1_19_review.md) includes Docments parameter descriptions, complete tool source documentation and the worked starter tutorial. Its record gives independent reviews, release CI, audited public hashes, fresh installation and live-site verification.
 
 The [tool Docments handoff](tool_docments_handoff.md) records the main-based
 source documentation, generated API reference and model parameter descriptions.
@@ -27,7 +27,7 @@ stale primary checkouts. Public docs and examples also follow their code.
 
 Historical release-baseline review: **2026-09-24**, after the **0.1.14** release. Public PyPI archives and download hashes, a fresh PyPI-index install, compatibility CI, source and live documentation were verified; see [the release record](releasing.md). Context selection shipped in 0.1.8; clearer controls in 0.1.9; AI-cell backgrounds, editable starters, prompt focus and code insertion in 0.1.10. Version 0.1.12 retained 51 curated tools with pure Python search/document parsing and deferred the four remold syntax tools; 0.1.11 introduced the expanded catalog and disposable project example. The Jupyter AI/Codex examples include an authenticated agent trial. These files are public repository content, although excluded from PyPI archives and the documentation site.
 
-The [current handoff](developer_handoff.md) describes released behavior through 0.1.18 and later source changes. The [0.1.17 release record](release_0_1_17_review.md) describes the common-instructions release, independent reviews, public artifact hashes, clean installation and site verification. The [0.1.16 release record](release_0_1_16_review.md) preserves the earlier full-delta review and media-tool release evidence. Verify applicability to your code branch.
+The [current handoff](developer_handoff.md) describes released behavior through 0.1.19. The [0.1.17 release record](release_0_1_17_review.md) describes the common-instructions release, independent reviews, public artifact hashes, clean installation and site verification. The [0.1.16 release record](release_0_1_16_review.md) preserves the earlier full-delta review and media-tool release evidence. Verify applicability to your code branch.
 
 The [worked notebook acceptance record](worked_notebooks_acceptance.md)
 preserves PR #35's source checkpoint, real saved examples, paired tool evidence,
