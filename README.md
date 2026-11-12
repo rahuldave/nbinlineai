@@ -38,6 +38,8 @@ Use **Configure AI → Defaults → Common response instructions** to set guidan
 
 ## Explore the tool catalog and examples
 
+Version **0.1.19** gives the model parameter descriptions from tool source comments when those comments are available. Start with the [worked tools tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html), then use the [Tool API reference](https://rahuldave.com/nbinlineai/tool-api.html) to check parameters and results.
+
 The [Tool catalog](https://rahuldave.com/nbinlineai/tools.html) lists each function and links to a normal Python or JupyterLab demonstration and a concise AI-tool question. The [notebook examples](https://rahuldave.com/nbinlineai/examples.html) include task walkthroughs and complete tool-catalog notebooks using disposable inputs. Open a copy before editing it. Generated code cells are left unexecuted for your review.
 
 Run `from nbinlineai.tools import *`, then `catalog_receipt = insert_tool_catalog(group="code")` in a Python cell to insert an editable Markdown declaration below it. Choose a group, delete unwanted references, inspect the receipt in a later cell, and save the notebook. With no argument, the helper uses the starter group.

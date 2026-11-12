@@ -18,6 +18,8 @@ The [setup chapter](manual/setup.md) walks through installation and connections.
 
 ## Learn by doing
 
+Version **0.1.19** includes parameter descriptions for model tools and a [worked starter tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html). The [Tool API reference](tool-api.md) gives types, parameter descriptions, result descriptions and function docstrings from the Python source.
+
 The [notebook gallery](examples.md) has walkthroughs and complete tool-catalog notebooks. Each tool in the [Tool catalog](tools.md) links to a concrete normal Python or JupyterLab action and an AI question. The examples use disposable inputs; copy a notebook before editing it.
 
 A tool declaration gives the model access to a selected function, but it does not make the function run by itself. A direct browser-media call from Python returns a mutable receipt before browser work finishes. Its status and result can change after the call returns.
@@ -30,6 +32,7 @@ An AI call returns an initial snapshot. Inspect the receipt later, or ask `opera
 | --- | --- |
 | [User guide](user-guide.md) | A reading path through the eight manual chapters. |
 | [Tool catalog](tools.md) | Function signatures, bounds, and exact notebook demonstrations. |
+| [Tool API reference](tool-api.md) | Types, parameter descriptions, result descriptions and function docstrings. |
 | [Notebook examples](examples.md) | Walkthroughs, complete catalog notebooks, and how to use their results. |
 | [FAQ](faq.md) | Common questions about context, Keep answer, tools, and execution. |
 | [Architecture](architecture.md) | The browser, Jupyter server, notebook kernel, and model request boundary. |

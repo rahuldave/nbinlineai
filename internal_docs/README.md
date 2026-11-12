@@ -1,5 +1,7 @@
 # Internal documentation index
 
+The [0.1.19 release record](release_0_1_19_review.md) tracks the tool documentation and starter tutorial patch. It distinguishes the prepared source from verified publication.
+
 The [tool Docments handoff](tool_docments_handoff.md) records the main-based
 source documentation, generated API reference and model parameter descriptions.
 Its delivery status is recorded with the implementation branch.

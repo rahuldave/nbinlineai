@@ -14,7 +14,8 @@ uv run --no-sync jlpm test:unit
 uv run --no-sync jlpm build:prod
 uv run --no-sync jupyter-builder develop . --overwrite
 uv run --no-sync jlpm test:e2e
-uv run --no-project --with smalldocs==0.1.5 python scripts/build_docs_site.py
+uv run --no-sync smalldocs api check --dir docs
+uv run --no-sync python scripts/build_docs_site.py
 uv run --no-sync python scripts/check_docs_site.py docs/_site
 ```
 
@@ -28,7 +29,7 @@ uvx twine check --strict dist/release-VERSION/*
 uv run --no-sync python scripts/check_release_artifacts.py dist/release-VERSION
 ```
 
-Inspect the wheel and source archive if any check fails. The source archive must contain the GPL license, Python and TypeScript source, build metadata, lockfiles, examples, and prebuilt labextension. It must exclude `.env`, credential files, virtual environments, dependencies, build caches, test artifacts, and private `internal_docs`. The wheel must include the frontend bundle, server extension configuration, and license. `uv build` may invoke the frontend build hook, so do not run it concurrently with browser tests.
+If a check fails, inspect the wheel and source archive. The source archive must contain the GPL license, Python and TypeScript source, build metadata, lockfiles, examples, and prebuilt labextension. It must exclude `.env`, credential files, virtual environments, dependencies, build caches, test artifacts, and `internal_docs`. The wheel must include the frontend bundle, server extension configuration, and license. `uv build` may invoke the frontend build hook, so do not run it concurrently with browser tests.
 
 For a fresh-install check, install the built wheel in a disposable Python environment with JupyterLab 4, then confirm `jupyter labextension list` and `jupyter server extension list` show `nbinlineai` enabled. Open the quickstart notebook in a separate JupyterLab server and verify **Configure AI** and **AI Prompt** appear.
 

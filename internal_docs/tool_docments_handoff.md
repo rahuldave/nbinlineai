@@ -1,15 +1,17 @@
 # Tool Docments and API reference
 
-Status: implemented on the main-based topic `codex/unokszrs-tool-docments`,
-awaiting PR acceptance into main. No release is requested. The package
-version and PyPI remain 0.1.18.
+Status: **merged into main** by PR #55 at
+`04e2a70bdaa42f359f4246055515741af031270d`.
+The [0.1.19 release record](release_0_1_19_review.md) tracks the later release
+request and its delivery status.
 
 ## Source and scope
 
 Approved context comes from main `0feacd8ab5edf24d7a5314286d25471e1224506a`,
 the merge of the starter-tools tutorial PR #54. This work follows that merge.
-The primary checkout stays on main. Implementation lives in the owned worktree
-`/Users/rahul/Projects/nbinlineai-docments-tools`; its PR base is main.
+The primary checkout stays on main. Implementation was prepared on
+`codex/unokszrs-tool-docments` in the owned worktree
+`/Users/rahul/Projects/nbinlineai-docments-tools`. Its PR base was main.
 
 The audit found docstrings, parameter types and return types on all 96 tools.
 Only 26 tools had complete parameter and return descriptions. The native
