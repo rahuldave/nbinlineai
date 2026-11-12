@@ -158,7 +158,7 @@ The strongest first architecture to investigate **after** handoffs is B for
 notebook-directed agent work and A as a minimal RLM proof. C answers the
 user's Python 3.14 question. It offers useful parallelism and isolation
 inside one kernel, if explicit state transfer is acceptable. D answers the
-busy-main-shell/reentrant-execution question. The three execution forms can coexist, but calling
+busy-main-shell/reentrant-execution question. The four execution forms can coexist, but calling
 all of them "run Python" would hide important differences from the user.
 
 ## Identity, progress, and deadlock boundaries

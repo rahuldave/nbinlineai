@@ -45,6 +45,68 @@ async def fake_complete(
     system_text = "".join(
         part.text for part in getattr(messages[0], "content", []) if isinstance(part, Text)
     )
+    # Exercise the shipped lesson's natural questions through real notebook tools.
+    # Only the model's choice of calls is deterministic; tools still read and
+    # mutate the isolated kernel's files and originating live notebook.
+    starter_question = next((name for name, phrase in {
+        "create": "Use the starter tools to begin the shade walk report.",
+        "edit": "The first takeaway sounds too certain for three readings.",
+        "saved": "Quote the bench B note and report the ID.",
+        "live": "Quote the note's current text, including `UNSAVED_SHADE_NOTE`",
+        "insert": "add a concise `### Shade walk summary` note",
+    }.items() if phrase in current_user), None)
+    if starter_question:
+        from nbinlineai.tools import TOOL_GROUPS
+
+        assert set(schema_names) == set(TOOL_GROUPS["starter"])
+        assert "$`field_study`" not in current_user
+        assert "'root': 'starter_field_study'" in current_user
+        results = [part for message in messages for part in getattr(message, "content", [])
+                   if isinstance(part, ToolResult)]
+        root = "starter_field_study"
+        report = f"{root}/report.md"
+        source = f"{root}/observations.csv"
+        saved = f"{root}/field_log.ipynb"
+        original = "The shaded benches were cooler in this small sample."
+        revised = ("In these three observations, more shade coincided with lower temperature; "
+                   "this does not show cause.")
+        draft = (
+            "import csv\n\n"
+            f"with open({source!r}, encoding='utf-8', newline='') as stream:\n"
+            "    for row in csv.DictReader(stream):\n"
+            "        print(f\"Bench {row['bench']}: {row['shade_minutes']} min shade, "
+            "{row['temperature_c']} C.\")\n"
+        )
+        report_match = re.search(r"```markdown\n(.*?)\n```", current_user, re.DOTALL)
+        if starter_question == "create":
+            assert report_match is not None
+        sequences = {
+            "create": [("list_files", {"path": root}), ("view_file", {"path": source}),
+                       ("create_file", {"path": report, "contents":
+                           report_match.group(1) + "\n" if report_match else ""})],
+            "edit": [("view_file", {"path": report}),
+                     ("file_str_replace", {"path": report, "old_str": original,
+                                           "new_str": revised, "expected_matches": 1}),
+                     ("view_file", {"path": report})],
+            "saved": [("list_notebooks", {"path": root}),
+                      ("find_notebook_cells", {"path": saved, "query": "STUDY_ANCHOR_SHADE"}),
+                      ("read_notebook_cell", {"path": saved, "cell_id": "field-log-observation"})],
+            "live": [("list_cells", {"start": 0, "limit": 50}),
+                     ("read_cell", {"cell_id": "starter-live-scratch"})],
+            "insert": [("view_file", {"path": report}),
+                       ("insert_markdown", {"content": "### Shade walk summary\n\n"
+                            "Bench A: 31 C. Bench B: 28 C. Bench C: 27 C.\n\n" + revised}),
+                       ("insert_code", {"content": draft})],
+        }
+        sequence = sequences[starter_question]
+        if len(results) < len(sequence):
+            name, arguments = sequence[len(results)]
+            return Completion(model=model, message=Msg("assistant", [ToolUse(
+                id=f"starter-{starter_question}-{len(results)}", name=name, arguments=arguments,
+            )]))
+        return Completion(model=model, message=Msg("assistant", [Text(
+            "Starter lesson tool results:\n\n" + "\n\n".join(result.text for result in results)
+        )]))
     if "E2E_MEDIA_NATIVE_IMAGE" in current_user:
         # Observe the provider-entry message, not a tool result or a rendered preview.
         parts = getattr(messages[-1], "content", [])

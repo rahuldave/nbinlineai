@@ -54,6 +54,12 @@ The prose pass does not silently resolve these earlier statements:
 
 These points need a factual documentation update with explicit decisions about current instructions and historical records. They are recorded here so that an editorial rewrite does not choose a new technical claim.
 
+## Factual follow-up on the later main revision
+
+The documentation follow-up starts from main commit `64c81d0de9bb454cb53bbeed9882b2d2b765af01`. The public guide now treats the five application notebooks as saved worked examples. It uses the published 0.1.18 installation advice and identifies the saved blue-image and red-image answers. The examples guide introduces the new starter tutorial with its five saved answers and recorded tool calls. It also updates the current collection to 31 notebooks, with 30 gallery pages and one supporting fixture. The October audit's 29-notebook result remains a dated record.
+
+The current `todo.md` names smalldocs and the already published saved-answer panels. The FastLLM proposal labels its no-subscription statement as historical, and the one-kernel research now calls A, B, C and D four execution forms. Notebook introduction corrections belong with the notebook sources. Older acceptance and release records still describe their original events; they do not serve as current installation instructions.
+
 ## Newcomer review
 
 A separate reader reviewed the public pages without Git history or implementation notes. The final wording defines an updating receipt at its first use in the README and site index. The manual names the insertion helper in its import instruction. Architecture and context descriptions state the relevant behavior before referring to older formats.

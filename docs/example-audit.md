@@ -11,7 +11,9 @@ The examples are sensible as individual tool lessons. They are less effective as
 
 ## Saved-answer update: 2026-10-21
 
-The collection now has **187 completed saved answers for 187 AI prompts**, across all 29 gallery notebooks. All 158 earlier answers are retained; 29 answers were collected from the live ChatGPT connection in an isolated background JupyterLab. The supporting ecosystem notebook has no AI prompts. The static site displays these saved answers without making new model requests.
+At this audit update, the collection had **187 completed saved answers for 187 AI prompts**, across all 29 gallery notebooks. All 158 earlier answers were retained; 29 answers were collected from the live ChatGPT connection in an isolated background JupyterLab. The supporting ecosystem notebook has no AI prompts. The static site displays these saved answers without making new model requests.
+
+The later [starter tools tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html) adds a thirtieth gallery notebook. Its five AI questions have real saved ChatGPT answers and observed-tool tables. The collection therefore has 192 completed answers across 30 gallery notebooks. Its live-note answer was collected after an editor change, with the saved file checked to still contain the earlier placeholder. A separate deterministic browser check also verifies reading an edit before it is saved. The dated rows below describe the earlier audited collection.
 
 The three media applications use a labelled synthetic canvas and generated silent audio. Their capture, recording, annotation, attachment and export results are real tool executions on those fixtures, not physical-device acceptance or evidence of a real bug. The presenter's alternate paste-ID capture route remains interactive; its direct and model-authored decks were checked. The attachment/integration examples use their generated blue/red PNGs. The camera notebook's new cleanup continuation uses a fresh synthetic source; its earlier real-device observations remain historical records.
 

@@ -16,7 +16,9 @@ Research date: 2026-09-22. Examined [`ai-jup` at `2ac432b`](https://github.com/A
 user-approved project/course folder scope, configuration flow, current protocol
 evidence and unresolved round-budget boundary. Transport, model and schema
 details below are historical; current App Server documentation now describes
-additional transports and capabilities. No subscription backend has shipped.
+additional transports and capabilities. At the time of this proposal, no
+subscription backend had shipped. The opening historical note records the
+later 0.1.13 release; do not use this proposal as current installation advice.
 
 **Status update (2026-09-23):** API mode is shipped in 0.1.7; subscription mode remains unimplemented research. The FastLLM schema/transport rationale below remains relevant, but the early MVP UI/context summary at the end is historical. Current notebook defaults, inherited declarations, context budgeting and browser tools are described in [the developer handoff](developer_handoff.md), [context model](cell_kernel_model_and_context_selection.md), and [tool/protocol contract](bundled_tools.md). Reverify official App Server authentication and dynamic-tool APIs before implementing subscription mode.
 

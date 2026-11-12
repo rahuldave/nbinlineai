@@ -8,10 +8,12 @@ title: User guide
 
 nbinlineai puts AI questions and answers beside your code in a JupyterLab notebook. Ask about selected notebook text, refer to a live Python value, or offer a function for the AI to call. Questions and answers stay as editable Markdown cells, so you can read, correct, and share the conversation with your work.
 
+**START HERE:** Open the [starter tools tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html) to insert the 19 default tool declarations and use selected tools. Copy its [editable notebook](https://github.com/rahuldave/nbinlineai/blob/main/examples/starter-tools-tutorial.ipynb), run its setup, and try the AI questions with your connection. The five questions include real saved answers and tool tables; follow the fresh-run instructions to repeat them. You will inspect disposable files, a saved notebook, and live unsaved cells, then review an inserted Markdown note and code draft.
+
 ## Start with one question
 
 1. [Install and connect](manual/setup.md). In **Configure AI**, connect your ChatGPT subscription or an API provider, then choose the connection for this notebook.
-2. Open the [Quick start notebook](https://rahuldave.com/nbinlineai/notebooks/quickstart.html) and run its Python setup. Read the saved examples before trying your own question.
+2. Open the [Quick start notebook](https://rahuldave.com/nbinlineai/notebooks/quickstart.html) and run its Python setup. Read its saved examples before trying your own question.
 3. Select a cell and click **+ AI Prompt**. Write a question, choose **Compact** for a concise answer, and press **Run AI** or Shift+Enter. The answer appears in a paired cell below.
 4. To continue the conversation, add another AI question below the answer. To replace an answer, turn off that question's **Keep answer**, edit the question, and rerun it.
 
@@ -19,7 +21,7 @@ The **AI defaults** row sets this notebook's connection, model, style, and effor
 
 ## Choose what the AI can use
 
-Three controls serve different purposes:
+Choose what the AI can read or do:
 
 | You want the AI to… | How to provide it |
 | --- | --- |
@@ -30,9 +32,9 @@ Three controls serve different purposes:
 
 Context describes notebook text; a live value describes the kernel now. They can differ if you edited code without rerunning it. Tool declarations remain available even when the note declaring them is excluded from text context. Read [Context](manual/context-selection.md) and [Live values and tools](manual/variables-and-tools.md) when these distinctions matter.
 
-The [Tool catalog](tools.md) gives each tool a normal-use example and an AI example. Most tools can be called directly in Python. Live editor tools such as `insert_code` are called by the AI through JupyterLab; their normal-use comparisons show the corresponding manual edit. The [complete notebook catalog](examples.md) accounts for every example and supporting notebook, with links to readable pages and editable sources.
+The [Tool catalog](tools.md) gives each tool a normal-use example and an AI example. Most tools can be called directly in Python. To change the open notebook with `insert_code`, offer it to an AI question and ask for the insertion. Review the new code cell before you run it. The [complete notebook catalog](examples.md) links readable pages and editable sources.
 
-To see several tools work together, start with the [five complete application notebooks](examples.md#complete-applications). The [application guide](tool-applications.md) explains how captures become Python values and how a staged AI conversation creates a presentation or report. The [notebook audit](example-audit.md) describes each original notebook's actual outcomes and limitations.
+To see several tools work together, start with the [five complete application notebooks](examples.md#complete-applications). The [application guide](tool-applications.md) explains how captures become Python values and how a staged AI conversation creates a presentation or report. The [notebook audit](example-audit.md) describes the audited notebooks' saved outcomes and limitations.
 
 For a first worked tool call, open [Live Python inspection](https://rahuldave.com/nbinlineai/notebooks/tool-catalog-inspection.html). Compare the saved Python result with the AI question, its answer, and the observed-tool table beside it. Then open a copy of the notebook and run its setup before trying the question yourself. The [browser-media foundation notebook](https://rahuldave.com/nbinlineai/notebooks/browser-media-foundation.html) uses the same pattern for an operation that returns a receipt.
 
@@ -42,7 +44,7 @@ Camera capture, recording, importing, playback, and other browser operations can
 
 Work through three steps:
 
-1. **Start.** Run a call such as `receipt = browser_capabilities()` in a code cell. Let that cell finish.
+1. **Start.** Run `from nbinlineai.tools import browser_capabilities` and then `receipt = browser_capabilities()` in a code cell. Let that cell finish.
 2. **Inspect later.** In another cell, read `receipt.status`, `receipt.result`, and `receipt.error`. The same receipt updates as the browser works. Its first printed value is only a snapshot.
 3. **Use the result.** Continue with dependent work when `receipt.status` is `completed`. For a capture, this can mean displaying the returned image or clip; for a save, checking the saved media descriptor.
 
@@ -50,9 +52,9 @@ For interactive operations, use the browser's permission dialog, chooser, or Med
 
 An AI tool call receives a snapshot, not that changing Python object. If it starts an operation and returns an operation ID, finish the visible action and use a later AI question to call `operation_status` for that ID. An initial acknowledgement does not establish that a photo exists or a file was saved.
 
-Read the status **inside** the `operation_status` result. The lookup itself can complete while the operation it describes is still running. Use a source ID or captured media only after the target operation reports `completed`. If it reports `expired` or `stale_target`, start a new operation in the current notebook session.
+Read the status **inside** the `operation_status` result. The lookup itself can complete while the operation it describes is still running. Use a source ID or captured media only after the target operation reports `completed`. `stale_target` means that the original notebook, session, or referenced item changed or is unavailable. If the result says `expired` or `stale_target`, start a new operation in the current notebook session.
 
-The [Browser media receipts guide](browser-media-foundation.md) shows a complete save-and-inspect example, explains the fields and status lookups, and covers cancellation and cleanup. Start there, then choose [camera and recording](browser-media-capture.md), [notebook outputs](browser-media-outputs.md), [import and playback](browser-media-playback.md), [transformations](browser-media-transforms.md), or [image attachments](browser-media-attachment.md).
+The [Browser media receipts guide](browser-media-foundation.md) shows a complete save-and-inspect example, explains the fields and status lookups, and covers cancellation and cleanup. [Receipts to real Python values](https://rahuldave.com/nbinlineai/notebooks/application-receipts-to-values.html) continues from a finished receipt to a Pillow image or encoded clip. Then choose [camera and recording](browser-media-capture.md), [notebook outputs](browser-media-outputs.md), [import and playback](browser-media-playback.md), [transformations](browser-media-transforms.md), or [image attachments](browser-media-attachment.md).
 
 ## Run and save deliberately
 

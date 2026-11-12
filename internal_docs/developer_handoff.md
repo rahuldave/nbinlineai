@@ -1,5 +1,7 @@
 # Developer handoff
 
+**Starter tools tutorial and factual repairs (main-based source).** The new `examples/starter-tools-tutorial.ipynb` has readers insert the default tools and use them on files, a saved notebook and live cells. The current example introductions and guides now match saved results and the released behavior for selected code outputs. See the [source handoff](starter_tools_tutorial_handoff.md) for verification and delivery status. This change does not publish a new package version.
+
 **0.1.18 published (2026-11-10).** PR #51 merged as `bbedb3430a03c8b688147195bfd716dd261f6b86`, matching independently reviewed `68bca85`. The pushed `v0.1.18` tag points to that source. A selected code cell now includes its displayed text outputs. Those outputs include direct results, stdout/print, stderr and errors, with text/data representations for rich displays. Source and output share selection and budget; live output updates preview revisions, and output-only code is eligible.
 
 Per-cell output is capped at 12,000 characters with explicit Unicode-safe truncation. Displayed output can be stale relative to edited source; image bytes retain the explicit attachment path. `insert_tool_catalog(group="starter")` inserts a group's editable Markdown declarations below the calling code cell through the existing bound comm. CI passed 718 Python, 102 frontend, 109 browser and all 14 platform/musl checks; both optional offline ChatGPT scenarios passed separately.
