@@ -1,9 +1,18 @@
-"""Explicit notebook confirmation for one still-image model attachment."""
+"""Ask the user to attach one exact still image to a live AI question.
+
+Direct Python calls return mutable receipts. The visible confirmation changes
+question metadata after rechecking the source and question; it does not run
+the question. Model tools receive only a bounded initial status.
+"""
 
 from .browser_receipt import BrowserReceipt, request_browser_operation
 
 
-def attach_media(media: dict, question_cell_id: str, detail: str = 'auto') -> BrowserReceipt:
+def attach_media(
+    media: dict,  # Owned MediaRef with media_id, or an exact saved path and SHA-256 hash.
+    question_cell_id: str,  # Stable ID of the live AI question that will receive the image.
+    detail: str = 'auto',  # Image detail: auto, low, or high, subject to provider support.
+) -> BrowserReceipt:  # Mutable browser receipt; inspect its later status and result.
     """Ask the user to confirm attaching exact image bytes to one AI question.
 
     Confirmation changes that question's metadata but never runs the question.

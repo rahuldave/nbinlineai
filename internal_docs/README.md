@@ -1,5 +1,9 @@
 # Internal documentation index
 
+The [tool Docments handoff](tool_docments_handoff.md) records the main-based
+source documentation, generated API reference and model parameter descriptions.
+Its delivery status is recorded with the implementation branch.
+
 The [starter tools tutorial handoff](starter_tools_tutorial_handoff.md) records the main-based lesson and factual repairs to current example instructions. It follows the November 11 prose review and keeps earlier execution records intact.
 
 The [November 11 prose review](prose_cleanup_2026_11_11.md) records the nossaifd

@@ -23,7 +23,7 @@ from scripts.check_worked_evidence import validate_examples
 ROOT = Path(__file__).resolve().parents[1]
 COVERAGE = json.loads((ROOT / "examples/tool-coverage.json").read_text(encoding="utf-8"))
 DOC = (ROOT / "docs/tools.md").read_text(encoding="utf-8")
-FUNCTION_ROW = re.compile(r"^\| `(?P<signature>[a-z_]+\([^`]*\))` \| (?P<body>.*) \|$",
+FUNCTION_ROW = re.compile(r"^\| `(?P<name>[a-z_]+)`<!-- -->`(?P<args>\([^`]*\))` \| (?P<body>.*) \|$",
                           re.MULTILINE)
 REFERENCE = re.compile(r"&`([A-Za-z_][A-Za-z_0-9]*)`")
 HELPERS = {"tool_catalog": tool_catalog, "tools_markdown": tools_markdown,
@@ -39,7 +39,7 @@ def test_worked_examples_pair_every_registered_tool() -> None:
 def test_registry_page_and_notebook_mapping_are_exact() -> None:
     expected = set(TOOL_FUNCTIONS) | set(HELPERS)
     assert set(COVERAGE) == expected
-    rows = {signature.split("(", 1)[0]: signature for signature, _ in FUNCTION_ROW.findall(DOC)}
+    rows = {name: name + args for name, args, _ in FUNCTION_ROW.findall(DOC)}
     assert set(rows) == set(TOOL_FUNCTIONS)
     for name, function in TOOL_FUNCTIONS.items():
         # A table escapes union-type pipes; compare the visible Python signature.
@@ -49,7 +49,7 @@ def test_registry_page_and_notebook_mapping_are_exact() -> None:
 
 
 def test_each_demo_has_matching_section_cell_call_and_page_link() -> None:
-    rows = {signature.split("(", 1)[0]: body for signature, body in FUNCTION_ROW.findall(DOC)}
+    rows = {name: body for name, _, body in FUNCTION_ROW.findall(DOC)}
     for name, entry in COVERAGE.items():
         path = ROOT / "examples" / entry["notebook"]
         notebook = json.loads(path.read_text(encoding="utf-8"))
@@ -239,7 +239,7 @@ def test_prior_question_references_count_toward_limit() -> None:
 
 
 def test_swapped_notebook_links_are_rejected_per_row() -> None:
-    rows = {signature.split("(", 1)[0]: body for signature, body in FUNCTION_ROW.findall(DOC)}
+    rows = {name: body for name, _, body in FUNCTION_ROW.findall(DOC)}
     first, second = COVERAGE["path_info"], COVERAGE["view_file"]
     assert row_has_exact_pair_links(rows["path_info"], first)
     assert not row_has_exact_pair_links(rows["view_file"], first)

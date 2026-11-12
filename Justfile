@@ -22,4 +22,9 @@ browser: build
 diff-check:
     git diff --check
 
+docs:
+    uv run --no-sync smalldocs api check --dir docs
+    uv run --no-sync python scripts/build_docs_site.py
+    uv run --no-sync python scripts/check_docs_site.py docs/_site
+
 verify: lint typecheck test browser diff-check

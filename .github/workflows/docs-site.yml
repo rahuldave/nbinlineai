@@ -22,8 +22,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
+      - name: Install locked documentation and API import dependencies
+        run: uv sync --frozen --group dev --no-install-project --no-build --python 3.12
+      - name: Check tool Docments coverage
+        run: uv run --no-sync smalldocs api check --dir docs
       - name: Render documentation
-        run: uv run --no-project --with smalldocs==0.1.5 python scripts/build_docs_site.py
+        run: uv run --no-sync python scripts/build_docs_site.py
       - name: Check pages, notebook gallery, tool tables, and local links
         run: python3 scripts/check_docs_site.py docs/_site
       - name: Upload site

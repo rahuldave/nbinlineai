@@ -52,7 +52,7 @@ class Page(HTMLParser):
 
 REQUIRED_PAGES = [
     "index.html", "user-guide.html", "tools.html", "examples.html",
-    "faq.html", "architecture.html", "prior-art.html", "development.html",
+    "faq.html", "architecture.html", "prior-art.html", "development.html", "tool-api.html",
     *[f"manual/{name}.html" for name in (
         "setup", "prompts", "models-and-styles", "editing-and-running",
         "context-selection", "variables-and-tools", "saving-and-privacy",

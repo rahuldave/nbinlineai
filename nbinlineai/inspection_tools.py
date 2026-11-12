@@ -1,4 +1,8 @@
-"""Bounded live-object inspection, installed-skill discovery, and teaching traces."""
+"""Bounded inspection of live Python objects, installed skills, and traces.
+
+Live names and values come from the connected kernel. Source files and static
+skill instructions can differ from objects already loaded in that kernel.
+"""
 
 import ast
 import importlib
@@ -33,8 +37,15 @@ __all__ = (
 )
 
 
-def _target(name: str, module: str = "") -> Any:
-    """Resolve a live symbol, or explicitly import one installed module."""
+def _target(
+    name: str,  # Live public Python name or public attribute in module.
+    module: str = "",  # Installed module to import explicitly; import runs its initialization.
+) -> Any:  # Live object or statically resolved imported attribute.
+    """Resolve a live symbol, or explicitly import one installed module.
+
+    An explicit import runs module initialization. Attribute lookup within that
+    module is static and does not invoke descriptors or properties.
+    """
     if not module:
         return _resolve_python_name(name)
     if not isinstance(module, str) or len(module) > 200 or not _MODULE.fullmatch(module):
@@ -56,7 +67,9 @@ def _target(name: str, module: str = "") -> Any:
     return value
 
 
-def _members(value: Any) -> list[tuple[str, Any]]:
+def _members(
+    value: Any,  # Module, class, or object whose public static attributes are listed.
+) -> list[tuple[str, Any]]:  # Up to 500 public names and statically obtained values.
     """Read public attributes without invoking descriptors or custom __dir__."""
     if isinstance(value, ModuleType):
         mappings = [vars(value)]
@@ -85,7 +98,9 @@ def _members(value: Any) -> list[tuple[str, Any]]:
     return output
 
 
-def _doc(value: Any) -> str:
+def _doc(
+    value: Any,  # Object whose direct docstring is read without property access.
+) -> str:  # Cleaned direct docstring, truncated to 1,000 characters.
     """Read a direct docstring without property access or source execution."""
     if inspect.ismethod(value):
         value = value.__func__
@@ -100,11 +115,11 @@ def _doc(value: Any) -> str:
 
 
 def api_names(
-    name: str,  # Live Python name, or public name within module.
-    module: str = "",  # Explicit installed module to import.
-    query: str = "",  # Optional name filter.
-    limit: int = 30,  # Maximum matching names to show.
-) -> str:
+    name: str,  # Live public Python name or name in module.
+    module: str = "",  # Installed module to import explicitly.
+    query: str = "",  # Case-insensitive substring of member names.
+    limit: int = 30,  # Maximum matching names to show, at most 100.
+) -> str:  # Bounded public-name listing.
     """List public members of a live object or explicitly imported module."""
     limit = _limit(limit, 100)
     if not isinstance(query, str) or len(query) > 200:
@@ -119,12 +134,12 @@ def api_names(
 
 
 def search_docs(
-    name: str,  # Live Python name, or public name within module.
-    query: str,  # Text to find in names or docstrings.
-    module: str = "",  # Explicit installed module to import.
-    depth: int = 1,  # Public member levels to inspect.
-    limit: int = 20,  # Maximum matches to show.
-) -> str:
+    name: str,  # Live public Python name or name in module.
+    query: str,  # Case-insensitive text to find in names or direct docstrings.
+    module: str = "",  # Installed module to import explicitly.
+    depth: int = 1,  # Public member levels to inspect, from zero to two.
+    limit: int = 20,  # Maximum matches to show, at most 50.
+) -> str:  # Bounded name and docstring matches.
     """Search public names and direct docstrings in a bounded object tree."""
     needle = _text(query, "query", 200).casefold()
     limit = _limit(limit, 50)
@@ -153,7 +168,10 @@ def search_docs(
     return _bounded(f"Documentation matches for {query!r}:\n{body}")
 
 
-def _preview(value: Any) -> str:
+def _preview(
+    value: Any,  # Live value to summarize without calling its repr unless it has a simple built-in type.
+) -> str:  # Short safe preview or type name.
+    """Summarize simple built-in values without calling arbitrary object repr methods."""
     if type(value) in _SIMPLE:
         return repr(value[:120] if isinstance(value, str) else value)[:160]
     if type(value) is bytes:
@@ -161,7 +179,10 @@ def _preview(value: Any) -> str:
     return f"<{type(value).__name__}>"
 
 
-def _container(value: Any) -> tuple[str, int, Any]:
+def _container(
+    value: Any,  # Live text or one of the supported built-in containers.
+) -> tuple[str, int, Any]:  # Kind, length, and original supported value.
+    """Accept live text or a supported built-in container for bounded inspection."""
     kind = type(value)
     if kind is str:
         if len(value) > _MAX_SOURCE_BYTES:
@@ -173,11 +194,15 @@ def _container(value: Any) -> tuple[str, int, Any]:
 
 
 def inspect_value(
-    name: str,  # Live text or built-in container name.
-    start: int = 0,  # Zero-based start index.
-    limit: int = 20,  # Maximum characters or items to show.
-) -> str:
-    """Show a bounded slice of a live built-in container or text value."""
+    name: str,  # Name of live text or a supported built-in container.
+    start: int = 0,  # Zero-based slice start, at most 10,000.
+    limit: int = 20,  # Maximum characters or items to show, at most 100.
+) -> str:  # Bounded slice of a live value.
+    """Show a bounded slice of a live built-in container or text value.
+
+    The value comes from the kernel, which can differ from notebook source.
+    Arbitrary objects are shown by type only, without calling their repr.
+    """
     if isinstance(start, bool) or not isinstance(start, int) or not 0 <= start <= 10_000:
         raise ValueError("start must be an integer from 0 to 10000")
     limit = _limit(limit, 100)
@@ -196,11 +221,16 @@ def inspect_value(
 
 
 def search_value(
-    name: str,  # Live text or built-in container name.
-    query: str,  # Text to find in visible values.
-    limit: int = 20,  # Maximum matches to show.
-) -> str:
-    """Search bounded visible values in live text or a built-in container."""
+    name: str,  # Name of live text or a supported built-in container.
+    query: str,  # Case-insensitive text to find in live text or container previews.
+    limit: int = 20,  # Maximum matches to show, at most 50.
+) -> str:  # Bounded matches in live text or container previews.
+    """Search live text or short item previews from a built-in container.
+
+    Text search covers the full accepted string, up to 1,000,000 characters.
+    Container search uses short previews of up to 500 items. Scan and result
+    limits can omit later matches. The search does not evaluate notebook source.
+    """
     needle = _text(query, "query", 200).casefold()
     limit = _limit(limit, 50)
     kind, length, value = _container(_resolve_python_name(name))
@@ -232,11 +262,15 @@ def search_value(
 
 
 def source_files(
-    name: str,  # Live Python name, or public name within module.
-    module: str = "",  # Explicit installed module to import.
-    limit: int = 30,  # Maximum nearby Python paths to show.
-) -> str:
-    """Find nearby Python source files for a live symbol or imported module."""
+    name: str,  # Live public Python name or name in module.
+    module: str = "",  # Installed module to import explicitly.
+    limit: int = 30,  # Maximum nearby Python paths to show, at most 100.
+) -> str:  # Bounded source-path listing.
+    """Find nearby Python source files for a live symbol or imported module.
+
+    An explicit module import runs initialization. The result starts with the
+    symbol's source file and scans up to 500 entries beside it.
+    """
     limit = _limit(limit, 100)
     value = _target(name, module)
     try:
@@ -264,7 +298,10 @@ def source_files(
     return _bounded(f"Source files for {name or module}:\n{body}")
 
 
-def _skill_source(module: str, entries: list | None = None) -> tuple[str, str]:
+def _skill_source(
+    module: str,  # Registered pyskill entry-point name or module path.
+    entries: list | None = None,  # Entry points to search, or None to query installed pyskills.
+) -> tuple[str, str]:  # Registered module path and its UTF-8 source.
     """Locate a registered pyskill's Python source without loading its module."""
     requested = _text(module, "module", 200)
     for entry in entries if entries is not None else entry_points(group="pyskills"):
@@ -292,10 +329,14 @@ def _skill_source(module: str, entries: list | None = None) -> tuple[str, str]:
 
 
 def list_skills(
-    query: str = "",  # Optional entry-point or description filter.
-    limit: int = 30,  # Maximum installed skill descriptions to show.
-) -> str:
-    """List installed pyskill entry points and static module descriptions."""
+    query: str = "",  # Case-insensitive entry-point or description filter.
+    limit: int = 30,  # Maximum descriptions to show, at most 100.
+) -> str:  # Bounded installed-skill descriptions.
+    """List installed pyskill entry points and static module descriptions.
+
+    The descriptions come from bounded source reads and AST docstrings. The
+    skill modules are not imported or executed by this listing.
+    """
     if not isinstance(query, str) or len(query) > 200:
         raise ValueError("query must be text of at most 200 characters")
     limit = _limit(limit, 100)
@@ -316,22 +357,30 @@ def list_skills(
     return _bounded(f"Installed pyskill entry points:\n{body}")
 
 
-def read_skill(module: str) -> str:  # Registered skill entry-point name or module.
-    """Read a registered pyskill's static module instructions without importing it."""
+def read_skill(
+    module: str,  # Registered pyskill entry-point name or module path.
+) -> str:  # Bounded static module instructions.
+    """Read a registered pyskill's static module instructions without importing it.
+
+    The entry point must be installed. This reads at most 1 MB of UTF-8 Python
+    source and extracts its module docstring as instructions.
+    """
     target, source = _skill_source(module)
     instructions = ast.get_docstring(ast.parse(source)) or "[no module instructions]"
     return _bounded(f"Pyskill {target}:\n{instructions}")
 
 
 def trace_function(
-    name: str,  # Live synchronous Python function to execute once.
-    args_json: str = "[]",  # Positional arguments as a JSON array.
-    kwargs_json: str = "{}",  # Keyword arguments as a JSON object.
-    max_events: int = 40,  # Maximum trace events to record.
-) -> str:
+    name: str,  # Live synchronous Python function or method to call once.
+    args_json: str = "[]",  # JSON array of positional arguments.
+    kwargs_json: str = "{}",  # JSON object of keyword arguments.
+    max_events: int = 40,  # Maximum trace events to record, at most 100.
+) -> str:  # Bounded trace and outcome after one call.
     """Call a live Python function once and show a bounded execution trace.
 
-    The function really runs, so its state changes and external effects occur once.
+    The function runs once, so its state changes and external effects remain.
+    This tool accepts synchronous Python functions and methods. The trace
+    records events in that function's code and restores the previous tracer.
     """
     max_events = _limit(max_events, 100)
     args = json.loads(_text(args_json, "args_json", 8_000))
@@ -351,7 +400,12 @@ def trace_function(
     events: list[str] = []
     prior = sys.gettrace()
 
-    def record(frame: Any, event: str, arg: Any) -> Any:
+    def record(
+        frame: Any,  # Current Python frame.
+        event: str,  # Trace event name.
+        arg: Any,  # Trace event payload.
+    ) -> Any:  # Trace callback for the current frame.
+        """Capture bounded events from the selected function frame"""
         if frame.f_code is not code or len(events) >= max_events:
             return None
         if event in ("call", "line", "return", "exception"):

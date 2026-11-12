@@ -4,6 +4,8 @@ import base64
 import copy
 import hashlib
 import json
+import sys
+import uuid
 from pathlib import Path, PurePosixPath
 
 from scripts.build_docs_site import build
@@ -105,3 +107,53 @@ def test_build_displays_saved_output_and_cannot_execute_notebook(tmp_path: Path)
     assert "nbinlineai-ai-prompt" in html and "nbinlineai-ai-response" in html
     assert "Download this notebook" in html
     assert "examples/evidence.ipynb" in html
+
+
+def test_api_build_uses_the_chosen_checkout_without_changing_source_docs(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """The staged renderer finds source, comments and links in the real project."""
+    docs = tmp_path / "docs"
+    examples = tmp_path / "examples"
+    docs.mkdir()
+    examples.mkdir()
+    module_name = "docments_fixture_" + uuid.uuid4().hex
+    (tmp_path / f"{module_name}.py").write_text('''\
+"""A source-only documentation fixture."""
+
+def describe_reading(
+    count: int,  # Number of readings in the sample.
+) -> str:  # A readable count.
+    """Describe a sample count."""
+    raise AssertionError("The API build must not call the documented function")
+''', encoding="utf-8")
+    config = docs / "_smalldocs.yml"
+    config.write_text(
+        "project:\n  type: website\n  output-dir: _site\n"
+        "  render: ['*.md', 'api/*.qmd', 'notebooks/*.ipynb']\n"
+        "website:\n  title: Test\n"
+        f"api:\n  packages: [{module_name}]\n  root: ..\n  out: api\n"
+        "  source: https://example.test/repository/blob/main\n", encoding="utf-8"
+    )
+    (docs / "index.md").write_text("# Index\n\nUse `describe_reading`.\n", encoding="utf-8")
+    (docs / "examples.md").write_text("# Examples\n", encoding="utf-8")
+    (examples / "evidence.ipynb").write_text(json.dumps({
+        "nbformat": 4, "nbformat_minor": 5, "metadata": {},
+        "cells": [{"cell_type": "markdown", "id": "intro", "metadata": {},
+                   "source": "# Evidence\n\nA saved notebook.\n"}],
+    }), encoding="utf-8")
+    before = config.read_bytes()
+    monkeypatch.setattr(sys, "path", sys.path.copy())
+    try:
+        assert build(tmp_path) == (1, 4)
+    finally:
+        sys.modules.pop(module_name, None)
+    assert config.read_bytes() == before
+    assert not (docs / "api").exists()
+    assert not (docs / "_symbols.json").exists()
+    api = docs / "_site" / "api" / f"{module_name}.html"
+    text = api.read_text(encoding="utf-8")
+    assert "Number of readings in the sample." in text
+    assert "A readable count." in text
+    assert f"https://example.test/repository/blob/main/{module_name}.py#L3" in text
+    assert f'api/{module_name}.html#describe_reading' in (docs / "_site" / "index.html").read_text()
