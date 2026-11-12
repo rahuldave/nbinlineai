@@ -438,3 +438,24 @@ local-test limitations, installation provenance and exact source/CI evidence.
 Version **0.1.18** was published on November 10, 2026 from PR #51 merge `bbedb3430a03c8b688147195bfd716dd261f6b86`, whose tree matches independently reviewed `68bca85b189069ff909f44956f9005242a264824`. The pushed annotated `v0.1.18` tag points to that merge. Selected code now includes displayed text output, and `insert_tool_catalog()` inserts a named catalog group's Markdown declarations below its calling code cell. Notebook-agent experiments remain outside the release.
 
 All required PR checks passed. The passing checks covered 718 Python tests, 102 frontend tests, 21 background checks, 109 default browser scenarios, and all 14 runtime variants. Both optional offline ChatGPT cases passed separately. Independent source/artifact review, strict archive checks, clean installed-wheel UI, public artifact hashes and the complete live-site check passed. The [full release record](release_0_1_18_review.md) contains hashes, finding dispositions, installation provenance and exact CI/deployment references.
+
+
+<a id="version-0119--published-and-verified"></a>
+
+## Version 0.1.19: published and verified
+
+Version **0.1.19** was published on November 12, 2026 from PR #56 merge
+`567a558f191321d1d76b4643cf9e26c80132bcb4`, whose tree matches independently
+reviewed `fad61417f24568b1ca39e9ed7c3680397de980f7`. The pushed annotated
+`v0.1.19` tag points to that merge. Models receive parameter descriptions from
+Docments comments when source is available. The release includes complete
+tool source documentation, the generated API reference and the worked starter
+tutorial. Notebook-agent experiments remain outside the release.
+
+All required release PR checks passed. They covered 733 Python tests,
+102 frontend tests, 110 browser scenarios and all 14 runtime variants. Both
+optional deterministic offline ChatGPT scenarios passed separately. Independent source and artifact
+review, strict archive checks, installed-wheel UI, public download hashes,
+a fresh public-index installation and the complete live-site check passed.
+The [full release record](release_0_1_19_review.md) contains the hashes,
+review dispositions, installation provenance and CI/deployment references.

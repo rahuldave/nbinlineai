@@ -1,13 +1,15 @@
 # Developer handoff
 
-**0.1.19 release preparation.** The [release record](release_0_1_19_review.md) tracks the main-based patch for tool descriptions, complete tool source documentation and the worked starter tutorial. Package metadata targets 0.1.19; PyPI remains 0.1.18 until publication is verified. The release excludes notebook-agent experiments.
+**0.1.19 published and verified (2026-11-12).** PR #56 merged as `567a558f191321d1d76b4643cf9e26c80132bcb4`, matching independently reviewed `fad6141`. The pushed annotated `v0.1.19` tag identifies that source. Models now receive tool parameter descriptions from Docments comments when source is available. The release packages complete tool docstrings, the generated API reference and the worked starter tutorial.
 
-**Tool Docments follow-up (topic implementation).** The
+Both public PyPI downloads match the audited hashes. A fresh public-index Python 3.14 install passed package provenance, dependency consistency and both extension discoveries. Required release PR checks and the complete live-site check passed. The [release record](release_0_1_19_review.md) gives the evidence and limits. Notebook-agent experiments remain outside the release.
+
+**Tool Docments follow-up (released in 0.1.19).** The
 [tool Docments handoff](tool_docments_handoff.md) records complete native
 documentation coverage, the generated tool API and shared model parameter
-descriptions. This source work follows PR #54 and has not changed PyPI 0.1.18.
+descriptions. PR #55 merged this source work after PR #54, and it ships in 0.1.19.
 
-**Starter tools tutorial and factual repairs (main-based source).** The new `examples/starter-tools-tutorial.ipynb` has readers insert the default tools and use them on files, a saved notebook and live cells. The current example introductions and guides now match saved results and the released behavior for selected code outputs. See the [source handoff](starter_tools_tutorial_handoff.md) for verification and delivery status. This change does not publish a new package version.
+**Starter tools tutorial and factual repairs (released in 0.1.19).** The new `examples/starter-tools-tutorial.ipynb` has readers insert the default tools and use them on files, a saved notebook and live cells. The current example introductions and guides now match saved results and the released behavior for selected code outputs. See the [source handoff](starter_tools_tutorial_handoff.md) for verification and delivery status. The tutorial ships in 0.1.19.
 
 **0.1.18 published (2026-11-10).** PR #51 merged as `bbedb3430a03c8b688147195bfd716dd261f6b86`, matching independently reviewed `68bca85`. The pushed `v0.1.18` tag points to that source. A selected code cell now includes its displayed text outputs. Those outputs include direct results, stdout/print, stderr and errors, with text/data representations for rich displays. Source and output share selection and budget; live output updates preview revisions, and output-only code is eligible.
 
