@@ -56,7 +56,7 @@ These points need a factual documentation update with explicit decisions about c
 
 ## Factual follow-up on the later main revision
 
-The documentation follow-up starts from main commit `64c81d0de9bb454cb53bbeed9882b2d2b765af01`. The public guide now treats the five application notebooks as saved worked examples. It uses the published 0.1.18 installation advice and identifies the saved blue-image and red-image answers. The examples guide separates the new starter tutorial's unanswered exercises from those older saved runs. It also updates the current collection to 31 notebooks, with 30 gallery pages and one supporting fixture. The October audit's 29-notebook result remains a dated record.
+The documentation follow-up starts from main commit `64c81d0de9bb454cb53bbeed9882b2d2b765af01`. The public guide now treats the five application notebooks as saved worked examples. It uses the published 0.1.18 installation advice and identifies the saved blue-image and red-image answers. The examples guide introduces the new starter tutorial with its five saved answers and recorded tool calls. It also updates the current collection to 31 notebooks, with 30 gallery pages and one supporting fixture. The October audit's 29-notebook result remains a dated record.
 
 The current `todo.md` names smalldocs and the already published saved-answer panels. The FastLLM proposal labels its no-subscription statement as historical, and the one-kernel research now calls A, B, C and D four execution forms. Notebook introduction corrections belong with the notebook sources. Older acceptance and release records still describe their original events; they do not serve as current installation instructions.
 

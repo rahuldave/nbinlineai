@@ -1,6 +1,8 @@
 # Notebook examples
 
-**START HERE:** [Starter tools tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html) inserts 19 default tool declarations and uses selected tools. Open a copy of [starter-tools-tutorial.ipynb](starter-tools-tutorial.ipynb) in JupyterLab. Run `insert_tool_catalog()` in its setup cell, inspect the inserted declaration, then try the AI questions with your connection. They practice disposable files, a saved notebook, live unsaved cells, insertion, and review. The five questions include real saved answers and observed-tool tables. Follow the notebook's fresh-run instructions to repeat them.
+**START HERE:** [Starter tools tutorial](https://rahuldave.com/nbinlineai/notebooks/starter-tools-tutorial.html) inserts 19 default tool declarations and uses selected tools. Open a copy of [starter-tools-tutorial.ipynb](starter-tools-tutorial.ipynb) in JupyterLab.
+
+Run the setup cell, then the catalog insertion cell containing `from nbinlineai.tools import *`. Inspect the inserted declaration, then try the AI questions with your connection. They practice disposable files, a saved notebook, live unsaved cells, insertion, and review. The five questions include real saved answers and observed-tool tables. Follow the notebook's fresh-run instructions to repeat them.
 
 Choose a complete application below to see how several tools fit together, or use the [gallery](https://rahuldave.com/nbinlineai/examples.html) for another lesson. Open a copy of its `.ipynb` in JupyterLab; keep `data/` beside the notebooks that use it, and keep `media/owned-notebook-tab-2087303b97be.webm` beside the transforms notebook for offline use. The HTML pages let you read saved content without running it, while the editable originals are in this folder.
 
