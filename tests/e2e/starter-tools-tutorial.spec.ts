@@ -98,7 +98,11 @@ test('starter lesson runs real tool calls from its inserted catalog and leaves c
   const catalog = await cell('starter-catalog-call');
   await catalog.click();
   await page.keyboard.press('Shift+Enter');
-  const declaration = notebook.locator('.jp-MarkdownCell').filter({ hasText: 'Available tools (delete any line' });
+  const declaration = notebook.locator('.jp-MarkdownCell').filter({
+    has: page.locator('.jp-RenderedMarkdown p').filter({
+      hasText: /^Available tools \(delete any line you do not want to offer\):$/
+    })
+  });
   await expect(declaration).toHaveCount(1);
   for (const name of starterNames) await expect(declaration).toContainText(name);
   await syncModel();
